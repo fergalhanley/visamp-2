@@ -1,0 +1,23 @@
+scene {
+  props {
+    angle: 0.0
+  }
+  onFrame {
+    props.angle = $TIME_SEC
+  }
+  layer {
+    draw:background {
+      color: _BLACK_
+    }
+    let points = [
+      [0.0, 100.0],
+      [-100.0, -100.0],
+      [100.0, -100.0],
+    ]
+    draw:polygon {
+        points: points
+        color: _BLACK_
+        rotate: props.angle
+    }
+  }
+}

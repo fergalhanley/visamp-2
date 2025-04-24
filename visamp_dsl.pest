@@ -1,0 +1,55 @@
+WHITESPACE  = _{ " " | "\t" | "\r" | "\n" }
+
+identifier  = @{ (ASCII_ALPHANUMERIC | "_")+ }
+float       = @{ ("-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+) }
+boolean     = @{ ("true" | "false") }
+integer     = @{ ("-"? ~ ASCII_DIGIT+) }
+string      = @{ "\"" ~ ( "\\\"" | !"\"" ~ ANY )* ~ "\"" }
+
+script = { SOI ~ (prop_def | block)* ~ EOI }
+
+event_block_name  = { "on_" ~ ASCII_ALPHANUMERIC+ }
+layer_block_name  = { "layer_" ~ ASCII_ALPHANUMERIC+ }
+
+block = { (event_block_name|layer_block_name) ~ "{" ~ statement* ~ "}" }
+
+statement = { function_call | assignment | let_decl }
+
+argument = { identifier ~ ":" ~ expression }
+assignment = { identifier ~ "=" ~ expression }
+
+value = _{ boolean | float | integer | array | string | system_value | identifier }
+
+system_value = @{ "$" ~ identifier }
+
+array = { "[" ~ array_elements ~ "]" }
+
+array_elements = _{ array_element ~ ("," ~ array_element)* ~ ","? }
+
+array_element = _{ expression | array }
+
+let_decl = { "let" ~ identifier ~ "=" ~ expression }
+prop_def = { "prop" ~ identifier ~ "=" ~ value }
+
+function_params = { "(" ~ (argument ~ ("," ~ argument)* ~ ","?)? ~ ")" }
+
+function_call = { identifier ~ "::" ~ identifier ~ function_params }
+
+////////////////////////////////////
+// Expression grammar starts here //
+////////////////////////////////////
+
+expression    = _{ equality_expr }  // Top level
+
+equality_expr = { relational_expr ~ (("==" | "!=") ~ relational_expr)* }
+
+relational_expr = { add_expr ~ (("<=" | ">=" | "<" | ">") ~ add_expr)* }
+
+add_expr    = { mul_expr ~ (("+" | "-") ~ mul_expr)* }
+
+mul_expr    = { unary_expr ~ (("*" | "/" | "%") ~ unary_expr)* }
+
+unary_expr  = { (unary_operator)* ~ primary_expr }
+unary_operator = { "!" | "-" | "+" }
+
+primary_expr = _{ value | "(" ~ expression ~ ")" }
