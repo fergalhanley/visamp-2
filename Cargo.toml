@@ -1,11 +1,50 @@
+# You must change these to your own details.
 [package]
-name = "visamp-2"
-version = "0.1.0"
-edition = "2024"
+name = "visamp_2"
+description = "template repository to run nannou app both in native app and web browser."
+version = "2.0.0"
+authors = ["Fergal Hanley <fergalhanley@gmail.com>"]
+categories = ["wasm"]
+readme = "README.md"
+edition = "2025"
+resolver = "2" 
+
+[[bin]]
+name = "nannou_web_compat"
+path = "src/main.rs"
+
+[lib]
+name = "nannou_web_test"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[profile.release]
+# This makes the compiled code faster and smaller, but it makes compiling slower,
+# so it's only enabled in release mode.
+lto = true
 
 [dependencies]
-nannou = { version = "0.19.0", default-features = false, features = ["wasm-experimental"] }
+# The `wasm-bindgen` crate provides the bare minimum functionality needed
+# to interact with JavaScript.
+wasm-bindgen = "0.2.88"
+wasm-bindgen-futures = "0.4.32"
+async-std = { version = "1.10.0", features = ["unstable"] }
+nannou = { version="0.18.1", git ="https://github.com/nannou-org/nannou.git", rev = "287be8a4d075b17332ca0bf34649f5d25e751c00", features =["wasm-experimental"]}
 once_cell = "1.21.3"
 pest = "2.8.0"
 pest_derive = "2.8.0"
-wasm-bindgen = "0.2.100"
+console_error_panic_hook = "0.1.5"
+js-sys = "0.3"
+
+
+# The `web-sys` crate allows you to interact with the various browser APIs,
+# like the DOM.
+[dependencies.web-sys]
+version = "0.3.53"
+features = ["console", "GpuBufferUsage"]
+
+# These crates are used for running unit tests.
+[dev-dependencies]
+wasm-bindgen-test = "0.3.33"
+futures = "0.1.27"
+js-sys = "0.3.22"

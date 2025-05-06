@@ -1,9 +1,31 @@
 
 
-ToDo:
+prop angle = 2.0
+prop x = 0.0
+prop y = 0.0
+prop isBlue = false
 
-- reorganise the project into modules
+on_frame {
+  angle = $TIME_SEC
+}
 
-- spec out what lib calls from nannau I want to bring into the DSL
+layer_2d {
+  draw::background(
+    color: $BLACK
+  )
+  let points = [
+    [0.0, 100.0],
+    [-100.0, -100.0],
+    [100.0, -100.0],
+  ]
+  draw::polygon (
+    points: [
+      [0.0, 100.0],
+      [-100.0, -100.0],
+      [100.0, -100.0],
+    ],
+    color: $RED,
+    rotate: angle
+  )
+}
 
-- set up to build WASM and load in a test index.html file
