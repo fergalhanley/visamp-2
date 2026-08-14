@@ -3,8 +3,120 @@
   <head>
     <meta charset="UTF-8">
     <title>Visamp</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        display: flex;
+        height: 100vh;
+        background: #1a1a2e;
+        font-family: monospace;
+      }
+      #editor-panel {
+        width: 40%;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #333;
+      }
+      #editor-header {
+        padding: 8px 12px;
+        background: #16213e;
+        color: #a0a0c0;
+        font-size: 12px;
+        border-bottom: 1px solid #333;
+      }
+      #editor {
+        flex: 1;
+        width: 100%;
+        border: none;
+        outline: none;
+        background: #0f0f23;
+        color: #e0e0ff;
+        font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        padding: 12px;
+        resize: none;
+        tab-size: 2;
+      }
+      #canvas-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      #canvas-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #canvas {
+        background: #000;
+      }
+      #error-bar {
+        padding: 8px 12px;
+        background: #2d0a0a;
+        color: #ff6b6b;
+        font-size: 12px;
+        border-top: 1px solid #4a1a1a;
+        display: none;
+        white-space: pre-wrap;
+        max-height: 120px;
+        overflow-y: auto;
+      }
+    </style>
   </head>
   <body>
+    <div id="editor-panel">
+      <div id="editor-header">visamp.dsl</div>
+      <textarea id="editor" spellcheck="false">prop angle = 0.0
+
+on_frame {
+  angle = $TIME_SEC
+}
+
+layer_2d {
+  draw::clear()
+  draw::background(
+    color: $COLOR_BLACK
+  )
+  draw::rect (
+    x: 350.0,
+    y: 250.0,
+    width: 100.0,
+    height: 100.0,
+    color: $COLOR_BLUE,
+    rotate: angle
+  )
+  draw::circle (
+    x: 400.0,
+    y: 300.0,
+    radius: 30.0,
+    color: $COLOR_RED
+  )
+  draw::polygon (
+    points: [
+      [400.0, 200.0],
+      [300.0, 400.0],
+      [500.0, 400.0],
+    ],
+    color: $COLOR_GREEN,
+    rotate: angle
+  )
+  draw::text (
+    content: "visamp",
+    x: 340.0,
+    y: 500.0,
+    size: 24.0,
+    color: $COLOR_WHITE
+  )
+}</textarea>
+    </div>
+    <div id="canvas-panel">
+      <div id="canvas-container">
+        <canvas id="canvas" width="800" height="600"></canvas>
+      </div>
+      <div id="error-bar"></div>
+    </div>
     <script src="index.js"></script>
   </body>
 </html>

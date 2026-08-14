@@ -6,14 +6,26 @@ boolean     = @{ ("true" | "false") }
 integer     = @{ ("-"? ~ ASCII_DIGIT+) }
 string      = @{ "\"" ~ ( "\\\"" | !"\"" ~ ANY )* ~ "\"" }
 
-script = { SOI ~ (prop_def | block)* ~ EOI }
+script = { SOI ~ (prop_def | function_def | block)* ~ EOI }
 
 event_block_name  = { "on_" ~ ASCII_ALPHANUMERIC+ }
 layer_block_name  = { "layer_" ~ ASCII_ALPHANUMERIC+ }
 
 block = { (event_block_name|layer_block_name) ~ "{" ~ statement* ~ "}" }
 
-statement = { function_call | assignment | let_decl }
+function_def = { "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ "{" ~ statement* ~ "}" }
+param_list = { param ~ ("," ~ param)* ~ ","? }
+param = { identifier ~ ":" ~ expression }
+
+statement = { function_call | assignment | let_decl | if_statement | for_loop | while_loop | return_statement }
+
+return_statement = { "return" ~ expression }
+
+if_statement = { "if" ~ expression ~ then_block ~ else_block? }
+then_block = { "{" ~ statement* ~ "}" }
+else_block = { "else" ~ "{" ~ statement* ~ "}" }
+for_loop = { "for" ~ identifier ~ "in" ~ expression ~ "{" ~ statement* ~ "}" }
+while_loop = { "while" ~ expression ~ "{" ~ statement* ~ "}" }
 
 argument = { identifier ~ ":" ~ expression }
 assignment = { identifier ~ "=" ~ expression }
@@ -41,15 +53,40 @@ function_call = { identifier ~ "::" ~ identifier ~ function_params }
 
 expression    = _{ equality_expr }  // Top level
 
-equality_expr = { relational_expr ~ (("==" | "!=") ~ relational_expr)* }
+equality_expr = { relational_expr ~ (equality_operator ~ relational_expr)* }
+equality_operator = { "==" | "!=" }
 
-relational_expr = { add_expr ~ (("<=" | ">=" | "<" | ">") ~ add_expr)* }
+relational_expr = { add_expr ~ (relational_operator ~ add_expr)* }
+relational_operator = { "<=" | ">=" | "<" | ">" }
 
-add_expr    = { mul_expr ~ (("+" | "-") ~ mul_expr)* }
+add_expr    = { mul_expr ~ (add_operator ~ mul_expr)* }
+add_operator = { "+" | "-" }
 
-mul_expr    = { unary_expr ~ (("*" | "/" | "%") ~ unary_expr)* }
+mul_expr    = { unary_expr ~ (mul_operator ~ unary_expr)* }
+mul_operator = { "*" | "/" | "%" }
 
 unary_expr  = { (unary_operator)* ~ primary_expr }
 unary_operator = { "!" | "-" | "+" }
 
-primary_expr = _{ value | "(" ~ expression ~ ")" }
+primary_expr = _{ math_expr | color_expr | call_expr | value | "(" ~ expression ~ ")" }
+
+math_expr = { "math::" ~ math_func ~ "(" ~ math_args? ~ ")" }
+math_func = { 
+    "sin" | "cos" | "tan" | 
+    "asin" | "acos" | "atan" | "atan2" |
+    "sqrt" | "cbrt" | "abs" |
+    "floor" | "ceil" | "round" | "trunc" |
+    "pow" | "exp" | "ln" | "log2" | "log10" |
+    "min" | "max" | "clamp"
+}
+math_args = { math_arg ~ ("," ~ math_arg)* ~ ","? }
+math_arg = { identifier ~ ":" ~ expression }
+
+color_expr = { "color::" ~ color_kind ~ "(" ~ color_args? ~ ")" }
+color_kind = { "rgb" | "hsl" }
+color_args = { color_arg ~ ("," ~ color_arg)* }
+color_arg = { identifier ~ ":" ~ expression }
+
+call_expr = { identifier ~ "(" ~ call_args? ~ ")" }
+call_args = { call_arg ~ ("," ~ call_arg)* ~ ","? }
+call_arg = { identifier ~ ":" ~ expression }

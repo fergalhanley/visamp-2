@@ -6,7 +6,10 @@
     "build:wasm": "./build-wasm.sh",
     "build:js": "webpack --config webpack.config.js",
     "build": "npm run build:wasm && npm run build:js",
-    "start": "npm run build && webpack serve --config webpack.config.js"
+    "start": "npm run build && webpack serve --config webpack.config.js",
+    "docs:build": "mdbook build docs",
+    "docs:serve": "mdbook serve docs",
+    "docs": "npm run docs:serve"
   },
   "devDependencies": {
     "@wasm-tool/wasm-pack-plugin": "^1.1.0",
