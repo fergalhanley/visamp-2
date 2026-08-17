@@ -1,50 +1,8 @@
-[package]
-name = "visamp_2"
-description = "A visual programming DSL for creative coding in the browser"
-version = "2.0.0"
-authors = ["Fergal Hanley <fergalhanley@gmail.com>"]
-categories = ["wasm"]
-readme = "README.md"
-edition = "2021"
+[workspace]
+members = ["packages/engine"]
 resolver = "2"
 
-[lib]
-name = "visamp_2"
-path = "src/lib.rs"
-crate-type = ["cdylib", "rlib"]
-
+# Profiles are only honoured at the workspace root.
 [profile.release]
 lto = true
 opt-level = "s"
-
-[dependencies]
-wasm-bindgen = "0.2.127"
-wasm-bindgen-futures = "0.4.77"
-console_error_panic_hook = "0.1.7"
-js-sys = "0.3.104"
-once_cell = "1.21.4"
-pest = "2.8.8"
-pest_derive = "2.8.8"
-
-[dependencies.web-sys]
-version = "0.3.104"
-features = [
-  "console",
-  "CanvasRenderingContext2d",
-  "HtmlCanvasElement",
-  "HtmlElement",
-  "Document",
-  "Window",
-  "MouseEvent",
-  "Event",
-  "EventTarget",
-  "CssStyleDeclaration",
-  "Element",
-  "Navigator",
-  "Performance",
-  "DomRect",
-  "Blob",
-]
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.50"

@@ -1,0 +1,11 @@
+{
+  "name": "@visamp/docs",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Visamp DSL language reference (mdBook)",
+  "scripts": {
+    "build": "mdbook build",
+    "dev": "mdbook serve --port 3200",
+    "clean": "rm -rf book"
+  }
+}

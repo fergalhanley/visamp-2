@@ -1,22 +1,23 @@
 {
-  "author": "Fergal Hanley <fergalhanley@gmail.com>",
-  "name": "visamp-2",
+  "name": "visamp",
   "version": "2.0.0",
+  "private": true,
+  "description": "A visual programming DSL for creative coding in the browser",
+  "author": "Fergal Hanley <fergalhanley@gmail.com>",
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build:wasm": "./build-wasm.sh",
-    "build:js": "webpack --config webpack.config.js",
-    "build": "npm run build:wasm && npm run build:js",
-    "start": "npm run build && webpack serve --config webpack.config.js",
-    "docs:build": "mdbook build docs",
-    "docs:serve": "mdbook serve docs",
-    "docs": "npm run docs:serve"
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "check-types": "turbo run check-types",
+    "clean": "turbo run clean"
   },
   "devDependencies": {
-    "@wasm-tool/wasm-pack-plugin": "^1.1.0",
-    "copy-webpack-plugin": "^11.0.0",
-    "rimraf": "^3.0.0",
-    "webpack": "^5.99.7",
-    "webpack-cli": "^5.0.1",
-    "webpack-dev-server": "^4.11.1"
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.10"
   }
 }

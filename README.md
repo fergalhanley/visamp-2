@@ -2,15 +2,34 @@
 
 A visual programming DSL for creative coding in the browser. Write simple declarative code to create animated graphics using Canvas 2D.
 
+## Repository
+
+A pnpm + Turborepo monorepo.
+
+```
+apps/
+  web/       Next.js app (the Vercel deploy target)
+  docs/      mdBook language reference
+packages/
+  engine/    Rust crate → WebAssembly (@visamp/engine)
+  player/    React player component (@visamp/player)
+  typescript-config/  shared tsconfig bases
+```
+
 ## Quick Start
 
 ```sh
-npm install
-npm run build
-npm start
+pnpm install
+pnpm build          # turbo run build — wasm first, then the app
+pnpm dev            # turbo run dev
 ```
 
-Open `http://localhost:8080` in your browser.
+Open `http://localhost:3000` in your browser.
+
+Building the engine needs a Rust toolchain, the `wasm32-unknown-unknown`
+target and [`wasm-pack`](https://rustwasm.github.io/wasm-pack/); `wasm-opt`
+(Binaryen) is used when present. The docs app needs
+[`mdbook`](https://rust-lang.github.io/mdBook/).
 
 ## Language Reference
 
@@ -135,11 +154,9 @@ visamp_dsl.pest (grammar) → parser.rs → model.rs (AST) → interpreter.rs �
 ## Build
 
 ```sh
-# Build WASM + JS bundle
-npm run build
-
-# Dev server with hot reload
-npm start
+pnpm build                                  # everything, in dependency order
+turbo run build --filter=@visamp/engine     # just the wasm
+turbo run dev --filter=@visamp/web          # just the app
 ```
 
 ## License

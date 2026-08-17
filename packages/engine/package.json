@@ -1,0 +1,28 @@
+{
+  "name": "@visamp/engine",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Visamp DSL interpreter and renderer, compiled to WebAssembly",
+  "main": "./pkg/visamp_2.js",
+  "types": "./pkg/visamp_2.d.ts",
+  "exports": {
+    ".": {
+      "types": "./pkg/visamp_2.d.ts",
+      "default": "./pkg/visamp_2.js"
+    }
+  },
+  "sideEffects": [
+    "./pkg/visamp_2.js",
+    "./pkg/snippets/*"
+  ],
+  "files": [
+    "pkg"
+  ],
+  "scripts": {
+    "build": "./build-wasm.sh",
+    "dev": "./build-wasm.sh --dev",
+    "test": "cargo test",
+    "clean": "rm -rf pkg"
+  }
+}

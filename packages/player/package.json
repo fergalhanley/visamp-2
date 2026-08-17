@@ -1,0 +1,29 @@
+{
+  "name": "@visamp/player",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "React component that renders a Visamp script",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo node_modules"
+  },
+  "dependencies": {
+    "@visamp/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@visamp/typescript-config": "workspace:*",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}
