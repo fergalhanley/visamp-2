@@ -88,6 +88,31 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
             let inner = pair.into_inner().next().expect("expression must have one child");
             build_expression(inner)
         }
+        Rule::logical_or_expr
+        | Rule::logical_and_expr
+        | Rule::bit_or_expr
+        | Rule::bit_xor_expr
+        | Rule::bit_and_expr => {
+            let mut inner = pair.into_inner();
+            let mut expr = build_expression(inner.next().unwrap());
+            while let Some(op_pair) = inner.next() {
+                let operator = match op_pair.as_rule() {
+                    Rule::logical_or_operator => BinaryOperator::Or,
+                    Rule::logical_and_operator => BinaryOperator::And,
+                    Rule::bit_or_operator => BinaryOperator::BitOr,
+                    Rule::bit_xor_operator => BinaryOperator::BitXor,
+                    Rule::bit_and_operator => BinaryOperator::BitAnd,
+                    _ => unreachable!("Expected a logical or bitwise operator"),
+                };
+                let right = build_expression(inner.next().unwrap());
+                expr = Expression::Binary {
+                    left: Box::new(expr),
+                    op: operator,
+                    right: Box::new(right),
+                };
+            }
+            expr
+        }
         Rule::equality_expr => {
             let mut inner = pair.into_inner();
             let mut expr = build_expression(inner.next().unwrap());
@@ -364,6 +389,7 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
     let inner = pair.into_inner().next().expect("Expected a specific statement type");
     match inner.as_rule() {
         Rule::assignment => build_assignment(inner),
+        Rule::incr_decr => build_incr_decr(inner),
         Rule::function_call => build_function_call(inner),
         Rule::let_decl => build_let_decl(inner),
         Rule::if_statement => build_if_statement(inner),
@@ -374,13 +400,67 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
     }
 }
 
+/// Builds `x = e` and the compound forms.
+///
+/// `x += e` is rewritten to `x = x + e` here rather than carried into the AST.
+/// The interpreter then needs no new statement kind and the compound forms
+/// inherit the existing arithmetic exactly — including that `/` yields a float,
+/// so `x /= 2` makes `x` a float just as `x = x / 2` does.
 fn build_assignment(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
     let ident_pair = inner.next().expect("Expected an identifier in assignment");
+    let op_pair = inner.next().expect("Expected an assignment operator");
     let expression_pair = inner.next().expect("Expected a value in assignment");
+
     let ident = ident_pair.as_str().to_string();
     let expression = build_expression(expression_pair);
+
+    let compound = match op_pair.as_str() {
+        "+=" => Some(BinaryOperator::Add),
+        "-=" => Some(BinaryOperator::Subtract),
+        "*=" => Some(BinaryOperator::Multiply),
+        "/=" => Some(BinaryOperator::Divide),
+        "%=" => Some(BinaryOperator::Modulus),
+        _ => None,
+    };
+
+    let expression = match compound {
+        Some(op) => Expression::Binary {
+            left: Box::new(Expression::Identifier(ident.clone())),
+            op,
+            right: Box::new(expression),
+        },
+        None => expression,
+    };
+
     Statement::Assignment(Assignment { ident, expression })
+}
+
+/// `x++` and `x--`, in either spelling, as `x = x + 1` / `x = x - 1`.
+fn build_incr_decr(pair: Pair<Rule>) -> Statement {
+    let mut ident = String::new();
+    let mut op = BinaryOperator::Add;
+
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::identifier => ident = item.as_str().to_string(),
+            Rule::incr_decr_operator => {
+                if item.as_str() == "--" {
+                    op = BinaryOperator::Subtract;
+                }
+            }
+            _ => unreachable!("Unexpected part of an increment"),
+        }
+    }
+
+    Statement::Assignment(Assignment {
+        expression: Expression::Binary {
+            left: Box::new(Expression::Identifier(ident.clone())),
+            op,
+            right: Box::new(Expression::Literal(Literal::Integer(1))),
+        },
+        ident,
+    })
 }
 
 fn build_function_call(pair: Pair<Rule>) -> Statement {

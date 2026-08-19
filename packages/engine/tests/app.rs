@@ -735,3 +735,163 @@ fn a_wrongly_typed_colour_argument_is_an_error_not_a_panic() {
     );
     assert!(err.contains("Expected a number"), "unexpected: {err}");
 }
+
+// ── Boolean operators ─────────────────────────────────────────────────────
+
+#[test]
+fn logical_and_or_and_not() {
+    assert_eq!(eval_expr_prop("true && true"), Value::Boolean(true));
+    assert_eq!(eval_expr_prop("true && false"), Value::Boolean(false));
+    assert_eq!(eval_expr_prop("false || true"), Value::Boolean(true));
+    assert_eq!(eval_expr_prop("false || false"), Value::Boolean(false));
+    assert_eq!(eval_expr_prop("!true"), Value::Boolean(false));
+    assert_eq!(eval_expr_prop("!(1 > 2)"), Value::Boolean(true));
+}
+
+#[test]
+fn and_binds_tighter_than_or() {
+    // `false && false || true` must be `(false && false) || true`, not
+    // `false && (false || true)`.
+    assert_eq!(eval_expr_prop("false && false || true"), Value::Boolean(true));
+    assert_eq!(eval_expr_prop("true || true && false"), Value::Boolean(true));
+}
+
+#[test]
+fn comparisons_bind_tighter_than_logical_operators() {
+    assert_eq!(eval_expr_prop("1 < 2 && 3 > 2"), Value::Boolean(true));
+    assert_eq!(eval_expr_prop("1 + 1 == 2 && 2 * 2 == 4"), Value::Boolean(true));
+}
+
+#[test]
+fn and_stops_before_evaluating_the_right_side() {
+    // The point of short-circuiting: the guard has to actually guard. Dividing
+    // by `n` is only safe because the left side already ruled out zero.
+    let source = "prop n = 0\nprop safe = false\non_frame {\n  safe = n != 0 && 10 \\ n > 1\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "safe"), Value::Boolean(false));
+}
+
+#[test]
+fn or_stops_before_evaluating_the_right_side() {
+    // `missing` is undeclared, so reaching it at all would be an error.
+    let source = "prop ok = false\non_frame {\n  ok = true || missing\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "ok"), Value::Boolean(true));
+}
+
+#[test]
+fn logical_operators_reject_non_booleans() {
+    let err = expect_runtime_error(
+        "prop x = 0\non_frame {\n  let a = 1 && true\n}\nrender {\n  draw::clear()\n}\n",
+    );
+    assert!(err.contains("needs a boolean"), "unexpected: {err}");
+}
+
+// ── Bitwise operators ─────────────────────────────────────────────────────
+
+#[test]
+fn bitwise_and_or_xor() {
+    assert_eq!(eval_expr_prop("6 & 3"), Value::Integer(2));
+    assert_eq!(eval_expr_prop("6 | 3"), Value::Integer(7));
+    assert_eq!(eval_expr_prop("6 ^ 3"), Value::Integer(5));
+    assert_eq!(eval_expr_prop("1 | 2 | 4"), Value::Integer(7));
+}
+
+#[test]
+fn bitwise_precedence_runs_and_then_xor_then_or() {
+    // C ordering: `&` tighter than `^` tighter than `|`.
+    assert_eq!(eval_expr_prop("1 | 2 ^ 2 & 2"), Value::Integer(1));
+    assert_eq!(eval_expr_prop("6 & 3 | 8"), Value::Integer(10));
+}
+
+#[test]
+fn bitwise_binds_tighter_than_logical() {
+    // `1 & 1 == 1` groups as `1 & (1 == 1)` under C precedence, which is a type
+    // error — the useful check is that `&&` is looser than `&`.
+    assert_eq!(eval_expr_prop("(6 & 2) > 0 && (6 & 1) == 0"), Value::Boolean(true));
+}
+
+#[test]
+fn bitwise_operators_reject_floats() {
+    let err = expect_runtime_error(
+        "prop x = 0\non_frame {\n  let a = 6.5 & 3\n}\nrender {\n  draw::clear()\n}\n",
+    );
+    assert!(err.contains("whole numbers"), "unexpected: {err}");
+}
+
+#[test]
+fn double_and_is_not_read_as_two_bitwise_ands() {
+    assert_eq!(eval_expr_prop("true && true"), Value::Boolean(true));
+    assert_eq!(eval_expr_prop("true || false"), Value::Boolean(true));
+}
+
+// ── Compound assignment and increment ─────────────────────────────────────
+
+#[test]
+fn compound_assignment_operators() {
+    let run = |op: &str, start: &str| {
+        let source = format!(
+            "prop x = {start}\non_frame {{\n  x {op} 3\n}}\nrender {{\n  draw::clear()\n}}\n"
+        );
+        eval_prop(&source, "x")
+    };
+
+    assert_eq!(run("+=", "10"), Value::Integer(13));
+    assert_eq!(run("-=", "10"), Value::Integer(7));
+    assert_eq!(run("*=", "10"), Value::Integer(30));
+    assert_eq!(run("%=", "10"), Value::Integer(1));
+    // `/` always yields a float, so `/=` does too — same rule as `x = x / 3`.
+    assert_eq!(run("/=", "9"), Value::Float(3.0));
+}
+
+#[test]
+fn compound_assignment_evaluates_the_whole_right_side_first() {
+    // `x *= 2 + 3` is `x = x * (2 + 3)`, not `x = x * 2 + 3`.
+    let source = "prop x = 10\non_frame {\n  x *= 2 + 3\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "x"), Value::Integer(50));
+}
+
+#[test]
+fn increment_and_decrement() {
+    let source = "prop up = 0\nprop down = 10\non_frame {\n  up++\n  down--\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "up"), Value::Integer(1));
+    assert_eq!(eval_prop(source, "down"), Value::Integer(9));
+}
+
+#[test]
+fn increment_accepts_either_spelling() {
+    let source = "prop a = 0\nprop b = 0\non_frame {\n  ++a\n  --b\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "a"), Value::Integer(1));
+    assert_eq!(eval_prop(source, "b"), Value::Integer(-1));
+}
+
+#[test]
+fn increment_promotes_a_float_the_way_addition_does() {
+    let source = "prop x = 1.5\non_frame {\n  x++\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "x"), Value::Float(2.5));
+}
+
+#[test]
+fn increment_works_inside_a_loop_body() {
+    let source = "prop total = 0\non_frame {\n  for i in 0..5 {\n    total++\n  }\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "total"), Value::Integer(5));
+}
+
+#[test]
+fn equality_in_a_statement_position_is_not_swallowed_as_an_assignment() {
+    // `=` is guarded against `==`, so this is a parse error rather than a
+    // silent half-assignment.
+    assert!(build_ast("render {\n  x == 1\n}\n").is_err());
+}
+
+#[test]
+fn bitwise_binds_more_loosely_than_equality() {
+    // Inherited from C, and the trap the docs warn about: `flags & 4 == 4`
+    // groups as `flags & (4 == 4)`. Locked here so the documented advice to
+    // parenthesise stays true.
+    let err = expect_runtime_error(
+        "prop flags = 4\non_frame {\n  let hit = flags & 4 == 4\n}\nrender {\n  draw::clear()\n}\n",
+    );
+    assert!(err.contains("whole numbers"), "unexpected: {err}");
+
+    let source = "prop flags = 4\nprop hit = false\non_frame {\n  hit = (flags & 4) == 4\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "hit"), Value::Boolean(true));
+}

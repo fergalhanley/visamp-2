@@ -22,8 +22,13 @@ const BOOLEAN = /^(true|false)\b/;
 /** An identifier acting as a named argument, e.g. the `radius` in `radius: 10.0`. */
 const ARG_LABEL = /^[A-Za-z_][A-Za-z0-9_]*(?=\s*:)/;
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*/;
-/** `..=` before `..` so the inclusive form is not split. */
-const OPERATOR = /^(\.\.=|\.\.|==|!=|<=|>=|[+\-*/%<>!=\\])/;
+/**
+ * Longest-first throughout, or a prefix would win and split the operator:
+ * `..=` before `..`, `&&` before `&`, and every compound assignment before the
+ * bare `=` that ends it.
+ */
+const OPERATOR =
+  /^(\.\.=|\.\.|\+\+|--|\+=|-=|\*=|\/=|%=|==|!=|<=|>=|&&|\|\||[+\-*/%<>!=\\&|^])/;
 
 /** Two spaces per level, everywhere: the editor never inserts a tab. */
 export const INDENT_WIDTH = 2;

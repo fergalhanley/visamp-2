@@ -498,6 +498,13 @@ pub enum BinaryOperator {
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
+    /// `&&` and `||` — booleans only, and short-circuiting.
+    And,
+    Or,
+    /// `&`, `|`, `^` — integers only.
+    BitAnd,
+    BitOr,
+    BitXor,
 }
 
 /// The runtime model holding state and blocks

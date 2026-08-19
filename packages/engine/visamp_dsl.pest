@@ -37,7 +37,13 @@ function_def = { "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ "{" ~ statement* 
 param_list = { param ~ ("," ~ param)* ~ ","? }
 param = { identifier ~ ":" ~ expression }
 
-statement = { function_call | assignment | let_decl | if_statement | for_loop | while_loop | return_statement }
+statement = { function_call | incr_decr | assignment | let_decl | if_statement | for_loop | while_loop | return_statement }
+
+// `x++` / `++x`. Both spellings are accepted and mean the same thing: as a
+// statement there is no surrounding expression for the pre/post distinction to
+// matter to, and rejecting one spelling would only be a papercut.
+incr_decr = { (identifier ~ incr_decr_operator) | (incr_decr_operator ~ identifier) }
+incr_decr_operator = @{ "++" | "--" }
 
 return_statement = { "return" ~ expression }
 
@@ -59,7 +65,11 @@ step_kw = @{ "step" ~ !(ASCII_ALPHANUMERIC | "_") }
 while_loop = { "while" ~ expression ~ "{" ~ statement* ~ "}" }
 
 argument = { identifier ~ ":" ~ expression }
-assignment = { identifier ~ "=" ~ expression }
+assignment = { identifier ~ assign_operator ~ expression }
+// Compound forms first so `+=` is not read as a bare `=` would-be failure, and
+// plain `=` guarded against `==` so a stray equality test is reported as such
+// rather than as a half-parsed assignment.
+assign_operator = @{ "+=" | "-=" | "*=" | "/=" | "%=" | ("=" ~ !"=") }
 
 value = _{ boolean | float | integer | array | string | system_value | identifier }
 
@@ -82,7 +92,29 @@ function_call = { identifier ~ "::" ~ identifier ~ function_params }
 // Expression grammar starts here //
 ////////////////////////////////////
 
-expression    = _{ equality_expr }  // Top level
+expression    = _{ logical_or_expr }  // Top level
+
+// Precedence runs lowest to highest down this chain, following C: logical or,
+// logical and, bitwise or, xor, and, then equality and the arithmetic below.
+// That puts the bitwise operators *tighter* than `&&` but *looser* than `==`,
+// which is the long-standing C ordering — `a & b == c` groups as `a & (b == c)`.
+logical_or_expr = { logical_and_expr ~ (logical_or_operator ~ logical_and_expr)* }
+logical_or_operator = @{ "||" }
+
+logical_and_expr = { bit_or_expr ~ (logical_and_operator ~ bit_or_expr)* }
+logical_and_operator = @{ "&&" }
+
+// The single-character bitwise forms are guarded against their doubled
+// counterparts, so `a || b` cannot be read as `a | (| b)` and left to
+// backtracking to sort out.
+bit_or_expr = { bit_xor_expr ~ (bit_or_operator ~ bit_xor_expr)* }
+bit_or_operator = @{ "|" ~ !"|" }
+
+bit_xor_expr = { bit_and_expr ~ (bit_xor_operator ~ bit_and_expr)* }
+bit_xor_operator = @{ "^" }
+
+bit_and_expr = { equality_expr ~ (bit_and_operator ~ equality_expr)* }
+bit_and_operator = @{ "&" ~ !"&" }
 
 equality_expr = { relational_expr ~ (equality_operator ~ relational_expr)* }
 equality_operator = { "==" | "!=" }

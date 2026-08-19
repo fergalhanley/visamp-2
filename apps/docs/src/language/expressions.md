@@ -102,6 +102,52 @@ true || false   // true
 !true           // false
 ```
 
+`&&` and `||` **short-circuit**: if the left side settles the answer, the right
+side is never worked out at all. That is what lets one side guard the other:
+
+```
+on_frame {
+  // The division only happens when n is non-zero
+  if n != 0 && total \ n > 5 {
+    flash = true
+  }
+}
+```
+
+Both sides must be booleans. `1 && true` is an error rather than treating
+non-zero as true — a number is not a truth value here.
+
+## Bitwise Operators
+
+`&`, `|` and `^` work on the bits of whole numbers:
+
+```
+6 & 3       // 2   — bits set in both
+6 | 3       // 7   — bits set in either
+6 ^ 3       // 5   — bits set in exactly one
+```
+
+They are useful for packing several on/off flags into one property, or for
+cycling through a power-of-two range:
+
+```
+prop flags = 0
+
+on_frame {
+  flags = flags | 4          // turn a flag on
+  if (flags & 4) > 0 {       // test it — note the parentheses
+    pulse = 1.0
+  }
+}
+```
+
+Whole numbers only. `6.5 & 3` is an error rather than a silent truncation,
+since a bit pattern is not a meaningful notion for a float — use `\` or
+`math::floor` first if you have a fraction.
+
+Note that `&` is a different operator from `&&`, and `|` from `||`. The
+doubled forms are the boolean ones.
+
 ## String Operations
 
 ```
@@ -171,12 +217,34 @@ See [Functions](../programming/functions.md) for details.
 
 ## Operator Precedence
 
-From lowest to highest:
-1. `||` (or)
-2. `&&` (and)
-3. `==`, `!=`
-4. `<`, `<=`, `>`, `>=`
-5. `+`, `-`
-6. `*`, `/`, `%`
-7. `!`, `-` (unary)
-8. `()` (grouping)
+From lowest to highest. This follows C, which is what most languages use:
+
+1. `||` (logical or)
+2. `&&` (logical and)
+3. `|` (bitwise or)
+4. `^` (bitwise xor)
+5. `&` (bitwise and)
+6. `==`, `!=`
+7. `<`, `<=`, `>`, `>=`
+8. `+`, `-`
+9. `*`, `/`, `\`, `%`
+10. `!`, `-` (unary)
+11. `[...]` (indexing)
+12. `()` (grouping)
+
+One consequence is worth knowing, because it surprises people in every language
+that inherits it: **the bitwise operators bind more loosely than `==`**. So
+
+```
+flags & 4 == 4
+```
+
+groups as `flags & (4 == 4)`, which is a type error rather than the test you
+meant. Parenthesise when you mix them:
+
+```
+(flags & 4) == 4
+```
+
+Assignment is a statement, not an operator, so it does not appear here. See
+[Variables & Assignment](./variables.md) for `=`, the compound forms and `++`.

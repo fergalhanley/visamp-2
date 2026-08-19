@@ -45,6 +45,61 @@ on_frame {
 }
 ```
 
+### Compound assignment
+
+`x += e` is shorthand for `x = x + e`, and the same for `-=`, `*=`, `/=`
+and `%=`:
+
+```
+prop angle = 0.0
+prop hits = 0
+
+on_frame {
+  angle += 0.05
+  hits *= 2
+}
+```
+
+The right-hand side is worked out in full before it is applied, so `x *= 2 + 3`
+multiplies by five rather than doubling and then adding three.
+
+These follow the same typing rules as the long form. In particular **`/=`
+always produces a float**, because `/` does:
+
+```
+prop x = 9
+
+on_frame {
+  x /= 3     // 3.0, a float — use \= to keep it whole
+}
+```
+
+### Increment and decrement
+
+`x++` and `x--` add or subtract one:
+
+```
+prop frame = 0
+
+on_frame {
+  frame++
+}
+```
+
+Both `x++` and `++x` are accepted and mean the same thing. They are statements
+rather than expressions, so there is no "before or after" distinction to make —
+`let y = x++` is not valid, and `x++` on its own line is.
+
+Incrementing a float adds `1.0`, the way `x = x + 1` would:
+
+```
+prop x = 1.5
+
+on_frame {
+  x++        // 2.5
+}
+```
+
 ## Properties vs Variables
 
 | | Properties | Local Variables |

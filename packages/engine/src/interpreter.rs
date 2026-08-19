@@ -643,9 +643,67 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
         }
 
         Expression::Binary { left, op, right } => {
+            // Short-circuit before touching the right side. This is what makes
+            // `n > 0 && total / n > 5` safe, and a guard that still evaluated
+            // what it was guarding would be no guard at all.
+            if matches!(op, BinaryOperator::And | BinaryOperator::Or) {
+                let l = evaluate_expression(left, decels, runtime, functions)?;
+                let Value::Boolean(a) = l else {
+                    return Err(format!(
+                        "Type error: '{}' needs a boolean, got {}",
+                        if matches!(op, BinaryOperator::And) { "&&" } else { "||" },
+                        l.type_tag()
+                    ));
+                };
+
+                // `false && _` is false and `true || _` is true whatever
+                // follows, so the right side is never looked at.
+                if (matches!(op, BinaryOperator::And) && !a)
+                    || (matches!(op, BinaryOperator::Or) && a)
+                {
+                    return Ok(Value::Boolean(a));
+                }
+
+                let r = evaluate_expression(right, decels, runtime, functions)?;
+                let Value::Boolean(b) = r else {
+                    return Err(format!(
+                        "Type error: '{}' needs a boolean, got {}",
+                        if matches!(op, BinaryOperator::And) { "&&" } else { "||" },
+                        r.type_tag()
+                    ));
+                };
+                return Ok(Value::Boolean(b));
+            }
+
             let l = evaluate_expression(left, decels, runtime, functions)?;
             let r = evaluate_expression(right, decels, runtime, functions)?;
             match op {
+                // Whole numbers only: a bit pattern is not a meaningful notion
+                // for a float, and silently truncating one would hide the
+                // mistake rather than report it.
+                BinaryOperator::BitAnd | BinaryOperator::BitOr | BinaryOperator::BitXor => {
+                    let (Value::Integer(a), Value::Integer(b)) = (&l, &r) else {
+                        let symbol = match op {
+                            BinaryOperator::BitAnd => "&",
+                            BinaryOperator::BitOr => "|",
+                            _ => "^",
+                        };
+                        return Err(format!(
+                            "Type error: '{}' needs whole numbers, got {} and {}",
+                            symbol,
+                            l.type_tag(),
+                            r.type_tag()
+                        ));
+                    };
+                    Ok(Value::Integer(match op {
+                        BinaryOperator::BitAnd => a & b,
+                        BinaryOperator::BitOr => a | b,
+                        _ => a ^ b,
+                    }))
+                }
+                BinaryOperator::And | BinaryOperator::Or => {
+                    unreachable!("handled above, before the right side is evaluated")
+                }
                 BinaryOperator::Add => match (l, r) {
                     (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a + b)),
                     (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
