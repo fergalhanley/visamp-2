@@ -5,21 +5,56 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::CanvasRenderingContext2d;
 
+pub mod builtins;
+pub mod geometry;
+pub mod math3;
 pub mod model;
 pub mod utils;
 pub mod parser;
+pub mod renderer;
+pub mod scene;
+pub mod resolver;
 pub mod interpreter;
 
 use model::*;
+use renderer::Renderer;
+use scene::Scene;
 use parser::build_ast;
 use interpreter::*;
+
+/// What the canvas has actually been bound to.
+///
+/// A canvas keeps whichever context it is first given for its whole life, so
+/// this cannot be chosen at startup — the script decides, and the script is not
+/// loaded yet. It is acquired on the first `load_script` and fixed from then on.
+enum Backend {
+    TwoD(CanvasRenderingContext2d),
+    ThreeD(Renderer),
+}
 
 struct AppState {
     model: RefCell<Model>,
     runtime: RefCell<Runtime>,
-    ctx: CanvasRenderingContext2d,
+    /// The element the engine draws inside. Owned by the page and never
+    /// replaced.
+    host: web_sys::Element,
+    /// The canvas the engine created inside the host.
+    ///
+    /// Replaceable, because a canvas keeps whichever context it was first given
+    /// for its whole life. Switching a script between `context 2d` and
+    /// `context 3d` therefore means a *new* canvas, which is why the engine
+    /// owns this element rather than the page: swapping a node React rendered
+    /// would break React's own cleanup.
+    canvas: RefCell<Option<web_sys::HtmlCanvasElement>>,
+    kind: RefCell<Option<ContextKind>>,
+    backend: RefCell<Option<Backend>>,
+    /// Rebuilt from scratch every 3d frame; see `Scene::reset`.
+    scene: RefCell<Scene>,
     last_error: RefCell<Option<String>>,
 }
+
+/// The element the page gives the engine to draw inside.
+const HOST_ID: &str = "visamp-stage";
 
 thread_local! {
     static STATE: RefCell<Option<Rc<AppState>>> = RefCell::new(None);
@@ -76,23 +111,14 @@ fn init_app() -> Result<(), String> {
         .document()
         .ok_or("No document object")?;
 
-    let canvas = document
-        .get_element_by_id("canvas")
-        .ok_or("No #canvas element found")?
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .map_err(|_| "Element is not a canvas")?;
+    let host = document
+        .get_element_by_id(HOST_ID)
+        .ok_or("No #visamp-stage element found")?;
 
-    let ctx: CanvasRenderingContext2d = canvas
-        .get_context("2d")
-        .map_err(|_| "Failed to get 2d context")?
-        .ok_or("2d context is null")?
-        .dyn_into()
-        .map_err(|_| "Failed to cast to CanvasRenderingContext2d")?;
-
-    let canvas_width = canvas.client_width() as f64;
-    let canvas_height = canvas.client_height() as f64;
-    canvas.set_width(canvas_width as u32);
-    canvas.set_height(canvas_height as u32);
+    // No canvas yet, and deliberately no context: both depend on what the
+    // script asks for, and the script has not been loaded.
+    let canvas_width = host.client_width() as f64;
+    let canvas_height = host.client_height() as f64;
 
     web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("Canvas size: {}x{}", canvas_width, canvas_height)));
 
@@ -151,21 +177,26 @@ render {
     let state = Rc::new(AppState {
         model: RefCell::new(model),
         runtime: RefCell::new(runtime),
-        ctx,
+        host: host.clone(),
+        canvas: RefCell::new(None),
+        kind: RefCell::new(None),
+        backend: RefCell::new(None),
+        scene: RefCell::new(Scene::default()),
         last_error: RefCell::new(None),
     });
 
-    // Set up mouse tracking
+    // Mouse tracking hangs off the host, not the canvas, so it survives the
+    // canvas being replaced on a context switch.
     {
         let state_clone = state.clone();
-        let canvas_clone = canvas.clone();
+        let host_clone = host.clone();
         let closure = Closure::<dyn FnMut(web_sys::MouseEvent)>::new(move |e: web_sys::MouseEvent| {
-            let rect = canvas_clone.get_bounding_client_rect();
+            let rect = host_clone.get_bounding_client_rect();
             let mut rt = state_clone.runtime.borrow_mut();
             rt.mouse_x = e.client_x() as f64 - rect.left();
             rt.mouse_y = e.client_y() as f64 - rect.top();
         });
-        canvas.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())
+        host.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())
             .unwrap();
         closure.forget();
     }
@@ -211,17 +242,75 @@ render {
         for block in &blocks {
             if block.block_type == BlockType::OnFrame {
                 if let Err(e) = interpret_event_block(block, &mut model.decels, &*runtime, &functions) {
-                    web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!("on_frame error: {}", e)));
                     *state_ref.last_error.borrow_mut() = Some(e);
                 }
             }
         }
 
-        // Then the single render block.
-        for block in &blocks {
-            if block.block_type == BlockType::Render {
-                if let Err(e) = interpret_render_block(block, &mut model.decels, &state_ref.ctx, &*runtime, &functions) {
-                    web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!("render error: {}", e)));
+        // Nothing has claimed the canvas yet, which means no script has loaded.
+        let mut backend = state_ref.backend.borrow_mut();
+        let Some(backend) = backend.as_mut() else {
+            return;
+        };
+
+        match backend {
+            Backend::TwoD(ctx) => {
+                for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
+                    if let Err(e) = interpret_render_block(
+                        block,
+                        &mut model.decels,
+                        Target::canvas(ctx),
+                        &*runtime,
+                        &functions,
+                    ) {
+                        *state_ref.last_error.borrow_mut() = Some(e);
+                    }
+                }
+            }
+
+            Backend::ThreeD(renderer) => {
+                // §9.1 — every frame starts from the default scene, so nothing
+                // leaks between frames and live editing stays predictable.
+                state_ref.scene.borrow_mut().reset();
+
+                let mut failure = None;
+                for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
+                    if let Err(e) = interpret_render_block(
+                        block,
+                        &mut model.decels,
+                        Target::scene(&state_ref.scene),
+                        &*runtime,
+                        &functions,
+                    ) {
+                        failure = Some(e);
+                        break;
+                    }
+                }
+
+                // An unbalanced stack is a mistake worth naming even though the
+                // reset above would hide it from the next frame.
+                if failure.is_none() {
+                    if let Err(e) = state_ref.scene.borrow().check_balanced() {
+                        failure = Some(e);
+                    }
+                }
+
+                let scene = state_ref.scene.borrow();
+                for warning in &scene.warnings {
+                    web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(warning));
+                }
+
+                // A failed frame still renders what it managed to record, so
+                // the canvas shows partial work rather than going black.
+                let (width, height) = match state_ref.canvas.borrow().as_ref() {
+                    Some(canvas) => (canvas.width(), canvas.height()),
+                    None => (0, 0),
+                };
+                if let Err(e) = renderer.render(&scene, width, height) {
+                    failure = Some(e);
+                }
+
+                if let Some(e) = failure {
                     *state_ref.last_error.borrow_mut() = Some(e);
                 }
             }
@@ -254,15 +343,24 @@ pub fn load_script(code: &str) -> String {
             web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(
                 &format!("Parsed OK: blocks=[{}], functions={}", block_info.join(", "), model.functions.len())
             ));
-            // A canvas keeps whichever context it was first given for its whole
-            // life, and this one is already a 2d context. Rejecting here — and
-            // leaving the previous model in place — is honest: the alternative
-            // is accepting the script and then drawing nothing.
-            if model.context != ContextKind::TwoD {
-                let message = format!(
-                    "Parse error:  --> 1:1\n  |\n  = context {} is not implemented yet; only 2d renders today",
-                    model.context.as_str()
-                );
+            // Give the script the context it asked for, replacing the canvas
+            // when that differs from the one currently mounted. A canvas keeps
+            // its first context for life, so switching between 2d and 3d is
+            // only possible by mounting a new element.
+            let claimed = STATE.with(|s| -> Result<(), String> {
+                let borrowed = s.borrow();
+                let Some(state) = borrowed.as_ref() else {
+                    return Err("Engine is not initialised".to_string());
+                };
+
+                if *state.kind.borrow() == Some(model.context) {
+                    return Ok(());
+                }
+
+                mount_canvas(state, model.context)
+            });
+
+            if let Err(message) = claimed {
                 STATE.with(|s| {
                     if let Some(ref state) = *s.borrow() {
                         *state.last_error.borrow_mut() = Some(message.clone());
@@ -275,11 +373,9 @@ pub fn load_script(code: &str) -> String {
                 if let Some(ref state) = *s.borrow() {
                     *state.model.borrow_mut() = model;
                     *state.last_error.borrow_mut() = None;
-                    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str("Model updated in STATE"));
-                } else {
-                    web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str("STATE is None!"));
                 }
             });
+
             String::new()
         }
         Err(e) => {
@@ -304,6 +400,13 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
     let state = STATE
         .with(|s| s.borrow().clone())
         .ok_or("Engine is not initialised")?;
+
+    // A capture renders into a fresh detached canvas, which means a fresh 2d
+    // context. There is no 3d equivalent yet, and quietly returning an empty
+    // image would be worse than saying so.
+    if *state.kind.borrow() == Some(ContextKind::ThreeD) {
+        return Err("Capturing a frame is not supported in 3d mode yet".to_string());
+    }
 
     let document = web_sys::window()
         .ok_or("No window object")?
@@ -344,7 +447,7 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
     // Only layer blocks run. on_frame is deliberately skipped: a capture is a
     // snapshot of the current state, not a step forward in time.
     for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
-        interpret_render_block(block, &mut model.decels, &ctx, &runtime, &functions)
+        interpret_render_block(block, &mut model.decels, Target::canvas(&ctx), &runtime, &functions)
             .map_err(|e| format!("Capture failed: {}", e))?;
     }
 
@@ -507,6 +610,80 @@ pub fn get_properties() -> String {
 
         format!("[{}]", entries.join(","))
     })
+}
+
+/// Creates the canvas the given context needs and hangs it inside the host,
+/// discarding whatever was there before.
+///
+/// Replacing the element is the only way to change context: `getContext("2d")`
+/// on a canvas that has already handed out a WebGL context returns null, and
+/// vice versa. The old canvas and its GPU resources are collected once it
+/// leaves the document.
+fn mount_canvas(state: &AppState, kind: ContextKind) -> Result<(), String> {
+    let document = web_sys::window()
+        .ok_or("No window object")?
+        .document()
+        .ok_or("No document object")?;
+
+    let canvas = document
+        .create_element("canvas")
+        .map_err(|_| "Failed to create a canvas".to_string())?
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .map_err(|_| "Failed to cast the new canvas".to_string())?;
+
+    // The host carries the layout; the canvas simply fills it.
+    canvas
+        .set_attribute("style", "display:block;width:100%;height:100%")
+        .map_err(|_| "Failed to style the canvas".to_string())?;
+
+    let width = state.host.client_width().max(1) as u32;
+    let height = state.host.client_height().max(1) as u32;
+    canvas.set_width(width);
+    canvas.set_height(height);
+
+    // Build the backend before touching the document, so a failure leaves the
+    // previous canvas rendering rather than emptying the host.
+    let backend = match kind {
+        ContextKind::TwoD => {
+            let ctx = canvas
+                .get_context("2d")
+                .map_err(|_| "Failed to get a 2d context".to_string())?
+                .ok_or("2d context is null")?
+                .dyn_into::<CanvasRenderingContext2d>()
+                .map_err(|_| "Failed to cast the 2d context".to_string())?;
+            Backend::TwoD(ctx)
+        }
+        ContextKind::ThreeD => {
+            let gl = canvas
+                .get_context("webgl2")
+                .map_err(|_| "Failed to get a webgl2 context".to_string())?
+                .ok_or("this browser has no WebGL2")?
+                .dyn_into::<web_sys::WebGl2RenderingContext>()
+                .map_err(|_| "Failed to cast the webgl2 context".to_string())?;
+            Backend::ThreeD(Renderer::new(gl)?)
+        }
+    };
+
+    if let Some(previous) = state.canvas.borrow().as_ref() {
+        let _ = state.host.remove_child(previous);
+    }
+    state
+        .host
+        .append_child(&canvas)
+        .map_err(|_| "Failed to attach the canvas".to_string())?;
+
+    {
+        let mut runtime = state.runtime.borrow_mut();
+        runtime.canvas_width = width as f64;
+        runtime.canvas_height = height as f64;
+    }
+
+    *state.canvas.borrow_mut() = Some(canvas);
+    *state.backend.borrow_mut() = Some(backend);
+    *state.kind.borrow_mut() = Some(kind);
+    state.scene.borrow_mut().reset();
+
+    Ok(())
 }
 
 /// Get the last error, if any.

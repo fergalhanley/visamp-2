@@ -139,7 +139,9 @@
     overscroll-behavior: none;
   }
 
-  #canvas {
+  /* The engine creates the canvas inside this host, so the black backdrop
+     belongs to the host rather than to an element React renders. */
+  #visamp-stage {
     display: block;
     background: #000;
   }

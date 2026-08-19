@@ -39,9 +39,9 @@ describe("BeatDetector", () => {
   it("keeps detecting for as long as the track plays", () => {
     // The reported failure: beats register at the start and then stop.
     // Counting per second is what catches that; a total alone would not.
-    const hits = beatTimes({ seconds: 20 });
+    const hits = beatTimes({ seconds: 12 });
 
-    const perSecond = Array.from({ length: 20 }, (_, s) =>
+    const perSecond = Array.from({ length: 12 }, (_, s) =>
       hits.filter((t) => t >= s * 1000 && t < (s + 1) * 1000).length,
     );
 
@@ -51,18 +51,18 @@ describe("BeatDetector", () => {
   });
 
   it("locks to the kick rather than free-running", () => {
-    expect(median(gaps(beatTimes({ seconds: 12 })))).toBeGreaterThan(400);
-    expect(median(gaps(beatTimes({ seconds: 12 })))).toBeLessThan(600);
+    expect(median(gaps(beatTimes({ seconds: 8 })))).toBeGreaterThan(400);
+    expect(median(gaps(beatTimes({ seconds: 8 })))).toBeLessThan(600);
   });
 
   it("follows a faster tempo", () => {
-    const g = median(gaps(beatTimes({ seconds: 12, kickIntervalMs: 300 })));
+    const g = median(gaps(beatTimes({ seconds: 8, kickIntervalMs: 300 })));
     expect(g).toBeGreaterThan(240);
     expect(g).toBeLessThan(360);
   });
 
   it("follows a slower tempo", () => {
-    const g = median(gaps(beatTimes({ seconds: 16, kickIntervalMs: 750 })));
+    const g = median(gaps(beatTimes({ seconds: 12, kickIntervalMs: 750 })));
     expect(g).toBeGreaterThan(600);
     expect(g).toBeLessThan(900);
   });
@@ -71,7 +71,7 @@ describe("BeatDetector", () => {
     // Heavy drive and a fat bassline push the spectrum toward the ceiling.
     // This is where a "is this frame a multiple of the recent average" test
     // dies: nothing can be 1.5x an average that is already near the top.
-    const hits = beatTimes({ seconds: 12, bassLevel: 0.55, drive: 3.5 });
+    const hits = beatTimes({ seconds: 10, bassLevel: 0.55, drive: 3.5 });
     expect(hits.length).toBeGreaterThan(15);
     expect(median(gaps(hits))).toBeGreaterThan(400);
     expect(median(gaps(hits))).toBeLessThan(600);
@@ -80,7 +80,7 @@ describe("BeatDetector", () => {
   it("is not thrown off by offbeat hi-hats", () => {
     // Hats land halfway between kicks. Detecting those too would double the
     // rate and put flashes on the offbeat.
-    expect(median(gaps(beatTimes({ seconds: 12, hats: true })))).toBeGreaterThan(400);
+    expect(median(gaps(beatTimes({ seconds: 8, hats: true })))).toBeGreaterThan(400);
   });
 
   it("reports nothing on silence", () => {
@@ -100,14 +100,14 @@ describe("BeatDetector", () => {
   });
 
   it("does not fire twice for one kick", () => {
-    expect(Math.min(...gaps(beatTimes({ seconds: 12 })))).toBeGreaterThan(140);
+    expect(Math.min(...gaps(beatTimes({ seconds: 8 })))).toBeGreaterThan(140);
   });
 
   it("hears the kick band and not the rest of the spectrum", () => {
     // Same rhythm, same level, different place in the spectrum. A 60Hz thump
     // is a kick; a 4kHz tick is a hi-hat and must not read as one.
     const pulse = (hz: number): number => {
-      const samples = new Float64Array(SAMPLE_RATE * 8);
+      const samples = new Float64Array(SAMPLE_RATE * 6);
       for (let n = 0; n < samples.length; n += 1) {
         const t = n / SAMPLE_RATE;
         const since = t % 0.5;

@@ -74,14 +74,25 @@ const blackman = (() => {
 export class Analyser {
   readonly bins = FFT_SIZE / 2;
   private readonly smoothed = new Float64Array(FFT_SIZE / 2);
+  // Reused across frames. A track is a thousand-odd windows, and allocating
+  // three buffers per window made this harness cost more than the code it
+  // exercises.
+  private readonly re = new Float64Array(FFT_SIZE);
+  private readonly im = new Float64Array(FFT_SIZE);
+  private readonly out = new Uint8Array(FFT_SIZE / 2);
 
   /** @param samples Mono float samples at `SAMPLE_RATE`. */
   constructor(private readonly samples: Float64Array) {}
 
-  /** The byte spectrum for the window ending at `sampleIndex`. */
+  /**
+   * The byte spectrum for the window ending at `sampleIndex`.
+   *
+   * The returned array is reused, so read it before asking for the next frame.
+   */
   at(sampleIndex: number): Uint8Array {
-    const re = new Float64Array(FFT_SIZE);
-    const im = new Float64Array(FFT_SIZE);
+    const re = this.re;
+    const im = this.im;
+    im.fill(0);
     const start = Math.max(0, sampleIndex - FFT_SIZE);
 
     for (let i = 0; i < FFT_SIZE; i += 1) {
@@ -90,7 +101,7 @@ export class Analyser {
 
     fft(re, im);
 
-    const out = new Uint8Array(this.bins);
+    const out = this.out;
     for (let k = 0; k < this.bins; k += 1) {
       const magnitude = Math.hypot(re[k]!, im[k]!) / FFT_SIZE;
       this.smoothed[k] = SMOOTHING * this.smoothed[k]! + (1 - SMOOTHING) * magnitude;

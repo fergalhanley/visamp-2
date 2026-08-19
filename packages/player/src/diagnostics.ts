@@ -25,26 +25,47 @@ function summarise(raw: string): string {
   return raw.split("\n").find((line) => line.trim())?.trim() ?? raw;
 }
 
+/**
+ * The resolver checks a whole script and can report several problems from one
+ * compile, joined into a single string. Splitting them back out means the
+ * editor squiggles every one rather than making you fix them one recompile at
+ * a time.
+ *
+ * A pest syntax error is a single report whose body may itself span lines, and
+ * it keeps the same shape here — one marker, one diagnostic.
+ */
+function split(text: string): string[] {
+  const marker = /^Parse error:/gm;
+  const starts: number[] = [];
+  for (let m = marker.exec(text); m; m = marker.exec(text)) starts.push(m.index);
+
+  if (starts.length <= 1) return [text];
+
+  return starts
+    .map((start, i) => text.slice(start, starts[i + 1] ?? text.length).trim())
+    .filter(Boolean);
+}
+
+function one(text: string): Diagnostic {
+  const match = LOCATION.exec(text);
+  const message = summarise(text);
+
+  if (!match) return { severity: "error", message, raw: text };
+
+  return {
+    severity: "error",
+    message,
+    raw: text,
+    line: Number(match[1]),
+    column: Number(match[2]),
+  };
+}
+
 export function parseDiagnostics(raw: string): Diagnostic[] {
   const text = raw.trim();
   if (!text) return [];
 
-  const match = LOCATION.exec(text);
-  const message = summarise(text);
-
-  if (!match) {
-    return [{ severity: "error", message, raw: text }];
-  }
-
-  return [
-    {
-      severity: "error",
-      message,
-      raw: text,
-      line: Number(match[1]),
-      column: Number(match[2]),
-    },
-  ];
+  return split(text).map(one);
 }
 
 export function toCompileResult(raw: string): CompileResult {

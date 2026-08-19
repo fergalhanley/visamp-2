@@ -25,6 +25,10 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
         return Err("script expected".to_string());
     }
 
+    // Kept for the resolver: a `context` declaration is legal anywhere at the
+    // top level, so calls cannot be judged until the whole file has been read.
+    let for_resolution = pair.clone();
+
     let mut script: Script = Script::new();
     let mut context_seen = false;
     let mut render_seen = false;
@@ -43,12 +47,8 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
                     .next()
                     .ok_or("context is missing a value")?;
 
-                script.context = ContextKind::parse(kind_pair.as_str()).ok_or_else(|| {
-                    located_error(
-                        &kind_pair,
-                        "expected 2d, webgl, experimental-webgl, webgl2 or webgpu",
-                    )
-                })?;
+                script.context = ContextKind::parse(kind_pair.as_str())
+                    .ok_or_else(|| located_error(&kind_pair, "expected 2d or 3d"))?;
             }
             Rule::prop_def => {
                 script.props.push(build_prop_def(inner));
@@ -71,6 +71,8 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
             _ => {}
         }
     }
+    crate::resolver::resolve(for_resolution.into_inner(), script.context)?;
+
     Ok(script)
 }
 
@@ -389,6 +391,7 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
     let inner = pair.into_inner().next().expect("Expected a specific statement type");
     match inner.as_rule() {
         Rule::assignment => build_assignment(inner),
+        Rule::call_expr => Statement::Call(build_expression(inner)),
         Rule::incr_decr => build_incr_decr(inner),
         Rule::function_call => build_function_call(inner),
         Rule::let_decl => build_let_decl(inner),

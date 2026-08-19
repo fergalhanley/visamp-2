@@ -51,10 +51,7 @@ fn context_defaults_to_2d() {
 fn context_can_be_declared() {
     for (source, expected) in [
         ("context 2d", ContextKind::TwoD),
-        ("context webgl", ContextKind::WebGl),
-        ("context experimental-webgl", ContextKind::ExperimentalWebGl),
-        ("context webgl2", ContextKind::WebGl2),
-        ("context webgpu", ContextKind::WebGpu),
+        ("context 3d", ContextKind::ThreeD),
     ] {
         let script = format!("{source}\n{MINIMAL}");
         let parsed = build_ast(&script).unwrap_or_else(|e| panic!("{source} failed: {e}"));
@@ -62,31 +59,34 @@ fn context_can_be_declared() {
     }
 }
 
-/// `webgl` must not shadow `webgl2`, and `experimental-webgl` must not be
-/// swallowed by `webgl` — the grammar orders these longest-first.
+/// The backend names are gone entirely — they are not the author's choice any
+/// more, so they are rejected like any other unknown value.
 #[test]
-fn longer_context_names_are_not_shadowed() {
-    assert_eq!(
-        build_ast(&format!("context webgl2\n{MINIMAL}")).unwrap().context,
-        ContextKind::WebGl2
-    );
-    assert_eq!(
-        build_ast(&format!("context experimental-webgl\n{MINIMAL}"))
-            .unwrap()
-            .context,
-        ContextKind::ExperimentalWebGl
-    );
+fn retired_backend_names_are_rejected() {
+    for name in ["webgl", "webgl2", "experimental-webgl", "webgpu"] {
+        assert!(
+            build_ast(&format!("context {name}\n{MINIMAL}")).is_err(),
+            "context {name} should not parse"
+        );
+    }
+}
+
+/// `3dsomething` must not match as `3d` and leave a dangling tail.
+#[test]
+fn a_context_name_must_end_where_it_ends() {
+    assert!(build_ast(&format!("context 3dd\n{MINIMAL}")).is_err());
+    assert!(build_ast(&format!("context 2different\n{MINIMAL}")).is_err());
 }
 
 #[test]
 fn context_may_appear_after_other_top_level_items() {
-    let script = format!("prop a = 1.0\ncontext webgl2\n{MINIMAL}");
-    assert_eq!(build_ast(&script).unwrap().context, ContextKind::WebGl2);
+    let script = format!("prop a = 1.0\ncontext 3d\n{MINIMAL}");
+    assert_eq!(build_ast(&script).unwrap().context, ContextKind::ThreeD);
 }
 
 #[test]
 fn two_contexts_are_an_error() {
-    let err = build_ast(&format!("context 2d\ncontext webgl\n{MINIMAL}")).unwrap_err();
+    let err = build_ast(&format!("context 2d\ncontext 3d\n{MINIMAL}")).unwrap_err();
     assert!(err.contains("already set"), "unexpected message: {err}");
     assert!(err.contains("-->"), "error should carry a position: {err}");
 }
@@ -643,7 +643,7 @@ fn a_broken_colour_argument_is_reported_rather_than_read_as_zero() {
     // treated as 0.0, so a typo silently turned the channel black instead of
     // telling the author what was wrong.
     let err = expect_runtime_error(
-        "on_frame {\n  let c = color::rgb(red: missing, green: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
+        "on_frame {\n  let c = color::rgb(r: missing, g: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
     );
     assert!(err.contains("Undefined identifier: missing"), "unexpected: {err}");
 }
@@ -652,7 +652,7 @@ fn a_broken_colour_argument_is_reported_rather_than_read_as_zero() {
 fn an_omitted_colour_channel_still_defaults_to_zero() {
     // Leaving a channel out entirely stays legal — only a present-but-broken
     // argument is an error.
-    let source = "prop shade = 0.0\non_frame {\n  let c = color::rgb(red: 1.0, green: 1.0)\n  shade = 1.0\n}\nrender {\n  draw::clear()\n}\n";
+    let source = "prop shade = 0.0\non_frame {\n  let c = color::rgb(r: 1.0, g: 1.0)\n  shade = 1.0\n}\nrender {\n  draw::clear()\n}\n";
     assert_eq!(eval_prop(source, "shade"), Value::Float(1.0));
 }
 
@@ -894,4 +894,364 @@ fn bitwise_binds_more_loosely_than_equality() {
 
     let source = "prop flags = 4\nprop hit = false\non_frame {\n  hit = (flags & 4) == 4\n}\nrender {\n  draw::clear()\n}\n";
     assert_eq!(eval_prop(source, "hit"), Value::Boolean(true));
+}
+
+// ── 3D mode: resolver (spec §7, §8, §11) ──────────────────────────────────
+
+/// Spec §11 acceptance tests. Numbering follows the spec so the two stay
+/// readable side by side.
+const THREE_D_SHELL: &str = "\nrender {\n  draw::clear()\n}\n";
+
+fn resolve_err(source: &str) -> String {
+    build_ast(source).unwrap_err()
+}
+
+/// §11.9 — a 3d-only call under `context 2d`.
+#[test]
+fn three_d_calls_are_rejected_in_two_d_mode() {
+    for call in [
+        "camera::orbit()",
+        "camera::position(x: 1)",
+        "transform::push()",
+        "transform::rotate_y(deg: 1)",
+        "light::ambient()",
+        "gfx::depth(enabled: true)",
+        "gfx::overlay(enabled: true)",
+        "draw::cube()",
+        "draw::sphere()",
+        "draw::mesh(vertices: [[0.0, 0.0, 0.0]])",
+    ] {
+        let err = resolve_err(&format!("render {{\n  {call}\n}}\n"));
+        assert!(
+            err.contains("only available in 3d mode") && err.contains("context 3d"),
+            "for {call}: {err}"
+        );
+    }
+}
+
+/// §11.10 — a promoted argument used without the mode that grants it.
+#[test]
+fn promoted_arguments_are_rejected_in_two_d_mode() {
+    for arg in ["z: 1.0", "rot_x: 90.0", "rot_y: 90.0", "shading: \"lambert\"", "opacity: 0.5"] {
+        let err = resolve_err(&format!("render {{\n  draw::rect(x: 0.0, {arg})\n}}\n"));
+        assert!(
+            err.contains("requires `context 3d`"),
+            "for {arg}: {err}"
+        );
+    }
+}
+
+/// §11.11 — the same angle in two units.
+#[test]
+fn an_angle_given_in_both_units_is_rejected() {
+    let err = resolve_err("context 3d\nrender {\n  transform::rotate_y(deg: 1.0, rad: 1.0)\n}\n");
+    assert!(err.contains("specify deg or rad, not both"), "{err}");
+
+    let err = resolve_err("context 3d\nrender {\n  camera::perspective(fov_deg: 60.0, fov_rad: 1.0)\n}\n");
+    assert!(err.contains("specify fov_deg or fov_rad, not both"), "{err}");
+
+    let err = resolve_err("context 3d\nrender {\n  camera::orbit(yaw_deg: 60.0, yaw_rad: 1.0)\n}\n");
+    assert!(err.contains("specify yaw_deg or yaw_rad, not both"), "{err}");
+}
+
+/// §11.12 — an argument that does not exist on the primitive.
+#[test]
+fn an_unknown_argument_is_rejected_and_suggests_a_near_match() {
+    let err = resolve_err("context 3d\nrender {\n  draw::cube(radius: 1.0)\n}\n");
+    assert!(err.contains("draw::cube: unknown argument 'radius'"), "{err}");
+
+    // Close enough to be worth a suggestion.
+    let err = resolve_err("context 3d\nrender {\n  draw::sphere(radus: 1.0)\n}\n");
+    assert!(err.contains("did you mean 'radius'?"), "{err}");
+
+    // Far enough that guessing would be noise.
+    let err = resolve_err("context 3d\nrender {\n  draw::sphere(qqqqqqqq: 1.0)\n}\n");
+    assert!(!err.contains("did you mean"), "{err}");
+}
+
+#[test]
+fn an_unknown_builtin_is_rejected_and_suggests_a_near_match() {
+    let err = resolve_err("context 3d\nrender {\n  draw::cubee()\n}\n");
+    assert!(
+        err.contains("unknown builtin `draw::cubee`") && err.contains("did you mean `draw::cube`?"),
+        "{err}"
+    );
+}
+
+/// §11.13 — a required argument left out.
+#[test]
+fn a_missing_required_argument_is_rejected() {
+    let err = resolve_err("context 3d\nrender {\n  draw::mesh(indices: [0, 1, 2])\n}\n");
+    assert!(
+        err.contains("draw::mesh: missing required argument 'vertices'"),
+        "{err}"
+    );
+
+    // A call with no arguments at all still has to be located somewhere.
+    let err = resolve_err("context 3d\nrender {\n  draw::mesh()\n}\n");
+    assert!(err.contains("missing required argument 'vertices'"), "{err}");
+    assert!(err.contains("--> 3:3"), "should point at the call: {err}");
+}
+
+/// §11.14 — a 3d call inside a screen-space overlay bracket.
+#[test]
+fn three_d_calls_are_rejected_inside_an_overlay_bracket() {
+    let source = "context 3d\nrender {\n  gfx::overlay(enabled: true)\n  camera::position(x: 1.0)\n  gfx::overlay(enabled: false)\n}\n";
+    let err = resolve_err(source);
+    assert!(
+        err.contains("camera::position is not available inside gfx::overlay"),
+        "{err}"
+    );
+}
+
+#[test]
+fn two_d_drawing_stays_legal_inside_an_overlay_bracket() {
+    let source = "context 3d\nrender {\n  gfx::overlay(enabled: true)\n  draw::text(content: \"hi\", x: 0.0, y: 40.0)\n  draw::rect(x: 0.0, y: 0.0, w: 10.0, h: 10.0)\n  gfx::overlay(enabled: false)\n}\n";
+    assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
+}
+
+#[test]
+fn leaving_an_overlay_bracket_restores_world_space() {
+    let source = "context 3d\nrender {\n  gfx::overlay(enabled: true)\n  draw::text(content: \"hi\", x: 0.0, y: 0.0)\n  gfx::overlay(enabled: false)\n  draw::cube()\n}\n";
+    assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
+}
+
+/// Overlay is tracked as straight-line state. Inside a branch it cannot be
+/// known without running the script, so the resolver stops reporting rather
+/// than inventing an error for a script that may be perfectly fine.
+#[test]
+fn a_conditional_overlay_is_not_guessed_at() {
+    let source = "context 3d\nprop on = true\nrender {\n  if on {\n    gfx::overlay(enabled: true)\n  }\n  draw::cube()\n}\n";
+    assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
+}
+
+// ── 3D mode: what must be accepted ────────────────────────────────────────
+
+#[test]
+fn every_three_d_primitive_parses_with_no_arguments() {
+    // §11.2 — each must be legal bare; whether it *renders* is the runtime's
+    // job, but nothing here may require an argument except draw::mesh.
+    for name in ["cube", "sphere", "plane", "cylinder", "cone", "torus", "sprite"] {
+        let source = format!("context 3d\nrender {{\n  draw::{name}()\n}}\n");
+        assert!(build_ast(&source).is_ok(), "draw::{name}: {}", resolve_err(&source));
+    }
+}
+
+#[test]
+fn the_full_builtin_surface_resolves() {
+    let calls = [
+        "camera::perspective(fov_deg: 55.0, near: 0.1, far: 200.0)",
+        "camera::orthographic(height: 10.0)",
+        "camera::position(x: 0.0, y: 0.0, z: 10.0)",
+        "camera::look_at(x: 0.0, y: 0.0, z: 0.0)",
+        "camera::direction(x: 0.0, y: 0.0, z: -1.0)",
+        "camera::up(x: 0.0, y: 1.0, z: 0.0)",
+        "camera::orbit(target_x: 0.0, distance: 10.0, yaw_deg: 20.0, pitch_deg: 15.0)",
+        "transform::push()",
+        "transform::pop()",
+        "transform::identity()",
+        "transform::translate(x: 1.0, y: 2.0, z: 3.0)",
+        "transform::rotate_x(rad: 1.0)",
+        "transform::scale(all: 2.0)",
+        "light::ambient(color: $COLOR_WHITE)",
+        "light::directional(x: -1.0, y: -2.0, z: -1.0, intensity: 0.8)",
+        "light::point(x: 0.0, y: 1.0, z: 0.0, range: 50.0)",
+        "gfx::depth(enabled: true, write: false)",
+        "gfx::blend(mode: \"additive\")",
+        "gfx::cull(mode: \"back\")",
+        "gfx::clear(color: $COLOR_BLACK)",
+        "draw::cube(size: 2.0)",
+        "draw::cube(w: 0.3, h: 1.0, d: 0.3)",
+        "draw::torus(radius: 0.5, tube: 0.15, segments: 32, tube_segments: 16)",
+        "draw::mesh(vertices: [[0.0, 0.0, 0.0]], indices: [0], normals: [[0.0, 1.0, 0.0]], uvs: [[0.0, 0.0]])",
+        "draw::line(x1: 0.0, y1: 0.0, z1: 0.0, x2: 1.0, y2: 1.0, z2: 1.0, stroke_weight: 0.1)",
+        "draw::rect(x: 0.0, y: 0.0, w: 2.0, h: 1.0, z: 1.0, rot_x: 90.0, shading: \"unlit\", opacity: 0.5)",
+    ];
+
+    for call in calls {
+        let source = format!("context 3d\nrender {{\n  {call}\n}}\n");
+        assert!(build_ast(&source).is_ok(), "{call}: {}", resolve_err(&source));
+    }
+}
+
+/// §11.4 — an existing 2D script keeps compiling with `context 3d` prepended.
+#[test]
+fn a_two_d_script_still_compiles_under_three_d() {
+    let source = format!("context 3d{}", SHELL);
+    assert!(build_ast(&source).is_ok(), "{}", resolve_err(&source));
+}
+
+/// §11.5 — deep nesting is a grammar/resolver non-issue; depth is a runtime
+/// limit. This only checks the resolver does not object.
+#[test]
+fn deeply_nested_push_and_pop_resolve() {
+    let mut source = String::from("context 3d\nrender {\n");
+    for _ in 0..64 {
+        source.push_str("  transform::push()\n");
+    }
+    for _ in 0..64 {
+        source.push_str("  transform::pop()\n");
+    }
+    source.push_str("}\n");
+    assert!(build_ast(&source).is_ok(), "{}", resolve_err(&source));
+}
+
+/// §11.3 — the reference script, using this engine's actual system values and
+/// colour argument names.
+#[test]
+fn the_reference_script_compiles() {
+    let source = r#"
+context 3d
+
+prop bar_count = 128
+
+render {
+    gfx::clear(color: color::rgb(r: 0.03, g: 0.03, b: 0.05))
+    gfx::blend(mode: "additive")
+    gfx::depth(enabled: true, write: false)
+
+    camera::orbit(
+        distance: 14.0,
+        yaw_deg: $TIME_SEC * 12.0,
+        pitch_deg: 25.0,
+    )
+    camera::perspective(fov_deg: 55.0, near: 0.1, far: 200.0)
+
+    light::ambient(color: color::rgb(r: 0.06, g: 0.06, b: 0.09))
+    light::directional(x: -1.0, y: -2.0, z: -1.0, intensity: 0.8)
+
+    for i in 0..bar_count {
+        transform::push()
+        transform::rotate_y(deg: i / bar_count * 360.0)
+
+        draw::cube(
+            x: 6.0,
+            y: $FREQUENCY_DATA[i] / 255.0 * 3.0,
+            z: 0.0,
+            w: 0.3,
+            h: $FREQUENCY_DATA[i] / 255.0 * 6.0 + 0.1,
+            d: 0.3,
+            color: color::hsl(h: i / bar_count, s: 0.9, l: 0.5),
+            shading: "lambert",
+        )
+
+        transform::pop()
+    }
+
+    gfx::overlay(enabled: true)
+    draw::text(x: 0.0, y: 40.0, content: "spectrum city")
+    gfx::overlay(enabled: false)
+}
+"#;
+    assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
+}
+
+// ── colour and maths arguments ────────────────────────────────────────────
+
+#[test]
+fn colour_constructors_use_short_channel_names() {
+    let source = "prop c = 0.0\non_frame {\n  let x = color::rgb(r: 1.0, g: 0.5, b: 0.0)\n  let y = color::hsl(h: 0.5, s: 0.8, l: 0.5)\n  c = 1.0\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "c"), Value::Float(1.0));
+}
+
+#[test]
+fn transparency_keeps_its_whole_word() {
+    let source = "prop c = 0.0\non_frame {\n  let x = color::rgb(r: 1.0, transparent: 0.25)\n  c = 1.0\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "c"), Value::Float(1.0));
+}
+
+/// A misspelled channel used to default to 0.0, so the shape simply came out
+/// darker than intended with nothing said about it.
+#[test]
+fn a_misspelled_colour_argument_is_reported() {
+    let err = build_ast("render {\n  draw::clear()\n  draw::background(color: color::rgb(red: 1.0))\n}\n")
+        .unwrap_err();
+    assert!(
+        err.contains("color::rgb: unknown argument 'red'") && err.contains("it is 'r' now"),
+        "{err}"
+    );
+
+    let err = build_ast("render {\n  draw::background(color: color::hsl(hue: 1.0))\n}\n").unwrap_err();
+    assert!(err.contains("color::hsl: unknown argument 'hue'"), "{err}");
+}
+
+/// Same trap, same fix: `math::sin(radian: x)` silently returned sin(0).
+#[test]
+fn a_misspelled_maths_argument_is_reported() {
+    let err = build_ast("prop a = 0.0\non_frame {\n  a = math::sin(radian: 1.0)\n}\nrender {\n  draw::clear()\n}\n")
+        .unwrap_err();
+    assert!(
+        err.contains("math::sin: unknown argument 'radian'") && err.contains("did you mean 'radians'?"),
+        "{err}"
+    );
+}
+
+#[test]
+fn correct_maths_arguments_still_resolve() {
+    for call in [
+        "math::sin(radians: 1.0)",
+        "math::atan2(x: 1.0, y: 2.0)",
+        "math::pow(base: 2.0, exp: 8.0)",
+        "math::clamp(value: 5.0, min: 0.0, max: 1.0)",
+        "math::min(a: 1.0, b: 2.0)",
+    ] {
+        let source = format!("prop a = 0.0\non_frame {{\n  a = {call}\n}}\nrender {{\n  draw::clear()\n}}\n");
+        assert!(build_ast(&source).is_ok(), "{call}: {:?}", build_ast(&source).err());
+    }
+}
+
+/// `atan` used to shadow `atan2` in the grammar's ordered alternation, so
+/// `math::atan2` never parsed. Locked so the ordering cannot drift back.
+#[test]
+fn atan2_is_not_shadowed_by_atan() {
+    let source = "prop a = 0.0\non_frame {\n  a = math::atan2(y: 1.0, x: 1.0)\n}\nrender {\n  draw::clear()\n}\n";
+    let value = eval_prop(source, "a");
+    match value {
+        Value::Float(f) => assert!((f - std::f64::consts::FRAC_PI_4).abs() < 1e-9, "got {f}"),
+        other => panic!("expected a float, got {other:?}"),
+    }
+}
+
+#[test]
+fn maths_names_end_where_they_end() {
+    // The trailing guard means a longer identifier cannot match a shorter name.
+    assert!(build_ast("prop a = 0.0\non_frame {\n  a = math::sinh(radians: 1.0)\n}\nrender {\n  draw::clear()\n}\n").is_err());
+}
+
+/// Calling your own function as a statement never parsed — `fn` was only
+/// reachable through `let x = f(...)`, which meant a drawing helper, the main
+/// thing `fn` is for, could not be called at all.
+#[test]
+fn a_user_function_can_be_called_as_a_statement() {
+    let source = "fn bump(by: 1.0) {\n  return by\n}\n\nprop total = 0.0\non_frame {\n  bump(by: 2.0)\n  total = 1.0\n}\nrender {\n  draw::clear()\n}\n";
+    assert!(build_ast(source).is_ok(), "{:?}", build_ast(source).err());
+    assert_eq!(eval_prop(source, "total"), Value::Float(1.0));
+}
+
+#[test]
+fn a_statement_call_still_resolves_defaults() {
+    let source = "fn f(a: 5.0) {\n  return a\n}\n\nprop out = 0.0\non_frame {\n  f()\n  out = 1.0\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "out"), Value::Float(1.0));
+}
+
+#[test]
+fn a_builtin_call_is_still_matched_before_a_user_call() {
+    // `draw::circle(...)` must stay a builtin, not be read as a user function
+    // named `draw`.
+    let source = "render {\n  draw::circle(x: 1.0, y: 1.0, radius: 1.0)\n}\n";
+    let script = build_ast(source).unwrap();
+    let block = &script.blocks[0];
+    assert!(
+        matches!(block.statements[0], visamp_2::model::Statement::FunctionCall(_)),
+        "expected a builtin call, got {:?}",
+        block.statements[0]
+    );
+}
+
+#[test]
+fn calling_an_undefined_function_is_an_error() {
+    let err = expect_runtime_error(
+        "on_frame {\n  nope(a: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
+    );
+    assert!(err.contains("Undefined function: nope"), "{err}");
 }

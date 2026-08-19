@@ -201,8 +201,8 @@ Use parentheses to control precedence:
 ## Color Constructors
 
 ```
-color::rgb(red: 1.0, green: 0.5, blue: 0.0)
-color::hsl(hue: 0.5, saturation: 0.8, lightness: 0.5)
+color::rgb(r: 1.0, g: 0.5, b: 0.0)
+color::hsl(h: 0.5, s: 0.8, l: 0.5)
 ```
 
 See [Color Constructors](../drawing/color-constructors.md) for details.

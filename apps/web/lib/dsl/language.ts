@@ -10,9 +10,14 @@ import { tags as t } from "@lezer/highlight";
 /** Line comment to end of line. Checked first, or `/` would match as an operator. */
 const COMMENT = /^\/\/.*/;
 const KEYWORDS = /^(prop|fn|let|if|else|for|in|while|return|context|step)\b/;
-const NAMESPACES = /^(draw|math|color)::[A-Za-z0-9_]+/;
-/** Longest-first, matching the grammar, so `webgl` can't shadow `webgl2`. */
-const CONTEXT_KIND = /^(experimental-webgl|webgl2|webgl|webgpu|2d)\b/;
+const NAMESPACES = /^(draw|math|color|camera|transform|light|gfx)::[A-Za-z0-9_]+/;
+/**
+ * The author's choice is the coordinate model; which backend 3d runs on is the
+ * engine's business. The retired backend names are still matched so they get
+ * the error colour rather than reading as an ordinary identifier.
+ */
+const CONTEXT_KIND = /^(3d|2d)\b/;
+const RETIRED_CONTEXT_KIND = /^(experimental-webgl|webgl2|webgl|webgpu)\b/;
 const BLOCK_NAME = /^(on_[A-Za-z0-9]+|render\b)/;
 const SYSTEM_VALUE = /^\$[A-Za-z0-9_]+/;
 const FLOAT = /^-?\d+\.\d+/;
@@ -58,6 +63,7 @@ export const visampLanguage = StreamLanguage.define({
     // Only meaningful straight after `context`, but the kinds are reserved
     // enough that always colouring them reads fine.
     if (stream.match(CONTEXT_KIND)) return "atom";
+    if (stream.match(RETIRED_CONTEXT_KIND)) return "invalid";
     if (stream.match(BOOLEAN)) return "atom";
     if (stream.match(FLOAT) || stream.match(INTEGER)) return "number";
     if (stream.match(STRING)) return "string";
@@ -125,6 +131,7 @@ const palette = {
   variable: "#e0e0ff",
   operator: "#89ddff",
   comment: "#5c6370",
+  invalid: "#ff5370",
 };
 
 export const visampHighlightStyle = HighlightStyle.define([
@@ -138,6 +145,7 @@ export const visampHighlightStyle = HighlightStyle.define([
   { tag: t.variableName, color: palette.variable },
   { tag: t.operator, color: palette.operator },
   { tag: t.comment, color: palette.comment, fontStyle: "italic" },
+  { tag: t.invalid, color: palette.invalid, textDecoration: "underline wavy" },
 ]);
 
 export const visampSyntax = [

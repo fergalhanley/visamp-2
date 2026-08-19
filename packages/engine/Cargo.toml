@@ -39,6 +39,12 @@ features = [
   "Performance",
   "DomRect",
   "Blob",
+  "WebGl2RenderingContext",
+  "WebGlProgram",
+  "WebGlShader",
+  "WebGlBuffer",
+  "WebGlVertexArrayObject",
+  "WebGlUniformLocation",
 ]
 
 [dev-dependencies]

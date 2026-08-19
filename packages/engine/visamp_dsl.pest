@@ -17,12 +17,14 @@ string      = @{ "\"" ~ ( "\\\"" | !"\"" ~ ANY )* ~ "\"" }
 
 script = { SOI ~ (context_decl | prop_def | function_def | block)* ~ EOI }
 
-// Selects the canvas rendering context. Legal anywhere at the top level;
-// omitting it means 2d. Declaring it twice is rejected by the AST builder.
+// Selects the coordinate model. Legal anywhere at the top level; omitting it
+// means 2d. Declaring it twice is rejected by the AST builder.
+//
+// Which backend 3d runs on — WebGL2 today — is the engine's business, not the
+// author's, so there is nothing else to name here.
 context_decl = { "context" ~ context_kind }
-// Longest-first: "webgl" would otherwise shadow "webgl2", and
-// "experimental-webgl" would never match.
-context_kind = { "experimental-webgl" | "webgl2" | "webgl" | "webgpu" | "2d" }
+// Atomic with a trailing guard so `3dxyz` cannot match as `3d`.
+context_kind = @{ ("3d" | "2d") ~ !(ASCII_ALPHANUMERIC | "_" | "-") }
 
 // Atomic on purpose. In a normal rule pest inserts implicit WHITESPACE between
 // sequence elements, so `on_` followed by a newline and the next block would
@@ -37,7 +39,12 @@ function_def = { "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ "{" ~ statement* 
 param_list = { param ~ ("," ~ param)* ~ ","? }
 param = { identifier ~ ":" ~ expression }
 
-statement = { function_call | incr_decr | assignment | let_decl | if_statement | for_loop | while_loop | return_statement }
+// `call_expr` is a user-defined function called for its effect rather than its
+// value. Without it here, `fn` was only reachable through `let x = f(...)` —
+// a drawing helper, which is what `fn` is mostly for, could not be called at
+// all. It sits after `function_call` so `draw::circle(...)` is still matched as
+// a builtin.
+statement = { function_call | call_expr | incr_decr | assignment | let_decl | if_statement | for_loop | while_loop | return_statement }
 
 // `x++` / `++x`. Both spellings are accepted and mean the same thing: as a
 // statement there is no surrounding expression for the pre/post distinction to
@@ -140,13 +147,18 @@ index = { "[" ~ expression ~ "]" }
 primary_expr = _{ math_expr | color_expr | call_expr | value | "(" ~ expression ~ ")" }
 
 math_expr = { "math::" ~ math_func ~ "(" ~ math_args? ~ ")" }
-math_func = { 
-    "sin" | "cos" | "tan" | 
-    "asin" | "acos" | "atan" | "atan2" |
-    "sqrt" | "cbrt" | "abs" |
-    "floor" | "ceil" | "round" | "trunc" |
-    "pow" | "exp" | "ln" | "log2" | "log10" |
-    "min" | "max" | "clamp"
+// Longest-first, and atomic with a trailing guard. Ordered alternation means a
+// shorter name listed earlier wins outright: `atan` used to match the start of
+// `atan2` and leave the `2` dangling, so `math::atan2` never parsed at all.
+math_func = @{
+    (
+        "atan2" | "asin" | "acos" | "atan" |
+        "sin" | "cos" | "tan" |
+        "sqrt" | "cbrt" | "abs" |
+        "floor" | "ceil" | "round" | "trunc" |
+        "pow" | "exp" | "log10" | "log2" | "ln" |
+        "min" | "max" | "clamp"
+    ) ~ !(ASCII_ALPHANUMERIC | "_")
 }
 math_args = { math_arg ~ ("," ~ math_arg)* ~ ","? }
 math_arg = { identifier ~ ":" ~ expression }

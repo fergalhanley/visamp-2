@@ -59,7 +59,7 @@ render {
       x: 400.0,
       y: 300.0,
       radius: i * 25.0,
-      color: color::hsl(hue: i * 0.1, saturation: 0.8, lightness: 0.5),
+      color: color::hsl(h: i * 0.1, s: 0.8, l: 0.5),
       stroke: true,
       stroke_weight: 2.0
     )
@@ -76,7 +76,7 @@ fn cell(cx, cy, size, hue) {
     y: cy - size / 2.0,
     width: size - 4.0,
     height: size - 4.0,
-    color: color::hsl(hue: hue, saturation: 0.7, lightness: 0.5),
+    color: color::hsl(h: hue, s: 0.7, l: 0.5),
     rotate: hue * 3.14
   )
 }
@@ -111,7 +111,7 @@ render {
     x: trail_x,
     y: trail_y,
     radius: 25.0,
-    color: color::hsl(hue: $TIME_SEC * 0.2, saturation: 1.0, lightness: 0.6)
+    color: color::hsl(h: $TIME_SEC * 0.2, s: 1.0, l: 0.6)
   )
 }
 ```

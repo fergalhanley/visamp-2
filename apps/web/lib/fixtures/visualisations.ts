@@ -203,7 +203,7 @@ render {
       x: $MOUSE_X + math::cos(radians: t * 2.0 + i) * i * 26.0,
       y: $MOUSE_Y + math::sin(radians: t * 2.0 + i) * i * 26.0,
       radius: 22.0 - i * 3.0,
-      color: color::hsl(hue: i / 5.0, saturation: 0.7, lightness: 0.55)
+      color: color::hsl(h: i / 5.0, s: 0.7, l: 0.55)
     )
   }
 }

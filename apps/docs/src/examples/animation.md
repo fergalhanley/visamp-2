@@ -57,7 +57,7 @@ render {
 ```
 render {
   draw::background(
-    color: color::hsl(hue: $TIME_SEC * 0.05, saturation: 0.6, lightness: 0.3)
+    color: color::hsl(h: $TIME_SEC * 0.05, s: 0.6, l: 0.3)
   )
 
   draw::text(
@@ -120,7 +120,7 @@ render {
     x: 400.0,
     y: 300.0,
     radius: radius,
-    color: color::rgb(red: 0.0, green: 1.0, blue: 0.5, transparent: alpha),
+    color: color::rgb(r: 0.0, g: 1.0, b: 0.5, transparent: alpha),
     stroke: true,
     stroke_weight: 3.0
   )
@@ -142,7 +142,7 @@ render {
       x: x,
       y: y,
       radius: 15.0,
-      color: color::hsl(hue: hue, saturation: 0.9, lightness: 0.5)
+      color: color::hsl(h: hue, s: 0.9, l: 0.5)
     )
   }
 }
@@ -172,7 +172,7 @@ render {
       x: 400.0 + sin($TIME_SEC + i) * 100.0,
       y: 300.0 + cos($TIME_SEC + i) * 100.0,
       radius: 20.0,
-      color: color::hsl(hue: hue, saturation: 0.8, lightness: 0.6)
+      color: color::hsl(h: hue, s: 0.8, l: 0.6)
     )
   }
 }

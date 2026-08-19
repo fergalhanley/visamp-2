@@ -21,10 +21,19 @@ import type {
 } from "./types";
 
 /**
- * The crate looks this element up by id (`lib.rs`: `get_element_by_id("canvas")`),
- * so it is not configurable until the engine takes a canvas handle instead.
+ * The crate looks this element up by id (`lib.rs`: `HOST_ID`), so it is not
+ * configurable until the engine takes an element handle instead.
  */
-const CANVAS_ID = "canvas";
+/**
+ * The element the engine draws inside.
+ *
+ * The engine creates the canvas itself rather than using one React rendered.
+ * A canvas keeps whichever context it was first given for its whole life, so
+ * switching a script between `context 2d` and `context 3d` means replacing the
+ * element — and swapping out a node React owns would break React's own
+ * cleanup on unmount.
+ */
+const HOST_ID = "visamp-stage";
 
 /** How often to drain the engine's last-error slot, in ms. */
 const ERROR_POLL_MS = 500;
@@ -71,7 +80,7 @@ export interface VisampCanvasProps {
  * React wrapper over the current WASM module.
  *
  * The module is a process-wide singleton: `main_web()` is a
- * `#[wasm_bindgen(start)]` function that runs on import, finds `#canvas`, and
+ * `#[wasm_bindgen(start)]` function that runs on import, finds the stage, and
  * parks its state in a `thread_local!`. That means **exactly one of these may
  * exist per page load**, which is why it belongs in the root layout and not in
  * a route segment.
@@ -110,7 +119,7 @@ export function VisampCanvas({
       if (mountedOnce && !bootedRef.current) {
         console.warn(
           "[visamp] A second <VisampCanvas> mounted. The WASM module is a " +
-            "singleton bound to #canvas; the newer instance will not render.",
+            "singleton bound to the stage; the newer instance will not render.",
         );
       }
       mountedOnce = true;
@@ -150,10 +159,13 @@ export function VisampCanvas({
     if (!ready || !engine) return;
 
     let result: CompileResult;
+    let rawError = "";
 
     try {
-      result = toCompileResult(engine.load_script(source));
+      rawError = engine.load_script(source);
+      result = toCompileResult(rawError);
     } catch (error) {
+      rawError = String(error);
       // A panic inside the wasm module surfaces here as a thrown exception.
       // Left uncaught it escapes through React and takes the whole editor down
       // with an error overlay — over a half-typed keyword. Report it as a
@@ -176,7 +188,12 @@ export function VisampCanvas({
 
     // The engine also parks failures in its last-error slot, so remember what
     // we just reported and let the poller skip it rather than logging twice.
-    reportedErrorRef.current = result.ok ? "" : (result.diagnostics[0]?.raw ?? "");
+    //
+    // The whole string, not the first diagnostic: a compile can now turn up
+    // several problems at once, and the engine parks all of them together.
+    // Comparing against one of them would never match, and every error would
+    // be logged twice.
+    reportedErrorRef.current = result.ok ? "" : rawError;
     onCompileResultRef.current?.(result);
   }, [ready, source]);
 
@@ -239,5 +256,5 @@ export function VisampCanvas({
 
   useImperativeHandle(ref, () => ({ captureFrame }), [captureFrame]);
 
-  return <canvas id={CANVAS_ID} className={className} />;
+  return <div id={HOST_ID} className={className} />;
 }

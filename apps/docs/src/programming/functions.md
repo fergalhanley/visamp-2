@@ -27,7 +27,7 @@ fn getOne() {
 }
 
 fn randomColor() {
-  return color::hsl(hue: $TIME_SEC * 0.1, saturation: 0.8, lightness: 0.5)
+  return color::hsl(h: $TIME_SEC * 0.1, s: 0.8, l: 0.5)
 }
 
 render {

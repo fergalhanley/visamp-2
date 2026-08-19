@@ -1,5 +1,9 @@
 use web_sys::CanvasRenderingContext2d;
 
+use std::cell::RefCell;
+
+use crate::math3::Mat4;
+use crate::scene::*;
 use crate::model::*;
 use crate::utils::start_time_ms;
 
@@ -99,11 +103,40 @@ fn range_count(start: i64, end: i64, inclusive: bool, step: i64) -> InterpResult
     Ok(count)
 }
 
+/// Where a `render` block's drawing goes.
+///
+/// `Copy`, so it threads through the recursive interpreter without the
+/// reborrowing a `&mut Scene` would demand at every call. The scene sits behind
+/// a `RefCell` for the same reason — the engine is single-threaded and already
+/// built this way.
+#[derive(Clone, Copy, Default)]
+pub struct Target<'a> {
+    /// Present in 2d mode.
+    pub ctx: Option<&'a CanvasRenderingContext2d>,
+    /// Present in 3d mode.
+    pub scene: Option<&'a RefCell<Scene>>,
+}
+
+impl<'a> Target<'a> {
+    pub fn canvas(ctx: &'a CanvasRenderingContext2d) -> Self {
+        Target { ctx: Some(ctx), scene: None }
+    }
+
+    pub fn scene(scene: &'a RefCell<Scene>) -> Self {
+        Target { ctx: None, scene: Some(scene) }
+    }
+
+    /// A block that draws nothing, such as `on_frame`.
+    pub fn none() -> Self {
+        Target::default()
+    }
+}
+
 pub fn interpret_event_block(block: &Block, decels: &mut Declarations, runtime: &Runtime, functions: &[FunctionDef]) -> InterpResult<()> {
     decels.push_scope();
     let result = (|| {
         for statement in block.statements.iter() {
-            interpret_statement(statement, decels, runtime, None, functions)?;
+            interpret_statement(statement, decels, runtime, Target::none(), functions)?;
         }
         Ok(())
     })();
@@ -114,7 +147,7 @@ pub fn interpret_event_block(block: &Block, decels: &mut Declarations, runtime: 
 pub fn interpret_render_block(
     block: &Block,
     decels: &mut Declarations,
-    ctx: &CanvasRenderingContext2d,
+    target: Target<'_>,
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
@@ -122,7 +155,7 @@ pub fn interpret_render_block(
     let result = (|| {
         let statements = block.statements.iter().cloned().collect::<Vec<_>>();
         for statement in statements {
-            interpret_statement(&statement, decels, runtime, Some(ctx), functions)?;
+            interpret_statement(&statement, decels, runtime, target, functions)?;
         }
         Ok(())
     })();
@@ -142,7 +175,7 @@ fn run_scoped_body(
     binding: Option<(&str, Value)>,
     decels: &mut Declarations,
     runtime: &Runtime,
-    ctx: Option<&CanvasRenderingContext2d>,
+    target: Target<'_>,
     functions: &[FunctionDef],
 ) -> InterpResult<Option<Value>> {
     decels.push_scope();
@@ -151,7 +184,7 @@ fn run_scoped_body(
     }
     let mut result = Ok(None);
     for stmt in body {
-        match interpret_statement(stmt, decels, runtime, ctx, functions) {
+        match interpret_statement(stmt, decels, runtime, target, functions) {
             Ok(None) => {}
             other => {
                 result = other;
@@ -167,7 +200,7 @@ fn interpret_statement(
     statement: &Statement,
     decels: &mut Declarations,
     runtime: &Runtime,
-    ctx: Option<&CanvasRenderingContext2d>,
+    target: Target<'_>,
     functions: &[FunctionDef],
 ) -> InterpResult<Option<Value>> {
     match statement {
@@ -187,10 +220,48 @@ fn interpret_statement(
             decels.set(&assignment.ident, evaluated);
             Ok(None)
         }
-        Statement::FunctionCall(function_call) => {
-            if let Some(ctx) = ctx {
-                interpret_statement_function_call(function_call, decels, ctx, runtime, functions)?;
+        // A user-defined function called for effect. Deliberately not routed
+        // through `evaluate_expression`: that path has no canvas to hand, so a
+        // `draw::` inside the body would be silently skipped and a drawing
+        // helper would do nothing at all. Running it here keeps the context.
+        Statement::Call(expression) => {
+            let Expression::Call { name, args } = expression else {
+                return Err("expected a function call".to_string());
+            };
+
+            let func = functions
+                .iter()
+                .find(|f| f.name == *name)
+                .ok_or_else(|| format!("Undefined function: {name}"))?
+                .clone();
+
+            let mut func_decels = Declarations::new();
+            func_decels.push_scope();
+
+            for param in &func.params {
+                // Arguments are evaluated in the *caller's* scope, defaults in
+                // the callee's — the usual rule, and the reason defaults can
+                // reference nothing but constants here.
+                let provided = args.iter().find(|(n, _)| n == &param.name);
+                let value = match provided {
+                    Some((_, expr)) => evaluate_expression(expr, decels, runtime, functions)?,
+                    None => evaluate_expression(&param.default, decels, runtime, functions)?,
+                };
+                func_decels.declare(param.name.clone(), value);
             }
+
+            for stmt in &func.body {
+                if interpret_statement(stmt, &mut func_decels, runtime, target, functions)?.is_some() {
+                    // A `return` inside a statement call just ends the call;
+                    // there is nowhere for the value to go.
+                    break;
+                }
+            }
+
+            Ok(None)
+        }
+        Statement::FunctionCall(function_call) => {
+            interpret_statement_function_call(function_call, decels, target, runtime, functions)?;
             Ok(None)
         }
         Statement::If(if_stmt) => {
@@ -201,13 +272,13 @@ fn interpret_statement(
             };
             if is_true {
                 if let Some(val) =
-                    run_scoped_body(&if_stmt.then_body, None, decels, runtime, ctx, functions)?
+                    run_scoped_body(&if_stmt.then_body, None, decels, runtime, target, functions)?
                 {
                     return Ok(Some(val));
                 }
             } else if let Some(else_body) = &if_stmt.else_body {
                 if let Some(val) =
-                    run_scoped_body(else_body, None, decels, runtime, ctx, functions)?
+                    run_scoped_body(else_body, None, decels, runtime, target, functions)?
                 {
                     return Ok(Some(val));
                 }
@@ -250,7 +321,7 @@ fn interpret_statement(
                             Some((&for_loop.variable, item)),
                             decels,
                             runtime,
-                            ctx,
+                            target,
                             functions,
                         )? {
                             return Ok(Some(val));
@@ -266,7 +337,7 @@ fn interpret_statement(
                     Some((&for_loop.variable, Value::Integer(current))),
                     decels,
                     runtime,
-                    ctx,
+                    target,
                     functions,
                 )? {
                     return Ok(Some(val));
@@ -287,7 +358,7 @@ fn interpret_statement(
                     break;
                 }
                 if let Some(val) =
-                    run_scoped_body(&while_loop.body, None, decels, runtime, ctx, functions)?
+                    run_scoped_body(&while_loop.body, None, decels, runtime, target, functions)?
                 {
                     return Ok(Some(val));
                 }
@@ -302,14 +373,424 @@ fn interpret_statement(
     }
 }
 
+/// Routes a builtin call into the scene under `context 3d`.
+///
+/// Nothing here touches WebGL: camera, transform and light calls mutate scene
+/// state, and `draw::` calls append to the command buffer. The renderer reads
+/// that buffer afterwards, which is what lets consecutive draws coalesce.
+fn interpret_scene_call(
+    call: &FunctionCall,
+    decels: &mut Declarations,
+    scene: &RefCell<Scene>,
+    runtime: &Runtime,
+    functions: &[FunctionDef],
+) -> InterpResult<()> {
+    let mut args = ArgReader::new(call, decels, runtime, functions);
+
+    match call.namespace.as_str() {
+        "camera" => {
+            let mut scene = scene.borrow_mut();
+            let camera = &mut scene.camera;
+
+            match call.function.as_str() {
+                "perspective" => {
+                    let fov = args.angle("fov_deg", "fov_rad")?.unwrap_or(60.0f32.to_radians());
+                    camera.projection = Projection::Perspective {
+                        fov_rad: fov,
+                        near: args.number("near")?.unwrap_or(0.1),
+                        far: args.number("far")?.unwrap_or(500.0),
+                    };
+                }
+                "orthographic" => {
+                    camera.projection = Projection::Orthographic {
+                        height: args.number("height")?.unwrap_or(10.0),
+                        near: args.number("near")?.unwrap_or(0.1),
+                        far: args.number("far")?.unwrap_or(500.0),
+                    };
+                }
+                "position" => camera.position = args.vec3(0.0, 0.0, 10.0)?,
+                "look_at" => camera.aim = Aim::Target(args.vec3(0.0, 0.0, 0.0)?),
+                "direction" => camera.aim = Aim::Direction(args.vec3(0.0, 0.0, -1.0)?),
+                "up" => camera.up = args.vec3(0.0, 1.0, 0.0)?,
+                "orbit" => {
+                    let target = [
+                        args.number("target_x")?.unwrap_or(0.0),
+                        args.number("target_y")?.unwrap_or(0.0),
+                        args.number("target_z")?.unwrap_or(0.0),
+                    ];
+                    let distance = args.number("distance")?.unwrap_or(10.0);
+                    let yaw = args.angle("yaw_deg", "yaw_rad")?.unwrap_or(0.0);
+                    let pitch = args.angle("pitch_deg", "pitch_rad")?.unwrap_or(0.0);
+                    camera.orbit(target, distance, yaw, pitch);
+                }
+                other => return Err(format!("Unknown camera call: {other}")),
+            }
+        }
+
+        "transform" => {
+            let matrix = match call.function.as_str() {
+                "push" => return scene.borrow_mut().push(),
+                "pop" => return scene.borrow_mut().pop(),
+                "identity" => {
+                    scene.borrow_mut().identity();
+                    return Ok(());
+                }
+                "translate" => {
+                    let v = args.vec3(0.0, 0.0, 0.0)?;
+                    Mat4::translation(v[0], v[1], v[2])
+                }
+                "rotate_x" => Mat4::rotation_x(args.angle("deg", "rad")?.unwrap_or(0.0)),
+                "rotate_y" => Mat4::rotation_y(args.angle("deg", "rad")?.unwrap_or(0.0)),
+                "rotate_z" => Mat4::rotation_z(args.angle("deg", "rad")?.unwrap_or(0.0)),
+                "scale" => {
+                    // `all` is uniform shorthand and wins over the axes.
+                    match args.number("all")? {
+                        Some(all) => Mat4::scaling(all, all, all),
+                        None => {
+                            let v = args.vec3(1.0, 1.0, 1.0)?;
+                            Mat4::scaling(v[0], v[1], v[2])
+                        }
+                    }
+                }
+                other => return Err(format!("Unknown transform call: {other}")),
+            };
+
+            scene.borrow_mut().apply(matrix);
+        }
+
+        "light" => {
+            let color = args.color("color")?.unwrap_or(WHITE);
+            let intensity = args.number("intensity")?.unwrap_or(1.0);
+            let mut scene = scene.borrow_mut();
+
+            match call.function.as_str() {
+                "ambient" => scene.lights.ambient = Some(args.color("color")?.unwrap_or(BLACK)),
+                "directional" => scene.add_directional(DirectionalLight {
+                    direction: args.vec3(0.0, -1.0, 0.0)?,
+                    color,
+                    intensity,
+                }),
+                "point" => scene.add_point(PointLight {
+                    position: args.vec3(0.0, 0.0, 0.0)?,
+                    color,
+                    intensity,
+                    range: args.number("range")?.unwrap_or(50.0),
+                }),
+                other => return Err(format!("Unknown light call: {other}")),
+            }
+        }
+
+        "gfx" => {
+            let mut scene = scene.borrow_mut();
+            match call.function.as_str() {
+                "depth" => {
+                    scene.gfx.depth_enabled = args.boolean("enabled")?.unwrap_or(true);
+                    scene.gfx.depth_write = args.boolean("write")?.unwrap_or(true);
+                }
+                "blend" => {
+                    scene.gfx.blend = match args.text("mode")?.as_deref() {
+                        Some("additive") => BlendMode::Additive,
+                        Some("multiply") => BlendMode::Multiply,
+                        Some("none") => BlendMode::None,
+                        _ => BlendMode::Alpha,
+                    }
+                }
+                "cull" => {
+                    scene.gfx.cull = match args.text("mode")?.as_deref() {
+                        Some("back") => CullMode::Back,
+                        Some("front") => CullMode::Front,
+                        _ => CullMode::None,
+                    }
+                }
+                "clear" => scene.gfx.clear = Some(args.color("color")?.unwrap_or(BLACK)),
+                "overlay" => scene.gfx.overlay = args.boolean("enabled")?.unwrap_or(false),
+                other => return Err(format!("Unknown gfx call: {other}")),
+            }
+        }
+
+        "draw" => return record_draw(call, &mut args, scene),
+
+        other => return Err(format!("Unknown namespace in 3d mode: {other}")),
+    }
+
+    Ok(())
+}
+
+/// Appends one `draw::` call to the command buffer.
+fn record_draw(
+    call: &FunctionCall,
+    args: &mut ArgReader<'_>,
+    scene: &RefCell<Scene>,
+) -> InterpResult<()> {
+    let primitive = match call.function.as_str() {
+        "cube" => Primitive::Cube,
+        "sphere" => Primitive::Sphere {
+            resolution: args.count("resolution", 24)?,
+        },
+        "plane" => Primitive::Plane {
+            subdivisions: args.count("subdivisions", 1)?,
+        },
+        "cylinder" => Primitive::Cylinder {
+            segments: args.count("segments", 32)?,
+        },
+        "cone" => Primitive::Cone {
+            segments: args.count("segments", 32)?,
+        },
+        "torus" => {
+            let radius = args.number("radius")?.unwrap_or(0.5).abs().max(1e-3);
+            let tube = args.number("tube")?.unwrap_or(0.15).abs();
+            Primitive::Torus {
+                segments: args.count("segments", 32)?,
+                tube_segments: args.count("tube_segments", 16)?,
+                tube_ratio: ((tube / radius) * 1000.0).round().clamp(1.0, 4000.0) as u32,
+            }
+        }
+        "sprite" => Primitive::Sprite,
+        "mesh" => {
+            let mesh = args.mesh()?;
+            let id = scene.borrow_mut().add_mesh(mesh)?;
+            Primitive::Mesh { id }
+        }
+        // The 2D primitives are promoted to world space. Recording them is the
+        // renderer's remaining work; the resolver already accepts them here.
+        other => return Err(format!("draw::{other} is not rendered in 3d mode yet")),
+    };
+
+    // Size, then the primitive's own rotation, then its position — all inside
+    // whatever the transform stack is currently in.
+    let size = match call.function.as_str() {
+        "cube" => match args.number("size")? {
+            Some(s) => [s, s, s],
+            None => [
+                args.number("w")?.unwrap_or(1.0),
+                args.number("h")?.unwrap_or(1.0),
+                args.number("d")?.unwrap_or(1.0),
+            ],
+        },
+        "sphere" => {
+            let r = args.number("radius")?.unwrap_or(0.5) * 2.0;
+            [r, r, r]
+        }
+        "plane" => [
+            args.number("w")?.unwrap_or(1.0),
+            1.0,
+            args.number("d")?.unwrap_or(1.0),
+        ],
+        "cylinder" | "cone" => {
+            let d = args.number("radius")?.unwrap_or(0.5) * 2.0;
+            [d, args.number("height")?.unwrap_or(1.0), d]
+        }
+        "torus" => {
+            let r = args.number("radius")?.unwrap_or(0.5) * 2.0;
+            [r, r, r]
+        }
+        "sprite" => match args.number("size")? {
+            Some(s) => [s, s, 1.0],
+            None => [
+                args.number("w")?.unwrap_or(1.0),
+                args.number("h")?.unwrap_or(1.0),
+                1.0,
+            ],
+        },
+        _ => [1.0, 1.0, 1.0],
+    };
+
+    let position = args.vec3(0.0, 0.0, 0.0)?;
+    let rotation = Mat4::rotation_z(args.angle("rot_z", "rot_z_rad")?.unwrap_or(0.0))
+        .mul(&Mat4::rotation_y(args.angle("rot_y", "rot_y_rad")?.unwrap_or(0.0)))
+        .mul(&Mat4::rotation_x(args.angle("rot_x", "rot_x_rad")?.unwrap_or(0.0)));
+
+    let local = Mat4::translation(position[0], position[1], position[2])
+        .mul(&rotation)
+        .mul(&Mat4::scaling(size[0], size[1], size[2]));
+
+    let color = args.color("color")?.unwrap_or(WHITE);
+    let opacity = args.number("opacity")?.unwrap_or(1.0).clamp(0.0, 1.0);
+    let wireframe = args.boolean("wireframe")?.unwrap_or(false);
+
+    let mut scene = scene.borrow_mut();
+    let shading = match args.text("shading")?.as_deref() {
+        Some("unlit") => Shading::Unlit,
+        Some("flat") => Shading::Flat,
+        Some("lambert") => Shading::Lambert,
+        // §6.6 — decided at draw time, which is why lights must come first.
+        _ => scene.default_shading(),
+    };
+
+    let model = scene.top().mul(&local);
+    let key = BatchKey {
+        primitive,
+        shading,
+        wireframe,
+        blend: scene.gfx.blend,
+        cull: scene.gfx.cull,
+        depth_enabled: scene.gfx.depth_enabled,
+        depth_write: scene.gfx.depth_write,
+        overlay: scene.gfx.overlay,
+    };
+
+    scene.record(DrawCommand { key, model, color, opacity });
+    Ok(())
+}
+
+/// Reads named arguments, evaluating each at most once.
+struct ArgReader<'a> {
+    call: &'a FunctionCall,
+    decels: &'a mut Declarations,
+    runtime: &'a Runtime,
+    functions: &'a [FunctionDef],
+}
+
+impl<'a> ArgReader<'a> {
+    fn new(
+        call: &'a FunctionCall,
+        decels: &'a mut Declarations,
+        runtime: &'a Runtime,
+        functions: &'a [FunctionDef],
+    ) -> Self {
+        ArgReader { call, decels, runtime, functions }
+    }
+
+    fn raw(&mut self, name: &str) -> InterpResult<Option<Value>> {
+        let Some(arg) = self.call.args.iter().find(|a| a.name == name) else {
+            return Ok(None);
+        };
+        evaluate_expression(&arg.expression, self.decels, self.runtime, self.functions).map(Some)
+    }
+
+    fn number(&mut self, name: &str) -> InterpResult<Option<f32>> {
+        match self.raw(name)? {
+            Some(value) => Ok(Some(value.try_into_f64()? as f32)),
+            None => Ok(None),
+        }
+    }
+
+    /// A whole-number argument such as a segment count.
+    fn count(&mut self, name: &str, default: u32) -> InterpResult<u32> {
+        match self.number(name)? {
+            // Clamped rather than rejected: a resolution driven by audio can
+            // dip below what a mesh needs, and failing the frame for it would
+            // be worse than quietly using the minimum.
+            Some(n) if n.is_finite() => Ok((n.round().clamp(1.0, 512.0)) as u32),
+            _ => Ok(default),
+        }
+    }
+
+    fn boolean(&mut self, name: &str) -> InterpResult<Option<bool>> {
+        match self.raw(name)? {
+            Some(Value::Boolean(b)) => Ok(Some(b)),
+            Some(other) => Err(format!(
+                "{}::{}: '{name}' needs a boolean, got {}",
+                self.call.namespace,
+                self.call.function,
+                other.type_tag()
+            )),
+            None => Ok(None),
+        }
+    }
+
+    fn text(&mut self, name: &str) -> InterpResult<Option<String>> {
+        match self.raw(name)? {
+            Some(Value::String(s)) => Ok(Some(s)),
+            Some(other) => Err(format!(
+                "{}::{}: '{name}' needs a string, got {}",
+                self.call.namespace,
+                self.call.function,
+                other.type_tag()
+            )),
+            None => Ok(None),
+        }
+    }
+
+    fn color(&mut self, name: &str) -> InterpResult<Option<Color>> {
+        match self.raw(name)? {
+            Some(value) => Ok(Some(value.try_into_color()?)),
+            None => Ok(None),
+        }
+    }
+
+    fn vec3(&mut self, dx: f32, dy: f32, dz: f32) -> InterpResult<[f32; 3]> {
+        Ok([
+            self.number("x")?.unwrap_or(dx),
+            self.number("y")?.unwrap_or(dy),
+            self.number("z")?.unwrap_or(dz),
+        ])
+    }
+
+    /// An angle in whichever unit was given, returned in radians.
+    ///
+    /// The resolver has already rejected both being supplied at once, so this
+    /// only has to prefer one.
+    fn angle(&mut self, deg: &str, rad: &str) -> InterpResult<Option<f32>> {
+        if let Some(d) = self.number(deg)? {
+            return Ok(Some(d.to_radians()));
+        }
+        self.number(rad)
+    }
+
+    fn mesh(&mut self) -> InterpResult<MeshData> {
+        let vertices = self.points("vertices")?;
+        let normals = self.points("normals")?;
+        let uvs = self
+            .points("uvs")?
+            .into_iter()
+            .map(|p| [p[0], p[1]])
+            .collect();
+
+        let indices = match self.raw("indices")? {
+            Some(Value::Array(items)) => items
+                .into_iter()
+                .map(|v| v.try_into_f64().map(|n| n.max(0.0) as u32))
+                .collect::<Result<Vec<_>, _>>()?,
+            _ => Vec::new(),
+        };
+
+        Ok(MeshData { vertices, indices, normals, uvs })
+    }
+
+    fn points(&mut self, name: &str) -> InterpResult<Vec<[f32; 3]>> {
+        let Some(Value::Array(rows)) = self.raw(name)? else {
+            return Ok(Vec::new());
+        };
+
+        rows.into_iter()
+            .map(|row| match row {
+                Value::Array(parts) => {
+                    let mut out = [0.0f32; 3];
+                    for (i, part) in parts.into_iter().take(3).enumerate() {
+                        out[i] = part.try_into_f64()? as f32;
+                    }
+                    Ok(out)
+                }
+                other => Err(format!(
+                    "draw::mesh: '{name}' needs arrays of numbers, got {}",
+                    other.type_tag()
+                )),
+            })
+            .collect()
+    }
+}
+
 #[allow(deprecated)]
 fn interpret_statement_function_call(
     function_call: &FunctionCall,
     decels: &mut Declarations,
-    ctx: &CanvasRenderingContext2d,
+    target: Target<'_>,
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
+    // 3d mode records into the scene instead of painting a canvas. The
+    // resolver has already rejected these namespaces under `context 2d`, so
+    // reaching here means the script asked for 3d.
+    if let Some(scene) = target.scene {
+        return interpret_scene_call(function_call, decels, scene, runtime, functions);
+    }
+
+    // Nothing to draw on — an `on_frame` block, where draw calls are skipped.
+    let Some(ctx) = target.ctx else {
+        return Ok(());
+    };
+
     match function_call.namespace.as_str() {
         "draw" => match function_call.function.as_str() {
             "clear" => {
@@ -895,7 +1376,7 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
 
             let mut result = Value::Boolean(false);
             for stmt in &func.body {
-                if let Some(val) = interpret_statement(stmt, &mut func_decels, runtime, None, functions)? {
+                if let Some(val) = interpret_statement(stmt, &mut func_decels, runtime, Target::none(), functions)? {
                     result = val;
                     break;
                 }
@@ -919,9 +1400,9 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
 
             match kind {
                 ColorConstructKind::Rgb => {
-                    let r = get_arg("red")?.clamp(0.0, 1.0);
-                    let g = get_arg("green")?.clamp(0.0, 1.0);
-                    let b = get_arg("blue")?.clamp(0.0, 1.0);
+                    let r = get_arg("r")?.clamp(0.0, 1.0);
+                    let g = get_arg("g")?.clamp(0.0, 1.0);
+                    let b = get_arg("b")?.clamp(0.0, 1.0);
                     let a = if args.iter().any(|(n, _)| n == "transparent") {
                         1.0 - get_arg("transparent")?.clamp(0.0, 1.0)
                     } else {
@@ -930,9 +1411,9 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                     Ok(Value::Color(Color::new(r, g, b, a)))
                 }
                 ColorConstructKind::Hsl => {
-                    let h = get_arg("hue")?;
-                    let s = get_arg("saturation")?.clamp(0.0, 1.0);
-                    let l = get_arg("lightness")?.clamp(0.0, 1.0);
+                    let h = get_arg("h")?;
+                    let s = get_arg("s")?.clamp(0.0, 1.0);
+                    let l = get_arg("l")?.clamp(0.0, 1.0);
                     let a = if args.iter().any(|(n, _)| n == "transparent") {
                         1.0 - get_arg("transparent")?.clamp(0.0, 1.0)
                     } else {

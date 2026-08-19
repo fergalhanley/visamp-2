@@ -260,42 +260,44 @@ impl Declarations {
 
 // ── AST Types ──
 
-/// Which canvas rendering context the script wants.
+/// The coordinate model a script draws in.
 ///
-/// A canvas can only ever hold one context for its lifetime, so this is read
-/// once when the engine binds to the canvas — it is not switchable per script.
+/// This is the author's whole choice. Which canvas backend it runs on — the 2d
+/// context or WebGL2 — is the engine's decision.
+///
+/// A canvas keeps whichever backend it was first given for its lifetime, so
+/// this is read once when the engine binds to the canvas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ContextKind {
     #[default]
     TwoD,
-    WebGl,
-    ExperimentalWebGl,
-    WebGl2,
-    WebGpu,
+    ThreeD,
 }
 
 impl ContextKind {
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "2d" => Some(ContextKind::TwoD),
-            "webgl" => Some(ContextKind::WebGl),
-            "experimental-webgl" => Some(ContextKind::ExperimentalWebGl),
-            "webgl2" => Some(ContextKind::WebGl2),
-            "webgpu" => Some(ContextKind::WebGpu),
+            "3d" => Some(ContextKind::ThreeD),
             _ => None,
         }
     }
 
-    /// The string `HTMLCanvasElement.getContext` expects.
-    pub fn as_str(self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             ContextKind::TwoD => "2d",
-            ContextKind::WebGl => "webgl",
-            ContextKind::ExperimentalWebGl => "experimental-webgl",
-            ContextKind::WebGl2 => "webgl2",
-            ContextKind::WebGpu => "webgpu",
+            ContextKind::ThreeD => "3d",
         }
     }
+
+    /// The backend the engine asks the canvas for.
+    pub fn canvas_context(&self) -> &'static str {
+        match self {
+            ContextKind::TwoD => "2d",
+            ContextKind::ThreeD => "webgl2",
+        }
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -333,6 +335,9 @@ pub enum BlockType {
 pub enum Statement {
     LetDecl(LetDecl),
     FunctionCall(FunctionCall),
+    /// A user-defined function called as a statement, for its drawing rather
+    /// than its return value.
+    Call(Expression),
     Assignment(Assignment),
     If(IfStatement),
     For(ForLoop),

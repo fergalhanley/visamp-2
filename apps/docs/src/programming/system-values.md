@@ -287,7 +287,7 @@ render {
     x: trail_x,
     y: trail_y,
     radius: size,
-    color: color::hsl(hue: $TIME_SEC * 0.1, saturation: 1.0, lightness: 0.5)
+    color: color::hsl(h: $TIME_SEC * 0.1, s: 1.0, l: 0.5)
   )
 }
 ```

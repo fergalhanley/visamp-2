@@ -16,6 +16,10 @@
 - [Expressions](./language/expressions.md)
 - [Variables & Assignment](./language/variables.md)
 
+# 3D
+
+- [3D Mode](./3d/overview.md)
+
 # Drawing
 
 - [Drawing Primitives](./drawing/primitives.md)
@@ -33,3 +37,4 @@
 
 - [Basic Examples](./examples/basic.md)
 - [Animation Examples](./examples/animation.md)
+- [3D Examples](./examples/3d.md)
