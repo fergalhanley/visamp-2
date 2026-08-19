@@ -3,7 +3,7 @@
 ## Static Scene
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_NAVY)
 
   // Moon
@@ -27,7 +27,7 @@ layer_2d {
 ## Color Palette Display
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   let colors = [
@@ -51,7 +51,7 @@ layer_2d {
 ## Concentric Circles
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] {
@@ -81,7 +81,7 @@ fn cell(cx, cy, size, hue) {
   )
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   for row in [0, 1, 2, 3, 4, 5] {
@@ -104,7 +104,7 @@ on_frame {
   trail_y = trail_y + ($MOUSE_Y - trail_y) * 0.08
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   draw::circle(

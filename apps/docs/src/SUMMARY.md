@@ -9,8 +9,10 @@
 
 # Language Reference
 
+- [Comments](./language/comments.md)
 - [Properties](./language/properties.md)
 - [Blocks](./language/blocks.md)
+- [Rendering Context](./language/context.md)
 - [Expressions](./language/expressions.md)
 - [Variables & Assignment](./language/variables.md)
 

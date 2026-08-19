@@ -10,7 +10,7 @@ on_frame {
   let name = "player"
 }
 
-layer_2d {
+render {
   let radius = 50.0
   draw::circle(x: 400.0, y: 300.0, radius: radius, color: $COLOR_RED)
 }
@@ -23,7 +23,7 @@ layer_2d {
 - Variables are scoped to the block they're declared in (including control flow blocks)
 
 ```
-layer_2d {
+render {
   let x = 100.0
   if true {
     let y = 200.0    // y is only available inside this if block
@@ -53,7 +53,7 @@ on_frame {
 | **Scope** | Entire script | Current block |
 | **Lifetime** | Persists across frames | Created each frame |
 | **Writable in on_frame** | Yes | Yes |
-| **Writable in layer_2d** | No | Yes |
-| **Readable in layer_2d** | Yes | Yes |
+| **Writable in render** | No | Yes |
+| **Readable in render** | Yes | Yes |
 
 Use properties for state that needs to persist between frames (animation counters, positions, etc.). Use local variables for temporary calculations within a single frame.

@@ -10,6 +10,13 @@ pub struct Runtime {
     pub canvas_height: f64,
     pub mouse_x: f64,
     pub mouse_y: f64,
+
+    /// Latest analyser snapshot, pushed in from JS via `set_audio_frame`.
+    /// Empty until an audio source is connected, which is what makes a script
+    /// referencing `$FREQUENCY_DATA` degrade to an empty loop rather than fail.
+    pub time_domain: Vec<u8>,
+    pub frequency: Vec<u8>,
+    pub beat: bool,
 }
 
 impl Runtime {
@@ -20,11 +27,77 @@ impl Runtime {
             canvas_height: 600.0,
             mouse_x: 0.0,
             mouse_y: 0.0,
+            time_domain: Vec::new(),
+            frequency: Vec::new(),
+            beat: false,
         }
     }
 }
 
+/// Byte analyser data as a DSL array. Allocates, so callers should bind it to a
+/// `let` rather than re-reading it inside a loop.
+fn byte_array_value(bytes: &[u8]) -> Value {
+    Value::Array(bytes.iter().map(|b| Value::Integer(*b as i64)).collect())
+}
+
 type InterpResult<T> = Result<T, String>;
+
+/// Hard stop on range length. The interpreter runs inside the frame loop, so a
+/// runaway range would lock the tab — and the editor recompiles as you type,
+/// which means a half-finished number like `0..100000` is easy to produce by
+/// accident. Erring here beats freezing.
+const MAX_RANGE_ITERATIONS: i64 = 100_000;
+
+/// Ranges are integers only, so a float bound is rejected rather than rounded.
+fn range_int(
+    expr: &Expression,
+    label: &str,
+    decels: &Declarations,
+    runtime: &Runtime,
+    functions: &[FunctionDef],
+) -> InterpResult<i64> {
+    match evaluate_expression(expr, decels, runtime, functions)? {
+        Value::Integer(value) => Ok(value),
+        Value::Float(value) => Err(format!(
+            "{} must be a whole number, got {}. Use math::floor to convert.",
+            label, value
+        )),
+        other => Err(format!("{} must be a whole number, got {:?}", label, other)),
+    }
+}
+
+/// How many times a range yields, without materialising it.
+fn range_count(start: i64, end: i64, inclusive: bool, step: i64) -> InterpResult<i64> {
+    if step == 0 {
+        return Err("range step cannot be 0".to_string());
+    }
+
+    // Last value the range is allowed to reach.
+    let count = if step > 0 {
+        let limit = if inclusive { end } else { end - 1 };
+        if start > limit {
+            0
+        } else {
+            (limit - start) / step + 1
+        }
+    } else {
+        let limit = if inclusive { end } else { end + 1 };
+        if start < limit {
+            0
+        } else {
+            (start - limit) / -step + 1
+        }
+    };
+
+    if count > MAX_RANGE_ITERATIONS {
+        return Err(format!(
+            "range would run {} times; the limit is {}",
+            count, MAX_RANGE_ITERATIONS
+        ));
+    }
+
+    Ok(count)
+}
 
 pub fn interpret_event_block(block: &Block, decels: &mut Declarations, runtime: &Runtime, functions: &[FunctionDef]) -> InterpResult<()> {
     decels.push_scope();
@@ -38,7 +111,7 @@ pub fn interpret_event_block(block: &Block, decels: &mut Declarations, runtime: 
     result
 }
 
-pub fn interpret_layer_block(
+pub fn interpret_render_block(
     block: &Block,
     decels: &mut Declarations,
     ctx: &CanvasRenderingContext2d,
@@ -53,6 +126,39 @@ pub fn interpret_layer_block(
         }
         Ok(())
     })();
+    decels.pop_scope();
+    result
+}
+
+/// Runs a nested block body in its own scope, always popping it again.
+///
+/// Pushing and popping by hand around a `?` leaks the scope whenever a
+/// statement fails, and a leaked scope makes the *next* frame report a bogus
+/// "already declared" for the outer block's own `let` — hiding the real
+/// mistake behind a confusing one. Going through here keeps the stack
+/// balanced on every path out.
+fn run_scoped_body(
+    body: &[Statement],
+    binding: Option<(&str, Value)>,
+    decels: &mut Declarations,
+    runtime: &Runtime,
+    ctx: Option<&CanvasRenderingContext2d>,
+    functions: &[FunctionDef],
+) -> InterpResult<Option<Value>> {
+    decels.push_scope();
+    if let Some((name, value)) = binding {
+        decels.declare(name.to_string(), value);
+    }
+    let mut result = Ok(None);
+    for stmt in body {
+        match interpret_statement(stmt, decels, runtime, ctx, functions) {
+            Ok(None) => {}
+            other => {
+                result = other;
+                break;
+            }
+        }
+    }
     decels.pop_scope();
     result
 }
@@ -94,42 +200,78 @@ fn interpret_statement(
                 _ => return Err("if condition must evaluate to boolean".to_string()),
             };
             if is_true {
-                decels.push_scope();
-                for stmt in &if_stmt.then_body {
-                    if let Some(val) = interpret_statement(stmt, decels, runtime, ctx, functions)? {
-                        decels.pop_scope();
-                        return Ok(Some(val));
-                    }
+                if let Some(val) =
+                    run_scoped_body(&if_stmt.then_body, None, decels, runtime, ctx, functions)?
+                {
+                    return Ok(Some(val));
                 }
-                decels.pop_scope();
             } else if let Some(else_body) = &if_stmt.else_body {
-                decels.push_scope();
-                for stmt in else_body {
-                    if let Some(val) = interpret_statement(stmt, decels, runtime, ctx, functions)? {
-                        decels.pop_scope();
-                        return Ok(Some(val));
-                    }
+                if let Some(val) =
+                    run_scoped_body(else_body, None, decels, runtime, ctx, functions)?
+                {
+                    return Ok(Some(val));
                 }
-                decels.pop_scope();
             }
             Ok(None)
         }
         Statement::For(for_loop) => {
-            let iterable = evaluate_expression(&for_loop.iterable, decels, runtime, functions)?;
-            let items = match iterable {
-                Value::Array(arr) => arr,
-                _ => return Err("for loop iterable must be an array".to_string()),
-            };
-            for item in items {
-                decels.push_scope();
-                decels.declare(for_loop.variable.clone(), item);
-                for stmt in &for_loop.body {
-                    if let Some(val) = interpret_statement(stmt, decels, runtime, ctx, functions)? {
-                        decels.pop_scope();
-                        return Ok(Some(val));
-                    }
+            // Ranges are walked numerically rather than expanded into an array,
+            // so a large one costs no allocation.
+            let (mut current, step, count) = match &for_loop.iterable {
+                ForIterable::Range {
+                    start,
+                    end,
+                    inclusive,
+                    step,
+                } => {
+                    let start = range_int(start, "range start", decels, runtime, functions)?;
+                    let end = range_int(end, "range end", decels, runtime, functions)?;
+                    let step = match step {
+                        Some(expr) => range_int(expr, "range step", decels, runtime, functions)?,
+                        None => 1,
+                    };
+                    let count = range_count(start, end, *inclusive, step)?;
+                    (start, step, count)
                 }
-                decels.pop_scope();
+                ForIterable::Expression(expr) => {
+                    let iterable = evaluate_expression(expr, decels, runtime, functions)?;
+                    let items = match iterable {
+                        Value::Array(arr) => arr,
+                        _ => {
+                            return Err(
+                                "for loop iterable must be an array or a range".to_string()
+                            )
+                        }
+                    };
+
+                    for item in items {
+                        if let Some(val) = run_scoped_body(
+                            &for_loop.body,
+                            Some((&for_loop.variable, item)),
+                            decels,
+                            runtime,
+                            ctx,
+                            functions,
+                        )? {
+                            return Ok(Some(val));
+                        }
+                    }
+                    return Ok(None);
+                }
+            };
+
+            for _ in 0..count {
+                if let Some(val) = run_scoped_body(
+                    &for_loop.body,
+                    Some((&for_loop.variable, Value::Integer(current))),
+                    decels,
+                    runtime,
+                    ctx,
+                    functions,
+                )? {
+                    return Ok(Some(val));
+                }
+                current += step;
             }
             Ok(None)
         }
@@ -144,14 +286,11 @@ fn interpret_statement(
                 if !is_true || iterations > 10000 {
                     break;
                 }
-                decels.push_scope();
-                for stmt in &while_loop.body {
-                    if let Some(val) = interpret_statement(stmt, decels, runtime, ctx, functions)? {
-                        decels.pop_scope();
-                        return Ok(Some(val));
-                    }
+                if let Some(val) =
+                    run_scoped_body(&while_loop.body, None, decels, runtime, ctx, functions)?
+                {
+                    return Ok(Some(val));
                 }
-                decels.pop_scope();
                 iterations += 1;
             }
             Ok(None)
@@ -181,7 +320,7 @@ fn interpret_statement_function_call(
                 for arg in function_call.args.iter() {
                     if arg.name == "color" {
                         let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
-                        color = evaluated.into_color();
+                        color = evaluated.try_into_color()?;
                     }
                 }
                 ctx.set_fill_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
@@ -196,8 +335,8 @@ fn interpret_statement_function_call(
                     let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "points" => points = points_from_value(evaluated),
-                        "color" => color = evaluated.into_color(),
-                        "rotate" => rotate = evaluated.into_f64(),
+                        "color" => color = evaluated.try_into_color()?,
+                        "rotate" => rotate = evaluated.try_into_f64()?,
                         _ => {}
                     }
                 }
@@ -237,13 +376,13 @@ fn interpret_statement_function_call(
                 for arg in function_call.args.iter() {
                     let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
-                        "x" => x = evaluated.into_f64(),
-                        "y" => y = evaluated.into_f64(),
-                        "radius" => radius = evaluated.into_f64(),
-                        "color" => color = evaluated.into_color(),
+                        "x" => x = evaluated.try_into_f64()?,
+                        "y" => y = evaluated.try_into_f64()?,
+                        "radius" => radius = evaluated.try_into_f64()?,
+                        "color" => color = evaluated.try_into_color()?,
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
-                        "stroke_weight" => stroke_weight = evaluated.into_f64(),
-                        "stroke_color" => stroke_color = evaluated.into_color(),
+                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
+                        "stroke_color" => stroke_color = evaluated.try_into_color()?,
                         _ => {}
                     }
                 }
@@ -275,15 +414,15 @@ fn interpret_statement_function_call(
                 for arg in function_call.args.iter() {
                     let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
-                        "x" => x = evaluated.into_f64(),
-                        "y" => y = evaluated.into_f64(),
-                        "width" | "w" => w = evaluated.into_f64(),
-                        "height" | "h" => h = evaluated.into_f64(),
-                        "color" => color = evaluated.into_color(),
+                        "x" => x = evaluated.try_into_f64()?,
+                        "y" => y = evaluated.try_into_f64()?,
+                        "width" | "w" => w = evaluated.try_into_f64()?,
+                        "height" | "h" => h = evaluated.try_into_f64()?,
+                        "color" => color = evaluated.try_into_color()?,
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
-                        "stroke_weight" => stroke_weight = evaluated.into_f64(),
-                        "stroke_color" => stroke_color = evaluated.into_color(),
-                        "rotate" => rotate = evaluated.into_f64(),
+                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
+                        "stroke_color" => stroke_color = evaluated.try_into_color()?,
+                        "rotate" => rotate = evaluated.try_into_f64()?,
                         _ => {}
                     }
                 }
@@ -316,12 +455,12 @@ fn interpret_statement_function_call(
                 for arg in function_call.args.iter() {
                     let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
-                        "x1" => x1 = evaluated.into_f64(),
-                        "y1" => y1 = evaluated.into_f64(),
-                        "x2" => x2 = evaluated.into_f64(),
-                        "y2" => y2 = evaluated.into_f64(),
-                        "color" => color = evaluated.into_color(),
-                        "stroke_weight" => stroke_weight = evaluated.into_f64(),
+                        "x1" => x1 = evaluated.try_into_f64()?,
+                        "y1" => y1 = evaluated.try_into_f64()?,
+                        "x2" => x2 = evaluated.try_into_f64()?,
+                        "y2" => y2 = evaluated.try_into_f64()?,
+                        "color" => color = evaluated.try_into_color()?,
+                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
                         _ => {}
                     }
                 }
@@ -347,15 +486,15 @@ fn interpret_statement_function_call(
                 for arg in function_call.args.iter() {
                     let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
-                        "x" => x = evaluated.into_f64(),
-                        "y" => y = evaluated.into_f64(),
-                        "rx" | "radius_x" => rx = evaluated.into_f64(),
-                        "ry" | "radius_y" => ry = evaluated.into_f64(),
-                        "color" => color = evaluated.into_color(),
+                        "x" => x = evaluated.try_into_f64()?,
+                        "y" => y = evaluated.try_into_f64()?,
+                        "rx" | "radius_x" => rx = evaluated.try_into_f64()?,
+                        "ry" | "radius_y" => ry = evaluated.try_into_f64()?,
+                        "color" => color = evaluated.try_into_color()?,
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
-                        "stroke_weight" => stroke_weight = evaluated.into_f64(),
-                        "stroke_color" => stroke_color = evaluated.into_color(),
-                        "rotate" => rotate = evaluated.into_f64(),
+                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
+                        "stroke_color" => stroke_color = evaluated.try_into_color()?,
+                        "rotate" => rotate = evaluated.try_into_f64()?,
                         _ => {}
                     }
                 }
@@ -395,10 +534,10 @@ fn interpret_statement_function_call(
                                 other => format!("{:?}", other),
                             };
                         }
-                        "x" => x = evaluated.into_f64(),
-                        "y" => y = evaluated.into_f64(),
-                        "size" => size = evaluated.into_f64(),
-                        "color" => color = evaluated.into_color(),
+                        "x" => x = evaluated.try_into_f64()?,
+                        "y" => y = evaluated.try_into_f64()?,
+                        "size" => size = evaluated.try_into_f64()?,
+                        "color" => color = evaluated.try_into_color()?,
                         "font" => {
                             if let Value::String(f) = evaluated { font = f; }
                         }
@@ -446,6 +585,46 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
         }
 
         Expression::Grouping(inner) => evaluate_expression(inner, decels, runtime, functions),
+        Expression::Index { target, index } => {
+            let collection = evaluate_expression(target, decels, runtime, functions)?;
+            let items = match collection {
+                Value::Array(items) => items,
+                other => {
+                    return Err(format!(
+                        "cannot index into {}; only arrays can be indexed",
+                        type_name(&other)
+                    ))
+                }
+            };
+
+            let position = match evaluate_expression(index, decels, runtime, functions)? {
+                Value::Integer(i) => i,
+                Value::Float(f) => {
+                    return Err(format!(
+                        "array index must be a whole number, got {}. Use \\ or math::floor.",
+                        f
+                    ))
+                }
+                other => {
+                    return Err(format!(
+                        "array index must be a whole number, got {}",
+                        type_name(&other)
+                    ))
+                }
+            };
+
+            // Out of range reads as 0 rather than failing. $FREQUENCY_DATA and
+            // $TIME_DOMAIN_DATA are empty whenever no audio is playing, so an
+            // error here would break every audio-reactive script the moment it
+            // fell silent (E4.7 — everything must run without audio).
+            if position < 0 {
+                return Ok(Value::Integer(0));
+            }
+            Ok(items
+                .get(position as usize)
+                .cloned()
+                .unwrap_or(Value::Integer(0)))
+        }
 
         Expression::Unary { op, expr: inner } => {
             let v = evaluate_expression(inner, decels, runtime, functions)?;
@@ -489,13 +668,44 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                     (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a * b as f64)),
                     _ => Err("Type error: '*' on incompatible types".to_string()),
                 },
+                // `/` always produces a float, even for two integers.
+                //
+                // Truncating integer division is a trap in a language like this:
+                // $TIME_MS, $FRAME_COUNT and every value in $FREQUENCY_DATA are
+                // integers, so `$TIME_MS / 5000` would step 0, 1, 2… and
+                // `v / 255` would only ever be 0 or 1 — silently, with no type
+                // error to point at. Use math::floor for deliberate truncation.
                 BinaryOperator::Divide => match (l, r) {
-                    (Value::Integer(a), Value::Integer(b)) if b != 0 => Ok(Value::Integer(a / b)),
+                    (Value::Integer(a), Value::Integer(b)) if b != 0 => {
+                        Ok(Value::Float(a as f64 / b as f64))
+                    }
                     (Value::Float(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a / b)),
                     (Value::Integer(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a as f64 / b)),
                     (Value::Float(a), Value::Integer(b)) if b != 0 => Ok(Value::Float(a / b as f64)),
                     _ => Err("Division by zero or type error for '/'".to_string()),
                 },
+                // `\` — integer division. Accepts floats and truncates toward
+                // zero, because most of what you divide is a float ($WIDTH and
+                // friends) and rejecting those would make the operator useless
+                // for the grid maths it exists for. Use math::floor for floor
+                // semantics on negatives.
+                BinaryOperator::IntegerDivide => {
+                    let divisor = match &r {
+                        Value::Integer(b) => *b as f64,
+                        Value::Float(b) => *b,
+                        _ => return Err("Type error: '\\' needs numbers".to_string()),
+                    };
+                    let dividend = match &l {
+                        Value::Integer(a) => *a as f64,
+                        Value::Float(a) => *a,
+                        _ => return Err("Type error: '\\' needs numbers".to_string()),
+                    };
+
+                    if divisor == 0.0 {
+                        return Err("Division by zero for '\\'".to_string());
+                    }
+                    Ok(Value::Integer((dividend / divisor).trunc() as i64))
+                }
                 BinaryOperator::Modulus => match (l, r) {
                     (Value::Integer(a), Value::Integer(b)) if b != 0 => Ok(Value::Integer(a % b)),
                     (Value::Float(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a.rem_euclid(b))),
@@ -541,11 +751,11 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
         }
 
         Expression::MathCall { func, args } => {
-            let mut get_arg = |name: &str| -> InterpResult<f64> {
+            let get_arg = |name: &str| -> InterpResult<f64> {
                 for (n, expr) in args.iter() {
                     if n == name {
                         let val = evaluate_expression(expr, decels, runtime, functions)?;
-                        return Ok(val.into_f64());
+                        return Ok(val.try_into_f64()?);
                     }
                 }
                 Err(format!("Missing argument '{}' for math::{}", name, func))
@@ -636,35 +846,37 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
         }
 
         Expression::ColorConstruct { kind, args } => {
-            let mut get_arg = |name: &str| -> f64 {
+            // An argument that is simply absent falls back to 0.0 — omitting
+            // `blue` is a legitimate way to ask for none of it. An argument
+            // that is *present but fails to evaluate* is a mistake in the
+            // script, so it is reported rather than quietly read as 0.0.
+            let get_arg = |name: &str| -> InterpResult<f64> {
                 for (n, expr) in args.iter() {
                     if n == name {
-                        if let Ok(val) = evaluate_expression(expr, decels, runtime, functions) {
-                            return val.into_f64();
-                        }
+                        return Ok(evaluate_expression(expr, decels, runtime, functions)?.try_into_f64()?);
                     }
                 }
-                0.0
+                Ok(0.0)
             };
 
             match kind {
                 ColorConstructKind::Rgb => {
-                    let r = get_arg("red").clamp(0.0, 1.0);
-                    let g = get_arg("green").clamp(0.0, 1.0);
-                    let b = get_arg("blue").clamp(0.0, 1.0);
+                    let r = get_arg("red")?.clamp(0.0, 1.0);
+                    let g = get_arg("green")?.clamp(0.0, 1.0);
+                    let b = get_arg("blue")?.clamp(0.0, 1.0);
                     let a = if args.iter().any(|(n, _)| n == "transparent") {
-                        1.0 - get_arg("transparent").clamp(0.0, 1.0)
+                        1.0 - get_arg("transparent")?.clamp(0.0, 1.0)
                     } else {
                         1.0
                     };
                     Ok(Value::Color(Color::new(r, g, b, a)))
                 }
                 ColorConstructKind::Hsl => {
-                    let h = get_arg("hue");
-                    let s = get_arg("saturation").clamp(0.0, 1.0);
-                    let l = get_arg("lightness").clamp(0.0, 1.0);
+                    let h = get_arg("hue")?;
+                    let s = get_arg("saturation")?.clamp(0.0, 1.0);
+                    let l = get_arg("lightness")?.clamp(0.0, 1.0);
                     let a = if args.iter().any(|(n, _)| n == "transparent") {
-                        1.0 - get_arg("transparent").clamp(0.0, 1.0)
+                        1.0 - get_arg("transparent")?.clamp(0.0, 1.0)
                     } else {
                         1.0
                     };
@@ -677,7 +889,7 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
     }
 }
 
-fn map_value_runtime(name: &str, runtime: &Runtime) -> InterpResult<Value> {
+pub(crate) fn map_value_runtime(name: &str, runtime: &Runtime) -> InterpResult<Value> {
     match name {
         "TIME_SEC" => Ok(Value::Float(start_time_ms() as f64 / 1000.0)),
         "TIME_MS" => Ok(Value::Integer(start_time_ms() as i64)),
@@ -686,6 +898,10 @@ fn map_value_runtime(name: &str, runtime: &Runtime) -> InterpResult<Value> {
         "MOUSE_X" => Ok(Value::Float(runtime.mouse_x)),
         "MOUSE_Y" => Ok(Value::Float(runtime.mouse_y)),
         "FRAME_COUNT" => Ok(Value::Integer(runtime.frame_count as i64)),
+        // Audio. Each is 0..255; time domain is centred on 128 (silence).
+        "TIME_DOMAIN_DATA" => Ok(byte_array_value(&runtime.time_domain)),
+        "FREQUENCY_DATA" => Ok(byte_array_value(&runtime.frequency)),
+        "BEAT" => Ok(Value::Boolean(runtime.beat)),
         // Math constants
         "PI" => Ok(Value::Float(std::f64::consts::PI)),
         "E" => Ok(Value::Float(std::f64::consts::E)),
@@ -773,4 +989,18 @@ fn hue_to_rgb(p: f64, q: f64, mut t: f64) -> f64 {
     if t < 1.0 / 2.0 { return q; }
     if t < 2.0 / 3.0 { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
     p
+}
+
+/// Human-readable value kind, for error messages.
+fn type_name(value: &Value) -> &'static str {
+    match value {
+        Value::Boolean(_) => "a boolean",
+        Value::Integer(_) => "a whole number",
+        Value::Float(_) => "a number",
+        Value::String(_) => "a string",
+        Value::Array(_) => "an array",
+        Value::Identifier(_) => "an identifier",
+        Value::SystemValue(_) => "a system value",
+        Value::Color(_) => "a color",
+    }
 }

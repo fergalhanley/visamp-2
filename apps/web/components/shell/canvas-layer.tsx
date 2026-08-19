@@ -4,6 +4,7 @@ import { VisampCanvas } from "@visamp/player";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useAnalyser } from "@/hooks/use-analyser";
 import { useChromeStore } from "@/lib/store/chrome";
 import { useSessionStore } from "@/lib/store/session";
 
@@ -16,6 +17,7 @@ export function CanvasLayer() {
   const booted = useSessionStore((s) => s.booted);
   const source = useSessionStore((s) => s.current.source);
   const { toggle: toggleFullscreen } = useFullscreen();
+  const analyser = useAnalyser();
 
   // Clicking the visualisation clears the chrome at once, rather than waiting
   // out the idle fade. Hidden chrome toggles back — which is also what makes
@@ -36,7 +38,12 @@ export function CanvasLayer() {
       onPointerDown={onPointerDown}
       onDoubleClick={toggleFullscreen}
     >
-      <VisampCanvas source={source} active={booted} className="h-full w-full" />
+      <VisampCanvas
+        source={source}
+        active={booted}
+        analyser={analyser}
+        className="h-full w-full"
+      />
     </div>
   );
 }

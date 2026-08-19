@@ -8,6 +8,13 @@ use crate::model::*;
 #[grammar = "visamp_dsl.pest"]
 pub struct VisampDSLParser;
 
+/// Formats a rule violation the same way pest renders a syntax error, so the
+/// editor can position a squiggle from it and summarise it in the log.
+fn located_error(pair: &Pair<Rule>, message: &str) -> String {
+    let (line, col) = pair.as_span().start_pos().line_col();
+    format!("Parse error:  --> {}:{}\n  |\n  = {}", line, col, message)
+}
+
 pub fn build_ast(script: &str) -> Result<Script, String> {
     let pair = VisampDSLParser::parse(Rule::script, script)
         .map_err(|e| format!("Parse error: {}", e))?
@@ -19,8 +26,30 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
     }
 
     let mut script: Script = Script::new();
+    let mut context_seen = false;
+    let mut render_seen = false;
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::context_decl => {
+                if context_seen {
+                    return Err(located_error(&inner, "context is already set"));
+                }
+                context_seen = true;
+
+                let kind_pair = inner
+                    .clone()
+                    .into_inner()
+                    .next()
+                    .ok_or("context is missing a value")?;
+
+                script.context = ContextKind::parse(kind_pair.as_str()).ok_or_else(|| {
+                    located_error(
+                        &kind_pair,
+                        "expected 2d, webgl, experimental-webgl, webgl2 or webgpu",
+                    )
+                })?;
+            }
             Rule::prop_def => {
                 script.props.push(build_prop_def(inner));
             }
@@ -28,7 +57,16 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
                 script.functions.push(build_function_def(inner));
             }
             Rule::block => {
-                script.blocks.push(build_block(inner));
+                let block = build_block(inner.clone())?;
+
+                if block.block_type == BlockType::Render {
+                    if render_seen {
+                        return Err(located_error(&inner, "only one render block is allowed"));
+                    }
+                    render_seen = true;
+                }
+
+                script.blocks.push(block);
             }
             _ => {}
         }
@@ -123,6 +161,7 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                     Rule::mul_operator => match op_pair.as_str() {
                         "*" => BinaryOperator::Multiply,
                         "/" => BinaryOperator::Divide,
+                        "\\" => BinaryOperator::IntegerDivide,
                         "%" => BinaryOperator::Modulus,
                         _ => unreachable!(),
                     },
@@ -133,6 +172,23 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                     left: Box::new(expr),
                     op: operator,
                     right: Box::new(right),
+                };
+            }
+            expr
+        }
+        Rule::postfix_expr => {
+            let mut inner = pair.into_inner();
+            let mut expr = build_expression(inner.next().unwrap());
+
+            // Each `[...]` wraps what came before, so a[0][1] nests correctly.
+            for index_pair in inner {
+                let index = index_pair
+                    .into_inner()
+                    .next()
+                    .expect("index needs an expression");
+                expr = Expression::Index {
+                    target: Box::new(expr),
+                    index: Box::new(build_expression(index)),
                 };
             }
             expr
@@ -266,17 +322,25 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
     }
 }
 
-fn build_block(pair: pest::iterators::Pair<Rule>) -> Block {
+/// Fallible: a half-typed block name reaches here as ordinary user input, and
+/// panicking on it aborts the whole wasm module rather than reporting an error.
+fn build_block(pair: pest::iterators::Pair<Rule>) -> Result<Block, String> {
+    let block_pair = pair.clone();
     let mut inner_pairs = pair.into_inner();
 
     let block_name_pair = inner_pairs
         .next()
-        .expect("Expected block name as the first inner pair of a block");
+        .ok_or_else(|| located_error(&block_pair, "block is missing a name"))?;
 
     let block_type = match block_name_pair.as_str() {
         "on_frame" => BlockType::OnFrame,
-        "layer_2d" => BlockType::Layer2D,
-        other => panic!("Unexpected block type: {}", other),
+        "render" => BlockType::Render,
+        other => {
+            return Err(located_error(
+                &block_name_pair,
+                &format!("unknown block `{}`; expected on_frame or render", other),
+            ));
+        }
     };
 
     let mut statements = Vec::new();
@@ -290,10 +354,10 @@ fn build_block(pair: pest::iterators::Pair<Rule>) -> Block {
         }
     }
 
-    Block {
+    Ok(Block {
         block_type,
         statements,
-    }
+    })
 }
 
 fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
@@ -399,7 +463,14 @@ fn build_if_statement(pair: Pair<Rule>) -> Statement {
 fn build_for_loop(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
     let variable = inner.next().unwrap().as_str().to_string();
-    let iterable = build_expression(inner.next().unwrap());
+
+    let iterable_pair = inner.next().unwrap();
+    let iterable = if iterable_pair.as_rule() == Rule::range_expr {
+        build_range(iterable_pair)
+    } else {
+        ForIterable::Expression(build_expression(iterable_pair))
+    };
+
     let body: Vec<Statement> = inner.map(|s| build_statement(s)).collect();
 
     Statement::For(ForLoop {
@@ -407,6 +478,30 @@ fn build_for_loop(pair: Pair<Rule>) -> Statement {
         iterable,
         body,
     })
+}
+
+/// `start .. end`, `start ..= end`, optionally followed by `step n`.
+fn build_range(pair: Pair<Rule>) -> ForIterable {
+    let mut inner = pair.into_inner();
+
+    let start = build_expression(inner.next().unwrap());
+    let inclusive = inner.next().unwrap().as_str() == "..=";
+    let end = build_expression(inner.next().unwrap());
+
+    // The `step` keyword is its own pair; the value follows it.
+    let step = match inner.next() {
+        Some(keyword) if keyword.as_rule() == Rule::step_kw => {
+            Some(build_expression(inner.next().expect("step needs a value")))
+        }
+        other => other.map(build_expression),
+    };
+
+    ForIterable::Range {
+        start,
+        end,
+        inclusive,
+        step,
+    }
 }
 
 fn build_while_loop(pair: Pair<Rule>) -> Statement {

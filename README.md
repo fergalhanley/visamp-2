@@ -52,12 +52,12 @@ on_frame {
 }
 ```
 
-### Layer Blocks
+### Render Block
 
-`layer_2d` renders graphics each frame:
+`render` draws each frame, after every `on_frame` has run. A script may have only one:
 
 ```
-layer_2d {
+render {
   draw::background(color: $BLACK)
   draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $RED)
 }
@@ -130,7 +130,7 @@ fn dot(px, py, col) {
   draw::circle(x: px, y: py, radius: 10.0, color: col)
 }
 
-layer_2d {
+render {
   dot(100.0, 200.0, $RED)
   dot(300.0, 200.0, $BLUE)
 }

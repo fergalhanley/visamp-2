@@ -9,11 +9,14 @@ import {
   type Ref,
 } from "react";
 
+import { startAudioBridge } from "./audio-bridge";
+import { startPropertiesBridge } from "./properties-bridge";
 import { parseDiagnostics, toCompileResult } from "./diagnostics";
 import type {
   CompileResult,
   EngineModule,
   LogEntry,
+  PropertyView,
   VisampCanvasHandle,
 } from "./types";
 
@@ -42,7 +45,21 @@ export interface VisampCanvasProps {
    * no pause entry point.
    */
   active: boolean;
+  /**
+   * Analyser to sample for `$TIME_DOMAIN_DATA`, `$FREQUENCY_DATA` and `$BEAT`.
+   *
+   * Supplied by the host because a Web Audio graph cannot span AudioContexts —
+   * an analyser created in here could never hear the app's own audio. Null (or
+   * absent) leaves scripts seeing silence, which they must already handle.
+   */
+  analyser?: AnalyserNode | null;
   onCompileResult?: (result: CompileResult) => void;
+  /**
+   * Fires when the script's `prop` values change. Supplying it starts a poll
+   * of the engine, so leave it off where nothing is watching — the player has
+   * no inspector and should not pay for one.
+   */
+  onProperties?: (properties: PropertyView[]) => void;
   onLog?: (entry: LogEntry) => void;
   onReady?: () => void;
   className?: string;
@@ -62,7 +79,9 @@ export interface VisampCanvasProps {
 export function VisampCanvas({
   source,
   active,
+  analyser,
   onCompileResult,
+  onProperties,
   onLog,
   onReady,
   className,
@@ -77,10 +96,12 @@ export function VisampCanvas({
   // Callbacks are read through refs so that an inline arrow prop from a parent
   // never re-triggers boot or re-arms the poller.
   const onCompileResultRef = useRef(onCompileResult);
+  const onPropertiesRef = useRef(onProperties);
   const onLogRef = useRef(onLog);
   const onReadyRef = useRef(onReady);
 
   onCompileResultRef.current = onCompileResult;
+  onPropertiesRef.current = onProperties;
   onLogRef.current = onLog;
   onReadyRef.current = onReady;
 
@@ -128,7 +149,31 @@ export function VisampCanvas({
     const engine = engineRef.current;
     if (!ready || !engine) return;
 
-    const result = toCompileResult(engine.load_script(source));
+    let result: CompileResult;
+
+    try {
+      result = toCompileResult(engine.load_script(source));
+    } catch (error) {
+      // A panic inside the wasm module surfaces here as a thrown exception.
+      // Left uncaught it escapes through React and takes the whole editor down
+      // with an error overlay — over a half-typed keyword. Report it as a
+      // diagnostic instead; the last good render stays on screen.
+      result = {
+        ok: false,
+        usesAudio: false,
+        diagnostics: [
+          {
+            severity: "error",
+            message:
+              error instanceof Error
+                ? `Engine error: ${error.message.split("\n")[0]}`
+                : "The engine failed on this script",
+            raw: String(error),
+          },
+        ],
+      };
+    }
+
     // The engine also parks failures in its last-error slot, so remember what
     // we just reported and let the poller skip it rather than logging twice.
     reportedErrorRef.current = result.ok ? "" : (result.diagnostics[0]?.raw ?? "");
@@ -161,6 +206,28 @@ export function VisampCanvas({
 
     return () => window.clearInterval(id);
   }, [active]);
+
+  // Runs only while there is something to listen to, so a silent session
+  // costs no per-frame work.
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!ready || !engine || !analyser) return;
+
+    return startAudioBridge(engine, analyser);
+  }, [ready, analyser]);
+
+  // Keyed on whether anyone is listening, not on the callback itself, so an
+  // inline arrow from the parent does not tear the poll down every render.
+  const watchProperties = Boolean(onProperties);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!ready || !engine || !watchProperties) return;
+
+    return startPropertiesBridge(engine, (properties) => {
+      onPropertiesRef.current?.(properties);
+    });
+  }, [ready, watchProperties]);
 
   const captureFrame = useCallback(async (): Promise<Blob> => {
     const engine = engineRef.current;

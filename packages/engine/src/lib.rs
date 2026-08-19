@@ -103,7 +103,7 @@ on_frame {
   angle = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::clear()
   draw::background(
     color: $COLOR_BLACK
@@ -183,8 +183,14 @@ layer_2d {
         // Schedule next frame first to keep animation running
         request_animation_frame(f.borrow().as_ref().unwrap());
         
-        let mut model = state_ref.model.borrow_mut();
-        let mut runtime = state_ref.runtime.borrow_mut();
+        // Skipping a frame is invisible; panicking here is not. A capture or a
+        // property read holding the state briefly should cost one frame, not
+        // abort mid-borrow and leave every later frame unable to run.
+        let (Ok(mut model), Ok(mut runtime)) =
+            (state_ref.model.try_borrow_mut(), state_ref.runtime.try_borrow_mut())
+        else {
+            return;
+        };
         runtime.frame_count += 1;
 
         let blocks = model.blocks.clone();
@@ -200,7 +206,8 @@ layer_2d {
             ));
         }
 
-        // Run on_frame blocks
+        // on_frame always runs to completion before render, so a render block
+        // always draws from state that is current for this frame.
         for block in &blocks {
             if block.block_type == BlockType::OnFrame {
                 if let Err(e) = interpret_event_block(block, &mut model.decels, &*runtime, &functions) {
@@ -210,11 +217,11 @@ layer_2d {
             }
         }
 
-        // Run layer_2d blocks
+        // Then the single render block.
         for block in &blocks {
-            if block.block_type == BlockType::Layer2D {
-                if let Err(e) = interpret_layer_block(block, &mut model.decels, &state_ref.ctx, &*runtime, &functions) {
-                    web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!("layer_2d error: {}", e)));
+            if block.block_type == BlockType::Render {
+                if let Err(e) = interpret_render_block(block, &mut model.decels, &state_ref.ctx, &*runtime, &functions) {
+                    web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!("render error: {}", e)));
                     *state_ref.last_error.borrow_mut() = Some(e);
                 }
             }
@@ -247,6 +254,23 @@ pub fn load_script(code: &str) -> String {
             web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(
                 &format!("Parsed OK: blocks=[{}], functions={}", block_info.join(", "), model.functions.len())
             ));
+            // A canvas keeps whichever context it was first given for its whole
+            // life, and this one is already a 2d context. Rejecting here — and
+            // leaving the previous model in place — is honest: the alternative
+            // is accepting the script and then drawing nothing.
+            if model.context != ContextKind::TwoD {
+                let message = format!(
+                    "Parse error:  --> 1:1\n  |\n  = context {} is not implemented yet; only 2d renders today",
+                    model.context.as_str()
+                );
+                STATE.with(|s| {
+                    if let Some(ref state) = *s.borrow() {
+                        *state.last_error.borrow_mut() = Some(message.clone());
+                    }
+                });
+                return message;
+            }
+
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     *state.model.borrow_mut() = model;
@@ -319,8 +343,8 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
 
     // Only layer blocks run. on_frame is deliberately skipped: a capture is a
     // snapshot of the current state, not a step forward in time.
-    for block in blocks.iter().filter(|b| b.block_type == BlockType::Layer2D) {
-        interpret_layer_block(block, &mut model.decels, &ctx, &runtime, &functions)
+    for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
+        interpret_render_block(block, &mut model.decels, &ctx, &runtime, &functions)
             .map_err(|e| format!("Capture failed: {}", e))?;
     }
 
@@ -367,6 +391,121 @@ pub fn capture_frame() -> js_sys::Promise {
                 &JsValue::from_str("toBlob is unavailable in this browser"),
             );
         }
+    })
+}
+
+/// Hand the engine the latest analyser snapshot.
+///
+/// Called once per animation frame from the player wrapper, which owns the
+/// AnalyserNode. Pushing rather than pulling keeps the audio graph entirely on
+/// the JavaScript side: the engine never needs to know whether the signal came
+/// from a microphone, a local file or a stream.
+///
+/// `time_domain` is the waveform (centred on 128), `frequency` the spectrum,
+/// both 0..255. A frame that arrives while the script is mid-render is simply
+/// seen on the next frame; there is no tearing because the copy completes
+/// before the render loop reads it.
+#[wasm_bindgen]
+pub fn set_audio_frame(time_domain: &[u8], frequency: &[u8], beat: bool) {
+    STATE.with(|s| {
+        if let Some(ref state) = *s.borrow() {
+            // try_borrow_mut: the render loop holds this briefly each frame, and
+            // dropping one audio frame is far better than panicking.
+            if let Ok(mut runtime) = state.runtime.try_borrow_mut() {
+                runtime.time_domain.clear();
+                runtime.time_domain.extend_from_slice(time_domain);
+                runtime.frequency.clear();
+                runtime.frequency.extend_from_slice(frequency);
+                runtime.beat = beat;
+            }
+        }
+    });
+}
+
+/// Clears the analyser snapshot, so scripts see silence rather than the last
+/// frame frozen in place.
+#[wasm_bindgen]
+pub fn clear_audio_frame() {
+    STATE.with(|s| {
+        if let Some(ref state) = *s.borrow() {
+            if let Ok(mut runtime) = state.runtime.try_borrow_mut() {
+                runtime.time_domain.clear();
+                runtime.frequency.clear();
+                runtime.beat = false;
+            }
+        }
+    });
+}
+
+/// JSON-escapes a string for the hand-built payload in `get_properties`.
+fn json_escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// A snapshot of every declared property and its current value.
+///
+/// Returns a JSON array of `{name, type, value, swatch?}`, in declaration
+/// order. This is a *pull*, not a push: properties are reassigned on every
+/// frame, so emitting an event per change would mean thousands of boundary
+/// crossings a second to feed a panel a human reads a few times a second.
+/// The caller polls this and diffs, which turns into a change event on the JS
+/// side at a fraction of the cost.
+#[wasm_bindgen]
+pub fn get_properties() -> String {
+    STATE.with(|s| {
+        let borrowed = s.borrow();
+        let Some(ref state) = *borrowed else {
+            return "[]".to_string();
+        };
+
+        // A frame in flight holds this mutably; skipping a poll is invisible,
+        // whereas panicking here would take the whole editor down.
+        let Ok(model) = state.model.try_borrow() else {
+            return "[]".to_string();
+        };
+
+        // Properties live in the outermost scope; block scopes sit above it.
+        let Some(scope) = model.decels.scopes.first() else {
+            return "[]".to_string();
+        };
+
+        let entries: Vec<String> = model
+            .prop_names
+            .iter()
+            .filter_map(|name| scope.get(name).map(|value| (name, value)))
+            .map(|(name, value)| {
+                let swatch = match value {
+                    Value::Color(c) => format!(
+                        ",\"swatch\":\"#{:02x}{:02x}{:02x}\"",
+                        (c.r.clamp(0.0, 1.0) * 255.0).round() as u8,
+                        (c.g.clamp(0.0, 1.0) * 255.0).round() as u8,
+                        (c.b.clamp(0.0, 1.0) * 255.0).round() as u8
+                    ),
+                    _ => String::new(),
+                };
+                format!(
+                    "{{\"name\":\"{}\",\"type\":\"{}\",\"value\":\"{}\"{}}}",
+                    json_escape(name),
+                    value.type_tag(),
+                    json_escape(&value.display()),
+                    swatch
+                )
+            })
+            .collect();
+
+        format!("[{}]", entries.join(","))
     })
 }
 

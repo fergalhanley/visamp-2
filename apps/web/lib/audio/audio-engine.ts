@@ -33,6 +33,8 @@ class AudioEngine {
 
   private levelBuffer: Uint8Array<ArrayBuffer> | null = null;
   private events: AudioEngineEvents = {};
+  /** Notified when the analyser first comes into existence. */
+  private readonly analyserListeners = new Set<() => void>();
 
   setEvents(events: AudioEngineEvents) {
     this.events = events;
@@ -45,6 +47,7 @@ class AudioEngine {
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = FFT_SIZE;
       this.levelBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize));
+      this.analyserListeners.forEach((listener) => listener());
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
     return this.ctx;
@@ -52,6 +55,16 @@ class AudioEngine {
 
   getAnalyser(): AnalyserNode | null {
     return this.analyser;
+  }
+
+  /**
+   * The analyser is built lazily on the first user gesture that needs audio, so
+   * consumers cannot simply read it once at mount — they have to be told when
+   * it appears.
+   */
+  onAnalyserChange(listener: () => void): () => void {
+    this.analyserListeners.add(listener);
+    return () => this.analyserListeners.delete(listener);
   }
 
   /** RMS of the current window, 0..1. Returns 0 when nothing is connected. */

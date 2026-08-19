@@ -88,7 +88,7 @@ fn rainbow_color(position) {
 Color constructors are expressions and can be used anywhere a color is expected:
 
 ```
-layer_2d {
+render {
   draw::background(color: color::rgb(red: 0.1, green: 0.1, blue: 0.2))
 
   draw::circle(

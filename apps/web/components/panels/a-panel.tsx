@@ -83,6 +83,8 @@ export function APanel() {
   const playIndex = useAudioStore((s) => s.playIndex);
   const loadPlaylist = useAudioStore((s) => s.loadSoundcloudPlaylist);
   const clearSoundcloud = useAudioStore((s) => s.clearSoundcloud);
+  const url = useAudioStore((s) => s.soundcloudUrl);
+  const setUrl = useAudioStore((s) => s.setSoundcloudUrl);
   const selectSoundcloudSource = useAudioStore((s) => s.selectSoundcloudSource);
   const selectFilesSource = useAudioStore((s) => s.selectFilesSource);
 
@@ -94,7 +96,6 @@ export function APanel() {
   // you can look at your files without abandoning what is currently playing.
   const [tab, setTab] = useState<SourceTab | null>(null);
   const activeTab = tab ?? tabForKind(kind);
-  const [url, setUrl] = useState("");
 
   const micLive = kind === "mic";
 

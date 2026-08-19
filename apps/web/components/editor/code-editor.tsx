@@ -1,11 +1,20 @@
 "use client";
 
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import {
+  copyLineDown,
+  defaultKeymap,
+  deleteLine,
+  history,
+  historyKeymap,
+  indentLess,
+  indentMore,
+} from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { setDiagnostics, type Diagnostic as CmDiagnostic } from "@codemirror/lint";
-import { EditorState } from "@codemirror/state";
+import { EditorSelection, EditorState, countColumn } from "@codemirror/state";
 import {
   EditorView,
+  type Command,
   drawSelection,
   highlightActiveLine,
   highlightActiveLineGutter,
@@ -16,7 +25,7 @@ import { useEffect, useRef } from "react";
 
 import type { Diagnostic } from "@visamp/player";
 
-import { visampSyntax } from "@/lib/dsl/language";
+import { INDENT_WIDTH, visampSyntax } from "@/lib/dsl/language";
 
 const editorTheme = EditorView.theme(
   {
@@ -44,6 +53,53 @@ const editorTheme = EditorView.theme(
   },
   { dark: true },
 );
+
+/**
+ * Tab: indent the selected lines, or advance to the next tab stop.
+ *
+ * With a selection this is ordinary block indentation. With a bare cursor it
+ * inserts spaces up to the next multiple of `INDENT_WIDTH` rather than a flat
+ * two, so a cursor sitting at an odd column lands back on the grid instead of
+ * carrying the offset down the file.
+ */
+const indentOrInsert: Command = (view) => {
+  const { state } = view;
+  if (state.selection.ranges.some((range) => !range.empty)) return indentMore(view);
+
+  view.dispatch(
+    state.changeByRange((range) => {
+      const line = state.doc.lineAt(range.head);
+      const column = countColumn(
+        line.text.slice(0, range.head - line.from),
+        state.tabSize,
+      );
+      const width = INDENT_WIDTH - (column % INDENT_WIDTH);
+      const insert = " ".repeat(width);
+
+      return {
+        changes: { from: range.head, insert },
+        range: EditorSelection.cursor(range.head + width),
+      };
+    }),
+    { scrollIntoView: true, userEvent: "input" },
+  );
+
+  return true;
+};
+
+/**
+ * Editing keys layered ahead of the defaults, so these win where they overlap.
+ *
+ * Binding Tab does trap it inside the editor, which normally costs keyboard
+ * users their way out of the field. Escape then Tab still moves focus on, and
+ * the editor is a code surface where indentation is the more useful default.
+ */
+const editingKeymap = [
+  { key: "Mod-d", run: deleteLine, preventDefault: true },
+  { key: "Shift-Mod-d", run: copyLineDown, preventDefault: true },
+  { key: "Tab", run: indentOrInsert, preventDefault: true },
+  { key: "Shift-Tab", run: indentLess, preventDefault: true },
+];
 
 /** Diagnostics carry 1-based line/column; CodeMirror wants document offsets. */
 function toCodeMirrorDiagnostics(
@@ -123,7 +179,7 @@ export function CodeEditor({
           drawSelection(),
           indentOnInput(),
           bracketMatching(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          keymap.of([...editingKeymap, ...defaultKeymap, ...historyKeymap]),
           visampSyntax,
           editorTheme,
           EditorView.lineWrapping,

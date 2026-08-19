@@ -7,7 +7,7 @@ Let's walk through creating a simple animated scene.
 Every scene starts with a background:
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_NAVY)
 }
 ```
@@ -17,7 +17,7 @@ layer_2d {
 Let's add a circle:
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_NAVY)
   draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_GOLD)
 }
@@ -34,7 +34,7 @@ on_frame {
   y = y + 2.0
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_NAVY)
   draw::circle(x: 400.0, y: y, radius: 50.0, color: $COLOR_GOLD)
 }
@@ -52,7 +52,7 @@ on_frame {
   }
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_NAVY)
   draw::circle(x: 400.0, y: y, radius: 50.0, color: $COLOR_GOLD)
 }
@@ -69,7 +69,7 @@ on_frame {
   angle = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   draw::rect(
     x: 350.0, y: 250.0,

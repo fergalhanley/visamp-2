@@ -21,13 +21,30 @@ export interface CompileResult {
   ok: boolean;
   diagnostics: Diagnostic[];
   /**
-   * Always false today. The DSL has no audio bindings, so there is nothing to
-   * detect — see the E1 gap noted in dev/stories.md §3.
+   * Still reported as false. The DSL now *has* audio bindings
+   * ($TIME_DOMAIN_DATA, $FREQUENCY_DATA, $BEAT), so this is finally
+   * computable — it needs the engine to report whether the parsed script
+   * references any of them.
    */
   usesAudio: boolean;
 }
 
 export type LogLevel = "info" | "warn" | "error";
+
+/** One row of the properties inspector: a `prop` and its value right now. */
+export interface PropertyView {
+  name: string;
+  /** `integer` | `float` | `boolean` | `string` | `array` | `color` | … */
+  type: string;
+  /**
+   * Already formatted by the engine. It is a string rather than a number
+   * because a float property can hold NaN or infinity, neither of which
+   * survives a JSON round trip.
+   */
+  value: string;
+  /** `#rrggbb`, present only for colour properties, for a swatch. */
+  swatch?: string;
+}
 
 export interface LogEntry {
   level: LogLevel;
@@ -41,6 +58,10 @@ export interface EngineModule {
   load_script(code: string): string;
   get_last_error(): string;
   capture_frame(): Promise<Blob>;
+  set_audio_frame(timeDomain: Uint8Array, frequency: Uint8Array, beat: boolean): void;
+  clear_audio_frame(): void;
+  /** JSON array of `PropertyView`; see `startPropertiesBridge`. */
+  get_properties(): string;
 }
 
 export interface VisampCanvasHandle {

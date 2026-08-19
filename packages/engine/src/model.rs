@@ -92,10 +92,80 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn into_color(self) -> Color {
+    /// A short, stable type tag for the properties inspector.
+    pub fn type_tag(&self) -> &'static str {
         match self {
-            Value::Color(c) => c,
-            other => panic!("Expected Color, got {:?}", other),
+            Value::Boolean(_) => "boolean",
+            Value::Integer(_) => "integer",
+            Value::Float(_) => "float",
+            Value::String(_) => "string",
+            Value::Array(_) => "array",
+            Value::Identifier(_) => "identifier",
+            Value::SystemValue(_) => "system",
+            Value::Color(_) => "color",
+        }
+    }
+
+    /// How the value reads in the properties inspector.
+    ///
+    /// Deliberately a string rather than a number: a float property can hold
+    /// NaN or infinity, neither of which is representable in JSON, and a
+    /// value updating every frame is unreadable at full float precision.
+    pub fn display(&self) -> String {
+        match self {
+            Value::Boolean(b) => b.to_string(),
+            Value::Integer(i) => i.to_string(),
+            Value::Float(f) => format_float(*f),
+            Value::String(s) => format!("\"{}\"", s),
+            Value::Identifier(name) => name.clone(),
+            Value::SystemValue(name) => format!("${}", name),
+            Value::Color(c) => format!(
+                "rgba({}, {}, {}, {})",
+                format_float(c.r),
+                format_float(c.g),
+                format_float(c.b),
+                format_float(c.a)
+            ),
+            Value::Array(items) => {
+                // A spectrum snapshot is 1024 entries; showing them all would
+                // bury every other property in the panel.
+                const SHOWN: usize = 8;
+                let head = items
+                    .iter()
+                    .take(SHOWN)
+                    .map(|v| v.display())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if items.len() > SHOWN {
+                    format!("[{}, … {} items]", head, items.len())
+                } else {
+                    format!("[{}]", head)
+                }
+            }
+        }
+    }
+
+    /// Fallible colour conversion.
+    ///
+    /// The panicking form this replaced took the whole engine with it: wasm
+    /// has no unwinding, so a panic aborts mid-frame with the model and
+    /// runtime `RefCell`s still borrowed, and every later frame then fails to
+    /// borrow them. One mistyped argument permanently froze the canvas until
+    /// the page was reloaded. Reporting it leaves the previous frame on screen
+    /// and puts the reason in the log.
+    pub fn try_into_color(self) -> Result<Color, String> {
+        match self {
+            Value::Color(c) => Ok(c),
+            other => Err(format!("Expected a color, got {}", other.type_tag())),
+        }
+    }
+
+    /// Fallible number conversion; see `try_into_color` for why it is fallible.
+    pub fn try_into_f64(self) -> Result<f64, String> {
+        match self {
+            Value::Float(f) => Ok(f),
+            Value::Integer(i) => Ok(i as f64),
+            other => Err(format!("Expected a number, got {}", other.type_tag())),
         }
     }
 
@@ -113,6 +183,25 @@ impl Value {
             Value::Integer(i) => Some(*i as f64),
             _ => None,
         }
+    }
+}
+
+/// Trims a float to something readable in a panel that updates every frame,
+/// without printing `NaN`/`inf` as if they were ordinary numbers.
+pub fn format_float(value: f64) -> String {
+    if value.is_nan() {
+        return "NaN".to_string();
+    }
+    if value.is_infinite() {
+        return if value > 0.0 { "∞".to_string() } else { "-∞".to_string() };
+    }
+    let rounded = format!("{:.3}", value);
+    // `0.500` reads worse than `0.5`, but `0.000` must stay `0`.
+    let trimmed = rounded.trim_end_matches('0').trim_end_matches('.');
+    if trimmed.is_empty() || trimmed == "-" {
+        "0".to_string()
+    } else {
+        trimmed.to_string()
     }
 }
 
@@ -171,8 +260,47 @@ impl Declarations {
 
 // ── AST Types ──
 
+/// Which canvas rendering context the script wants.
+///
+/// A canvas can only ever hold one context for its lifetime, so this is read
+/// once when the engine binds to the canvas — it is not switchable per script.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ContextKind {
+    #[default]
+    TwoD,
+    WebGl,
+    ExperimentalWebGl,
+    WebGl2,
+    WebGpu,
+}
+
+impl ContextKind {
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "2d" => Some(ContextKind::TwoD),
+            "webgl" => Some(ContextKind::WebGl),
+            "experimental-webgl" => Some(ContextKind::ExperimentalWebGl),
+            "webgl2" => Some(ContextKind::WebGl2),
+            "webgpu" => Some(ContextKind::WebGpu),
+            _ => None,
+        }
+    }
+
+    /// The string `HTMLCanvasElement.getContext` expects.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ContextKind::TwoD => "2d",
+            ContextKind::WebGl => "webgl",
+            ContextKind::ExperimentalWebGl => "experimental-webgl",
+            ContextKind::WebGl2 => "webgl2",
+            ContextKind::WebGpu => "webgpu",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Script {
+    pub context: ContextKind,
     pub props: Vec<PropertyDef>,
     pub functions: Vec<FunctionDef>,
     pub blocks: Vec<Block>,
@@ -181,6 +309,7 @@ pub struct Script {
 impl Script {
     pub fn new() -> Self {
         Script {
+            context: ContextKind::default(),
             props: Vec::new(),
             functions: Vec::new(),
             blocks: Vec::new(),
@@ -196,7 +325,7 @@ pub struct Block {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockType {
-    Layer2D,
+    Render,
     OnFrame,
 }
 
@@ -239,8 +368,24 @@ pub struct IfStatement {
 #[derive(Debug, Clone)]
 pub struct ForLoop {
     pub variable: String,
-    pub iterable: Expression,
+    pub iterable: ForIterable,
     pub body: Vec<Statement>,
+}
+
+/// What a `for` walks over: an array value, or a numeric range.
+#[derive(Debug, Clone)]
+pub enum ForIterable {
+    Expression(Expression),
+    /// `start..end`, `start..=end`, optionally `step n`. Integers only.
+    Range {
+        start: Expression,
+        end: Expression,
+        /// True for `..=`.
+        inclusive: bool,
+        /// Defaults to 1. A descending range needs an explicit negative step,
+        /// so `5..0` is empty rather than silently counting backwards.
+        step: Option<Expression>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -287,6 +432,13 @@ pub enum Expression {
     SystemValue(String),
     Array(Vec<Expression>),
     Grouping(Box<Expression>),
+    /// `target[index]`. Reading out of range yields 0 rather than failing —
+    /// the audio arrays are empty whenever nothing is playing, and every
+    /// visualisation has to keep working in silence.
+    Index {
+        target: Box<Expression>,
+        index: Box<Expression>,
+    },
     Unary {
         op: UnaryOperator,
         expr: Box<Expression>,
@@ -337,6 +489,8 @@ pub enum BinaryOperator {
     Subtract,
     Multiply,
     Divide,
+    /// `\` — truncating division, always yields an integer.
+    IntegerDivide,
     Modulus,
     Equal,
     NotEqual,
@@ -349,22 +503,49 @@ pub enum BinaryOperator {
 /// The runtime model holding state and blocks
 #[derive(Debug, Clone)]
 pub struct Model {
+    pub context: ContextKind,
     pub decels: Declarations,
     pub functions: Vec<FunctionDef>,
     pub blocks: Vec<Block>,
+    /// Property names in the order they were declared. The scope itself is a
+    /// `HashMap`, so this is the only record of the author's ordering — the
+    /// inspector lists them as written rather than in hash order.
+    pub prop_names: Vec<String>,
 }
 
 impl Model {
     pub fn from_script(script: &Script) -> Self {
         let mut decels = Declarations::new();
         decels.push_scope();
+        // `prop tint = $COLOR_CRIMSON` parses to the bare token, so resolve
+        // system values here rather than leaving a name that every later use
+        // has to cope with. Constants like the palette and PI come out exact;
+        // frame-varying ones (`$WIDTH`, `$TIME_MS`) resolve against a fresh
+        // runtime, which is the right reading of an *initial* value.
+        let seed = crate::interpreter::Runtime::new();
+
+        let mut prop_names = Vec::with_capacity(script.props.len());
         for prop in &script.props {
-            decels.declare(prop.name.clone(), prop.value.clone());
+            let value = match &prop.value {
+                Value::SystemValue(name) => {
+                    crate::interpreter::map_value_runtime(name.trim_start_matches('$'), &seed)
+                        .unwrap_or_else(|_| prop.value.clone())
+                }
+                other => other.clone(),
+            };
+            decels.declare(prop.name.clone(), value);
+            // A redeclared name keeps its first position rather than appearing
+            // twice in the inspector.
+            if !prop_names.contains(&prop.name) {
+                prop_names.push(prop.name.clone());
+            }
         }
         Model {
+            context: script.context,
             decels,
             functions: script.functions.clone(),
             blocks: script.blocks.clone(),
+            prop_names,
         }
     }
 }

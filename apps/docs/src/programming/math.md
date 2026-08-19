@@ -67,7 +67,7 @@ on_frame {
   angle = angle + 0.05
 }
 
-layer_2d {
+render {
   draw::clear()
   draw::background(color: $COLOR_BLACK)
   
@@ -81,7 +81,7 @@ layer_2d {
 ### Wave Pattern
 
 ```
-layer_2d {
+render {
   draw::clear()
   draw::background(color: $COLOR_NAVY)
   
@@ -102,7 +102,7 @@ on_frame {
   t = t + 0.1
 }
 
-layer_2d {
+render {
   draw::clear()
   draw::background(color: $COLOR_BLACK)
   
@@ -124,7 +124,7 @@ prop y1 = 100.0
 prop x2 = 700.0
 prop y2 = 500.0
 
-layer_2d {
+render {
   draw::clear()
   draw::background(color: $COLOR_BLACK)
   

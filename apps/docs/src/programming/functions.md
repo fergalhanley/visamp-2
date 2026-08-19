@@ -30,7 +30,7 @@ fn randomColor() {
   return color::hsl(hue: $TIME_SEC * 0.1, saturation: 0.8, lightness: 0.5)
 }
 
-layer_2d {
+render {
   draw::background(color: randomColor())
 }
 ```
@@ -42,7 +42,7 @@ fn dot(x: 0.0, y: 0.0, color: $COLOR_RED) {
   draw::circle(x: x, y: y, radius: 10.0, color: color)
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   dot(x: 200.0, y: 300.0, color: $COLOR_RED)
   dot(x: 400.0, y: 300.0, color: $COLOR_GREEN)
@@ -98,7 +98,7 @@ fn draw_star(x: 400.0, y: 300.0, size: 40.0, color: $COLOR_GOLD, rotate: 0.0) {
   )
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_NAVY)
   draw_star()                                           // all defaults
   draw_star(x: 200.0, y: 200.0, color: $COLOR_CORAL)   // override some
@@ -130,7 +130,7 @@ If a function doesn't explicitly return, it returns `false`.
 ## Scope
 
 - Functions are defined at the **top level** (alongside `prop` declarations and blocks)
-- Functions can be called from `on_frame`, `layer_2d`, and other functions
+- Functions can be called from `on_frame`, `render`, and other functions
 - Functions **cannot** access or modify properties directly — pass values as parameters
 
 ```
@@ -144,7 +144,7 @@ on_frame {
   val = helper(x: val)
 }
 
-layer_2d {
+render {
   let computed = helper(x: 5.0)
   draw::circle(x: computed, y: 300.0, radius: 20.0, color: $COLOR_RED)
 }

@@ -9,7 +9,7 @@ on_frame {
   angle = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   draw::rect(
     x: 350.0, y: 250.0,
@@ -46,7 +46,7 @@ on_frame {
   }
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_NAVY)
   draw::circle(x: x, y: y, radius: 30.0, color: $COLOR_GOLD)
 }
@@ -55,7 +55,7 @@ layer_2d {
 ## Color Cycling Background
 
 ```
-layer_2d {
+render {
   draw::background(
     color: color::hsl(hue: $TIME_SEC * 0.05, saturation: 0.6, lightness: 0.3)
   )
@@ -85,7 +85,7 @@ fn orbit_particle(a, dist, col) {
   draw::circle(x: px, y: py, radius: 12.0, color: col)
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   // Center
@@ -109,7 +109,7 @@ layer_2d {
 ## Pulsing Ring
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   let pulse = ($TIME_SEC * 2.0) % 1.0
@@ -130,7 +130,7 @@ layer_2d {
 ## Wave Pattern
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19] {
@@ -163,7 +163,7 @@ on_frame {
   }
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
 
   for i in [0, 1, 2, 3, 4] {

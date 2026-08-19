@@ -4,9 +4,10 @@ import {
   VisampCanvas,
   type CompileResult,
   type LogEntry,
+  type PropertyView,
   type VisampCanvasHandle,
 } from "@visamp/player";
-import { Camera, Check, Loader2, Pin } from "lucide-react";
+import { Camera, Check, GitFork, Loader2, Pin } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -16,11 +17,24 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { useAuth } from "@/components/auth/auth-provider";
+import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { BrandLockup } from "@/components/brand/logo";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
 import { EditorTransport } from "@/components/editor/editor-transport";
+import { PropertiesInspector } from "@/components/editor/properties-inspector";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useAnalyser } from "@/hooks/use-analyser";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -57,6 +71,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
   const [compile, setCompile] = useState<CompileResult | null>(null);
   const [logLines, setLogLines] = useState<LogLine[]>([]);
+  const [properties, setProperties] = useState<PropertyView[]>([]);
   const [logCollapsed, setLogCollapsed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -74,11 +89,17 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
   const editorHandle = useRef<CodeEditorHandle | null>(null);
   const canvasHandle = useRef<VisampCanvasHandle>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const splitRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
 
   // E6.10 — a pinned thumb is the author's explicit choice and survives saves.
+  const analyser = useAnalyser();
+  const { user } = useAuth();
   const [thumbPinned, setThumbPinned] = useState(visualisation.thumb_pinned);
+  const [forking, setForking] = useState(false);
+  const [forkBlocked, setForkBlocked] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const [capturing, setCapturing] = useState(false);
 
   // E6.5 — debounce keystrokes into the engine.
@@ -94,26 +115,31 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     ]);
   }, []);
 
-  const onCompileResult = useCallback(
-    (result: CompileResult) => {
-      setCompile(result);
+  /**
+   * A recompile replaces the log rather than adding to it. The previous run's
+   * errors point at source that no longer exists, and leaving them stacked
+   * above the current ones is how you end up chasing a bug you already fixed.
+   * Runtime entries from `onLog` then accumulate under the fresh compile line.
+   */
+  const onCompileResult = useCallback((result: CompileResult) => {
+    setCompile(result);
 
-      if (result.ok) {
-        appendLog({ level: "info", message: "Compiled." });
-      } else {
-        for (const diagnostic of result.diagnostics) {
-          appendLog({
-            level: "error",
+    const at = Date.now();
+    setLogLines(
+      result.ok
+        ? [{ id: (logSeq += 1), level: "info", message: "Compiled.", at }]
+        : result.diagnostics.map((diagnostic) => ({
+            id: (logSeq += 1),
+            level: "error" as const,
             message: diagnostic.message,
             line: diagnostic.line,
-          });
-        }
-        // E6.6 — errors force the log open.
-        setLogCollapsed(false);
-      }
-    },
-    [appendLog],
-  );
+            at,
+          })),
+    );
+
+    // E6.6 — errors force the log open.
+    if (!result.ok) setLogCollapsed(false);
+  }, []);
 
   const onLog = useCallback(
     (entry: LogEntry) => {
@@ -237,6 +263,78 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     setSaving(false);
   }, [title, source, visibility, visualisation.id, thumbPinned, uploadThumbnail]);
 
+  /**
+   * E6.11 — fork the current script into a copy you own.
+   *
+   * Saving first matters: without it the original silently keeps the old
+   * source while the fork carries your edits, and the two diverge for no
+   * visible reason. The fork always takes what is on screen now, which is also
+   * what makes forking someone else's work carry any tweaks you made to it.
+   */
+  const fork = useCallback(async () => {
+    // A fork that will not compile is a dead end for whoever opens it, and the
+    // save that precedes it is gated on a good compile anyway (E6.8).
+    if (compile?.ok !== true) {
+      setForkBlocked(true);
+      return;
+    }
+
+    if (!user) {
+      setSignInOpen(true);
+      return;
+    }
+
+    setForking(true);
+    setSaveError(null);
+
+    try {
+      const supabase = createClient();
+
+      // Only your own work can be saved; someone else's is read-only, and the
+      // fork below carries the buffer either way.
+      if (canEdit && dirty) {
+        const { error } = await supabase
+          .from("visualisations")
+          .update({ title, source, visibility })
+          .eq("id", visualisation.id);
+
+        if (error) throw new Error(error.message);
+      }
+
+      const { data, error } = await supabase
+        .from("visualisations")
+        .insert({
+          owner_id: user.id,
+          title: `${title} (fork)`,
+          description: visualisation.description,
+          source,
+          visibility: "private",
+          forked_from_id: visualisation.id,
+        })
+        .select("id")
+        .single();
+
+      if (error || !data) throw new Error(error?.message ?? "Could not fork");
+
+      // Hard navigation: the editor needs a fresh document to claim the engine.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = `/edit/${data.id}`;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not fork");
+      setForking(false);
+    }
+  }, [
+    compile,
+    user,
+    canEdit,
+    dirty,
+    title,
+    source,
+    visibility,
+    visualisation.id,
+    visualisation.description,
+  ]);
+
   const saveLabel = useMemo(() => {
     if (saving) return "Saving…";
     if (!dirty && savedAt) return "Saved";
@@ -262,6 +360,24 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
           placeholder="Untitled"
         />
+
+        <button
+          type="button"
+          onClick={() => void fork()}
+          disabled={forking}
+          title="Save and fork into a copy you own"
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition",
+            "hover:bg-foreground/5 disabled:opacity-50",
+          )}
+        >
+          {forking ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <GitFork className="h-3.5 w-3.5" />
+          )}
+          Fork
+        </button>
 
         {canEdit ? (
           <>
@@ -347,28 +463,58 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* E6.3 — 16:9 sized to the column; the log takes what's left. */}
-          <div className="aspect-video w-full shrink-0 bg-black">
+          {/* Fullscreen expands just this box, so the visualisation fills the
+              screen without dragging the code panel along with it. */}
+          <div ref={previewRef} className="aspect-video w-full shrink-0 bg-black">
             <VisampCanvas
               ref={canvasHandle}
               source={liveSource}
               active
+              analyser={analyser}
               onCompileResult={onCompileResult}
+              onProperties={setProperties}
               onLog={onLog}
               className="h-full w-full"
             />
           </div>
 
-          <EditorTransport />
+          <EditorTransport fullscreenTarget={previewRef} />
 
-          <EditorLog
-            lines={logLines}
-            collapsed={logCollapsed}
-            onToggle={() => setLogCollapsed((value) => !value)}
-            onClear={() => setLogLines([])}
-            onJumpToLine={(line) => editorHandle.current?.goToLine(line)}
-          />
+          {/* Log and inspector share the bottom strip and collapse together —
+              one toggle for the whole panel keeps the preview's height
+              predictable while you work. */}
+          <div className="flex min-h-0 flex-1 border-t">
+            <EditorLog
+              lines={logLines}
+              collapsed={logCollapsed}
+              onToggle={() => setLogCollapsed((value) => !value)}
+              onClear={() => setLogLines([])}
+              onJumpToLine={(line) => editorHandle.current?.goToLine(line)}
+            />
+
+            {!logCollapsed && <PropertiesInspector properties={properties} />}
+          </div>
         </div>
       </div>
+
+      <AlertDialog open={forkBlocked} onOpenChange={setForkBlocked}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>This script isn&apos;t compiling</AlertDialogTitle>
+            <AlertDialogDescription>
+              A fork is a starting point for someone else, so it has to run.
+              Fix the errors shown in the log, then fork again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setForkBlocked(false)}>
+              Back to the code
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
     </div>
   );
 }

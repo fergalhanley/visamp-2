@@ -9,7 +9,7 @@ on_frame {
   angle = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::background(
     color: $BLACK
   )
@@ -43,7 +43,7 @@ on_frame {
   }
 }
 
-layer_2d {
+render {
 
   draw::rect(
      x: 0,
@@ -60,7 +60,7 @@ layer_2d {
 prop custom_prop_points = 32
 
 
-layer_2d {
+render {
 
   draw::rect(
      x: 0,

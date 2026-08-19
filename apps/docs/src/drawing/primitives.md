@@ -1,10 +1,10 @@
 # Drawing Primitives
 
-All drawing happens inside `layer_2d` blocks using `draw::` functions.
+All drawing happens inside `render` blocks using `draw::` functions.
 
 ## draw::clear
 
-Clears the entire canvas. Call this at the start of your `layer_2d` block to start fresh each frame. Omit it to let previous frames persist (useful for trails and accumulation effects).
+Clears the entire canvas. Call this at the start of your `render` block to start fresh each frame. Omit it to let previous frames persist (useful for trails and accumulation effects).
 
 ```
 draw::clear()

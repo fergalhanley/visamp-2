@@ -28,7 +28,7 @@ Changes to the code are reflected on the canvas automatically (with a 300ms debo
 ## Minimal Example
 
 ```
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 }

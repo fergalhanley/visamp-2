@@ -37,7 +37,7 @@ on_frame {
   angle = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   draw::rect(
     x: $WIDTH / 2.0 - 90.0,
@@ -93,7 +93,7 @@ on_frame {
   }
 }
 
-layer_2d {
+render {
   draw::rect(
     x: 0,
     y: 0,
@@ -122,7 +122,7 @@ on_frame {
   t = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   for i in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0] {
     let a = t + i * $PI / 4.0
@@ -159,7 +159,7 @@ on_frame {
   t = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   for i in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0] {
     let h = math::abs(value: math::sin(radians: t * 1.5 + i * 0.4)) * $HEIGHT * 0.6
@@ -190,7 +190,7 @@ on_frame {
   t = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::rect(
     x: 0,
     y: 0,

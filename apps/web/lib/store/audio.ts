@@ -5,9 +5,11 @@ import { create } from "zustand";
 import { getAudioEngine } from "@/lib/audio/audio-engine";
 import {
   loadHandles,
+  loadSoundcloudUrl,
   loadTrackNames,
   pickAudioFiles,
   saveHandles,
+  saveSoundcloudUrl,
   saveTrackNames,
   supportsFileSystemAccess,
   type FileSystemFileHandleLike,
@@ -45,6 +47,11 @@ interface AudioState {
   /** E4.5 — names remembered from a previous session, awaiting re-add. */
   pendingNames: string[];
 
+  /**
+   * The playlist link, shared by the player panel and the editor popover so
+   * both show the same value and it survives a reload.
+   */
+  soundcloudUrl: string;
   /** Resolved SoundCloud playlist, if one is loaded. */
   soundcloudPlaylist: SoundCloudPlaylistInfo | null;
   soundcloudTracks: Track[];
@@ -55,6 +62,7 @@ interface AudioState {
   enableMic: () => Promise<void>;
   disableMic: () => void;
 
+  setSoundcloudUrl: (url: string) => void;
   loadSoundcloudPlaylist: (url: string) => Promise<void>;
   clearSoundcloud: () => void;
   selectSoundcloudSource: () => void;
@@ -87,6 +95,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   pendingNames: [],
 
+  soundcloudUrl: "",
   soundcloudPlaylist: null,
   soundcloudTracks: [],
   soundcloudLoading: false,
@@ -118,8 +127,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     set({ kind: "silent", micError: null });
   },
 
+  setSoundcloudUrl: (soundcloudUrl) => set({ soundcloudUrl }),
+
   loadSoundcloudPlaylist: async (url) => {
-    set({ soundcloudLoading: true, soundcloudError: null });
+    set({ soundcloudUrl: url, soundcloudLoading: true, soundcloudError: null });
 
     try {
       const response = await fetch("/api/soundcloud/resolve", {
@@ -155,6 +166,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       // Selecting SoundCloud takes over from the microphone.
       getAudioEngine().disableMic();
 
+      // Persist only on success, so a typo is never restored next visit.
+      saveSoundcloudUrl(url);
+
       set({
         soundcloudPlaylist: {
           title: data.title ?? "SoundCloud playlist",
@@ -178,7 +192,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   clearSoundcloud: () => {
     getAudioEngine().stopFiles();
+    saveSoundcloudUrl("");
     set({
+      soundcloudUrl: "",
       soundcloudPlaylist: null,
       soundcloudTracks: [],
       soundcloudError: null,
@@ -361,6 +377,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   restore: async () => {
+    // Re-resolve any remembered playlist. One request, and it has to be a fresh
+    // one: stored stream URLs would have expired.
+    const storedUrl = loadSoundcloudUrl();
+    if (storedUrl) {
+      set({ soundcloudUrl: storedUrl });
+      void get().loadSoundcloudPlaylist(storedUrl);
+    }
+
     const names = loadTrackNames();
 
     if (!supportsFileSystemAccess()) {

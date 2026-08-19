@@ -50,19 +50,70 @@ if !(done) { ... }
 
 ## for
 
-Iterate over an array.
+Iterate over an array, or over a range of numbers.
 
 ```
 for <variable> in <array> {
   // body runs once per element
 }
+
+for <variable> in <start>..<end> {
+  // body runs once per number
+}
 ```
+
+### Ranges
+
+Ranges count integers. `..` stops **before** the end, `..=` **includes** it:
+
+```
+for i in 0..5 { }     // 0 1 2 3 4
+for i in 0..=5 { }    // 0 1 2 3 4 5
+```
+
+`step` changes the increment, and a negative step counts down:
+
+```
+for i in 0..10 step 2 { }   // 0 2 4 6 8
+for i in 5..0 step -1 { }   // 5 4 3 2 1
+for i in 5..=0 step -1 { }  // 5 4 3 2 1 0
+```
+
+**A descending range needs an explicit negative step.** Without one it simply
+does not run, rather than quietly counting backwards:
+
+```
+for i in 5..0 { }           // never runs
+```
+
+Bounds can be any integer expression:
+
+```
+prop bars = 32
+
+render {
+  for i in 0..bars {
+    draw::rect(
+      x: i * ($WIDTH / bars),
+      y: 0,
+      width: $WIDTH / bars - 2.0,
+      height: $HEIGHT / 4.0,
+      color: $COLOR_TEAL
+    )
+  }
+}
+```
+
+Ranges are **integers only** — `0..2.5` is an error rather than being rounded,
+and a step of `0` is rejected instead of looping forever. A range is also
+capped at 100,000 iterations: your script runs inside the frame loop, so an
+enormous one would lock the browser rather than merely being slow.
 
 ### Examples
 
 ```
 // Draw 5 circles in a row
-for i in [0, 1, 2, 3, 4] {
+for i in 0..5 {
   draw::circle(x: i * 150.0 + 100.0, y: 300.0, radius: 30.0, color: $COLOR_BLUE)
 }
 
@@ -118,7 +169,7 @@ on_frame {
 Variables declared inside control flow blocks are local to that block:
 
 ```
-layer_2d {
+render {
   let x = 100.0
 
   if true {

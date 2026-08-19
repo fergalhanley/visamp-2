@@ -1,17 +1,37 @@
 WHITESPACE  = _{ " " | "\t" | "\r" | "\n" }
 
+// `COMMENT` is a pest built-in name: like WHITESPACE it is skipped implicitly
+// between tokens of every non-atomic rule, so comments are legal anywhere they
+// would be in a normal language. Atomic rules are unaffected, which is why a
+// `//` inside a string literal stays part of the string.
+//
+// This also means `a // b` reads as `a` followed by a comment, not as two
+// divisions — the same as every other language using this syntax.
+COMMENT     = _{ "//" ~ (!NEWLINE ~ ANY)* }
+
 identifier  = @{ (ASCII_ALPHANUMERIC | "_")+ }
 float       = @{ ("-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+) }
 boolean     = @{ ("true" | "false") }
 integer     = @{ ("-"? ~ ASCII_DIGIT+) }
 string      = @{ "\"" ~ ( "\\\"" | !"\"" ~ ANY )* ~ "\"" }
 
-script = { SOI ~ (prop_def | function_def | block)* ~ EOI }
+script = { SOI ~ (context_decl | prop_def | function_def | block)* ~ EOI }
 
-event_block_name  = { "on_" ~ ASCII_ALPHANUMERIC+ }
-layer_block_name  = { "layer_" ~ ASCII_ALPHANUMERIC+ }
+// Selects the canvas rendering context. Legal anywhere at the top level;
+// omitting it means 2d. Declaring it twice is rejected by the AST builder.
+context_decl = { "context" ~ context_kind }
+// Longest-first: "webgl" would otherwise shadow "webgl2", and
+// "experimental-webgl" would never match.
+context_kind = { "experimental-webgl" | "webgl2" | "webgl" | "webgpu" | "2d" }
 
-block = { (event_block_name|layer_block_name) ~ "{" ~ statement* ~ "}" }
+// Atomic on purpose. In a normal rule pest inserts implicit WHITESPACE between
+// sequence elements, so `on_` followed by a newline and the next block would
+// match as a single name — half-typed `on_` in the editor swallowed the whole
+// `render` block that followed it.
+event_block_name  = @{ "on_" ~ ASCII_ALPHANUMERIC+ }
+render_block_name = @{ "render" }
+
+block = { (event_block_name|render_block_name) ~ "{" ~ statement* ~ "}" }
 
 function_def = { "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ "{" ~ statement* ~ "}" }
 param_list = { param ~ ("," ~ param)* ~ ","? }
@@ -24,7 +44,18 @@ return_statement = { "return" ~ expression }
 if_statement = { "if" ~ expression ~ then_block ~ else_block? }
 then_block = { "{" ~ statement* ~ "}" }
 else_block = { "else" ~ "{" ~ statement* ~ "}" }
-for_loop = { "for" ~ identifier ~ "in" ~ expression ~ "{" ~ statement* ~ "}" }
+for_loop = { "for" ~ identifier ~ "in" ~ for_iterable ~ "{" ~ statement* ~ "}" }
+
+// A range must be tried before a bare expression, or the start value would
+// match on its own and the `..` would be left dangling.
+for_iterable = _{ range_expr | expression }
+range_expr = { expression ~ range_op ~ expression ~ (step_kw ~ expression)? }
+// Longest first: ".." would otherwise shadow "..=".
+range_op = @{ "..=" | ".." }
+// Guarded so an identifier like `stepper` is not read as `step` + `per`.
+// Atomic: in a normal rule pest would skip whitespace before the lookahead,
+// which would then test the character after the space and reject `step 2`.
+step_kw = @{ "step" ~ !(ASCII_ALPHANUMERIC | "_") }
 while_loop = { "while" ~ expression ~ "{" ~ statement* ~ "}" }
 
 argument = { identifier ~ ":" ~ expression }
@@ -63,10 +94,16 @@ add_expr    = { mul_expr ~ (add_operator ~ mul_expr)* }
 add_operator = { "+" | "-" }
 
 mul_expr    = { unary_expr ~ (mul_operator ~ unary_expr)* }
-mul_operator = { "*" | "/" | "%" }
+// `\\` is integer division. It is a distinct operator rather than a spelling
+// of `/` because `/` always yields a float.
+mul_operator = { "*" | "/" | "%" | "\\" }
 
-unary_expr  = { (unary_operator)* ~ primary_expr }
+unary_expr  = { (unary_operator)* ~ postfix_expr }
 unary_operator = { "!" | "-" | "+" }
+
+// Indexing binds tighter than any operator, and chains: a[0][1].
+postfix_expr = { primary_expr ~ index* }
+index = { "[" ~ expression ~ "]" }
 
 primary_expr = _{ math_expr | color_expr | call_expr | value | "(" ~ expression ~ ")" }
 

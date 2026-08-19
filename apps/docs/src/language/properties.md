@@ -23,7 +23,7 @@ prop points = [[100.0, 200.0], [300.0, 400.0]]
 - Properties must be declared before any blocks
 - Each property name must be unique
 - Properties can be read and written in `on_frame` blocks
-- Properties can be read in `layer_2d` blocks
+- Properties can be read in `render` blocks
 - Properties retain their values between frames
 
 ## Usage
@@ -35,9 +35,9 @@ on_frame {
   x = x + 1.0    // Update each frame
 }
 
-layer_2d {
+render {
   draw::circle(x: x, y: 300.0, radius: 20.0, color: $COLOR_RED)
 }
 ```
 
-Properties are the primary way to create animation. The `on_frame` block runs before each render, allowing you to update state that the `layer_2d` block then uses for drawing.
+Properties are the primary way to create animation. The `on_frame` block runs before each render, allowing you to update state that the `render` block then uses for drawing.

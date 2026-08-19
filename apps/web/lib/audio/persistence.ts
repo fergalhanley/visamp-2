@@ -13,6 +13,7 @@ const DB_VERSION = 1;
 const STORE = "handles";
 const HANDLES_KEY = "tracklist";
 const NAMES_KEY = "visamp.tracklist.names";
+const SOUNDCLOUD_URL_KEY = "visamp.soundcloud.url";
 
 // `showOpenFilePicker` and friends are not in TypeScript's DOM lib yet.
 interface FileSystemFileHandleLike {
@@ -132,6 +133,28 @@ export async function loadHandles(): Promise<{
     return { granted, needsPermission };
   } catch {
     return { granted: [], needsPermission: [] };
+  }
+}
+
+/**
+ * Only the playlist URL is kept, never the resolved tracks: SoundCloud's signed
+ * stream URLs lapse after about two hours, so a cached tracklist would be stale
+ * on the next visit anyway — and re-resolving is a single request.
+ */
+export function saveSoundcloudUrl(url: string): void {
+  try {
+    if (url) localStorage.setItem(SOUNDCLOUD_URL_KEY, url);
+    else localStorage.removeItem(SOUNDCLOUD_URL_KEY);
+  } catch {
+    // Private mode, quota — not worth surfacing.
+  }
+}
+
+export function loadSoundcloudUrl(): string {
+  try {
+    return localStorage.getItem(SOUNDCLOUD_URL_KEY) ?? "";
+  } catch {
+    return "";
   }
 }
 

@@ -8,7 +8,7 @@ on_frame {
   angle = $TIME_SEC
 }
 
-layer_2d {
+render {
   draw::background(color: $COLOR_BLACK)
   draw::circle(
     x: $WIDTH / 2.0,
