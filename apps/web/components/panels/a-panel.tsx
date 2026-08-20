@@ -8,7 +8,9 @@ import {
   Loader2,
   Mic,
   Music,
+  RefreshCw,
   Trash2,
+  Volume2,
   X,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -59,6 +61,37 @@ function formatDuration(ms?: number): string {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
+/**
+ * The leading glyph on a track row.
+ *
+ * Only two things are worth a mark: the track that is sounding, and the one
+ * being fetched. A SoundCloud track needs a signed URL and an opened stream
+ * before any audio arrives, which is long enough that an unchanged row looks
+ * like a click that did nothing.
+ *
+ * The slot keeps its width whatever it holds, so a row does not jump sideways
+ * the moment it is clicked.
+ */
+function TrackStatus({
+  loading,
+  current,
+  playing,
+}: {
+  loading: boolean;
+  current: boolean;
+  playing: boolean;
+}) {
+  return (
+    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+      {loading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground" />
+      ) : current && playing ? (
+        <Volume2 className="h-3.5 w-3.5 text-foreground" />
+      ) : null}
+    </span>
+  );
+}
+
 export function APanel() {
   const aOpen = useChromeStore((s) => s.aOpen);
 
@@ -66,6 +99,8 @@ export function APanel() {
   const micError = useAudioStore((s) => s.micError);
   const tracks = useAudioStore((s) => s.tracks);
   const currentIndex = useAudioStore((s) => s.currentIndex);
+  const pendingIndex = useAudioStore((s) => s.pendingIndex);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
   const pendingNames = useAudioStore((s) => s.pendingNames);
 
   const scPlaylist = useAudioStore((s) => s.soundcloudPlaylist);
@@ -81,6 +116,7 @@ export function APanel() {
   const clearTracks = useAudioStore((s) => s.clearTracks);
   const moveTrack = useAudioStore((s) => s.moveTrack);
   const playIndex = useAudioStore((s) => s.playIndex);
+  const refreshSoundcloud = useAudioStore((s) => s.refreshSoundcloud);
   const loadPlaylist = useAudioStore((s) => s.loadSoundcloudPlaylist);
   const clearSoundcloud = useAudioStore((s) => s.clearSoundcloud);
   const url = useAudioStore((s) => s.soundcloudUrl);
@@ -199,6 +235,16 @@ export function APanel() {
                 )}
                 <button
                   type="button"
+                  onClick={() => void refreshSoundcloud()}
+                  disabled={scLoading}
+                  aria-label="Refresh playlist"
+                  title="Reload the playlist from SoundCloud"
+                  className="text-muted-foreground transition hover:text-foreground disabled:opacity-40"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", scLoading && "animate-spin")} />
+                </button>
+                <button
+                  type="button"
                   onClick={clearSoundcloud}
                   aria-label="Clear playlist"
                   className="text-muted-foreground transition hover:text-foreground"
@@ -215,29 +261,43 @@ export function APanel() {
                 Paste a public SoundCloud playlist link to load its tracks.
               </li>
             ) : (
-              scTracks.map((track, index) => (
+              scTracks.map((track, index) => {
+                const active = kind === "soundcloud" && index === currentIndex;
+                const loading = kind === "soundcloud" && index === pendingIndex;
+
+                return (
                 <li
                   key={track.id}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-1.5",
-                    kind === "soundcloud" && index === currentIndex && "bg-foreground/10",
+                    "flex items-center gap-2 px-4 py-1.5 transition",
+                    // Tailwind emits `hover:bg-*` after plain `bg-*`, so an
+                    // unconditional hover tint *dims* an already-highlighted
+                    // row. The row that is playing keeps its own shade.
+                    !(active || loading) && "hover:bg-foreground/5",
+                    // Highlighted while loading too, so the click registers
+                    // before the sound does.
+                    (active || loading) && "bg-foreground/10",
                   )}
                 >
                   <button
                     type="button"
                     onClick={() => void playIndex(index)}
-                    className="min-w-0 flex-1 text-left"
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                   >
-                    <span className="block truncate text-xs">{track.name}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {track.artist}
+                    <TrackStatus loading={loading} current={active} playing={isPlaying} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs">{track.name}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {track.artist}
+                      </span>
                     </span>
                   </button>
                   <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                     {formatDuration(track.durationMs)}
                   </span>
                 </li>
-              ))
+                );
+              })
             )}
           </ul>
         </section>
@@ -306,20 +366,30 @@ export function APanel() {
                 No tracks yet — the visualisation runs time-driven until you add some.
               </li>
             ) : (
-              tracks.map((track, index) => (
+              tracks.map((track, index) => {
+                const active = kind === "files" && index === currentIndex;
+                const loading = kind === "files" && index === pendingIndex;
+
+                return (
                 <li
                   key={track.id}
                   className={cn(
-                    "group flex items-center gap-2 px-4 py-1.5",
-                    kind === "files" && index === currentIndex && "bg-foreground/10",
+                    // `group` still drives the reorder controls on hover.
+                    "group flex items-center gap-2 px-4 py-1.5 transition",
+                    // Tailwind emits `hover:bg-*` after plain `bg-*`, so an
+                    // unconditional hover tint *dims* an already-highlighted
+                    // row. The row that is playing keeps its own shade.
+                    !(active || loading) && "hover:bg-foreground/5",
+                    (active || loading) && "bg-foreground/10",
                   )}
                 >
                   <button
                     type="button"
                     onClick={() => void playIndex(index)}
-                    className="min-w-0 flex-1 truncate text-left text-xs"
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
                   >
-                    {track.name}
+                    <TrackStatus loading={loading} current={active} playing={isPlaying} />
+                    <span className="min-w-0 flex-1 truncate text-xs">{track.name}</span>
                   </button>
 
                   <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
@@ -351,7 +421,8 @@ export function APanel() {
                     </button>
                   </div>
                 </li>
-              ))
+                );
+              })
             )}
           </ul>
         </section>

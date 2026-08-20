@@ -224,24 +224,22 @@ render {
         };
         runtime.frame_count += 1;
 
-        let blocks = model.blocks.clone();
-        let functions = model.functions.clone();
-
-        // Log model info every 60 frames to verify model replacement
-        if runtime.frame_count % 60 == 1 {
-            let block_info: Vec<String> = blocks.iter().map(|b| {
-                format!("{:?}({} stmts)", b.block_type, b.statements.len())
-            }).collect();
-            web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(
-                &format!("Frame {}: blocks=[{}], functions={}", runtime.frame_count, block_info.join(", "), functions.len())
-            ));
-        }
+        // Borrowed apart rather than cloned. The script's blocks and functions
+        // do not change between frames, so copying the whole AST sixty times a
+        // second bought nothing but allocator traffic — it was only ever there
+        // to get a second borrow of the model alongside `decels`.
+        let Model {
+            blocks,
+            functions,
+            decels,
+            ..
+        } = &mut *model;
 
         // on_frame always runs to completion before render, so a render block
         // always draws from state that is current for this frame.
-        for block in &blocks {
+        for block in blocks.iter() {
             if block.block_type == BlockType::OnFrame {
-                if let Err(e) = interpret_event_block(block, &mut model.decels, &*runtime, &functions) {
+                if let Err(e) = interpret_event_block(block, decels, &*runtime, functions) {
                     *state_ref.last_error.borrow_mut() = Some(e);
                 }
             }
@@ -258,10 +256,10 @@ render {
                 for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
                     if let Err(e) = interpret_render_block(
                         block,
-                        &mut model.decels,
+                        decels,
                         Target::canvas(ctx),
                         &*runtime,
-                        &functions,
+                        functions,
                     ) {
                         *state_ref.last_error.borrow_mut() = Some(e);
                     }
@@ -277,10 +275,10 @@ render {
                 for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
                     if let Err(e) = interpret_render_block(
                         block,
-                        &mut model.decels,
+                        decels,
                         Target::scene(&state_ref.scene),
                         &*runtime,
-                        &functions,
+                        functions,
                     ) {
                         failure = Some(e);
                         break;
@@ -515,10 +513,11 @@ pub fn set_audio_frame(time_domain: &[u8], frequency: &[u8], beat: bool) {
             // try_borrow_mut: the render loop holds this briefly each frame, and
             // dropping one audio frame is far better than panicking.
             if let Ok(mut runtime) = state.runtime.try_borrow_mut() {
-                runtime.time_domain.clear();
-                runtime.time_domain.extend_from_slice(time_domain);
-                runtime.frequency.clear();
-                runtime.frequency.extend_from_slice(frequency);
+                // Replaced rather than refilled: a script may still be holding
+                // the previous buffer, and one allocation a frame is nothing
+                // beside what sharing it saves.
+                runtime.time_domain = std::rc::Rc::new(time_domain.to_vec());
+                runtime.frequency = std::rc::Rc::new(frequency.to_vec());
                 runtime.beat = beat;
             }
         }
@@ -532,8 +531,8 @@ pub fn clear_audio_frame() {
     STATE.with(|s| {
         if let Some(ref state) = *s.borrow() {
             if let Ok(mut runtime) = state.runtime.try_borrow_mut() {
-                runtime.time_domain.clear();
-                runtime.frequency.clear();
+                runtime.time_domain = std::rc::Rc::new(Vec::new());
+                runtime.frequency = std::rc::Rc::new(Vec::new());
                 runtime.beat = false;
             }
         }
@@ -580,14 +579,10 @@ pub fn get_properties() -> String {
         };
 
         // Properties live in the outermost scope; block scopes sit above it.
-        let Some(scope) = model.decels.scopes.first() else {
-            return "[]".to_string();
-        };
-
         let entries: Vec<String> = model
             .prop_names
             .iter()
-            .filter_map(|name| scope.get(name).map(|value| (name, value)))
+            .filter_map(|name| model.decels.global(name).map(|value| (name, value)))
             .map(|(name, value)| {
                 let swatch = match value {
                     Value::Color(c) => format!(

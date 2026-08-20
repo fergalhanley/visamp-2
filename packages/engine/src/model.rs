@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Color represented as RGBA floats (0.0-1.0)
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -14,14 +14,30 @@ impl Color {
         Color { r, g, b, a }
     }
 
+    /// Writes this colour into `out` as CSS, without allocating.
+    ///
+    /// A draw-heavy script sets a style once per shape — hundreds of times a
+    /// frame — and building a fresh `String` for each was a steady stream of
+    /// garbage. The opaque case uses `#rrggbb`: shorter to build than an
+    /// `rgba()` string, and it avoids formatting a float at all.
+    pub fn write_css(&self, out: &mut String) {
+        use std::fmt::Write;
+
+        let channel = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+        let (r, g, b) = (channel(self.r), channel(self.g), channel(self.b));
+
+        if self.a >= 1.0 {
+            let _ = write!(out, "#{r:02x}{g:02x}{b:02x}");
+        } else {
+            // Three decimals is finer than 8-bit alpha can show anyway.
+            let _ = write!(out, "rgba({r},{g},{b},{:.3})", self.a.max(0.0));
+        }
+    }
+
     pub fn to_css(&self) -> String {
-        format!(
-            "rgba({},{},{},{})",
-            (self.r * 255.0) as u8,
-            (self.g * 255.0) as u8,
-            (self.b * 255.0) as u8,
-            self.a
-        )
+        let mut out = String::with_capacity(24);
+        self.write_css(&mut out);
+        out
     }
 }
 
@@ -81,6 +97,13 @@ impl Point2 {
 /// Runtime value in the DSL
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// A borrowed run of bytes, used for the audio arrays.
+    ///
+    /// `$FREQUENCY_DATA` used to be built as a `Vec<Value>` every time a script
+    /// mentioned it — a thousand boxed integers per reference, and a script
+    /// indexing it inside a loop paid that on every iteration. Sharing one
+    /// buffer makes handing the array around free.
+    Bytes(std::rc::Rc<Vec<u8>>),
     Boolean(bool),
     Integer(i64),
     Float(f64),
@@ -100,6 +123,7 @@ impl Value {
             Value::Float(_) => "float",
             Value::String(_) => "string",
             Value::Array(_) => "array",
+            Value::Bytes(_) => "array",
             Value::Identifier(_) => "identifier",
             Value::SystemValue(_) => "system",
             Value::Color(_) => "color",
@@ -126,6 +150,20 @@ impl Value {
                 format_float(c.b),
                 format_float(c.a)
             ),
+            Value::Bytes(bytes) => {
+                const SHOWN: usize = 8;
+                let head = bytes
+                    .iter()
+                    .take(SHOWN)
+                    .map(|b| b.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if bytes.len() > SHOWN {
+                    format!("[{}, … {} items]", head, bytes.len())
+                } else {
+                    format!("[{}]", head)
+                }
+            }
             Value::Array(items) => {
                 // A spectrum snapshot is 1024 entries; showing them all would
                 // bury every other property in the panel.
@@ -205,42 +243,60 @@ pub fn format_float(value: f64) -> String {
     }
 }
 
-/// Scoped variable storage
-#[derive(Debug, Clone)]
+/// Scoped variable storage.
+///
+/// One flat stack of name/value slots with a mark per open scope, rather than a
+/// `HashMap` per scope. Two things made the map version expensive in a loop:
+/// Rust's default hasher is deliberately slow, so every variable read paid a
+/// SipHash of its name; and each iteration of a `while` or `for` body allocated
+/// a fresh map for its scope.
+///
+/// A reverse linear scan wins here because scopes are small — a handful of
+/// properties and a few locals — and the most recently declared name is the one
+/// most likely to be read next, so the scan usually stops almost immediately.
+#[derive(Debug, Clone, Default)]
 pub struct Declarations {
-    pub scopes: Vec<HashMap<String, Value>>,
+    slots: Vec<(Rc<str>, Value)>,
+    /// Index into `slots` where each open scope begins.
+    marks: Vec<usize>,
 }
 
 impl Declarations {
     pub fn new() -> Self {
-        Declarations { scopes: Vec::new() }
+        Declarations::default()
     }
 
     pub fn push_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.marks.push(self.slots.len());
     }
 
     pub fn pop_scope(&mut self) {
-        self.scopes.pop().expect("popped too many scopes");
+        let start = self.marks.pop().expect("popped too many scopes");
+        // Truncation keeps the allocation, so the next iteration of a loop
+        // reuses this space instead of asking the allocator again.
+        self.slots.truncate(start);
+    }
+
+    /// How many scopes are open. Used to catch leaks.
+    pub fn depth(&self) -> usize {
+        self.marks.len()
     }
 
     pub fn declare(&mut self, name: String, value: Value) {
-        let current = self.scopes.last_mut().unwrap();
-        current.insert(name, value);
+        self.slots.push((Rc::from(name.as_str()), value));
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(v) = scope.get(name) {
-                return Some(v);
-            }
-        }
-        None
+        self.slots
+            .iter()
+            .rev()
+            .find(|(slot, _)| &**slot == name)
+            .map(|(_, value)| value)
     }
 
     pub fn set(&mut self, name: &str, value: Value) {
-        for scope in self.scopes.iter_mut().rev() {
-            if let Some(existing) = scope.get_mut(name) {
+        for (slot, existing) in self.slots.iter_mut().rev() {
+            if &**slot == name {
                 *existing = value;
                 return;
             }
@@ -249,12 +305,17 @@ impl Declarations {
     }
 
     pub fn contains(&self, name: &str) -> bool {
-        for scope in self.scopes.iter().rev() {
-            if scope.contains_key(name) {
-                return true;
-            }
-        }
-        false
+        self.slots.iter().any(|(slot, _)| &**slot == name)
+    }
+
+    /// Looks a name up in the outermost scope only — where properties live.
+    pub fn global(&self, name: &str) -> Option<&Value> {
+        let end = self.marks.get(1).copied().unwrap_or(self.slots.len());
+        self.slots[..end]
+            .iter()
+            .rev()
+            .find(|(slot, _)| &**slot == name)
+            .map(|(_, value)| value)
     }
 }
 

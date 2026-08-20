@@ -1,11 +1,12 @@
 import Link from "next/link";
 
+import { SessionSeed } from "@/components/shell/session-seed";
 import { createClient } from "@/lib/supabase/server";
+import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
 
 /**
- * E2.8 / E7.5 — the landing route. What the viewer sees is the boot gate in the
- * shell; what a crawler sees is this: real HTML, server-rendered, behind the
- * canvas.
+ * E7.5 — the landing route. The viewer goes straight into the player; what a
+ * crawler sees is this: real HTML, server-rendered, behind the canvas.
  *
  * Public only, filtered explicitly — unlisted work is reachable by link but is
  * excluded from browse and from the crawlable index (§4, E7.6).
@@ -19,8 +20,22 @@ export default async function Home() {
     .order("created_at", { ascending: false })
     .limit(100);
 
+  // The one the player starts on — the top of the same list the V panel shows.
+  // Fetched separately because it needs the source, and shipping a hundred
+  // scripts to render a sr-only index would be a heavy first paint.
+  const { data: top } = await supabase
+    .from("visualisations")
+    .select("*, profiles(*)")
+    .eq("visibility", "public")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <main className="sr-only">
+      {top && (
+        <SessionSeed vis={visualisationFromRow(top, artistFromProfile(top.profiles))} />
+      )}
       <h1>VisAmp — community-built music visualisations</h1>
       <p>
         Watch visualisations built by the community, driven by your own

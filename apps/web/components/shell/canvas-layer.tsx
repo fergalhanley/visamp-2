@@ -14,7 +14,6 @@ import { useSessionStore } from "@/lib/store/session";
  * segment navigation — so browsing never remounts the engine.
  */
 export function CanvasLayer() {
-  const booted = useSessionStore((s) => s.booted);
   const source = useSessionStore((s) => s.current.source);
   const { toggle: toggleFullscreen } = useFullscreen();
   const analyser = useAnalyser();
@@ -40,7 +39,9 @@ export function CanvasLayer() {
     >
       <VisampCanvas
         source={source}
-        active={booted}
+        // Always on: there is no gate in front of the player any more, so the
+        // engine boots with the page.
+        active
         analyser={analyser}
         className="h-full w-full"
       />

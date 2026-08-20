@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, Shuffle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AccountMenu } from "@/components/auth/account-menu";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -154,6 +154,13 @@ export function VPanel() {
     loading: browseLoading,
     error: browseError,
   } = useBrowseVisualisations();
+
+  // Next/prev should walk what this panel shows, not the fixtures the store
+  // starts with. Seeded from here because this is where the list already is —
+  // fetching it a second time in the shell would double the query.
+  useEffect(() => {
+    useSessionStore.getState().seedFromBrowse(publicVis);
+  }, [publicVis]);
   const {
     items: allArtists,
     loading: artistsLoading,

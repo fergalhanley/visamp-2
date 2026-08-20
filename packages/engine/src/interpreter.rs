@@ -18,8 +18,8 @@ pub struct Runtime {
     /// Latest analyser snapshot, pushed in from JS via `set_audio_frame`.
     /// Empty until an audio source is connected, which is what makes a script
     /// referencing `$FREQUENCY_DATA` degrade to an empty loop rather than fail.
-    pub time_domain: Vec<u8>,
-    pub frequency: Vec<u8>,
+    pub time_domain: std::rc::Rc<Vec<u8>>,
+    pub frequency: std::rc::Rc<Vec<u8>>,
     pub beat: bool,
 }
 
@@ -31,8 +31,8 @@ impl Runtime {
             canvas_height: 600.0,
             mouse_x: 0.0,
             mouse_y: 0.0,
-            time_domain: Vec::new(),
-            frequency: Vec::new(),
+            time_domain: std::rc::Rc::new(Vec::new()),
+            frequency: std::rc::Rc::new(Vec::new()),
             beat: false,
         }
     }
@@ -40,11 +40,36 @@ impl Runtime {
 
 /// Byte analyser data as a DSL array. Allocates, so callers should bind it to a
 /// `let` rather than re-reading it inside a loop.
-fn byte_array_value(bytes: &[u8]) -> Value {
-    Value::Array(bytes.iter().map(|b| Value::Integer(*b as i64)).collect())
+/// Hands the script the audio buffer without copying it.
+fn byte_array_value(bytes: &std::rc::Rc<Vec<u8>>) -> Value {
+    Value::Bytes(std::rc::Rc::clone(bytes))
 }
 
 type InterpResult<T> = Result<T, String>;
+
+thread_local! {
+    /// Scratch space for CSS colour strings, reused across every draw call.
+    static CSS: RefCell<String> = RefCell::new(String::with_capacity(24));
+}
+
+/// Sets the fill style without allocating a `String` or a `JsValue`.
+fn set_fill(ctx: &CanvasRenderingContext2d, color: Color) {
+    CSS.with(|buf| {
+        let mut css = buf.borrow_mut();
+        css.clear();
+        color.write_css(&mut css);
+        ctx.set_fill_style_str(&css);
+    });
+}
+
+fn set_stroke(ctx: &CanvasRenderingContext2d, color: Color) {
+    CSS.with(|buf| {
+        let mut css = buf.borrow_mut();
+        css.clear();
+        color.write_css(&mut css);
+        ctx.set_stroke_style_str(&css);
+    });
+}
 
 /// Hard stop on range length. The interpreter runs inside the frame loop, so a
 /// runaway range would lock the tab — and the editor recompiles as you type,
@@ -153,9 +178,8 @@ pub fn interpret_render_block(
 ) -> InterpResult<()> {
     decels.push_scope();
     let result = (|| {
-        let statements = block.statements.iter().cloned().collect::<Vec<_>>();
-        for statement in statements {
-            interpret_statement(&statement, decels, runtime, target, functions)?;
+        for statement in block.statements.iter() {
+            interpret_statement(statement, decels, runtime, target, functions)?;
         }
         Ok(())
     })();
@@ -308,6 +332,10 @@ fn interpret_statement(
                     let iterable = evaluate_expression(expr, decels, runtime, functions)?;
                     let items = match iterable {
                         Value::Array(arr) => arr,
+                        // Widened only as it is walked, one value at a time.
+                        Value::Bytes(bytes) => {
+                            bytes.iter().map(|b| Value::Integer(*b as i64)).collect()
+                        }
                         _ => {
                             return Err(
                                 "for loop iterable must be an array or a range".to_string()
@@ -804,7 +832,7 @@ fn interpret_statement_function_call(
                         color = evaluated.try_into_color()?;
                     }
                 }
-                ctx.set_fill_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
+                set_fill(ctx, color);
                 ctx.fill_rect(0.0, 0.0, runtime.canvas_width, runtime.canvas_height);
             }
             "polygon" => {
@@ -840,7 +868,7 @@ fn interpret_statement_function_call(
                     }
                     ctx.close_path();
 
-                    ctx.set_fill_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
+                    set_fill(ctx, color);
                     ctx.fill();
                     ctx.restore();
                 }
@@ -873,11 +901,11 @@ fn interpret_statement_function_call(
                 ctx.close_path();
 
                 if stroke {
-                    ctx.set_stroke_style(&wasm_bindgen::JsValue::from_str(&stroke_color.to_css()));
+                    set_stroke(ctx, stroke_color);
                     ctx.set_line_width(stroke_weight);
                     ctx.stroke();
                 } else {
-                    ctx.set_fill_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
+                    set_fill(ctx, color);
                     ctx.fill();
                 }
             }
@@ -916,11 +944,11 @@ fn interpret_statement_function_call(
                 let _ = ctx.translate(-cx, -cy);
 
                 if stroke {
-                    ctx.set_stroke_style(&wasm_bindgen::JsValue::from_str(&stroke_color.to_css()));
+                    set_stroke(ctx, stroke_color);
                     ctx.set_line_width(stroke_weight);
                     ctx.stroke_rect(x, y, w, h);
                 } else {
-                    ctx.set_fill_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
+                    set_fill(ctx, color);
                     ctx.fill_rect(x, y, w, h);
                 }
                 ctx.restore();
@@ -949,7 +977,7 @@ fn interpret_statement_function_call(
                 ctx.begin_path();
                 ctx.move_to(x1, y1);
                 ctx.line_to(x2, y2);
-                ctx.set_stroke_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
+                set_stroke(ctx, color);
                 ctx.set_line_width(stroke_weight);
                 ctx.stroke();
             }
@@ -989,11 +1017,11 @@ fn interpret_statement_function_call(
                 ctx.close_path();
 
                 if stroke {
-                    ctx.set_stroke_style(&wasm_bindgen::JsValue::from_str(&stroke_color.to_css()));
+                    set_stroke(ctx, stroke_color);
                     ctx.set_line_width(stroke_weight);
                     ctx.stroke();
                 } else {
-                    ctx.set_fill_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
+                    set_fill(ctx, color);
                     ctx.fill();
                 }
                 ctx.restore();
@@ -1026,7 +1054,7 @@ fn interpret_statement_function_call(
                     }
                 }
 
-                ctx.set_fill_style(&wasm_bindgen::JsValue::from_str(&color.to_css()));
+                set_fill(ctx, color);
                 ctx.set_font(&format!("{}px {}", size, font));
                 let _ = ctx.fill_text(&content, x, y);
             }
@@ -1068,8 +1096,35 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
         Expression::Grouping(inner) => evaluate_expression(inner, decels, runtime, functions),
         Expression::Index { target, index } => {
             let collection = evaluate_expression(target, decels, runtime, functions)?;
+            // Bytes are read in place; nothing is materialised to index them.
             let items = match collection {
                 Value::Array(items) => items,
+                Value::Bytes(bytes) => {
+                    let position = match evaluate_expression(index, decels, runtime, functions)? {
+                        Value::Integer(i) => i,
+                        Value::Float(f) => {
+                            return Err(format!(
+                                "array index must be a whole number, got {}. Use \\ or math::floor.",
+                                f
+                            ))
+                        }
+                        other => {
+                            return Err(format!(
+                                "array index must be a whole number, got {}",
+                                type_name(&other)
+                            ))
+                        }
+                    };
+
+                    // Out of range reads as 0, the same as any other array:
+                    // the audio buffers are empty whenever nothing is playing.
+                    let value = usize::try_from(position)
+                        .ok()
+                        .and_then(|i| bytes.get(i).copied())
+                        .unwrap_or(0);
+
+                    return Ok(Value::Integer(value as i64));
+                }
                 other => {
                     return Err(format!(
                         "cannot index into {}; only arrays can be indexed",
@@ -1538,6 +1593,7 @@ fn type_name(value: &Value) -> &'static str {
         Value::Float(_) => "a number",
         Value::String(_) => "a string",
         Value::Array(_) => "an array",
+        Value::Bytes(_) => "an array",
         Value::Identifier(_) => "an identifier",
         Value::SystemValue(_) => "a system value",
         Value::Color(_) => "a color",

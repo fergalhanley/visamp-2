@@ -1,8 +1,22 @@
 "use client";
 
-import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import {
+  GitFork,
+  Heart,
+  Loader2,
+  Maximize,
+  MessageCircle,
+  Minimize,
+  Pause,
+  Play,
+  Share2,
+  SkipBack,
+  SkipForward,
+} from "lucide-react";
+import Link from "next/link";
 
 import { useCompactChrome } from "@/hooks/use-compact-chrome";
+import { useFullscreen } from "@/hooks/use-fullscreen";
 import { useActiveTracks, useAudioStore } from "@/lib/store/audio";
 import { useChromeStore } from "@/lib/store/chrome";
 import { useSessionStore } from "@/lib/store/session";
@@ -34,6 +48,39 @@ function ModeMarker() {
   );
 }
 
+/**
+ * E2.6 / E2.7 — likes, comments, forks and share.
+ *
+ * Visible to everyone, signed in or not (principle 5); they gate on click.
+ * Previously these hid behind a hover on the title cluster, which made them
+ * easy to miss entirely on a touch screen.
+ */
+function VisActions() {
+  const current = useSessionStore((s) => s.current);
+
+  const actions = [
+    { key: "likes", Icon: Heart, label: `${current.likeCount} Like${current.likeCount !== 1 ? "s":""}` },
+    { key: "comments", Icon: MessageCircle, label: `${current.commentCount} Comment${current.commentCount !== 1 ? "s":""}` },
+    { key: "forks", Icon: GitFork, label: `${current.forkCount} Fork${current.forkCount !== 1 ? "s":""}` },
+    { key: "share", Icon: Share2, label: "Share" },
+  ];
+
+  return (
+    <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground flex justify-between">
+      {actions.map(({ key, Icon, label }) => (
+        <button
+          key={key}
+          type="button"
+          className="flex cursor-pointer items-center gap-1 transition hover:text-foreground"
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Transport() {
   const visible = useChromeStore((s) => s.visible);
   const vOpen = useChromeStore((s) => s.vOpen);
@@ -46,6 +93,7 @@ export function Transport() {
 
   const tracks = useActiveTracks();
   const currentIndex = useAudioStore((s) => s.currentIndex);
+  const pendingIndex = useAudioStore((s) => s.pendingIndex);
   const isPlaying = useAudioStore((s) => s.isPlaying);
   const position = useAudioStore((s) => s.position);
   const duration = useAudioStore((s) => s.duration);
@@ -53,8 +101,13 @@ export function Transport() {
   const seek = useAudioStore((s) => s.seek);
 
   const mode = useSessionStore((s) => s.mode);
+  const current = useSessionStore((s) => s.current);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
-  const track = tracks[currentIndex];
+  const loading = pendingIndex !== -1;
+  // The track being started wins over the one still playing, so the title
+  // changes the instant it is picked rather than after the stream opens.
+  const track = tracks[loading ? pendingIndex : currentIndex];
   const hasTracks = tracks.length > 0;
   // In track-audio mode skip is meaningful even with no tracks loaded, because
   // it still advances the visualisation.
@@ -71,12 +124,51 @@ export function Transport() {
   return (
     <div
       className={cn(
-        "fixed bottom-[10vh] left-1/2 z-40 w-[min(30rem,calc(100vw-3rem))] -translate-x-1/2",
+        "fixed bottom-[10vh] left-1/2 z-40 w-[min(32rem,calc(100vw-3rem))] -translate-x-1/2",
         "transition-opacity duration-500",
         visible && !eclipsed ? "opacity-100" : "pointer-events-none opacity-0",
       )}
     >
       <div className="visamp-surface rounded-2xl border px-5 py-3">
+        {/* What is playing, and the two things you do to a player: go
+            fullscreen, or react to the work. */}
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 flex-1 truncate text-sm">
+            <Link href={`/vis/${current.id}`} className="font-medium hover:underline">
+              {current.title}
+            </Link>
+            <span className="text-muted-foreground"> — </span>
+            <Link
+              href={`/artist/${current.artist.username}`}
+              className="text-muted-foreground hover:underline"
+            >
+              {current.artist.displayName}
+            </Link>
+          </p>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            className={cn(
+              "-mr-1 -mt-1 shrink-0 cursor-pointer rounded-full p-1.5 text-muted-foreground",
+              "transition hover:bg-foreground/10 hover:text-foreground",
+            )}
+          >
+            {isFullscreen ? (
+              <Minimize className="h-4 w-4" />
+            ) : (
+              <Maximize className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
+        <VisActions />
+
+        {/* Inset, so the rule reads as a divider between two halves of one
+            card rather than a seam cutting it in two. */}
+        <div className="mx-2 my-3 border-t border-foreground/10" />
+
         <div className="flex items-center justify-center gap-6">
           <button
             type="button"
@@ -90,16 +182,21 @@ export function Transport() {
 
           <button
             type="button"
-            aria-label={isPlaying ? "Pause" : "Play"}
-            disabled={!hasTracks}
+            aria-label={loading ? "Loading" : isPlaying ? "Pause" : "Play"}
+            // Disabled only while a track is opening: pressing play again
+            // mid-load would start whatever is at index 0 instead.
+            disabled={!hasTracks || loading}
             onClick={() => void togglePlay()}
             className={cn(
               "flex h-11 w-11 items-center justify-center rounded-full",
               "border bg-foreground/5 transition hover:bg-foreground/10",
               "disabled:opacity-30",
+              loading && "disabled:opacity-100",
             )}
           >
-            {isPlaying ? (
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : isPlaying ? (
               <Pause className="h-5 w-5 fill-current" />
             ) : (
               <Play className="h-5 w-5 translate-x-0.5 fill-current" />

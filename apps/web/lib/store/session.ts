@@ -6,14 +6,15 @@ import { DEFAULT_VISUALISATION, VISUALISATIONS } from "@/lib/fixtures/visualisat
 import type { PlayerMode, Visualisation } from "@/lib/types";
 
 interface SessionState {
-  /**
-   * Flipped by the viewer's first click. Until then no WASM is fetched and no
-   * AudioContext exists — see VisampCanvas's `active` prop.
-   */
-  booted: boolean;
-  boot: () => void;
-
   current: Visualisation;
+  /**
+   * True once something has deliberately chosen what is playing — a route, a
+   * server seed, or a click in the V panel.
+   *
+   * The browse list arrives after first paint, and it must not shove aside a
+   * choice the viewer or the URL has already made.
+   */
+  chosen: boolean;
   /** The list next/prev advance through (E3.10). */
   context: Visualisation[];
 
@@ -24,6 +25,11 @@ interface SessionState {
 
   /** Pick a visualisation, optionally re-setting the playing context. */
   select: (vis: Visualisation, context?: Visualisation[]) => void;
+  /**
+   * Hand over the browse list once it loads, so next/prev walk what the V
+   * panel shows. Only claims `current` if nothing has been chosen yet.
+   */
+  seedFromBrowse: (items: Visualisation[]) => void;
   advance: (direction: 1 | -1) => void;
 
   setMode: (mode: PlayerMode) => void;
@@ -55,10 +61,9 @@ function pickNext(
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
-  booted: false,
-  boot: () => set({ booted: true }),
-
+  // A fixture until the real list arrives, so the canvas is never blank.
   current: DEFAULT_VISUALISATION,
+  chosen: false,
   context: VISUALISATIONS,
 
   mode: "manual",
@@ -69,8 +74,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   select: (vis, context) =>
     set((state) => ({
       current: vis,
+      chosen: true,
       context: context ?? state.context,
     })),
+
+  seedFromBrowse: (items) =>
+    set((state) => {
+      if (items.length === 0) return state;
+      return {
+        context: items,
+        current: state.chosen ? state.current : items[0]!,
+      };
+    }),
 
   advance: (direction) => {
     const { context, current, shuffleVis } = get();

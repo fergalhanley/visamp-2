@@ -40,14 +40,16 @@ export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProp
     <div
       className={cn(
         "group flex w-full items-center gap-3 pl-4 pr-2 transition",
-        "hover:bg-foreground/5",
+        // Tailwind emits `hover:bg-*` after plain `bg-*`, so an unconditional
+        // hover tint *dims* the selected row. It keeps its own shade instead.
+        !active && "hover:bg-foreground/5",
         active && "bg-foreground/10",
       )}
     >
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-2 text-left"
       >
         <div
         className="relative aspect-video h-12 shrink-0 overflow-hidden rounded-md"
@@ -106,7 +108,7 @@ export function ArtistTile({ artist }: { artist: Artist }) {
   return (
     <a
       href={`/artist/${artist.username}`}
-      className="flex w-full items-center gap-3 px-4 py-2 transition hover:bg-foreground/5"
+      className="flex w-full cursor-pointer items-center gap-3 px-4 py-2 transition hover:bg-foreground/5"
     >
       <div
         className="h-10 w-10 shrink-0 rounded-full"

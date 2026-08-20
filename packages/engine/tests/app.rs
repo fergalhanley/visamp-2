@@ -600,14 +600,14 @@ fn an_error_inside_a_loop_does_not_leak_its_scope() {
         .cloned()
         .expect("on_frame block");
 
-    let depth = model.decels.scopes.len();
+    let depth = model.decels.depth();
     let first = interpret_event_block(&block, &mut model.decels, &runtime, &functions)
         .expect_err("should fail on the undefined identifier");
-    assert_eq!(model.decels.scopes.len(), depth, "scope leaked after frame 1");
+    assert_eq!(model.decels.depth(), depth, "scope leaked after frame 1");
 
     let second = interpret_event_block(&block, &mut model.decels, &runtime, &functions)
         .expect_err("should fail the same way every frame");
-    assert_eq!(model.decels.scopes.len(), depth, "scope leaked after frame 2");
+    assert_eq!(model.decels.depth(), depth, "scope leaked after frame 2");
 
     assert!(first.contains("Undefined identifier: missing"), "unexpected: {first}");
     assert_eq!(first, second, "the reported error changed on the second frame");
@@ -630,10 +630,10 @@ fn an_error_inside_an_if_does_not_leak_its_scope() {
         .cloned()
         .expect("on_frame block");
 
-    let depth = model.decels.scopes.len();
+    let depth = model.decels.depth();
     let first = interpret_event_block(&block, &mut model.decels, &runtime, &functions).unwrap_err();
     let second = interpret_event_block(&block, &mut model.decels, &runtime, &functions).unwrap_err();
-    assert_eq!(model.decels.scopes.len(), depth, "scope leaked");
+    assert_eq!(model.decels.depth(), depth, "scope leaked");
     assert_eq!(first, second, "the reported error changed on the second frame");
 }
 
@@ -1254,4 +1254,81 @@ fn calling_an_undefined_function_is_an_error() {
         "on_frame {\n  nope(a: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
     );
     assert!(err.contains("Undefined function: nope"), "{err}");
+}
+
+// ── audio arrays are shared, not materialised ─────────────────────────────
+
+/// Sets up a runtime with a known spectrum and runs `on_frame`.
+fn eval_prop_with_audio(source: &str, prop: &str) -> Value {
+    use visamp_2::interpreter::{interpret_event_block, Runtime};
+    use visamp_2::model::{BlockType, Model};
+
+    let script = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
+    let mut model = Model::from_script(&script);
+
+    let mut runtime = Runtime::new();
+    runtime.frequency = std::rc::Rc::new((0..1024).map(|i| (i % 256) as u8).collect());
+    runtime.time_domain = std::rc::Rc::new(vec![128; 2048]);
+
+    let functions = model.functions.clone();
+    let blocks = model.blocks.clone();
+    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnFrame) {
+        interpret_event_block(block, &mut model.decels, &runtime, &functions).unwrap();
+    }
+
+    model.decels.get(prop).cloned().expect("prop")
+}
+
+#[test]
+fn an_audio_array_can_be_indexed() {
+    // The buffer is handed to the script by reference rather than expanded into
+    // a thousand boxed integers, so this must still read the right byte.
+    let source = "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[7]\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop_with_audio(source, "v"), Value::Integer(7));
+
+    let source = "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[300]\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop_with_audio(source, "v"), Value::Integer(44));
+}
+
+#[test]
+fn reading_past_an_audio_array_gives_zero() {
+    // Deliberate: the buffers are empty whenever nothing is playing, and an
+    // error would break every audio-reactive script the moment it fell silent.
+    for expr in ["$FREQUENCY_DATA[99999]", "$FREQUENCY_DATA[-1]"] {
+        let source = format!(
+            "prop v = 1\non_frame {{\n  v = {expr}\n}}\nrender {{\n  draw::clear()\n}}\n"
+        );
+        assert_eq!(eval_prop_with_audio(&source, "v"), Value::Integer(0), "{expr}");
+    }
+}
+
+#[test]
+fn an_audio_array_can_be_iterated() {
+    let source = "prop total = 0\non_frame {\n  total = 0\n  for v in $TIME_DOMAIN_DATA {\n    total = total + v\n  }\n}\nrender {\n  draw::clear()\n}\n";
+    // 2048 samples of 128.
+    assert_eq!(eval_prop_with_audio(source, "total"), Value::Integer(2048 * 128));
+}
+
+#[test]
+fn an_empty_audio_array_iterates_zero_times() {
+    let source = "prop total = 5\non_frame {\n  total = 0\n  for v in $FREQUENCY_DATA {\n    total = total + 1\n  }\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "total"), Value::Integer(0));
+}
+
+#[test]
+fn a_fractional_index_into_an_audio_array_is_still_rejected() {
+    let source = "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[1.5]\n}\nrender {\n  draw::clear()\n}\n";
+    let err = expect_runtime_error(source);
+    assert!(err.contains("whole number"), "{err}");
+}
+
+#[test]
+fn an_audio_array_reports_itself_as_an_array() {
+    use visamp_2::model::Value as V;
+    let bytes = V::Bytes(std::rc::Rc::new(vec![1, 2, 3]));
+    assert_eq!(bytes.type_tag(), "array");
+    assert_eq!(bytes.display(), "[1, 2, 3]");
+
+    let long = V::Bytes(std::rc::Rc::new((0..1024).map(|i| (i % 256) as u8).collect()));
+    assert!(long.display().ends_with("… 1024 items]"), "{}", long.display());
 }

@@ -5,19 +5,17 @@ import { useEffect, type ReactNode } from "react";
 
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { EdgeGlyphs } from "@/components/chrome/edge-glyphs";
-import { NowPlaying } from "@/components/chrome/now-playing";
+import { CreateVisCorner } from "@/components/chrome/create-vis-corner";
 import { Transport } from "@/components/chrome/transport";
 import { APanel } from "@/components/panels/a-panel";
 import { PanelHotZone } from "@/components/panels/panel";
 import { VPanel } from "@/components/panels/v-panel";
-import { BootGate } from "@/components/shell/boot-gate";
 import { CanvasLayer } from "@/components/shell/canvas-layer";
 import { useIdleChrome } from "@/hooks/use-idle-chrome";
 import { useIntervalAdvance } from "@/hooks/use-interval-advance";
 import { useVisRouteSync } from "@/hooks/use-vis-route-sync";
 import { useAudioStore, wireAudioEvents } from "@/lib/store/audio";
 import { useChromeStore } from "@/lib/store/chrome";
-import { useSessionStore } from "@/lib/store/session";
 
 /**
  * Everything that must outlive route changes (principle 3: the player owns the
@@ -36,7 +34,6 @@ export function SessionShell({ children }: { children: ReactNode }) {
   useIntervalAdvance();
 
   const chromeVisible = useChromeStore((s) => s.visible);
-  const booted = useSessionStore((s) => s.booted);
 
   useEffect(() => {
     wireAudioEvents();
@@ -44,13 +41,12 @@ export function SessionShell({ children }: { children: ReactNode }) {
     void useAudioStore.getState().restore();
   }, []);
 
-  // Hide the pointer once the visualisation is running and the chrome has gone.
-  // Applied to body rather than the canvas so it holds over the hot zones too.
+  // Hide the pointer once the chrome has gone. Applied to body rather than the
+  // canvas so it holds over the hot zones too.
   useEffect(() => {
-    const hide = booted && !chromeVisible;
-    document.body.classList.toggle("visamp-hide-cursor", hide);
+    document.body.classList.toggle("visamp-hide-cursor", !chromeVisible);
     return () => document.body.classList.remove("visamp-hide-cursor");
-  }, [booted, chromeVisible]);
+  }, [chromeVisible]);
 
   if (editorRoute) {
     return <AuthProvider>{children}</AuthProvider>;
@@ -68,9 +64,8 @@ export function SessionShell({ children }: { children: ReactNode }) {
       <PanelHotZone side="a" />
       <VPanel />
       <APanel />
-      <NowPlaying />
+      <CreateVisCorner />
       <Transport />
-      <BootGate />
     </AuthProvider>
   );
 }
