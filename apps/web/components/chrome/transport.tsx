@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Eye,
   GitFork,
   Heart,
   Loader2,
@@ -48,25 +49,38 @@ function ModeMarker() {
   );
 }
 
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count !== 1 ? "s" : ""}`;
+}
+
 /**
- * E2.6 / E2.7 — likes, comments, forks and share.
+ * E2.6 / E2.7 — views, likes, comments, forks and share.
  *
  * Visible to everyone, signed in or not (principle 5); they gate on click.
  * Previously these hid behind a hover on the title cluster, which made them
  * easy to miss entirely on a touch screen.
+ *
+ * Views leads the row and is the odd one out: it is a readout, not an action —
+ * it counts itself the moment the visualisation starts playing (see
+ * `useViewCount`), so there is nothing here to press.
  */
 function VisActions() {
   const current = useSessionStore((s) => s.current);
 
   const actions = [
-    { key: "likes", Icon: Heart, label: `${current.likeCount} Like${current.likeCount !== 1 ? "s":""}` },
-    { key: "comments", Icon: MessageCircle, label: `${current.commentCount} Comment${current.commentCount !== 1 ? "s":""}` },
-    { key: "forks", Icon: GitFork, label: `${current.forkCount} Fork${current.forkCount !== 1 ? "s":""}` },
+    { key: "likes", Icon: Heart, label: plural(current.likeCount, "Like") },
+    { key: "comments", Icon: MessageCircle, label: plural(current.commentCount, "Comment") },
+    { key: "forks", Icon: GitFork, label: plural(current.forkCount, "Fork") },
     { key: "share", Icon: Share2, label: "Share" },
   ];
 
   return (
-    <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground flex justify-between">
+    <div className="mt-1.5 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1">
+        <Eye className="h-3.5 w-3.5" />
+        {plural(current.viewCount, "View")}
+      </span>
+
       {actions.map(({ key, Icon, label }) => (
         <button
           key={key}

@@ -13,6 +13,7 @@ import { VPanel } from "@/components/panels/v-panel";
 import { CanvasLayer } from "@/components/shell/canvas-layer";
 import { useIdleChrome } from "@/hooks/use-idle-chrome";
 import { useIntervalAdvance } from "@/hooks/use-interval-advance";
+import { useViewCount } from "@/hooks/use-view-count";
 import { useVisRouteSync } from "@/hooks/use-vis-route-sync";
 import { useAudioStore, wireAudioEvents } from "@/lib/store/audio";
 import { useChromeStore } from "@/lib/store/chrome";
@@ -32,6 +33,7 @@ export function SessionShell({ children }: { children: ReactNode }) {
   useIdleChrome();
   useVisRouteSync();
   useIntervalAdvance();
+  useViewCount();
 
   const chromeVisible = useChromeStore((s) => s.visible);
 

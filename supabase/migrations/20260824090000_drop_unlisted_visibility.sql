@@ -13,10 +13,15 @@ update public.visualisations
 set visibility = 'private'
 where visibility = 'unlisted';
 
--- Both depend on the column, so they have to come off before the type can be
--- replaced, and go back on afterwards.
+-- All three depend on the column, so they have to come off before the type can
+-- be replaced, and go back on afterwards. The trigger is the non-obvious one:
+-- it names visibility in its `update of` list, which is enough for Postgres to
+-- refuse the retype ("cannot alter type of a column used in a trigger
+-- definition"). Its function is unaffected — plpgsql bodies are not bound to
+-- the column — so only the trigger itself is recreated.
 drop policy if exists "Readable when public, unlisted, or owned" on public.visualisations;
 drop index if exists public.visualisations_public_created_idx;
+drop trigger if exists visualisations_sync_vis_count on public.visualisations;
 
 alter table public.visualisations alter column visibility drop default;
 
@@ -44,3 +49,7 @@ create policy "Readable when public or owned"
     visibility = 'public'
     or owner_id = (select auth.uid())
   );
+
+create trigger visualisations_sync_vis_count
+  after insert or delete or update of visibility on public.visualisations
+  for each row execute function public.sync_vis_count();

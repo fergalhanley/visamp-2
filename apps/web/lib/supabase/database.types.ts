@@ -189,6 +189,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      record_vis_view: { Args: { vis_id: string }; Returns: undefined }
       username_available: { Args: { candidate: string }; Returns: boolean }
     }
     Enums: {

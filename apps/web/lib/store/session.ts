@@ -32,6 +32,12 @@ interface SessionState {
    */
   seedFromBrowse: (items: Visualisation[]) => void;
   advance: (direction: 1 | -1) => void;
+  /**
+   * Show one more view against a visualisation, wherever it appears in the
+   * session. The database is the record; this only keeps the number on screen
+   * from being one behind what was just counted.
+   */
+  countView: (id: string) => void;
 
   setMode: (mode: PlayerMode) => void;
   setIntervalSec: (seconds: number) => void;
@@ -94,6 +100,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const next = pickNext(context, current, direction, shuffleVis);
     if (next.id !== current.id) set({ current: next });
   },
+
+  countView: (id) =>
+    set((state) => ({
+      current:
+        state.current.id === id
+          ? { ...state.current, viewCount: state.current.viewCount + 1 }
+          : state.current,
+      // The same visualisation is usually in the browse list too, and the V
+      // panel reads its count from there.
+      context: state.context.map((vis) =>
+        vis.id === id ? { ...vis, viewCount: vis.viewCount + 1 } : vis,
+      ),
+    })),
 
   setMode: (mode) => set({ mode }),
   setIntervalSec: (intervalSec) => set({ intervalSec }),
