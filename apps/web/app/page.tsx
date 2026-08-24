@@ -15,7 +15,7 @@ export default async function Home() {
   const supabase = await createClient();
   const { data: visualisations } = await supabase
     .from("visualisations")
-    .select("id, title, description, profiles(username, display_name)")
+    .select("id, title, description, profiles!visualisations_owner_id_fkey(username, display_name)")
     .eq("visibility", "public")
     .order("created_at", { ascending: false })
     .limit(100);
@@ -25,7 +25,7 @@ export default async function Home() {
   // scripts to render a sr-only index would be a heavy first paint.
   const { data: top } = await supabase
     .from("visualisations")
-    .select("*, profiles(*)")
+    .select("*, profiles!visualisations_owner_id_fkey(*)")
     .eq("visibility", "public")
     .order("created_at", { ascending: false })
     .limit(1)

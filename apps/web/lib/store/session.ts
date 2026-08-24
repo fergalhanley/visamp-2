@@ -38,6 +38,12 @@ interface SessionState {
    * from being one behind what was just counted.
    */
   countView: (id: string) => void;
+  /**
+   * Move a like count by one, wherever that visualisation appears. Called
+   * straight off the click so the number answers immediately; the row write is
+   * what makes it true, and a failure puts it back.
+   */
+  countLike: (id: string, delta: 1 | -1) => void;
 
   setMode: (mode: PlayerMode) => void;
   setIntervalSec: (seconds: number) => void;
@@ -113,6 +119,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         vis.id === id ? { ...vis, viewCount: vis.viewCount + 1 } : vis,
       ),
     })),
+
+  countLike: (id, delta) =>
+    set((state) => {
+      const apply = (vis: Visualisation): Visualisation =>
+        vis.id === id
+          ? { ...vis, likeCount: Math.max(vis.likeCount + delta, 0) }
+          : vis;
+
+      return {
+        current: apply(state.current),
+        context: state.context.map(apply),
+      };
+    }),
 
   setMode: (mode) => set({ mode }),
   setIntervalSec: (intervalSec) => set({ intervalSec }),

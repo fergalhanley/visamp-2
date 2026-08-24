@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      likes: {
+        Row: {
+          created_at: string
+          user_id: string
+          vis_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          vis_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          vis_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "likes_vis_id_fkey"
+            columns: ["vis_id"]
+            isOneToOne: false
+            referencedRelation: "visualisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       playlist_items: {
         Row: {
           playlist_id: string

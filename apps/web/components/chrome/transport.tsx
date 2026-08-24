@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { useCompactChrome } from "@/hooks/use-compact-chrome";
+import { useVisLike } from "@/hooks/use-vis-like";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import { useActiveTracks, useAudioStore } from "@/lib/store/audio";
 import { useChromeStore } from "@/lib/store/chrome";
@@ -60,15 +62,16 @@ function plural(count: number, noun: string): string {
  * Previously these hid behind a hover on the title cluster, which made them
  * easy to miss entirely on a touch screen.
  *
- * Views leads the row and is the odd one out: it is a readout, not an action —
- * it counts itself the moment the visualisation starts playing (see
- * `useViewCount`), so there is nothing here to press.
+ * Counts and actions are deliberately not the same control. Views is a pure
+ * readout — it counts itself when the visualisation starts playing (see
+ * `useViewCount`). Likes is split: the heart toggles, the number beside it only
+ * reports what the heart did.
  */
 function VisActions() {
   const current = useSessionStore((s) => s.current);
+  const { liked, likeable, toggle, signInOpen, setSignInOpen } = useVisLike();
 
   const actions = [
-    { key: "likes", Icon: Heart, label: plural(current.likeCount, "Like") },
     { key: "comments", Icon: MessageCircle, label: plural(current.commentCount, "Comment") },
     { key: "forks", Icon: GitFork, label: plural(current.forkCount, "Fork") },
     { key: "share", Icon: Share2, label: "Share" },
@@ -81,6 +84,34 @@ function VisActions() {
         {plural(current.viewCount, "View")}
       </span>
 
+      {/* The heart is the only thing here that acts. Its count sits beside it
+          as plain text: pressing a number to like something reads as a link to
+          a list of who did, which is not what this is. */}
+      <span className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={!likeable}
+          aria-pressed={liked}
+          aria-label={liked ? `Unlike ${current.title}` : `Like ${current.title}`}
+          title={
+            likeable
+              ? liked
+                ? "Unlike"
+                : "Like"
+              : "Nothing to like — this one is not saved"
+          }
+          className={cn(
+            "-m-1 cursor-pointer rounded-full p-1 transition",
+            "hover:text-foreground disabled:cursor-default disabled:opacity-40",
+            liked && "text-red-500 hover:text-red-400",
+          )}
+        >
+          <Heart className={cn("h-3.5 w-3.5", liked && "fill-current")} />
+        </button>
+        {plural(current.likeCount, "Like")}
+      </span>
+
       {actions.map(({ key, Icon, label }) => (
         <button
           key={key}
@@ -91,6 +122,8 @@ function VisActions() {
           {label}
         </button>
       ))}
+
+      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next="/" />
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function useBrowseVisualisations(): Loaded<Visualisation> & { loading: bo
 
     void createClient()
       .from("visualisations")
-      .select("*, profiles(*)")
+      .select("*, profiles!visualisations_owner_id_fkey(*)")
       .eq("visibility", "public")
       .order("created_at", { ascending: false })
       .then(({ data, error }) => {

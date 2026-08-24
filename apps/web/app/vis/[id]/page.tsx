@@ -15,7 +15,7 @@ async function loadVisualisation(id: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("visualisations")
-    .select("*, profiles(*)")
+    .select("*, profiles!visualisations_owner_id_fkey(*)")
     .eq("id", id)
     .maybeSingle();
 
