@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      comments: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          vis_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          vis_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          vis_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_vis_id_fkey"
+            columns: ["vis_id"]
+            isOneToOne: false
+            referencedRelation: "visualisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       likes: {
         Row: {
           created_at: string
@@ -222,6 +264,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      comments_within_rate_limit: { Args: Record<PropertyKey, never>; Returns: boolean }
       record_vis_view: { Args: { vis_id: string }; Returns: undefined }
       username_available: { Args: { candidate: string }; Returns: boolean }
     }

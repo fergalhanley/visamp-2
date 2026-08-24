@@ -44,6 +44,8 @@ interface SessionState {
    * what makes it true, and a failure puts it back.
    */
   countLike: (id: string, delta: 1 | -1) => void;
+  /** As `countLike`, for a comment posted or removed. */
+  countComment: (id: string, delta: 1 | -1) => void;
 
   setMode: (mode: PlayerMode) => void;
   setIntervalSec: (seconds: number) => void;
@@ -125,6 +127,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const apply = (vis: Visualisation): Visualisation =>
         vis.id === id
           ? { ...vis, likeCount: Math.max(vis.likeCount + delta, 0) }
+          : vis;
+
+      return {
+        current: apply(state.current),
+        context: state.context.map(apply),
+      };
+    }),
+
+  countComment: (id, delta) =>
+    set((state) => {
+      const apply = (vis: Visualisation): Visualisation =>
+        vis.id === id
+          ? { ...vis, commentCount: Math.max(vis.commentCount + delta, 0) }
           : vis;
 
       return {

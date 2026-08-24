@@ -15,11 +15,13 @@ import {
   SkipForward,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
+import { CommentsDialog } from "@/components/panels/comments-dialog";
 import { useCompactChrome } from "@/hooks/use-compact-chrome";
-import { useVisLike } from "@/hooks/use-vis-like";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useVisLike } from "@/hooks/use-vis-like";
 import { useActiveTracks, useAudioStore } from "@/lib/store/audio";
 import { useChromeStore } from "@/lib/store/chrome";
 import { useSessionStore } from "@/lib/store/session";
@@ -70,9 +72,13 @@ function plural(count: number, noun: string): string {
 function VisActions() {
   const current = useSessionStore((s) => s.current);
   const { liked, likeable, toggle, signInOpen, setSignInOpen } = useVisLike();
+  const [commentsOpen, setCommentsOpen] = useState(false);
+
+  // Both need a row behind them: the built-in default and the fixtures have
+  // nothing to hang a like or a comment on.
+  const saved = Boolean(current.ownerId);
 
   const actions = [
-    { key: "comments", Icon: MessageCircle, label: plural(current.commentCount, "Comment") },
     { key: "forks", Icon: GitFork, label: plural(current.forkCount, "Fork") },
     { key: "share", Icon: Share2, label: "Share" },
   ];
@@ -112,6 +118,22 @@ function VisActions() {
         {plural(current.likeCount, "Like")}
       </span>
 
+      {/* Icon and count are one control here, unlike the heart: both halves say
+          the same thing — open the thread. */}
+      <button
+        type="button"
+        onClick={() => setCommentsOpen(true)}
+        disabled={!saved}
+        title={saved ? "Read and add comments" : "No comments — this one is not saved"}
+        className={cn(
+          "flex cursor-pointer items-center gap-1 transition",
+          "hover:text-foreground disabled:cursor-default disabled:opacity-40",
+        )}
+      >
+        <MessageCircle className="h-3.5 w-3.5" />
+        {plural(current.commentCount, "Comment")}
+      </button>
+
       {actions.map(({ key, Icon, label }) => (
         <button
           key={key}
@@ -122,6 +144,15 @@ function VisActions() {
           {label}
         </button>
       ))}
+
+      {/* Keyed so the thread — and any draft waiting in the box — belongs to
+          whatever is playing now. */}
+      <CommentsDialog
+        key={current.id}
+        vis={current}
+        open={commentsOpen}
+        onOpenChange={setCommentsOpen}
+      />
 
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next="/" />
     </div>

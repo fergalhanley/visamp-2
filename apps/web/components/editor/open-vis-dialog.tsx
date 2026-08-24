@@ -11,41 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useMyVisualisations } from "@/hooks/use-my-visualisations";
+import { relativeDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
-
-/**
- * "3 days ago" beats a timestamp here: the list is ordered by recency, so what
- * matters is how long ago rather than exactly when.
- */
-function relativeDate(iso: string | undefined): string {
-  if (!iso) return "";
-
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "";
-
-  const seconds = Math.max(0, (Date.now() - then) / 1000);
-  const scales: [number, Intl.RelativeTimeFormatUnit][] = [
-    [60, "second"],
-    [60, "minute"],
-    [24, "hour"],
-    [7, "day"],
-    [4.35, "week"],
-    [12, "month"],
-    [Number.POSITIVE_INFINITY, "year"],
-  ];
-
-  let value = seconds;
-  for (const [step, unit] of scales) {
-    if (value < step) {
-      return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
-        -Math.round(value),
-        unit,
-      );
-    }
-    value /= step;
-  }
-  return "";
-}
 
 interface OpenVisDialogProps {
   open: boolean;
