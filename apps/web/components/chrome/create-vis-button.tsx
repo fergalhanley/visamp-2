@@ -22,7 +22,7 @@ const INTENT_KEY = "visamp.intent.create-vis";
  * cannot create stray drafts, and the full navigation is what lets the editor's
  * preview canvas claim the WASM singleton.
  */
-export function CreateVisButton() {
+export function CreateVisButton({ className }: { className?: string }) {
   const { user, loading } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -51,15 +51,16 @@ export function CreateVisButton() {
 
   return (
     <>
-      <form ref={formRef} method="POST" action="/edit" className="shrink-0">
+      <form ref={formRef} method="POST" action="/edit" className="flex shrink-0">
         <button
           type="submit"
           onClick={onClick}
           className={cn(
-            "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium",
-            "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20",
+            "flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-medium",
+            "bg-emerald-500 text-black",
             "transition hover:bg-emerald-400",
             "focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:outline-none",
+            className,
           )}
         >
           <Plus className="h-4 w-4" />

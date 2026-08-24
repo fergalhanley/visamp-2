@@ -7,7 +7,18 @@ import {
   type PropertyView,
   type VisampCanvasHandle,
 } from "@visamp/player";
-import { Camera, Check, GitFork, Loader2, Pin } from "lucide-react";
+import {
+  Camera,
+  Check,
+  Dot,
+  FilePlus,
+  FolderOpen,
+  GitFork,
+  Loader2,
+  Pin,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -22,19 +33,21 @@ import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { BrandLockup } from "@/components/brand/logo";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
+import { OpenVisDialog } from "@/components/editor/open-vis-dialog";
 import { EditorTransport } from "@/components/editor/editor-transport";
 import { PropertiesInspector } from "@/components/editor/properties-inspector";
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { useAnalyser } from "@/hooks/use-analyser";
+import { useFullscreen } from "@/hooks/use-fullscreen";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -44,6 +57,14 @@ type Visibility = Database["public"]["Enums"]["visibility"];
 
 /** E6.5 — how long to wait after the last keystroke before recompiling. */
 const RECOMPILE_MS = 200;
+/**
+ * E6.8 — how often edits are written back, at most.
+ *
+ * A throttle rather than a debounce: a debounce would keep pushing the save
+ * further out for as long as someone kept typing, so a long editing session
+ * would never persist anything.
+ */
+const AUTOSAVE_MS = 8000;
 const RATIO_KEY = "visamp.editor.split";
 const DEFAULT_RATIO = 40;
 const MIN_RATIO = 20;
@@ -58,24 +79,44 @@ function readStoredRatio(): number {
 }
 
 interface EditorShellProps {
-  visualisation: Visualisation;
+  /**
+   * Null when nothing is open — a deleted row, a bad link, or someone else's
+   * private work. The editor still renders, but as an empty stage offering the
+   * two ways out of it rather than a 404.
+   */
+  visualisation: Visualisation | null;
   canEdit: boolean;
 }
 
 export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
-  const [title, setTitle] = useState(visualisation.title);
-  const [visibility, setVisibility] = useState<Visibility>(visualisation.visibility);
-  const [source, setSource] = useState(visualisation.source);
+  const empty = visualisation === null;
+
+  const [title, setTitle] = useState(visualisation?.title ?? "");
+  const [visibility, setVisibility] = useState<Visibility>(
+    visualisation?.visibility ?? "private",
+  );
+  const [source, setSource] = useState(visualisation?.source ?? "");
   /** Debounced copy — this is what the engine actually receives. */
-  const [liveSource, setLiveSource] = useState(visualisation.source);
+  const [liveSource, setLiveSource] = useState(visualisation?.source ?? "");
 
   const [compile, setCompile] = useState<CompileResult | null>(null);
   const [logLines, setLogLines] = useState<LogLine[]>([]);
   const [properties, setProperties] = useState<PropertyView[]>([]);
   const [logCollapsed, setLogCollapsed] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /**
+   * The last state successfully written.
+   *
+   * Compared against instead of the props: the props are the server's copy from
+   * page load and never change, so anything derived from them would report
+   * unsaved work forever once the first edit landed.
+   */
+  const [lastSaved, setLastSaved] = useState({
+    title: visualisation?.title ?? "",
+    source: visualisation?.source ?? "",
+    visibility: visualisation?.visibility ?? ("private" as Visibility),
+  });
 
   // localStorage is read through useSyncExternalStore so the server can render
   // the default without a hydration mismatch. `override` takes over on drag.
@@ -87,6 +128,8 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [override, setOverride] = useState<number | null>(null);
   const ratio = override ?? storedRatio;
 
+  /** When the last write completed, so the throttle can pace the next one. */
+  const lastSaveAt = useRef(0);
   const editorHandle = useRef<CodeEditorHandle | null>(null);
   const canvasHandle = useRef<VisampCanvasHandle>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -96,11 +139,17 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   // E6.10 — a pinned thumb is the author's explicit choice and survives saves.
   const analyser = useAnalyser();
   const { user } = useAuth();
-  const [thumbPinned, setThumbPinned] = useState(visualisation.thumb_pinned);
+  // Shares its state with the transport's button through the fullscreen API,
+  // so the two never disagree about whether the preview is expanded.
+  const { toggle: togglePreviewFullscreen } = useFullscreen(previewRef);
+  const [thumbPinned, setThumbPinned] = useState(visualisation?.thumb_pinned ?? false);
   const [forking, setForking] = useState(false);
   const [forkBlocked, setForkBlocked] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [openPickerShown, setOpenPickerShown] = useState(false);
+  const [deleteShown, setDeleteShown] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // E6.5 — debounce keystrokes into the engine.
   useEffect(() => {
@@ -183,12 +232,12 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   // ── Save ──────────────────────────────────────────────────────────────────
 
   const dirty =
-    source !== visualisation.source ||
-    title !== visualisation.title ||
-    visibility !== visualisation.visibility;
+    source !== lastSaved.source ||
+    title !== lastSaved.title ||
+    visibility !== lastSaved.visibility;
 
-  // E6.8 — save is only reachable from a successful compile.
-  const canSave = canEdit && dirty && compile?.ok === true && !saving;
+  // E6.8 — nothing is written from a script that does not compile.
+  const canSave = !empty && canEdit && dirty && compile?.ok === true && !saving;
 
   /**
    * Captures the current frame at a fixed 1280x720 and stores it under
@@ -197,7 +246,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
    */
   const uploadThumbnail = useCallback(async (): Promise<string | null> => {
     const handle = canvasHandle.current;
-    if (!handle) return null;
+    if (!handle || !visualisation) return null;
 
     const blob = await handle.captureFrame();
     const path = `${visualisation.owner_id}/${visualisation.id}.png`;
@@ -211,9 +260,11 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
     const { data } = supabase.storage.from("thumbnails").getPublicUrl(path);
     return `${data.publicUrl}?v=${Date.now()}`;
-  }, [visualisation.id, visualisation.owner_id]);
+  }, [visualisation]);
 
   const captureThumbnail = useCallback(async () => {
+    if (!visualisation) return;
+
     setCapturing(true);
     setSaveError(null);
 
@@ -233,9 +284,16 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     }
 
     setCapturing(false);
-  }, [uploadThumbnail, visualisation.id]);
+  }, [uploadThumbnail, visualisation]);
 
   const save = useCallback(async () => {
+    if (!visualisation) return;
+
+    // Snapshotted before the first await. Whatever is typed while the write is
+    // in flight must stay dirty, or those keystrokes would be marked saved
+    // without ever having been sent.
+    const snapshot = { title, source, visibility };
+
     setSaving(true);
     setSaveError(null);
 
@@ -254,14 +312,35 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
     const { error } = await createClient()
       .from("visualisations")
-      .update({ title, source, visibility, ...thumbnail })
+      .update({ ...snapshot, ...thumbnail })
       .eq("id", visualisation.id);
 
     if (error) setSaveError(error.message);
-    else setSavedAt(Date.now());
+    else setLastSaved(snapshot);
 
+    lastSaveAt.current = Date.now();
     setSaving(false);
-  }, [title, source, visibility, visualisation.id, thumbPinned, uploadThumbnail]);
+  }, [title, source, visibility, visualisation, thumbPinned, uploadThumbnail]);
+
+  // Read through a ref so the throttle below does not restart on every
+  // keystroke — depending on `save` directly would turn it into a debounce.
+  const saveRef = useRef(save);
+  useEffect(() => {
+    saveRef.current = save;
+  }, [save]);
+
+  useEffect(() => {
+    if (!canSave) return;
+
+    const since = Date.now() - lastSaveAt.current;
+    const wait = Math.max(0, AUTOSAVE_MS - since);
+    const timer = window.setTimeout(() => void saveRef.current(), wait);
+
+    return () => window.clearTimeout(timer);
+    // `saving` is deliberately absent: it flips during the write and would
+    // cancel and reschedule the very save in progress.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, dirty, compile?.ok]);
 
   /**
    * E6.11 — fork the current script into a copy you own.
@@ -278,6 +357,9 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
       setForkBlocked(true);
       return;
     }
+
+    // Nothing open, so there is nothing to fork.
+    if (!visualisation) return;
 
     if (!user) {
       setSignInOpen(true);
@@ -331,15 +413,57 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     title,
     source,
     visibility,
-    visualisation.id,
-    visualisation.description,
+    visualisation,
   ]);
 
-  const saveLabel = useMemo(() => {
-    if (saving) return "Saving…";
-    if (!dirty && savedAt) return "Saved";
-    return "Save";
-  }, [saving, dirty, savedAt]);
+  const remove = useCallback(async () => {
+    if (!visualisation) return;
+
+    setDeleting(true);
+    setSaveError(null);
+
+    const { error } = await createClient()
+      .from("visualisations")
+      .delete()
+      .eq("id", visualisation.id);
+
+    if (error) {
+      setDeleting(false);
+      setDeleteShown(false);
+      setSaveError(error.message);
+      return;
+    }
+
+    // Straight back to the same URL. The row is gone, so the route renders the
+    // empty stage — no special "deleted" destination to invent.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = `/edit/${visualisation.id}`;
+  }, [visualisation]);
+
+  /**
+   * What the status line says, and why.
+   *
+   * The blocked case earns its own wording: with no Save button to press, a
+   * script that will not compile would otherwise sit there looking merely
+   * unsaved while the author kept typing into something that was never going
+   * to be written.
+   */
+  const status = useMemo(() => {
+    if (saveError) return { text: saveError, tone: "error" as const };
+    if (saving) return { text: "Saving…", tone: "busy" as const };
+    if (!dirty) return { text: "Saved", tone: "saved" as const };
+    if (compile?.ok === false) {
+      // Its own tone rather than sharing the failure colour: nothing has gone
+      // wrong, the work is simply being held back until the script runs.
+      return { text: "Not saved — fix the errors", tone: "blocked" as const };
+    }
+    return { text: "Unsaved changes", tone: "pending" as const };
+  }, [saveError, saving, dirty, compile?.ok]);
+
+  const fileAction = cn(
+    "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
+    "transition hover:bg-foreground/5 disabled:opacity-50",
+  );
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
@@ -355,21 +479,48 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          disabled={!canEdit}
+          disabled={!canEdit || empty}
           aria-label="Title"
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
+          className={cn(
+            "min-w-0 flex-1 rounded-md px-2 py-1 text-sm transition",
+            // Given a surface of its own: sitting flush on the menubar it read
+            // as a heading, and nobody thinks to click a heading.
+            "bg-foreground/[0.06] hover:bg-foreground/10",
+            "outline-none placeholder:text-muted-foreground",
+            "focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-ring",
+            "disabled:bg-transparent disabled:opacity-60",
+          )}
           placeholder="Untitled"
         />
 
+        {/* POST rather than a link: /edit creates a row, and a GET target can
+            be speculatively prefetched into stray drafts. */}
+        <form method="POST" action="/edit" className="flex shrink-0">
+          <button type="submit" title="Start a new visualisation" className={fileAction}>
+            <FilePlus className="h-3.5 w-3.5" />
+            New
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => setOpenPickerShown(true)}
+          title="Open one of your visualisations"
+          className={fileAction}
+        >
+          <FolderOpen className="h-3.5 w-3.5" />
+          Open
+        </button>
+
+        {/* Deliberately outside the `canEdit` branch — forking someone else's
+            work is the point — but there is nothing to fork with nothing open. */}
         <button
           type="button"
           onClick={() => void fork()}
           disabled={forking}
+          hidden={empty}
           title="Save and fork into a copy you own"
-          className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition",
-            "hover:bg-foreground/5 disabled:opacity-50",
-          )}
+          className={fileAction}
         >
           {forking ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -379,7 +530,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           Fork
         </button>
 
-        {canEdit ? (
+        {empty ? null : canEdit ? (
           <>
             <button
               type="button"
@@ -392,7 +543,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
               }
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition",
-                "hover:bg-foreground/5 disabled:opacity-50",
+                "hover:bg-foreground/5 disabled:opacity-50 cursor-pointer", 
                 thumbPinned && "border-foreground/30 bg-foreground/10",
               )}
             >
@@ -410,41 +561,103 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
               value={visibility}
               onChange={(event) => setVisibility(event.target.value as Visibility)}
               aria-label="Visibility"
-              className="rounded-md border bg-transparent px-2 py-1 text-xs"
+              className="rounded-md border bg-transparent px-2 py-1 text-xs cursor-pointer"
             >
               <option value="private">Private</option>
-              <option value="unlisted">Unlisted</option>
               <option value="public">Public</option>
             </select>
 
-            {saveError && (
-              <span className="max-w-48 truncate text-xs text-destructive">
-                {saveError}
-              </span>
-            )}
-
-            <Button size="sm" disabled={!canSave} onClick={() => void save()}>
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : !dirty && savedAt ? (
-                <Check className="h-3.5 w-3.5" />
-              ) : null}
-              {saveLabel}
-            </Button>
+            <button
+              type="button"
+              onClick={() => setDeleteShown(true)}
+              title="Delete this visualisation"
+              aria-label="Delete this visualisation"
+              className={fileAction}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </button>
           </>
         ) : (
           <span className="text-xs text-muted-foreground">Read-only</span>
         )}
       </header>
 
+      {empty ? (
+        /* Nothing open. The shape of the editor is kept — a black stage with
+           the panel split — so it reads as "waiting" rather than broken. */
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 bg-black">
+          <div className="text-center">
+            <p className="text-sm font-medium">No visualisation open</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Start something new, or pick up where you left off.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <form method="POST" action="/edit">
+              <button
+                type="submit"
+                className={cn(
+                  "flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-medium",
+                  "bg-emerald-500 text-black transition hover:bg-emerald-400",
+                )}
+              >
+                <FilePlus className="h-4 w-4" />
+                Create Vis
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={() => setOpenPickerShown(true)}
+              className={cn(
+                "flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-4 text-sm font-medium",
+                "transition hover:bg-foreground/5",
+              )}
+            >
+              <FolderOpen className="h-4 w-4" />
+              Open Vis
+            </button>
+          </div>
+        </div>
+      ) : (
       <div ref={splitRef} className="flex min-h-0 flex-1">
-        <div style={{ width: `${ratio}%` }} className="min-w-0">
-          <CodeEditor
-            initialValue={visualisation.source}
-            onChange={setSource}
-            diagnostics={compile?.diagnostics ?? []}
-            handleRef={editorHandle}
-          />
+        <div style={{ width: `${ratio}%` }} className="flex min-w-0 flex-col">
+          <div className="min-h-0 flex-1">
+            <CodeEditor
+              initialValue={visualisation?.source ?? ""}
+              onChange={setSource}
+              diagnostics={compile?.diagnostics ?? []}
+              handleRef={editorHandle}
+            />
+          </div>
+
+          {/* Under the code rather than up in the menubar: it is a fact about
+              what has just been typed, and edits are written on a throttle, so
+              it reports rather than asks. */}
+          <div
+            title={dirty ? "Changes are written automatically" : undefined}
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 border-t px-3 py-1 text-[11px]",
+              status.tone === "blocked"
+                ? "text-amber-400"
+                : status.tone === "error"
+                  ? "text-destructive"
+                  : "text-muted-foreground",
+            )}
+          >
+            {status.tone === "busy" ? (
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+            ) : status.tone === "saved" ? (
+              <Check className="h-3 w-3 shrink-0" />
+            ) : status.tone === "blocked" || status.tone === "error" ? (
+              <TriangleAlert className="h-3 w-3 shrink-0" />
+            ) : (
+              <Dot className="h-3 w-3 shrink-0" />
+            )}
+            <span className="truncate">{status.text}</span>
+          </div>
         </div>
 
         {/* E6.2 — drag-resizable divider; ratio persists. */}
@@ -465,7 +678,12 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           {/* E6.3 — 16:9 sized to the column; the log takes what's left. */}
           {/* Fullscreen expands just this box, so the visualisation fills the
               screen without dragging the code panel along with it. */}
-          <div ref={previewRef} className="aspect-video w-full shrink-0 bg-black">
+          {/* Double-click matches the player, where the canvas does the same. */}
+          <div
+            ref={previewRef}
+            onDoubleClick={togglePreviewFullscreen}
+            className="aspect-video w-full shrink-0 bg-black"
+          >
             <VisampCanvas
               ref={canvasHandle}
               source={liveSource}
@@ -496,6 +714,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           </div>
         </div>
       </div>
+      )}
 
       <AlertDialog open={forkBlocked} onOpenChange={setForkBlocked}>
         <AlertDialogContent>
@@ -513,6 +732,41 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={deleteShown} onOpenChange={setDeleteShown}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this visualisation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {title || "This visualisation"} will be gone for good, along with
+              anything anyone has said about it. Forks other people have made
+              keep working and keep their attribution.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(event) => {
+                // Held open while the delete runs, so the dialog does not
+                // vanish and leave nothing to show it is working.
+                event.preventDefault();
+                void remove();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <OpenVisDialog
+        open={openPickerShown}
+        onOpenChange={setOpenPickerShown}
+        currentId={visualisation?.id}
+      />
 
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
     </div>

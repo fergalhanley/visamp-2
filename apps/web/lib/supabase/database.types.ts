@@ -192,7 +192,7 @@ export type Database = {
       username_available: { Args: { candidate: string }; Returns: boolean }
     }
     Enums: {
-      visibility: "public" | "unlisted" | "private"
+      visibility: "public" | "private"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -320,7 +320,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      visibility: ["public", "unlisted", "private"],
+      visibility: ["public", "private"],
     },
   },
 } as const

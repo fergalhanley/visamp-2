@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/components/editor/editor-shell";
 import { createClient } from "@/lib/supabase/server";
@@ -12,10 +11,12 @@ export const metadata: Metadata = {
 
 /**
  * E6.12 — editing your own work saves in place; anyone else's is read-only and
- * offers a fork (which arrives with E6.11).
+ * offers a fork.
  *
- * RLS already hides private work from non-owners, so a `notFound()` here covers
- * both "no such id" and "not yours".
+ * A missing row renders the editor's empty stage rather than a 404. RLS hides
+ * private work from non-owners, so "no such id", "just deleted" and "not yours"
+ * all arrive here identically — and after deleting something, landing back on
+ * an empty editor is more use than an error page.
  */
 export default async function EditorPage({ params }: PageProps<"/edit/[id]">) {
   const { id } = await params;
@@ -31,12 +32,10 @@ export default async function EditorPage({ params }: PageProps<"/edit/[id]">) {
     .eq("id", id)
     .maybeSingle();
 
-  if (!visualisation) notFound();
-
   return (
     <EditorShell
       visualisation={visualisation}
-      canEdit={Boolean(user) && visualisation.owner_id === user!.id}
+      canEdit={Boolean(user && visualisation && visualisation.owner_id === user.id)}
     />
   );
 }

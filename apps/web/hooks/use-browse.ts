@@ -18,8 +18,8 @@ interface Loaded<T> {
  * Public visualisations, newest first.
  *
  * `visibility = public` is filtered explicitly rather than left to RLS: the read
- * policy also admits unlisted rows, which are reachable by link but must never
- * appear in browse (§4).
+ * policy also admits the viewer's own private drafts, which belong in "My
+ * Visualisations" and never in browse (§4).
  */
 export function useBrowseVisualisations(): Loaded<Visualisation> & { loading: boolean } {
   const [state, setState] = useState<Loaded<Visualisation> | null>(null);

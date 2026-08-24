@@ -1,0 +1,43 @@
+// What the player shows before anything has been chosen — a route, a server
+// seed, or a click in the V panel. The engine itself renders nothing until a
+// script is loaded, so this is the first thing on screen.
+
+prop angle = 0.0
+
+on_frame {
+  angle = $TIME_SEC
+}
+
+render {
+  draw::background(color: $COLOR_BLACK)
+  draw::rect(
+    x: $WIDTH / 2.0 - 50.0,
+    y: $HEIGHT / 2.0 - 50.0,
+    width: 100.0,
+    height: 100.0,
+    color: $COLOR_BLUE,
+    rotate: angle
+  )
+  draw::polygon(
+    points: [
+      [$WIDTH / 2.0, $HEIGHT / 2.0 - 100.0],
+      [$WIDTH / 2.0 - 100.0, $HEIGHT / 2.0 + 100.0],
+      [$WIDTH / 2.0 + 100.0, $HEIGHT / 2.0 + 100.0]
+    ],
+    color: $COLOR_GREEN,
+    rotate: angle
+  )
+  draw::circle(
+    x: $WIDTH / 2.0,
+    y: $HEIGHT / 2.0,
+    radius: 30.0,
+    color: $COLOR_RED
+  )
+  draw::text(
+    content: "visamp",
+    x: $WIDTH / 2.0 - 40.0,
+    y: $HEIGHT / 2.0 + 200.0,
+    size: 24.0,
+    color: $COLOR_WHITE
+  )
+}

@@ -8,8 +8,8 @@ import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
  * E7.5 — the landing route. The viewer goes straight into the player; what a
  * crawler sees is this: real HTML, server-rendered, behind the canvas.
  *
- * Public only, filtered explicitly — unlisted work is reachable by link but is
- * excluded from browse and from the crawlable index (§4, E7.6).
+ * Public only, filtered explicitly. RLS also admits the reader's own private
+ * drafts, which must never reach the crawlable index (§4, E7.6).
  */
 export default async function Home() {
   const supabase = await createClient();

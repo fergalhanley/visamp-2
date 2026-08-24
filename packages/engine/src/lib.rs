@@ -122,53 +122,10 @@ fn init_app() -> Result<(), String> {
 
     web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("Canvas size: {}x{}", canvas_width, canvas_height)));
 
-    let default_script = r#"
-prop angle = 0.0
-
-on_frame {
-  angle = $TIME_SEC
-}
-
-render {
-  draw::clear()
-  draw::background(
-    color: $COLOR_BLACK
-  )
-  draw::rect (
-    x: 350.0,
-    y: 250.0,
-    width: 100.0,
-    height: 100.0,
-    color: $COLOR_BLUE,
-    rotate: angle
-  )
-  draw::circle (
-    x: 400.0,
-    y: 300.0,
-    radius: 30.0,
-    color: $COLOR_RED
-  )
-  draw::polygon (
-    points: [
-      [400.0, 200.0],
-      [300.0, 400.0],
-      [500.0, 400.0],
-    ],
-    color: $COLOR_GREEN,
-    rotate: angle
-  )
-  draw::text (
-    content: "visamp",
-    x: 340.0,
-    y: 500.0,
-    size: 24.0,
-    color: $COLOR_WHITE
-  )
-}
-"#;
-
-    let ast = build_ast(default_script).map_err(|e| format!("Failed to parse default script: {}", e))?;
-    let model = Model::from_script(&ast);
+    // Nothing to draw until the page loads a script. The engine used to carry a
+    // demo of its own, which meant every host briefly rendered something it had
+    // not asked for; the default now belongs to whoever embeds the engine.
+    let model = Model::from_script(&Script::new());
 
     let mut runtime = Runtime::new();
     runtime.canvas_width = canvas_width;

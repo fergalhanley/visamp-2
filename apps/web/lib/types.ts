@@ -26,7 +26,9 @@ export interface Visualisation {
    * Only meaningful for work the viewer owns — browse lists are public-only, so
    * everything in them is implicitly public.
    */
-  visibility?: "public" | "unlisted" | "private";
+  visibility?: "public" | "private";
+  /** ISO timestamp of the last write; only set for database-backed rows. */
+  updatedAt?: string;
 }
 
 /**

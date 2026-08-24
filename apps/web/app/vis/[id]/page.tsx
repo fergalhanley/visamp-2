@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
 
 /**
- * RLS decides what is visible: public and unlisted to anyone, private only to
+ * RLS decides what is visible: public to anyone, private only to
  * its owner. A miss is therefore both "no such id" and "not yours", which is
  * exactly E7.6's requirement that private returns 404 to non-owners.
  */

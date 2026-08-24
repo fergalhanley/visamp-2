@@ -31,5 +31,6 @@ export function visualisationFromRow(row: Row, artist: Artist): Visualisation {
     forkCount: row.fork_count,
     viewCount: row.view_count,
     visibility: row.visibility,
+    updatedAt: row.updated_at,
   };
 }

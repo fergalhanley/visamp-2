@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 
-import { DEFAULT_VISUALISATION, VISUALISATIONS } from "@/lib/fixtures/visualisations";
+import { DEFAULT_VISUALISATION } from "@/lib/dsl/default";
+import { VISUALISATIONS } from "@/lib/fixtures/visualisations";
 import type { PlayerMode, Visualisation } from "@/lib/types";
 
 interface SessionState {
@@ -61,7 +62,8 @@ function pickNext(
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
-  // A fixture until the real list arrives, so the canvas is never blank.
+  // The built-in default until something is chosen, so the canvas is never
+  // blank — the engine draws nothing of its own any more.
   current: DEFAULT_VISUALISATION,
   chosen: false,
   context: VISUALISATIONS,

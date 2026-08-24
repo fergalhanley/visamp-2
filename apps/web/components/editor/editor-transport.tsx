@@ -13,6 +13,7 @@ import {
   SkipBack,
   SkipForward,
   Trash2,
+  Volume2,
 } from "lucide-react";
 import { useRef, type RefObject } from "react";
 
@@ -33,6 +34,8 @@ function SoundcloudPopover() {
   const error = useAudioStore((s) => s.soundcloudError);
   const kind = useAudioStore((s) => s.kind);
   const currentIndex = useAudioStore((s) => s.currentIndex);
+  const pendingIndex = useAudioStore((s) => s.pendingIndex);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
 
   const loadPlaylist = useAudioStore((s) => s.loadSoundcloudPlaylist);
   const clearSoundcloud = useAudioStore((s) => s.clearSoundcloud);
@@ -107,23 +110,41 @@ function SoundcloudPopover() {
               Paste a public SoundCloud playlist link to load its tracks.
             </li>
           ) : (
-            scTracks.map((track, index) => (
-              <li key={track.id}>
-                <button
-                  type="button"
-                  onClick={() => void playIndex(index)}
-                  className={cn(
-                    "w-full px-3 py-1.5 text-left transition hover:bg-foreground/5",
-                    kind === "soundcloud" && index === currentIndex && "bg-foreground/10",
-                  )}
-                >
-                  <span className="block truncate text-xs">{track.name}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">
-                    {track.artist}
-                  </span>
-                </button>
-              </li>
-            ))
+            scTracks.map((track, index) => {
+              const active = kind === "soundcloud" && index === currentIndex;
+              const starting = kind === "soundcloud" && index === pendingIndex;
+
+              return (
+                <li key={track.id}>
+                  <button
+                    type="button"
+                    onClick={() => void playIndex(index)}
+                    className={cn(
+                      "flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition",
+                      // Highlighted while it loads too, so the click lands
+                      // before the sound does.
+                      active || starting
+                        ? "bg-foreground/10"
+                        : "hover:bg-foreground/5",
+                    )}
+                  >
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                      {starting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : active && isPlaying ? (
+                        <Volume2 className="h-3.5 w-3.5" />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs">{track.name}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {track.artist}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })
           )}
         </ul>
       </PopoverContent>
@@ -145,6 +166,7 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
   const kind = useAudioStore((s) => s.kind);
   const tracks = useActiveTracks();
   const currentIndex = useAudioStore((s) => s.currentIndex);
+  const pendingIndex = useAudioStore((s) => s.pendingIndex);
   const isPlaying = useAudioStore((s) => s.isPlaying);
 
   const enableMic = useAudioStore((s) => s.enableMic);
@@ -161,7 +183,10 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
   const level = useAudioLevel(micLive);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(fullscreenTarget);
 
-  const track = tracks[currentIndex];
+  const starting = pendingIndex !== -1;
+  // The track being started wins, so the name changes the moment it is picked
+  // rather than once the stream opens.
+  const track = tracks[starting ? pendingIndex : currentIndex];
   const hasTracks = tracks.length > 0;
 
   return (
@@ -178,12 +203,19 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
         </button>
         <button
           type="button"
-          aria-label={isPlaying ? "Pause" : "Play"}
-          disabled={!hasTracks}
+          aria-label={starting ? "Loading" : isPlaying ? "Pause" : "Play"}
+          // Disabled only while a track opens: pressing play again mid-load
+          // would start whatever sits at index 0 instead.
+          disabled={!hasTracks || starting}
           onClick={() => void togglePlay()}
-          className="text-muted-foreground transition hover:text-foreground disabled:opacity-30"
+          className={cn(
+            "text-muted-foreground transition hover:text-foreground disabled:opacity-30",
+            starting && "disabled:opacity-100 disabled:text-foreground",
+          )}
         >
-          {isPlaying ? (
+          {starting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isPlaying ? (
             <Pause className="h-4 w-4 fill-current" />
           ) : (
             <Play className="h-4 w-4 fill-current" />

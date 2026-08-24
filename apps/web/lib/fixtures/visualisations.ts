@@ -216,5 +216,3 @@ export const ARTISTS: Artist[] = [nova, kestrel];
 export function findVisualisation(id: string): Visualisation | undefined {
   return VISUALISATIONS.find((v) => v.id === id);
 }
-
-export const DEFAULT_VISUALISATION = VISUALISATIONS[0]!;

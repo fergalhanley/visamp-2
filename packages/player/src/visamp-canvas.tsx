@@ -132,8 +132,8 @@ export function VisampCanvas({
   // There is deliberately no cancellation here. The module is a process-wide
   // singleton, so there is nothing meaningful to cancel, and a cleanup flag
   // would make StrictMode's mount→cleanup→mount skip the first (and only)
-  // import: `bootedRef` blocks the second run, leaving the engine showing its
-  // own built-in demo forever.
+  // import: `bootedRef` blocks the second run, leaving the canvas blank
+  // forever.
   useEffect(() => {
     if (!active || bootedRef.current) return;
     bootedRef.current = true;
@@ -148,8 +148,8 @@ export function VisampCanvas({
   }, [active]);
 
   // Applies the source once the engine exists, and on every later change.
-  // `main_web()` has already compiled and started rendering its built-in demo
-  // by the time we get here, so the first run replaces it.
+  // `main_web()` mounts no canvas and draws nothing until this runs, so the
+  // first pass is what puts anything on screen at all.
   //
   // The engine keeps its Runtime (elapsed time, frame count) across a swap, so
   // there is no black frame — and a failed parse leaves the previous model in
