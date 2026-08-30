@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { Artist, Visualisation } from "@/lib/types";
-import { visualisationFromRow } from "@/lib/visualisations";
+import { artistName, visualisationFromRow } from "@/lib/visualisations";
 
 interface Fetched {
   userId: string;
@@ -49,7 +49,7 @@ export function useMyVisualisations(): {
         // by artist tiles, which this list never renders.
         const artist: Artist = {
           username: profile?.username ?? "you",
-          displayName: profile?.display_name ?? profile?.username ?? "You",
+          displayName: artistName(profile, "You"),
           avatarUrl: profile?.avatar_url ?? undefined,
           visCount: profile?.vis_count ?? 0,
           totalViews: profile?.total_views ?? 0,

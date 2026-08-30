@@ -138,6 +138,7 @@ export function useVisLike(): VisLike {
       }
       if (result.counted) useSessionStore.getState().countLike(pending, 1);
       setKnown({ key: `${user.id}:${pending}`, liked: true });
+      window.dispatchEvent(new Event("visamp:likes-changed"));
     });
   }, [user]);
 
@@ -174,6 +175,7 @@ export function useVisLike(): VisLike {
       // Right state, but this call did not put it there — so the optimistic
       // bump was counting a row that was already there (or already gone).
       if (!result.counted) useSessionStore.getState().countLike(id, undo);
+      window.dispatchEvent(new Event("visamp:likes-changed"));
     });
   }, [loading, likeable, key, user, id, liked]);
 

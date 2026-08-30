@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useSessionStore } from "@/lib/store/session";
+import { artistName } from "@/lib/visualisations";
 
 export interface Comment {
   id: string;
@@ -41,8 +42,7 @@ function toComment(row: Row): Comment {
     body: row.body,
     createdAt: row.created_at,
     authorId: row.author_id,
-    authorName:
-      row.profiles?.display_name ?? row.profiles?.username ?? "Unknown artist",
+    authorName: artistName(row.profiles),
     authorUsername: row.profiles?.username ?? null,
     authorAvatarUrl: row.profiles?.avatar_url ?? null,
   };

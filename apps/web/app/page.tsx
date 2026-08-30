@@ -2,7 +2,11 @@ import Link from "next/link";
 
 import { SessionSeed } from "@/components/shell/session-seed";
 import { createClient } from "@/lib/supabase/server";
-import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import {
+  artistFromProfile,
+  artistName,
+  visualisationFromRow,
+} from "@/lib/visualisations";
 
 /**
  * E7.5 — the landing route. The viewer goes straight into the player; what a
@@ -52,8 +56,8 @@ export default async function Home() {
               {vis.profiles?.username && (
                 <>
                   {" by "}
-                  <Link href={`/artist/${vis.profiles.username}`}>
-                    {vis.profiles.display_name ?? vis.profiles.username}
+                  <Link href={`/artists/${vis.profiles.username}`}>
+                    {artistName(vis.profiles)}
                   </Link>
                 </>
               )}

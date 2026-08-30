@@ -9,6 +9,8 @@ interface ChromeState {
   visible: boolean;
   vOpen: boolean;
   aOpen: boolean;
+  /** The transport is being used, so idle chrome must not fade it away. */
+  transportHovered: boolean;
   /**
    * E2.4a — a panel holding focus in a text input is pinned open, so typing a
    * search query or a comment draft can't be interrupted by the cursor
@@ -18,6 +20,7 @@ interface ChromeState {
   aPinned: boolean;
 
   setVisible: (visible: boolean) => void;
+  setTransportHovered: (hovered: boolean) => void;
   /**
    * Explicit dismissal — clicking the visualisation itself. Unlike the idle
    * fade this also drops any open panel, including a pinned one, so the chrome
@@ -34,10 +37,12 @@ export const useChromeStore = create<ChromeState>((set, get) => ({
   visible: true,
   vOpen: false,
   aOpen: false,
+  transportHovered: false,
   vPinned: false,
   aPinned: false,
 
   setVisible: (visible) => set({ visible }),
+  setTransportHovered: (transportHovered) => set({ transportHovered }),
 
   hideNow: () =>
     set({
@@ -46,6 +51,7 @@ export const useChromeStore = create<ChromeState>((set, get) => ({
       aOpen: false,
       vPinned: false,
       aPinned: false,
+      transportHovered: false,
     }),
 
   openPanel: (side) => set(side === "v" ? { vOpen: true } : { aOpen: true }),

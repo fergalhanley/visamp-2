@@ -476,6 +476,17 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           <BrandLockup className="h-5" />
         </a>
 
+        <nav className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/" className="transition hover:text-foreground">
+            Player
+          </a>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/artists" className="transition hover:text-foreground">
+            Artists
+          </a>
+        </nav>
+
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}

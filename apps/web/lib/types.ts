@@ -2,6 +2,7 @@ export interface Artist {
   username: string;
   displayName: string;
   avatarUrl?: string;
+  bio?: string;
   visCount: number;
   totalViews: number;
 }
@@ -15,6 +16,11 @@ export interface Visualisation {
   artist: Artist;
   /** Present for database-backed rows; absent for the local fixtures. */
   ownerId?: string;
+  /**
+   * The visualisation this one was forked from, when it was. Attribution is
+   * insert-only at the grant level, so this is as permanent as the row.
+   */
+  forkedFromId?: string;
   thumbUrl?: string;
   /** Always false until the DSL grows audio bindings. */
   usesAudio: boolean;

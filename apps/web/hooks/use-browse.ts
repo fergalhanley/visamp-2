@@ -3,11 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
-import type { Database } from "@/lib/supabase/database.types";
-import type { Artist, Visualisation } from "@/lib/types";
+import type { Visualisation } from "@/lib/types";
 import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
-
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 interface Loaded<T> {
   items: T[];
@@ -39,39 +36,6 @@ export function useBrowseVisualisations(): Loaded<Visualisation> & { loading: bo
           items: (data ?? []).map((row) =>
             visualisationFromRow(row, artistFromProfile(row.profiles)),
           ),
-          error: error?.message ?? null,
-        });
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return {
-    items: state?.items ?? [],
-    error: state?.error ?? null,
-    loading: state === null,
-  };
-}
-
-/** Artists with at least one public visualisation — vis_count only counts public. */
-export function useArtists(): Loaded<Artist> & { loading: boolean } {
-  const [state, setState] = useState<Loaded<Artist> | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    void createClient()
-      .from("profiles")
-      .select("*")
-      .gt("vis_count", 0)
-      .order("vis_count", { ascending: false })
-      .then(({ data, error }) => {
-        if (!active) return;
-
-        setState({
-          items: (data ?? []).map((row: ProfileRow) => artistFromProfile(row)),
           error: error?.message ?? null,
         });
       });

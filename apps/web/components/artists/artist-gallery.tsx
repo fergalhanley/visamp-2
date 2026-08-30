@@ -1,0 +1,321 @@
+"use client";
+
+import { VisampCanvas } from "@visamp/player";
+import { ChevronDown, Search } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+
+import { AccountMenu } from "@/components/auth/account-menu";
+import { BrandLockup } from "@/components/brand/logo";
+import { EditorTransport } from "@/components/editor/editor-transport";
+import { CommentsThread } from "@/components/panels/comments-thread";
+import { formatCount, posterStyle } from "@/components/panels/tiles";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAnalyser } from "@/hooks/use-analyser";
+import { useArtistGallery, useArtistWork, type ArtistStats } from "@/hooks/use-artist-gallery";
+import { useFullscreen } from "@/hooks/use-fullscreen";
+import { DEFAULT_SOURCE } from "@/lib/dsl/default";
+import type { Visualisation } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+type Sort = "name" | "views" | "likes" | "vis";
+
+const SORT_LABELS: Record<Sort, string> = {
+  name: "Name",
+  views: "Views",
+  likes: "Likes",
+  vis: "Visualisations",
+};
+
+function sortArtists(items: ArtistStats[], by: Sort): ArtistStats[] {
+  const sorted = [...items];
+  sorted.sort((a, b) => {
+    switch (by) {
+      case "name":
+        return a.artist.displayName.localeCompare(b.artist.displayName);
+      case "views":
+        return b.views - a.views;
+      case "likes":
+        return b.likes - a.likes;
+      case "vis":
+        return b.visCount - a.visCount;
+    }
+  });
+  return sorted;
+}
+
+/**
+ * E3.7 — the artist gallery.
+ *
+ * A page rather than a panel tab: three columns of increasing specificity —
+ * who, what they made, and the thing itself playing — which is more than the
+ * V panel's single 22rem column could carry.
+ *
+ * Like the editor, this route owns the canvas. The WASM engine binds to the
+ * first stage in the document and refuses to re-initialise, so the player's
+ * canvas cannot be mounted at the same time; `SessionShell` stands the player
+ * down here, and getting in and out is a full page load.
+ */
+export function ArtistGallery({ initialUsername = null }: { initialUsername?: string | null }) {
+  const { items, loading, error } = useArtistGallery();
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<Sort>("views");
+
+  // Null means "no explicit pick yet", which resolves to the top of the list.
+  // Derived rather than synced in an effect, so the page arrives populated
+  // instead of empty-then-filled.
+  const [pickedArtist, setPickedArtist] = useState<string | null>(initialUsername);
+  const [pickedVis, setPickedVis] = useState<string | null>(null);
+
+  const analyser = useAnalyser();
+  const previewRef = useRef<HTMLDivElement>(null);
+  const { toggle: toggleFullscreen } = useFullscreen(previewRef);
+
+  const needle = query.trim().toLowerCase();
+  const artists = useMemo(() => {
+    const filtered = needle
+      ? items.filter(
+          (row) =>
+            row.artist.displayName.toLowerCase().includes(needle) ||
+            row.artist.username.toLowerCase().includes(needle),
+        )
+      : items;
+    return sortArtists(filtered, sort);
+  }, [items, needle, sort]);
+
+  const activeArtist =
+    artists.find((row) => row.artist.username === pickedArtist) ?? artists[0] ?? null;
+
+  const { items: work, loading: workLoading } = useArtistWork(activeArtist?.id ?? null);
+  const activeVis: Visualisation | null =
+    work.find((vis) => vis.id === pickedVis) ?? work[0] ?? null;
+
+  return (
+    <div className="flex h-dvh flex-col bg-background">
+      <header className="flex shrink-0 items-center justify-between border-b px-4 py-2">
+        <div className="flex items-center gap-4">
+          <BrandLockup className="h-6" />
+          {/* Hard navigation on purpose, as in the editor: the player needs a
+              fresh document to claim the WASM singleton back off this page. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href="/"
+            className="text-xs text-muted-foreground transition hover:text-foreground"
+          >
+            Player
+          </a>
+        </div>
+        <AccountMenu />
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* Artists and their work share one accordion column. At 27rem this is
+            50% wider than the original 18rem artist list. */}
+        <aside className="flex w-[27rem] shrink-0 flex-col border-r">
+          <div className="shrink-0 space-y-2 border-b p-3">
+            <div className="flex items-center gap-2 rounded-md border px-2 py-1.5">
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Filter artists"
+                aria-label="Filter artists"
+                className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <label className="flex items-center justify-between text-xs text-muted-foreground">
+              Sort by
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as Sort)}
+                className="rounded-md border bg-transparent px-2 py-1 text-xs"
+              >
+                {Object.entries(SORT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {loading ? (
+              <p className="px-4 py-6 text-xs text-muted-foreground">Loading…</p>
+            ) : error ? (
+              <p className="px-4 py-6 text-xs text-destructive">{error}</p>
+            ) : artists.length === 0 ? (
+              <p className="px-4 py-6 text-xs text-muted-foreground">No matches.</p>
+            ) : (
+              artists.map((row) => {
+                const expanded = row.id === activeArtist?.id;
+
+                return (
+                  <div key={row.id} className="border-b last:border-b-0">
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() => {
+                        setPickedArtist(row.artist.username);
+                        window.history.pushState(
+                          {},
+                          "",
+                          `/artists/${encodeURIComponent(row.artist.username)}`,
+                        );
+                        // Their work is a different list; keeping a selection
+                        // from the last artist would point at nothing.
+                        if (!expanded) setPickedVis(null);
+                      }}
+                      className={cn(
+                        "flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-left transition",
+                        expanded ? "bg-foreground/10" : "hover:bg-foreground/5",
+                      )}
+                    >
+                      <Avatar className="h-10 w-10 shrink-0">
+                        {row.artist.avatarUrl && (
+                          <AvatarImage
+                            src={row.artist.avatarUrl}
+                            alt={`${row.artist.displayName}'s avatar`}
+                          />
+                        )}
+                        <AvatarFallback style={posterStyle(row.artist.username)}>
+                          <span className="sr-only">{row.artist.displayName}</span>
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {row.artist.displayName}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {formatCount(row.views)} views · {formatCount(row.likes)} likes ·{" "}
+                          {row.visCount} vis
+                        </p>
+                      </div>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                          expanded && "rotate-180",
+                        )}
+                        aria-hidden
+                      />
+                    </button>
+
+                    {expanded && (
+                      <div className="bg-foreground/[0.025] py-1">
+                        {workLoading ? (
+                          <p className="px-16 py-4 text-xs text-muted-foreground">
+                            Loading…
+                          </p>
+                        ) : work.length === 0 ? (
+                          <p className="px-16 py-4 text-xs text-muted-foreground">
+                            Nothing public here.
+                          </p>
+                        ) : (
+                          work.map((vis) => (
+                            <button
+                              key={vis.id}
+                              type="button"
+                              onClick={() => setPickedVis(vis.id)}
+                              className={cn(
+                                "flex w-full cursor-pointer items-center gap-3 py-2 pl-16 pr-4 text-left transition",
+                                vis.id === activeVis?.id
+                                  ? "bg-foreground/10"
+                                  : "hover:bg-foreground/5",
+                              )}
+                            >
+                              <div
+                                className="aspect-video h-10 shrink-0 rounded-md"
+                                style={posterStyle(vis.id)}
+                                aria-hidden
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm">{vis.title}</p>
+                                <p className="truncate text-[11px] text-muted-foreground">
+                                  {formatCount(vis.viewCount)} views ·{" "}
+                                  {formatCount(vis.likeCount)} likes
+                                </p>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </aside>
+
+        {/* The selected visualisation. */}
+        <main className="flex min-w-0 flex-1 flex-col">
+          {/* 16:9 to the column width, as in the editor. Double-click for
+              fullscreen matches both the editor and the player. */}
+          <div className="flex shrink-0 items-stretch border-b">
+            <aside className="w-56 shrink-0 p-4">
+              {activeArtist ? (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <Avatar className="h-20 w-20">
+                    {activeArtist.artist.avatarUrl && (
+                      <AvatarImage
+                        src={activeArtist.artist.avatarUrl}
+                        alt={`${activeArtist.artist.displayName}'s avatar`}
+                      />
+                    )}
+                    <AvatarFallback className="text-xl">
+                      {activeArtist.artist.displayName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h1 className="mt-3 text-sm font-medium">
+                    {activeArtist.artist.displayName}
+                  </h1>
+                  <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                    {activeArtist.artist.bio || "This artist has not added a bio yet."}
+                  </p>
+                </div>
+              ) : null}
+            </aside>
+            <div
+              ref={previewRef}
+              onDoubleClick={toggleFullscreen}
+              className="aspect-video min-w-0 flex-1 bg-black"
+            >
+              <VisampCanvas
+                source={activeVis?.source ?? DEFAULT_SOURCE}
+                active
+                analyser={analyser}
+                className="h-full w-full"
+              />
+            </div>
+          </div>
+
+          <EditorTransport fullscreenTarget={previewRef} />
+
+          <div className="min-h-0 flex-1 border-t p-3">
+            {activeVis ? (
+              <>
+                <p className="mb-2 shrink-0 truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {activeVis.commentCount === 1
+                    ? "1 Comment"
+                    : `${activeVis.commentCount} Comments`}
+                </p>
+                {/* Keyed so a draft in the box belongs to the thread it was
+                    written against. */}
+                <CommentsThread
+                  key={activeVis.id}
+                  vis={activeVis}
+                  active
+                  className="h-[calc(100%-1.75rem)]"
+                />
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Pick a visualisation to play it.
+              </p>
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

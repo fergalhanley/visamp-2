@@ -24,11 +24,15 @@ import { useChromeStore } from "@/lib/store/chrome";
  */
 export function SessionShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  // The editor owns the canvas on its own routes. The WASM module binds to the
-  // first #canvas in the document and refuses to re-init, so the player's
-  // canvas and the editor preview cannot coexist — which is also why entering
-  // and leaving the editor is a full page load rather than a client navigation.
-  const editorRoute = pathname.startsWith("/edit");
+  // Some routes own the canvas themselves — the editor, and the artist gallery
+  // with its preview. The WASM module binds to the first #canvas in the
+  // document and refuses to re-init, so the player's canvas cannot coexist with
+  // theirs, which is also why entering and leaving them is a full page load
+  // rather than a client navigation.
+  const ownsCanvas =
+    pathname.startsWith("/edit") ||
+    pathname.startsWith("/artists") ||
+    pathname.startsWith("/account");
 
   useIdleChrome();
   useVisRouteSync();
@@ -50,7 +54,7 @@ export function SessionShell({ children }: { children: ReactNode }) {
     return () => document.body.classList.remove("visamp-hide-cursor");
   }, [chromeVisible]);
 
-  if (editorRoute) {
+  if (ownsCanvas) {
     return <AuthProvider>{children}</AuthProvider>;
   }
 

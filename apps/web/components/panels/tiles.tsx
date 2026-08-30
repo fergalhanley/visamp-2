@@ -4,11 +4,11 @@ import { AudioLines } from "lucide-react";
 import Image from "next/image";
 
 import { VisMenu } from "@/components/panels/vis-menu";
-import type { Artist, Visualisation } from "@/lib/types";
+import type { Visualisation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Stand-in artwork until thumbnails exist — stable per id, so tiles don't flicker. */
-function posterStyle(id: string) {
+export function posterStyle(id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) | 0;
   const hue = Math.abs(hash) % 360;
@@ -17,7 +17,7 @@ function posterStyle(id: string) {
   };
 }
 
-function formatCount(value: number): string {
+export function formatCount(value: number): string {
   if (value < 1000) return String(value);
   if (value < 1_000_000) return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)}k`;
   return `${(value / 1_000_000).toFixed(1)}m`;
@@ -100,27 +100,5 @@ export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProp
 
       <VisMenu vis={vis} owned={owned} onChanged={onChanged} />
     </div>
-  );
-}
-
-/** E3.7 — avatar, name, artwork count, total views. */
-export function ArtistTile({ artist }: { artist: Artist }) {
-  return (
-    <a
-      href={`/artist/${artist.username}`}
-      className="flex w-full cursor-pointer items-center gap-3 px-4 py-2 transition hover:bg-foreground/5"
-    >
-      <div
-        className="h-10 w-10 shrink-0 rounded-full"
-        style={posterStyle(artist.username)}
-        aria-hidden
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{artist.displayName}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {artist.visCount} visualisations · {formatCount(artist.totalViews)} views
-        </p>
-      </div>
-    </a>
   );
 }

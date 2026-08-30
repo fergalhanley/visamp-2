@@ -73,7 +73,7 @@ export default async function VisPage({ params }: PageProps<"/vis/[id]">) {
           <h1>{vis.title}</h1>
           <p>
             by{" "}
-            <Link href={`/artist/${vis.artist.username}`}>
+            <Link href={`/artists/${vis.artist.username}`}>
               {vis.artist.displayName}
             </Link>
           </p>

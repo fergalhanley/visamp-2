@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CornerUpLeft,
   Eye,
   GitFork,
   Heart,
@@ -11,20 +12,25 @@ import {
   Pause,
   Play,
   Share2,
+  Shuffle,
   SkipBack,
   SkipForward,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { CommentsDialog } from "@/components/panels/comments-dialog";
+import { ForksDialog } from "@/components/panels/forks-dialog";
+import { ShareDialog } from "@/components/panels/share-dialog";
 import { useCompactChrome } from "@/hooks/use-compact-chrome";
+import { useParentVis } from "@/hooks/use-forks";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import { useVisLike } from "@/hooks/use-vis-like";
 import { useActiveTracks, useAudioStore } from "@/lib/store/audio";
 import { useChromeStore } from "@/lib/store/chrome";
 import { useSessionStore } from "@/lib/store/session";
+import { INTERVAL_CHOICES, type PlayerMode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function formatTime(seconds: number): string {
@@ -34,22 +40,95 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(total % 60).padStart(2, "0")}`;
 }
 
-/** E3.3 — a compact marker, because in track-audio mode skip also changes the vis. */
-function ModeMarker() {
-  const mode = useSessionStore((s) => s.mode);
-  const intervalSec = useSessionStore((s) => s.intervalSec);
+const MODES: { value: PlayerMode; label: string }[] = [
+  { value: "track-audio", label: "Per track" },
+  { value: "time-interval", label: "Timed" },
+  { value: "manual", label: "Manual" },
+];
 
-  const label =
-    mode === "track-audio"
-      ? "per track"
-      : mode === "time-interval"
-        ? `every ${intervalSec < 60 ? `${intervalSec}s` : `${intervalSec / 60}m`}`
-        : "manual";
+function formatInterval(seconds: number): string {
+  return seconds < 60 ? `${seconds}s` : `${seconds / 60}m`;
+}
+
+/** Visualisation tracking belongs with playback because it governs advancing. */
+function PlaybackOptions() {
+  const mode = useSessionStore((s) => s.mode);
+  const setMode = useSessionStore((s) => s.setMode);
+  const intervalSec = useSessionStore((s) => s.intervalSec);
+  const setIntervalSec = useSessionStore((s) => s.setIntervalSec);
+  const shuffleTracks = useSessionStore((s) => s.shuffleTracks);
+  const toggleShuffleTracks = useSessionStore((s) => s.toggleShuffleTracks);
+  const shuffleVis = useSessionStore((s) => s.shuffleVis);
+  const toggleShuffleVis = useSessionStore((s) => s.toggleShuffleVis);
 
   return (
-    <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-      {label}
-    </span>
+    <div className="mt-2 flex items-center justify-end gap-1.5">
+      <button
+        type="button"
+        onClick={toggleShuffleTracks}
+        aria-pressed={shuffleTracks}
+        aria-label="Shuffle audio tracks"
+        title="Shuffle audio tracks"
+        className={cn(
+          "flex w-fit shrink-0 items-center gap-1.5 rounded-md border px-2 py-1.5 text-[10px] transition",
+          shuffleTracks
+            ? "border-foreground/30 bg-foreground/10 text-foreground"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <Shuffle className="h-3.5 w-3.5" />
+        Shuffle Audio Tracks
+      </button>
+      <button
+        type="button"
+        onClick={toggleShuffleVis}
+        aria-pressed={shuffleVis}
+        className={cn(
+          "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1.5 text-[10px] transition",
+          shuffleVis
+            ? "border-foreground/30 bg-foreground/10 text-foreground"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <Shuffle className="h-3.5 w-3.5" />
+        Shuffle Visualisations
+      </button>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex rounded-md bg-foreground/5 p-0.5">
+          {MODES.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMode(value)}
+              className={cn(
+                "whitespace-nowrap rounded px-2 py-1 text-[10px] transition",
+                mode === value
+                  ? "bg-foreground/15 font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === "time-interval" && (
+          <select
+            aria-label="Visualisation change interval"
+            title="Visualisation change interval"
+            value={intervalSec}
+            onChange={(event) => setIntervalSec(Number(event.target.value))}
+            className="rounded-md border bg-transparent px-1.5 py-1 text-[10px]"
+          >
+            {INTERVAL_CHOICES.map((seconds) => (
+              <option key={seconds} value={seconds}>
+                {formatInterval(seconds)}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -73,18 +152,20 @@ function VisActions() {
   const current = useSessionStore((s) => s.current);
   const { liked, likeable, toggle, signInOpen, setSignInOpen } = useVisLike();
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [forksOpen, setForksOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const select = useSessionStore((s) => s.select);
 
-  // Both need a row behind them: the built-in default and the fixtures have
-  // nothing to hang a like or a comment on.
+  // Null unless this one was forked from something still readable, so the link
+  // is simply absent rather than present and dead.
+  const parent = useParentVis(current.forkedFromId);
+
+  // These need a row behind them: the built-in default and the fixtures have
+  // nothing to hang a like, a comment or a fork on.
   const saved = Boolean(current.ownerId);
 
-  const actions = [
-    { key: "forks", Icon: GitFork, label: plural(current.forkCount, "Fork") },
-    { key: "share", Icon: Share2, label: "Share" },
-  ];
-
   return (
-    <div className="mt-1.5 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
       <span className="flex items-center gap-1">
         <Eye className="h-3.5 w-3.5" />
         {plural(current.viewCount, "View")}
@@ -134,16 +215,47 @@ function VisActions() {
         {plural(current.commentCount, "Comment")}
       </button>
 
-      {actions.map(({ key, Icon, label }) => (
+      <button
+        type="button"
+        onClick={() => setForksOpen(true)}
+        disabled={!saved}
+        title={saved ? "See what has been made from this" : "No forks — this one is not saved"}
+        className={cn(
+          "flex cursor-pointer items-center gap-1 transition",
+          "hover:text-foreground disabled:cursor-default disabled:opacity-40",
+        )}
+      >
+        <GitFork className="h-3.5 w-3.5" />
+        {plural(current.forkCount, "Fork")}
+      </button>
+
+      {/* Only where there is one to go to. The hover names it, because "Parent"
+          alone says a fork exists without saying of what. */}
+      {parent && (
         <button
-          key={key}
           type="button"
+          onClick={() => select(parent)}
+          title={`Forked from ${parent.title} by ${parent.artist.displayName}`}
           className="flex cursor-pointer items-center gap-1 transition hover:text-foreground"
         >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
+          <CornerUpLeft className="h-3.5 w-3.5" />
+          Parent
         </button>
-      ))}
+      )}
+
+      <button
+        type="button"
+        onClick={() => setShareOpen(true)}
+        disabled={!saved}
+        title={saved ? "Share this visualisation" : "Nothing to link to — this one is not saved"}
+        className={cn(
+          "flex cursor-pointer items-center gap-1 transition",
+          "hover:text-foreground disabled:cursor-default disabled:opacity-40",
+        )}
+      >
+        <Share2 className="h-3.5 w-3.5" />
+        Share
+      </button>
 
       {/* Keyed so the thread — and any draft waiting in the box — belongs to
           whatever is playing now. */}
@@ -154,6 +266,10 @@ function VisActions() {
         onOpenChange={setCommentsOpen}
       />
 
+      <ForksDialog vis={current} open={forksOpen} onOpenChange={setForksOpen} />
+
+      <ShareDialog vis={current} open={shareOpen} onOpenChange={setShareOpen} />
+
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next="/" />
     </div>
   );
@@ -163,7 +279,13 @@ export function Transport() {
   const visible = useChromeStore((s) => s.visible);
   const vOpen = useChromeStore((s) => s.vOpen);
   const aOpen = useChromeStore((s) => s.aOpen);
+  const setTransportHovered = useChromeStore((s) => s.setTransportHovered);
   const compact = useCompactChrome();
+
+  useEffect(
+    () => () => setTransportHovered(false),
+    [setTransportHovered],
+  );
 
   // A bottom sheet occupies the transport's 10vh perch, so on compact layouts
   // the transport yields while a sheet is up rather than overprinting it.
@@ -201,8 +323,10 @@ export function Transport() {
 
   return (
     <div
+      onPointerEnter={() => setTransportHovered(true)}
+      onPointerLeave={() => setTransportHovered(false)}
       className={cn(
-        "fixed bottom-[10vh] left-1/2 z-40 w-[min(32rem,calc(100vw-3rem))] -translate-x-1/2",
+        "fixed bottom-[10vh] left-1/2 z-40 w-[min(42rem,calc(100vw-3rem))] -translate-x-1/2",
         "transition-opacity duration-500",
         visible && !eclipsed ? "opacity-100" : "pointer-events-none opacity-0",
       )}
@@ -216,44 +340,45 @@ export function Transport() {
               {current.title}
             </Link>
             <span className="text-muted-foreground"> — </span>
-            <Link
-              href={`/artist/${current.artist.username}`}
+            {/* The gallery owns its own canvas, so enter it with a fresh
+                document and preselect this artist from the URL. */}
+            <a
+              href={`/artists/${current.artist.username}`}
               className="text-muted-foreground hover:underline"
             >
               {current.artist.displayName}
-            </Link>
+            </a>
           </p>
 
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            className={cn(
-              "-mr-1 -mt-1 shrink-0 cursor-pointer rounded-full p-1.5 text-muted-foreground",
-              "transition hover:bg-foreground/10 hover:text-foreground",
-            )}
-          >
-            {isFullscreen ? (
-              <Minimize className="h-4 w-4" />
-            ) : (
-              <Maximize className="h-4 w-4" />
-            )}
-          </button>
+          <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-1.5">
+
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              className={cn(
+                "shrink-0 cursor-pointer rounded-full p-1.5 text-muted-foreground",
+                "transition hover:bg-foreground/10 hover:text-foreground",
+              )}
+            >
+              {isFullscreen ? (
+                <Minimize className="h-4 w-4" />
+              ) : (
+                <Maximize className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
 
-        <VisActions />
+        <PlaybackOptions />
 
-        {/* Inset, so the rule reads as a divider between two halves of one
-            card rather than a seam cutting it in two. */}
-        <div className="mx-2 my-3 border-t border-foreground/10" />
-
-        <div className="flex items-center justify-center gap-6">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             aria-label="Previous"
             disabled={!canSkip}
             onClick={() => skip(-1)}
-            className="text-muted-foreground transition hover:text-foreground disabled:opacity-30"
+            className="shrink-0 text-muted-foreground transition hover:text-foreground disabled:opacity-30"
           >
             <SkipBack className="h-5 w-5 fill-current" />
           </button>
@@ -266,7 +391,7 @@ export function Transport() {
             disabled={!hasTracks || loading}
             onClick={() => void togglePlay()}
             className={cn(
-              "flex h-11 w-11 items-center justify-center rounded-full",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
               "border bg-foreground/5 transition hover:bg-foreground/10",
               "disabled:opacity-30",
               loading && "disabled:opacity-100",
@@ -286,38 +411,39 @@ export function Transport() {
             aria-label="Next"
             disabled={!canSkip}
             onClick={() => skip(1)}
-            className="text-muted-foreground transition hover:text-foreground disabled:opacity-30"
+            className="shrink-0 text-muted-foreground transition hover:text-foreground disabled:opacity-30"
           >
             <SkipForward className="h-5 w-5 fill-current" />
           </button>
-        </div>
-
-        <div className="mt-3 flex items-center gap-2">
           <span className="w-9 text-right font-mono text-[10px] text-muted-foreground">
             {formatTime(position)}
           </span>
-          <input
-            type="range"
-            aria-label="Seek"
-            min={0}
-            max={duration || 0}
-            step={0.1}
-            value={Math.min(position, duration || 0)}
-            disabled={!duration}
-            onChange={(event) => seek(Number(event.target.value))}
-            className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground disabled:cursor-default disabled:opacity-40"
-          />
+          <div className="min-w-0 flex-1">
+            <input
+              type="range"
+              aria-label="Seek"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={Math.min(position, duration || 0)}
+              disabled={!duration}
+              onChange={(event) => seek(Number(event.target.value))}
+              className="h-1 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground disabled:cursor-default disabled:opacity-40"
+            />
+            <p className="mt-[5px] truncate text-center text-xs text-muted-foreground" title={track?.name ?? "Silent — time-driven"}>
+              Audio: {track?.name ?? "Silent — time-driven"} {track?.artist ? ` - ${track?.artist}` : ""}
+            </p>
+          </div>
           <span className="w-9 font-mono text-[10px] text-muted-foreground">
             {formatTime(duration)}
           </span>
         </div>
 
-        <div className="mt-2 flex items-center justify-center gap-2">
-          <p className="truncate text-xs text-muted-foreground">
-            {track?.name ?? "Silent — time-driven"}
-          </p>
-          <ModeMarker />
-        </div>
+        {/* Inset, so the rule reads as a divider between two halves of one
+            card rather than a seam cutting it in two. */}
+        <div className="mx-2 my-3 border-t border-foreground/10" />
+
+        <VisActions />
       </div>
     </div>
   );

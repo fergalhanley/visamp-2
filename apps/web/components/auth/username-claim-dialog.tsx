@@ -149,7 +149,7 @@ export function UsernameClaimDialog({ open, onOpenChange }: UsernameClaimDialogP
             </p>
             {candidate && availability === "free" && (
               <p className="text-xs text-muted-foreground">
-                Your profile: visamp.io/artist/{candidate}
+                Your profile: visamp.io/artists/{candidate}
               </p>
             )}
           </div>

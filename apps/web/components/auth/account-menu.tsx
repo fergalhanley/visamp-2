@@ -11,11 +11,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { artistName } from "@/lib/visualisations";
 
 /**
  * E3.1 — the panel header's login link, which becomes an account dropdown once
@@ -57,34 +59,45 @@ export function AccountMenu() {
     );
   }
 
-  const name = profile?.username ?? profile?.display_name ?? user.email ?? "Account";
+  // Was the only surface that had this right; it now shares the rule with
+  // everywhere else rather than restating it.
+  const name = artistName(profile, user.email ?? "Account");
   const initial = name.charAt(0).toUpperCase();
 
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex items-center gap-2 text-xs text-muted-foreground transition hover:text-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <DropdownMenuTrigger
+            aria-label="Open account menu"
+            className="transition hover:text-foreground"
+          >
           <Avatar className="h-6 w-6">
             {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="" />}
             <AvatarFallback className="text-[10px]">{initial}</AvatarFallback>
           </Avatar>
-          <span className="max-w-24 truncate">{name}</span>
-        </DropdownMenuTrigger>
+          </DropdownMenuTrigger>
+          <Link href="/account" className="max-w-24 truncate transition hover:text-foreground">
+            {name}
+          </Link>
+        </div>
 
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-            {user.email}
-          </DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+              {user.email}
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
 
           {/* Base UI composes via `render`, not Radix's `asChild`. */}
           {profile?.username ? (
             <DropdownMenuItem
               nativeButton={false}
-              render={<Link href={`/artist/${profile.username}`} />}
+              render={<Link href="/account" />}
             >
               <UserIcon className="h-3.5 w-3.5" />
-              Your profile
+              Your account
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem onClick={() => setClaimOpen(true)}>
