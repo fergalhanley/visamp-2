@@ -313,6 +313,7 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
             let kind = match kind_str {
                 "rgb" => ColorConstructKind::Rgb,
                 "hsl" => ColorConstructKind::Hsl,
+                "linear_gradient" => ColorConstructKind::LinearGradient,
                 _ => unreachable!("Unknown color construct: {}", kind_str),
             };
             let args: Vec<(String, Expression)> = inner
@@ -361,11 +362,16 @@ fn build_block(pair: pest::iterators::Pair<Rule>) -> Result<Block, String> {
 
     let block_type = match block_name_pair.as_str() {
         "on_frame" => BlockType::OnFrame,
+        "on_init" => BlockType::OnInit,
+        "on_resize" => BlockType::OnResize,
         "render" => BlockType::Render,
         other => {
             return Err(located_error(
                 &block_name_pair,
-                &format!("unknown block `{}`; expected on_frame or render", other),
+                &format!(
+                    "unknown block `{}`; expected on_init, on_frame, on_resize or render",
+                    other
+                ),
             ));
         }
     };

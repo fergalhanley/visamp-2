@@ -39,6 +39,8 @@ features = [
   "Performance",
   "DomRect",
   "Blob",
+  "ResizeObserver",
+  "CanvasGradient",
   "WebGl2RenderingContext",
   "WebGlProgram",
   "WebGlShader",

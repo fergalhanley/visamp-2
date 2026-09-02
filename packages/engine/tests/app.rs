@@ -146,6 +146,135 @@ render {
     assert_eq!(on_frame, 2);
 }
 
+// ── lifecycle hooks ─────────────────────────────────────────────────────────
+
+#[test]
+fn on_init_and_on_resize_blocks_parse() {
+    let source = r#"
+on_init {
+  a = 1.0
+}
+
+on_resize {
+  a = 2.0
+}
+
+render {
+  draw::clear()
+}
+"#;
+    let script = build_ast(source).expect("should parse");
+    assert_eq!(
+        script.blocks.iter().filter(|b| b.block_type == BlockType::OnInit).count(),
+        1
+    );
+    assert_eq!(
+        script.blocks.iter().filter(|b| b.block_type == BlockType::OnResize).count(),
+        1
+    );
+}
+
+/// Same allowance as `on_frame`: nothing restricts a script to one of each.
+#[test]
+fn many_on_init_and_on_resize_blocks_are_allowed() {
+    let source = r#"
+prop a = 0.0
+prop b = 0.0
+
+on_init {
+  a = 1.0
+}
+
+on_init {
+  b = 1.0
+}
+
+on_resize {
+  a = 2.0
+}
+
+on_resize {
+  b = 2.0
+}
+
+render {
+  draw::clear()
+}
+"#;
+    let script = build_ast(source).expect("should parse");
+    assert_eq!(
+        script.blocks.iter().filter(|b| b.block_type == BlockType::OnInit).count(),
+        2
+    );
+    assert_eq!(
+        script.blocks.iter().filter(|b| b.block_type == BlockType::OnResize).count(),
+        2
+    );
+}
+
+#[test]
+fn unknown_block_message_lists_the_lifecycle_hooks() {
+    let err = build_ast("on_wibble {\n}\n").unwrap_err();
+    assert!(err.contains("on_init"), "unexpected message: {err}");
+    assert!(err.contains("on_resize"), "unexpected message: {err}");
+}
+
+/// `on_init` and `on_resize` run just like `on_frame`: they can read the
+/// runtime and write properties, and cannot draw (draw calls are no-ops
+/// outside a render target). Exercised directly against the interpreter
+/// rather than through `load_script`/the resize observer, which need a DOM.
+#[test]
+fn on_init_reads_the_runtime_and_writes_a_property() {
+    use visamp_2::interpreter::{interpret_event_block, Runtime};
+    use visamp_2::model::Model;
+
+    let source = "prop w = 0.0\non_init {\n  w = $WIDTH\n}\nrender {\n  draw::clear()\n}\n";
+    let script = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
+    let mut model = Model::from_script(&script);
+
+    let mut runtime = Runtime::new();
+    runtime.canvas_width = 1920.0;
+    let functions = model.functions.clone();
+    let blocks = model.blocks.clone();
+
+    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnInit) {
+        interpret_event_block(block, &mut model.decels, &runtime, &functions)
+            .unwrap_or_else(|e| panic!("interpret failed: {e}"));
+    }
+
+    assert_eq!(
+        model.decels.get("w").cloned(),
+        Some(Value::Float(1920.0)),
+        "on_init should have read the runtime's canvas_width via $WIDTH"
+    );
+}
+
+#[test]
+fn on_resize_reads_the_runtime_and_writes_a_property() {
+    use visamp_2::interpreter::{interpret_event_block, Runtime};
+    use visamp_2::model::Model;
+
+    let source = "prop h = 0.0\non_resize {\n  h = $HEIGHT\n}\nrender {\n  draw::clear()\n}\n";
+    let script = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
+    let mut model = Model::from_script(&script);
+
+    let mut runtime = Runtime::new();
+    runtime.canvas_height = 1080.0;
+    let functions = model.functions.clone();
+    let blocks = model.blocks.clone();
+
+    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnResize) {
+        interpret_event_block(block, &mut model.decels, &runtime, &functions)
+            .unwrap_or_else(|e| panic!("interpret failed: {e}"));
+    }
+
+    assert_eq!(
+        model.decels.get("h").cloned(),
+        Some(Value::Float(1080.0)),
+        "on_resize should have read the runtime's canvas_height via $HEIGHT"
+    );
+}
+
 // ── audio bindings ──────────────────────────────────────────────────────────
 
 #[test]
@@ -1173,6 +1302,161 @@ fn a_misspelled_colour_argument_is_reported() {
 
     let err = build_ast("render {\n  draw::background(color: color::hsl(hue: 1.0))\n}\n").unwrap_err();
     assert!(err.contains("color::hsl: unknown argument 'hue'"), "{err}");
+}
+
+// ── linear gradients ───────────────────────────────────────────────────────
+
+/// Evaluates a single `let g = color::linear_gradient(...)` and hands back the
+/// resulting value, the same way `eval_prop` does for `on_frame` properties —
+/// a gradient cannot itself be a `prop` (the grammar only allows literals
+/// there), so this reads it back from a `let` instead.
+fn eval_gradient_let(source: &str) -> Value {
+    use visamp_2::interpreter::{evaluate_expression, Runtime};
+    use visamp_2::model::{Declarations, Statement};
+
+    let parsed = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
+    let expr = match &parsed.blocks[0].statements[0] {
+        Statement::LetDecl(let_decl) => let_decl.expression.clone(),
+        other => panic!("expected a let declaration, got {other:?}"),
+    };
+
+    let mut decels = Declarations::new();
+    decels.push_scope();
+    let runtime = Runtime::new();
+    evaluate_expression(&expr, &decels, &runtime, &[]).unwrap_or_else(|e| panic!("interpret failed: {e}"))
+}
+
+#[test]
+fn linear_gradient_parses_with_an_array_of_color_stops() {
+    let source = r#"
+on_frame {
+  let g = color::linear_gradient(
+    x0: 0.0, y0: 0.0, x1: 100.0, y1: 0.0,
+    color_stops: [
+      [0.0, color::rgb(r: 1.0)],
+      [0.5, color::rgb(g: 1.0)],
+      [1.0, color::rgb(b: 1.0)]
+    ]
+  )
+}
+render {
+  draw::clear()
+}
+"#;
+    assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
+}
+
+#[test]
+fn linear_gradient_evaluates_its_axis_and_stops() {
+    use visamp_2::model::Color;
+
+    let source = "on_frame {\n  let g = color::linear_gradient(x0: 1.0, y0: 2.0, x1: 3.0, y1: 4.0, color_stops: [\n    [0.0, color::rgb(r: 1.0)],\n    [1.0, color::rgb(b: 1.0)]\n  ])\n}\nrender {\n  draw::clear()\n}\n";
+    let value = eval_gradient_let(source);
+
+    let Value::Gradient(gradient) = value else {
+        panic!("expected a gradient, got {value:?}");
+    };
+    assert_eq!((gradient.x0, gradient.y0, gradient.x1, gradient.y1), (1.0, 2.0, 3.0, 4.0));
+    assert_eq!(gradient.stops.len(), 2);
+    assert_eq!(gradient.stops[0].offset, 0.0);
+    assert_eq!(gradient.stops[0].color, Color::new(1.0, 0.0, 0.0, 1.0));
+    assert_eq!(gradient.stops[1].offset, 1.0);
+    assert_eq!(gradient.stops[1].color, Color::new(0.0, 0.0, 1.0, 1.0));
+}
+
+/// Same "everything optional, defaults to 0" convention as `color::rgb` and
+/// `color::hsl` — a bare `color::linear_gradient()` is a degenerate gradient
+/// with no stops rather than a compile error.
+#[test]
+fn linear_gradient_arguments_are_all_optional() {
+    let source = "on_frame {\n  let g = color::linear_gradient()\n}\nrender {\n  draw::clear()\n}\n";
+    let value = eval_gradient_let(source);
+
+    let Value::Gradient(gradient) = value else {
+        panic!("expected a gradient, got {value:?}");
+    };
+    assert_eq!((gradient.x0, gradient.y0, gradient.x1, gradient.y1), (0.0, 0.0, 0.0, 0.0));
+    assert!(gradient.stops.is_empty());
+}
+
+/// An out-of-range offset is clamped rather than rejected — the canvas API
+/// itself throws on one, and clamping keeps a slightly-off stop visible
+/// pinned to the end instead of losing the whole gradient.
+#[test]
+fn linear_gradient_offsets_are_clamped() {
+    let source = "on_frame {\n  let g = color::linear_gradient(color_stops: [\n    [-0.5, color::rgb(r: 1.0)],\n    [1.5, color::rgb(b: 1.0)]\n  ])\n}\nrender {\n  draw::clear()\n}\n";
+    let value = eval_gradient_let(source);
+
+    let Value::Gradient(gradient) = value else {
+        panic!("expected a gradient, got {value:?}");
+    };
+    assert_eq!(gradient.stops[0].offset, 0.0);
+    assert_eq!(gradient.stops[1].offset, 1.0);
+}
+
+/// A stop that is not a `[number, color]` pair is dropped, not reported — the
+/// same treatment `draw::polygon`'s `points` gives a malformed point.
+#[test]
+fn a_malformed_gradient_stop_is_dropped() {
+    let source = "on_frame {\n  let g = color::linear_gradient(color_stops: [\n    [0.0, color::rgb(r: 1.0)],\n    [0.5, 1.0],\n    \"not a stop\"\n  ])\n}\nrender {\n  draw::clear()\n}\n";
+    let value = eval_gradient_let(source);
+
+    let Value::Gradient(gradient) = value else {
+        panic!("expected a gradient, got {value:?}");
+    };
+    assert_eq!(gradient.stops.len(), 1, "only the well-formed stop should survive");
+}
+
+#[test]
+fn a_misspelled_gradient_argument_is_reported() {
+    let err = build_ast(
+        "render {\n  draw::background(gradient: color::linear_gradient(xx: 1.0))\n}\n",
+    )
+    .unwrap_err();
+    assert!(err.contains("color::linear_gradient: unknown argument 'xx'"), "{err}");
+}
+
+/// `gradient` rides alongside `color` on every primitive that can be filled —
+/// misspelling it should read as an unknown argument to the primitive, the
+/// same as any other.
+#[test]
+fn draw_rect_accepts_a_gradient_argument() {
+    let source = r#"
+render {
+  draw::rect(
+    x: 0.0, y: 0.0, width: 100.0, height: 100.0,
+    gradient: color::linear_gradient(
+      x0: 0.0, y0: 0.0, x1: 100.0, y1: 0.0,
+      color_stops: [[0.0, color::rgb(r: 1.0)], [1.0, color::rgb(b: 1.0)]]
+    )
+  )
+}
+"#;
+    assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
+
+    let err = build_ast("render {\n  draw::rect(gradiant: color::rgb(r: 1.0))\n}\n").unwrap_err();
+    assert!(err.contains("unknown argument"), "{err}");
+}
+
+/// `draw::line` has no separate fill/stroke split — `color` already draws the
+/// stroke — so `gradient` there replaces the stroke rather than a fill.
+#[test]
+fn draw_line_accepts_a_gradient_argument() {
+    let source = r#"
+render {
+  draw::line(
+    x1: 0.0, y1: 0.0, x2: 100.0, y2: 100.0,
+    gradient: color::linear_gradient(
+      x0: 0.0, y0: 0.0, x1: 100.0, y1: 100.0,
+      color_stops: [[0.0, color::rgb(r: 1.0)], [1.0, color::rgb(b: 1.0)]]
+    )
+  )
+}
+"#;
+    assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
+
+    let err = build_ast("render {\n  draw::line(gradiant: color::rgb(r: 1.0))\n}\n").unwrap_err();
+    assert!(err.contains("unknown argument"), "{err}");
 }
 
 /// Same trap, same fix: `math::sin(radian: x)` silently returned sin(0).

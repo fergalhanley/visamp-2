@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use web_sys::CanvasRenderingContext2d;
 
 use std::cell::RefCell;
@@ -69,6 +71,55 @@ fn set_stroke(ctx: &CanvasRenderingContext2d, color: Color) {
         color.write_css(&mut css);
         ctx.set_stroke_style_str(&css);
     });
+}
+
+/// Builds a `CanvasGradient` fresh from a `color::linear_gradient` value.
+///
+/// The canvas has no notion of a reusable gradient object surviving between
+/// frames — a script's `on_frame` may rebuild the same `color::linear_gradient`
+/// call every frame anyway, since its stops are ordinary expressions — so this
+/// builds one from the DSL value each time it is used rather than trying to
+/// cache it.
+fn build_canvas_gradient(
+    ctx: &CanvasRenderingContext2d,
+    gradient: &LinearGradient,
+) -> web_sys::CanvasGradient {
+    let canvas_gradient =
+        ctx.create_linear_gradient(gradient.x0, gradient.y0, gradient.x1, gradient.y1);
+
+    for stop in &gradient.stops {
+        CSS.with(|buf| {
+            let mut css = buf.borrow_mut();
+            css.clear();
+            stop.color.write_css(&mut css);
+            // Only out-of-range offsets can fail, and `offset` is clamped to
+            // 0.0-1.0 when the gradient is built — nothing left to report.
+            let _ = canvas_gradient.add_color_stop(stop.offset as f32, &css);
+        });
+    }
+
+    canvas_gradient
+}
+
+/// Fills with `gradient` when the script supplied one, or falls back to the
+/// plain `color` argument otherwise. Every primitive that can be filled with
+/// a `color::linear_gradient` goes through this rather than `set_fill`
+/// directly.
+fn set_fill_paint(ctx: &CanvasRenderingContext2d, color: Color, gradient: Option<&LinearGradient>) {
+    match gradient {
+        Some(g) => ctx.set_fill_style_canvas_gradient(&build_canvas_gradient(ctx, g)),
+        None => set_fill(ctx, color),
+    }
+}
+
+/// Strokes with `gradient` when the script supplied one, or falls back to the
+/// plain `color`/`stroke_color` argument otherwise. `draw::line`'s `color` is
+/// itself a stroke, so this is the counterpart to `set_fill_paint` for it.
+fn set_stroke_paint(ctx: &CanvasRenderingContext2d, color: Color, gradient: Option<&LinearGradient>) {
+    match gradient {
+        Some(g) => ctx.set_stroke_style_canvas_gradient(&build_canvas_gradient(ctx, g)),
+        None => set_stroke(ctx, color),
+    }
 }
 
 /// Hard stop on range length. The interpreter runs inside the frame loop, so a
@@ -826,18 +877,22 @@ fn interpret_statement_function_call(
             }
             "background" => {
                 let mut color = BLACK;
+                let mut gradient: Option<Rc<LinearGradient>> = None;
                 for arg in function_call.args.iter() {
-                    if arg.name == "color" {
-                        let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
-                        color = evaluated.try_into_color()?;
+                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    match arg.name.as_str() {
+                        "color" => color = evaluated.try_into_color()?,
+                        "gradient" => gradient = Some(evaluated.try_into_gradient()?),
+                        _ => {}
                     }
                 }
-                set_fill(ctx, color);
+                set_fill_paint(ctx, color, gradient.as_deref());
                 ctx.fill_rect(0.0, 0.0, runtime.canvas_width, runtime.canvas_height);
             }
             "polygon" => {
                 let mut points = Vec::new();
                 let mut color = WHITE;
+                let mut gradient: Option<Rc<LinearGradient>> = None;
                 let mut rotate: f64 = 0.0;
 
                 for arg in function_call.args.iter() {
@@ -845,6 +900,7 @@ fn interpret_statement_function_call(
                     match arg.name.as_str() {
                         "points" => points = points_from_value(evaluated),
                         "color" => color = evaluated.try_into_color()?,
+                        "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "rotate" => rotate = evaluated.try_into_f64()?,
                         _ => {}
                     }
@@ -868,7 +924,7 @@ fn interpret_statement_function_call(
                     }
                     ctx.close_path();
 
-                    set_fill(ctx, color);
+                    set_fill_paint(ctx, color, gradient.as_deref());
                     ctx.fill();
                     ctx.restore();
                 }
@@ -878,6 +934,7 @@ fn interpret_statement_function_call(
                 let mut y = 0.0;
                 let mut radius = 50.0;
                 let mut color = WHITE;
+                let mut gradient: Option<Rc<LinearGradient>> = None;
                 let mut stroke = false;
                 let mut stroke_weight = 1.0;
                 let mut stroke_color = BLACK;
@@ -889,6 +946,7 @@ fn interpret_statement_function_call(
                         "y" => y = evaluated.try_into_f64()?,
                         "radius" => radius = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
+                        "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
                         "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
                         "stroke_color" => stroke_color = evaluated.try_into_color()?,
@@ -905,7 +963,7 @@ fn interpret_statement_function_call(
                     ctx.set_line_width(stroke_weight);
                     ctx.stroke();
                 } else {
-                    set_fill(ctx, color);
+                    set_fill_paint(ctx, color, gradient.as_deref());
                     ctx.fill();
                 }
             }
@@ -915,6 +973,7 @@ fn interpret_statement_function_call(
                 let mut w = 100.0;
                 let mut h = 100.0;
                 let mut color = WHITE;
+                let mut gradient: Option<Rc<LinearGradient>> = None;
                 let mut stroke = false;
                 let mut stroke_weight = 1.0;
                 let mut stroke_color = BLACK;
@@ -928,6 +987,7 @@ fn interpret_statement_function_call(
                         "width" | "w" => w = evaluated.try_into_f64()?,
                         "height" | "h" => h = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
+                        "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
                         "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
                         "stroke_color" => stroke_color = evaluated.try_into_color()?,
@@ -948,7 +1008,7 @@ fn interpret_statement_function_call(
                     ctx.set_line_width(stroke_weight);
                     ctx.stroke_rect(x, y, w, h);
                 } else {
-                    set_fill(ctx, color);
+                    set_fill_paint(ctx, color, gradient.as_deref());
                     ctx.fill_rect(x, y, w, h);
                 }
                 ctx.restore();
@@ -959,6 +1019,7 @@ fn interpret_statement_function_call(
                 let mut x2 = 100.0;
                 let mut y2 = 100.0;
                 let mut color = WHITE;
+                let mut gradient: Option<Rc<LinearGradient>> = None;
                 let mut stroke_weight = 1.0;
 
                 for arg in function_call.args.iter() {
@@ -969,6 +1030,7 @@ fn interpret_statement_function_call(
                         "x2" => x2 = evaluated.try_into_f64()?,
                         "y2" => y2 = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
+                        "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
                         _ => {}
                     }
@@ -977,7 +1039,7 @@ fn interpret_statement_function_call(
                 ctx.begin_path();
                 ctx.move_to(x1, y1);
                 ctx.line_to(x2, y2);
-                set_stroke(ctx, color);
+                set_stroke_paint(ctx, color, gradient.as_deref());
                 ctx.set_line_width(stroke_weight);
                 ctx.stroke();
             }
@@ -987,6 +1049,7 @@ fn interpret_statement_function_call(
                 let mut rx = 50.0;
                 let mut ry = 30.0;
                 let mut color = WHITE;
+                let mut gradient: Option<Rc<LinearGradient>> = None;
                 let mut stroke = false;
                 let mut stroke_weight = 1.0;
                 let mut stroke_color = BLACK;
@@ -1000,6 +1063,7 @@ fn interpret_statement_function_call(
                         "rx" | "radius_x" => rx = evaluated.try_into_f64()?,
                         "ry" | "radius_y" => ry = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
+                        "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
                         "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
                         "stroke_color" => stroke_color = evaluated.try_into_color()?,
@@ -1021,7 +1085,7 @@ fn interpret_statement_function_call(
                     ctx.set_line_width(stroke_weight);
                     ctx.stroke();
                 } else {
-                    set_fill(ctx, color);
+                    set_fill_paint(ctx, color, gradient.as_deref());
                     ctx.fill();
                 }
                 ctx.restore();
@@ -1032,6 +1096,7 @@ fn interpret_statement_function_call(
                 let mut y = 0.0;
                 let mut size = 16.0;
                 let mut color = WHITE;
+                let mut gradient: Option<Rc<LinearGradient>> = None;
                 let mut font = "monospace".to_string();
 
                 for arg in function_call.args.iter() {
@@ -1047,6 +1112,7 @@ fn interpret_statement_function_call(
                         "y" => y = evaluated.try_into_f64()?,
                         "size" => size = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
+                        "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "font" => {
                             if let Value::String(f) = evaluated { font = f; }
                         }
@@ -1054,7 +1120,7 @@ fn interpret_statement_function_call(
                     }
                 }
 
-                set_fill(ctx, color);
+                set_fill_paint(ctx, color, gradient.as_deref());
                 ctx.set_font(&format!("{}px {}", size, font));
                 let _ = ctx.fill_text(&content, x, y);
             }
@@ -1478,6 +1544,21 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                     let (r, g, b) = hsl_to_rgb(h, s, l);
                     Ok(Value::Color(Color::new(r, g, b, a)))
                 }
+                ColorConstructKind::LinearGradient => {
+                    let x0 = get_arg("x0")?;
+                    let y0 = get_arg("y0")?;
+                    let x1 = get_arg("x1")?;
+                    let y1 = get_arg("y1")?;
+
+                    let stops = match args.iter().find(|(n, _)| n == "color_stops") {
+                        Some((_, expr)) => {
+                            stops_from_value(evaluate_expression(expr, decels, runtime, functions)?)
+                        }
+                        None => Vec::new(),
+                    };
+
+                    Ok(Value::Gradient(Rc::new(LinearGradient { x0, y0, x1, y1, stops })))
+                }
             }
         }
     }
@@ -1558,6 +1639,29 @@ fn points_from_value(value: Value) -> Vec<Point2> {
     points
 }
 
+/// Reads a `color_stops` value as `[[offset, color], ...]`.
+///
+/// A malformed entry — wrong shape, or a second element that is not a color —
+/// is dropped rather than reported, the same treatment `points_from_value`
+/// gives a malformed point: `color_stops` is itself the evaluated value of an
+/// expression already checked by the resolver, so what remains to go wrong is
+/// a shape mistake, not a name a squiggle could point at.
+fn stops_from_value(value: Value) -> Vec<GradientStop> {
+    let mut stops: Vec<GradientStop> = Vec::new();
+    if let Value::Array(list_of_stops) = value {
+        for stop_pair in list_of_stops.iter() {
+            if let Value::Array(stop_vec) = stop_pair {
+                if stop_vec.len() == 2 {
+                    if let (Some(offset), Value::Color(color)) = (stop_vec[0].as_f64(), &stop_vec[1]) {
+                        stops.push(GradientStop { offset: offset.clamp(0.0, 1.0), color: *color });
+                    }
+                }
+            }
+        }
+    }
+    stops
+}
+
 fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
     // Normalize hue to [0, 1]
     let h = h - h.floor();
@@ -1597,5 +1701,6 @@ fn type_name(value: &Value) -> &'static str {
         Value::Identifier(_) => "an identifier",
         Value::SystemValue(_) => "a system value",
         Value::Color(_) => "a color",
+        Value::Gradient(_) => "a gradient",
     }
 }

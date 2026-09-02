@@ -71,19 +71,19 @@ const XYZ: &[&str] = &["x", "y", "z"];
 pub const BUILTINS: &[Builtin] = &[
     // ── draw:: 2D, available in both modes ────────────────────────────────
     d2("clear", &[]),
-    d2("background", &["color"]),
-    d2("polygon", &["points", "color", "rotate"]),
-    d2("circle", &["x", "y", "radius", "color", "stroke", "stroke_weight", "stroke_color"]),
-    d2("rect", &["x", "y", "width", "w", "height", "h", "color", "stroke", "stroke_weight", "stroke_color", "rotate"]),
-    d2("ellipse", &["x", "y", "rx", "radius_x", "ry", "radius_y", "color", "stroke", "stroke_weight", "stroke_color", "rotate"]),
-    d2("text", &["content", "text", "x", "y", "size", "color", "font"]),
+    d2("background", &["color", "gradient"]),
+    d2("polygon", &["points", "color", "gradient", "rotate"]),
+    d2("circle", &["x", "y", "radius", "color", "gradient", "stroke", "stroke_weight", "stroke_color"]),
+    d2("rect", &["x", "y", "width", "w", "height", "h", "color", "gradient", "stroke", "stroke_weight", "stroke_color", "rotate"]),
+    d2("ellipse", &["x", "y", "rx", "radius_x", "ry", "radius_y", "color", "gradient", "stroke", "stroke_weight", "stroke_color", "rotate"]),
+    d2("text", &["content", "text", "x", "y", "size", "color", "gradient", "font"]),
     // `line` gains z1/z2 rather than a separate draw::line3, and its
     // thickness becomes world units in 3d (§6.5).
     Builtin {
         namespace: "draw",
         name: "line",
         availability: Availability::Both,
-        args: &["x1", "y1", "x2", "y2", "color", "stroke_weight"],
+        args: &["x1", "y1", "x2", "y2", "color", "gradient", "stroke_weight"],
         args_3d: &["z1", "z2"],
         required: &[],
         takes_common_3d: true,
@@ -186,6 +186,7 @@ const fn ns3(
 pub const COLOR_ARGS: &[(&str, &[&str])] = &[
     ("rgb", &["r", "g", "b", "transparent"]),
     ("hsl", &["h", "s", "l", "transparent"]),
+    ("linear_gradient", &["x0", "y0", "x1", "y1", "color_stops"]),
 ];
 
 /// `math::` functions, which had the same silent-default behaviour.

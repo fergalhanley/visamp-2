@@ -158,6 +158,26 @@ fn init_app() -> Result<(), String> {
         closure.forget();
     }
 
+    // Recomputes the canvas resolution whenever the host's box changes —
+    // window resize, fullscreen enter/exit, and the editor's resizable split
+    // all land here. Without it the canvas keeps whatever resolution it had
+    // when it was mounted, and the host's `width:100%;height:100%` CSS
+    // stretches that fixed buffer into the new box, skewing the image
+    // whenever the aspect ratio changes (most visibly on entering fullscreen).
+    {
+        let state_clone = state.clone();
+        let closure = Closure::<dyn FnMut()>::new(move || {
+            resize_canvas(&state_clone);
+        });
+        if let Ok(observer) = web_sys::ResizeObserver::new(closure.as_ref().unchecked_ref()) {
+            observer.observe(&host);
+            // The observer must outlive this function, and there is exactly
+            // one host for the page's life — leaking it costs nothing extra.
+            std::mem::forget(observer);
+        }
+        closure.forget();
+    }
+
     STATE.with(|s| {
         *s.borrow_mut() = Some(state.clone());
     });
@@ -291,7 +311,7 @@ pub fn load_script(code: &str) -> String {
     web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("load_script called with {} chars", code.len())));
     match build_ast(code) {
         Ok(ast) => {
-            let model = Model::from_script(&ast);
+            let mut model = Model::from_script(&ast);
             let block_info: Vec<String> = model.blocks.iter().map(|b| {
                 format!("{:?}({} stmts)", b.block_type, b.statements.len())
             }).collect();
@@ -324,10 +344,28 @@ pub fn load_script(code: &str) -> String {
                 return message;
             }
 
+            // `on_init` runs once here, against the new model but before it is
+            // installed — "before the first frame" means before the render
+            // loop can ever see it. A failure is a runtime error, not a
+            // compile one: the script did parse, so it still gets installed,
+            // and the failure surfaces the same way an `on_frame` error would.
+            let mut init_error = None;
+            STATE.with(|s| {
+                if let Some(ref state) = *s.borrow() {
+                    let runtime = state.runtime.borrow();
+                    let Model { blocks, functions, decels, .. } = &mut model;
+                    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnInit) {
+                        if let Err(e) = interpret_event_block(block, decels, &runtime, functions) {
+                            init_error = Some(e);
+                        }
+                    }
+                }
+            });
+
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     *state.model.borrow_mut() = model;
-                    *state.last_error.borrow_mut() = None;
+                    *state.last_error.borrow_mut() = init_error;
                 }
             });
 
@@ -562,6 +600,56 @@ pub fn get_properties() -> String {
 
         format!("[{}]", entries.join(","))
     })
+}
+
+/// Matches the canvas's drawing-buffer resolution to the host's current box,
+/// and runs the script's `on_resize` blocks when that box actually changed.
+///
+/// Called on every `ResizeObserver` callback. `canvas.width`/`canvas.height`
+/// are the pixel buffer the context draws into; they are independent of the
+/// CSS box the canvas is stretched to fill. Left stale after the host resizes
+/// — most visibly when entering or exiting fullscreen — the fixed-resolution
+/// buffer gets stretched non-uniformly into the new box, skewing the image.
+/// `mount_canvas` handles the canvas's first sizing itself, so a size seen
+/// here is always a genuine change, never the initial one — that is `on_init`.
+fn resize_canvas(state: &AppState) {
+    let width = state.host.client_width().max(1) as u32;
+    let height = state.host.client_height().max(1) as u32;
+
+    // Whether an already-mounted canvas is actually changing size. The
+    // canvas's first sizing happens in `mount_canvas`, which this function
+    // never touches, so `true` here always means a *later* size change —
+    // exactly what `on_resize` is for.
+    let mut resized = false;
+    if let Some(canvas) = state.canvas.borrow().as_ref() {
+        if canvas.width() == width && canvas.height() == height {
+            return;
+        }
+        canvas.set_width(width);
+        canvas.set_height(height);
+        resized = true;
+    }
+
+    {
+        let mut runtime = state.runtime.borrow_mut();
+        runtime.canvas_width = width as f64;
+        runtime.canvas_height = height as f64;
+    }
+
+    if !resized {
+        return;
+    }
+
+    // Runs after the runtime above already reflects the new size, so `$WIDTH`
+    // / `$HEIGHT` inside the hook read the size that triggered it.
+    let mut model = state.model.borrow_mut();
+    let runtime = state.runtime.borrow();
+    let Model { blocks, functions, decels, .. } = &mut *model;
+    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnResize) {
+        if let Err(e) = interpret_event_block(block, decels, &runtime, functions) {
+            *state.last_error.borrow_mut() = Some(e);
+        }
+    }
 }
 
 /// Creates the canvas the given context needs and hangs it inside the host,

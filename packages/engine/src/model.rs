@@ -94,6 +94,31 @@ impl Point2 {
     }
 }
 
+/// One `[offset, color]` entry of a gradient's `color_stops`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GradientStop {
+    /// Clamped to 0.0-1.0 — the canvas API rejects anything outside that
+    /// range, and clamping here means a stop past either end is pinned to
+    /// that end rather than dropping the whole gradient.
+    pub offset: f64,
+    pub color: Color,
+}
+
+/// A `color::linear_gradient(...)` value.
+///
+/// `(x0, y0)` to `(x1, y1)` is the axis the gradient runs along, in the same
+/// coordinate space as the shape it fills — not normalised to the shape's own
+/// bounds, so the same gradient can be reused across shapes at different
+/// positions and still line up between them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LinearGradient {
+    pub x0: f64,
+    pub y0: f64,
+    pub x1: f64,
+    pub y1: f64,
+    pub stops: Vec<GradientStop>,
+}
+
 /// Runtime value in the DSL
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -112,6 +137,11 @@ pub enum Value {
     Identifier(String),
     SystemValue(String),
     Color(Color),
+    /// Built by `color::linear_gradient`. `Rc` for the same reason as
+    /// `Bytes`: evaluating a `color_stops` array already allocates once, and
+    /// a draw call that reads the argument back should not pay for a second
+    /// copy of it.
+    Gradient(std::rc::Rc<LinearGradient>),
 }
 
 impl Value {
@@ -127,6 +157,7 @@ impl Value {
             Value::Identifier(_) => "identifier",
             Value::SystemValue(_) => "system",
             Value::Color(_) => "color",
+            Value::Gradient(_) => "gradient",
         }
     }
 
@@ -180,6 +211,7 @@ impl Value {
                     format!("[{}]", head)
                 }
             }
+            Value::Gradient(g) => format!("linear_gradient({} stops)", g.stops.len()),
         }
     }
 
@@ -195,6 +227,15 @@ impl Value {
         match self {
             Value::Color(c) => Ok(c),
             other => Err(format!("Expected a color, got {}", other.type_tag())),
+        }
+    }
+
+    /// Fallible gradient conversion; see `try_into_color` for why it is
+    /// fallible.
+    pub fn try_into_gradient(self) -> Result<std::rc::Rc<LinearGradient>, String> {
+        match self {
+            Value::Gradient(g) => Ok(g),
+            other => Err(format!("Expected a gradient, got {}", other.type_tag())),
         }
     }
 
@@ -390,6 +431,14 @@ pub struct Block {
 pub enum BlockType {
     Render,
     OnFrame,
+    /// Runs once per compile, before the new model's first frame. Use it to
+    /// seed state from the canvas size the script is starting at.
+    OnInit,
+    /// Runs whenever the canvas's on-screen size changes after it was first
+    /// mounted — entering/exiting fullscreen, a window resize, the editor's
+    /// resizable split. Does not fire for the canvas's initial sizing; that is
+    /// what `OnInit` is for.
+    OnResize,
 }
 
 #[derive(Debug, Clone)]
@@ -532,6 +581,7 @@ pub enum Expression {
 pub enum ColorConstructKind {
     Rgb,
     Hsl,
+    LinearGradient,
 }
 
 #[derive(Debug, Clone)]

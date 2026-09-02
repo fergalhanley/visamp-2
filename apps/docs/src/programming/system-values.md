@@ -78,6 +78,29 @@ Scaling from `$HEIGHT` rather than `$WIDTH` keeps proportions steady when the
 aspect ratio changes, since the player is as wide as the window but the
 thumbnail is always 16:9.
 
+Reading `$WIDTH`/`$HEIGHT` straight into a `render` or `on_frame` block, as
+above, recomputes derived values every frame even though the canvas is
+usually not resizing. If that derivation is expensive, do it once instead —
+in [`on_init`](../language/blocks.md#on_init) for the size the script starts
+at, and in [`on_resize`](../language/blocks.md#on_resize) for whenever it
+changes after that (entering fullscreen, the window resizing):
+
+```
+prop unit = 0.0
+
+on_init {
+  unit = $HEIGHT / 100.0
+}
+
+on_resize {
+  unit = $HEIGHT / 100.0
+}
+
+render {
+  draw::circle(x: $WIDTH / 2.0, y: $HEIGHT / 2.0, radius: unit * 20.0, color: $COLOR_TURQUOISE)
+}
+```
+
 ## Audio
 
 | Value | Type | Description |

@@ -44,11 +44,28 @@ prop count = 10
 
 ### Event Blocks
 
+`on_init` runs once, when the script compiles, before its first frame:
+
+```
+on_init {
+  angle = $TIME_SEC
+}
+```
+
 `on_frame` runs every frame to update state:
 
 ```
 on_frame {
   angle = $TIME_SEC
+}
+```
+
+`on_resize` runs whenever the canvas's on-screen size changes — entering or
+exiting fullscreen, a window resize — but not for its initial sizing:
+
+```
+on_resize {
+  scale = $WIDTH / 800
 }
 ```
 
@@ -67,13 +84,15 @@ render {
 
 | Command | Parameters |
 |---------|-----------|
-| `draw::background` | `color` |
-| `draw::circle` | `x`, `y`, `radius`, `color`, `stroke`, `stroke_weight`, `stroke_color` |
-| `draw::rect` | `x`, `y`, `width`, `height`, `color`, `stroke`, `stroke_weight`, `stroke_color`, `rotate` |
-| `draw::polygon` | `points`, `color`, `rotate` |
-| `draw::line` | `x1`, `y1`, `x2`, `y2`, `color`, `stroke_weight` |
-| `draw::ellipse` | `x`, `y`, `rx`, `ry`, `color`, `stroke`, `stroke_weight`, `stroke_color`, `rotate` |
-| `draw::text` | `content`, `x`, `y`, `size`, `color`, `font` |
+| `draw::background` | `color`, `gradient` |
+| `draw::circle` | `x`, `y`, `radius`, `color`, `gradient`, `stroke`, `stroke_weight`, `stroke_color` |
+| `draw::rect` | `x`, `y`, `width`, `height`, `color`, `gradient`, `stroke`, `stroke_weight`, `stroke_color`, `rotate` |
+| `draw::polygon` | `points`, `color`, `gradient`, `rotate` |
+| `draw::line` | `x1`, `y1`, `x2`, `y2`, `color`, `gradient`, `stroke_weight` |
+| `draw::ellipse` | `x`, `y`, `rx`, `ry`, `color`, `gradient`, `stroke`, `stroke_weight`, `stroke_color`, `rotate` |
+| `draw::text` | `content`, `x`, `y`, `size`, `color`, `gradient`, `font` |
+
+`gradient` takes a `color::linear_gradient(...)` value and, when present, wins over `color`.
 
 ### System Values
 
@@ -104,6 +123,21 @@ color::rgb(r: 1.0, g: 0.5, b: 0.0, transparent: 0.2)
 color::hsl(h: 0.5, s: 0.8, l: 0.5)
 ```
 All params optional, default to 0.0. `transparent` is 0.0 (opaque) to 1.0 (fully transparent).
+
+```
+color::linear_gradient(
+  x0: 0.0, y0: 0.0, x1: 200.0, y1: 0.0,
+  color_stops: [
+    [0.0, color::rgb(r: 1.0)],
+    [0.5, color::rgb(g: 1.0)],
+    [1.0, color::rgb(b: 1.0)]
+  ]
+)
+```
+`color_stops` is an array of `[offset, color]` pairs, offset `0.0`-`1.0`
+(clamped, order doesn't matter). The axis runs in the same coordinate space as
+the shape it fills. This produces a gradient, not a color — pass it to a draw
+command's `gradient` argument, not `color`.
 
 ### Control Flow
 

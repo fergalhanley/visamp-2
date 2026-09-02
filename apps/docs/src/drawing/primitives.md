@@ -23,6 +23,7 @@ draw::background(color: $COLOR_BLACK)
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `color` | Color | `$COLOR_BLACK` | Background color |
+| `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 
 ## draw::circle
 
@@ -38,6 +39,7 @@ draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 | `y` | Float | 0.0 | Center Y position |
 | `radius` | Float | 50.0 | Circle radius |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
+| `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke` | Boolean | false | Draw outline instead of fill |
 | `stroke_weight` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
@@ -57,6 +59,7 @@ draw::rect(x: 100.0, y: 200.0, width: 150.0, height: 80.0, color: $COLOR_BLUE, r
 | `width` | Float | 100.0 | Rectangle width |
 | `height` | Float | 100.0 | Rectangle height |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
+| `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke` | Boolean | false | Draw outline instead of fill |
 | `stroke_weight` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
@@ -82,6 +85,7 @@ draw::polygon(
 |-----------|------|---------|-------------|
 | `points` | Array | `[]` | Array of `[x, y]` coordinate pairs |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
+| `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `rotate` | Float | 0.0 | Rotation in radians (around centroid) |
 
 ## draw::line
@@ -99,6 +103,7 @@ draw::line(x1: 100.0, y1: 100.0, x2: 700.0, y2: 500.0, color: $COLOR_WHITE, stro
 | `x2` | Float | 100.0 | End X |
 | `y2` | Float | 100.0 | End Y |
 | `color` | Color | `$COLOR_WHITE` | Line color |
+| `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke_weight` | Float | 1.0 | Line thickness |
 
 ## draw::ellipse
@@ -116,6 +121,7 @@ draw::ellipse(x: 400.0, y: 300.0, rx: 80.0, ry: 40.0, color: $COLOR_PURPLE, rota
 | `rx` | Float | 50.0 | X radius |
 | `ry` | Float | 30.0 | Y radius |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
+| `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke` | Boolean | false | Draw outline instead of fill |
 | `stroke_weight` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
@@ -136,6 +142,7 @@ draw::text(content: "Hello!", x: 350.0, y: 300.0, size: 24.0, color: $COLOR_WHIT
 | `y` | Float | 0.0 | Y position (baseline) |
 | `size` | Float | 16.0 | Font size in pixels |
 | `color` | Color | `$COLOR_WHITE` | Text color |
+| `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `font` | String | `"monospace"` | CSS font family |
 
 ## Coordinate System

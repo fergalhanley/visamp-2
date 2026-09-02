@@ -164,7 +164,7 @@ math_args = { math_arg ~ ("," ~ math_arg)* ~ ","? }
 math_arg = { identifier ~ ":" ~ expression }
 
 color_expr = { "color::" ~ color_kind ~ "(" ~ color_args? ~ ")" }
-color_kind = { "rgb" | "hsl" }
+color_kind = { "rgb" | "hsl" | "linear_gradient" }
 color_args = { color_arg ~ ("," ~ color_arg)* }
 color_arg = { identifier ~ ":" ~ expression }
 
