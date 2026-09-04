@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512"/>
-  <polygon fill="#fff" points="418.75 32 256 363.16 93.25 32 32 32 256 480 480 32 418.75 32"/>
-  <polygon fill="#fff" points="418.75 480 256 148.84 93.25 480 32 480 256 32 480 480 418.75 480"/>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <style>
+      .cls-1 {
+      fill: #fff;
+      opacity: .8;
+      }
+    </style>
+  </defs>
+  <rect width="1024" height="1024"/>
+  <g>
+    <polygon class="cls-1" points="962 962 512 512 62 962 512 62 962 962"/>
+    <polygon class="cls-1" points="962 62 512 512 62 62 512 962 962 62"/>
+  </g>
 </svg>
