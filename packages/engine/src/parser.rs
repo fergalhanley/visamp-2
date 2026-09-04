@@ -1,5 +1,5 @@
-use pest::Parser;
 use pest::iterators::Pair;
+use pest::Parser;
 use pest_derive::Parser;
 
 use crate::model::*;
@@ -87,7 +87,10 @@ fn build_prop_def(pair: pest::iterators::Pair<Rule>) -> PropertyDef {
 pub fn build_expression(pair: Pair<Rule>) -> Expression {
     match pair.as_rule() {
         Rule::expression => {
-            let inner = pair.into_inner().next().expect("expression must have one child");
+            let inner = pair
+                .into_inner()
+                .next()
+                .expect("expression must have one child");
             build_expression(inner)
         }
         Rule::logical_or_expr
@@ -262,9 +265,13 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
             } else if token == "true" || token == "false" {
                 Expression::Literal(Literal::Boolean(token == "true"))
             } else if token.contains('.') {
-                Expression::Literal(Literal::Float(token.parse().expect("Invalid float literal")))
+                Expression::Literal(Literal::Float(
+                    token.parse().expect("Invalid float literal"),
+                ))
             } else if token.chars().all(|ch| ch.is_digit(10) || ch == '-') {
-                Expression::Literal(Literal::Integer(token.parse().expect("Invalid integer literal")))
+                Expression::Literal(Literal::Integer(
+                    token.parse().expect("Invalid integer literal"),
+                ))
             } else if token.starts_with('$') {
                 Expression::SystemValue(token[1..].to_string())
             } else {
@@ -279,16 +286,24 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
         Rule::system_value => {
             let s = pair.as_str();
             // Strip the leading $
-            Expression::SystemValue(if s.starts_with('$') { s[1..].to_string() } else { s.to_string() })
+            Expression::SystemValue(if s.starts_with('$') {
+                s[1..].to_string()
+            } else {
+                s.to_string()
+            })
         }
         Rule::identifier => Expression::Identifier(pair.as_str().to_string()),
-        Rule::float => Expression::Literal(Literal::Float(pair.as_str().parse().expect("Invalid float literal"))),
-        Rule::integer => Expression::Literal(Literal::Integer(pair.as_str().parse().expect("Invalid integer literal"))),
+        Rule::float => Expression::Literal(Literal::Float(
+            pair.as_str().parse().expect("Invalid float literal"),
+        )),
+        Rule::integer => Expression::Literal(Literal::Integer(
+            pair.as_str().parse().expect("Invalid integer literal"),
+        )),
         Rule::boolean => Expression::Literal(Literal::Boolean(pair.as_str() == "true")),
         Rule::string => {
             let s = pair.as_str();
             // Strip surrounding quotes
-            Expression::Literal(Literal::String(s[1..s.len()-1].to_string()))
+            Expression::Literal(Literal::String(s[1..s.len() - 1].to_string()))
         }
         Rule::call_expr => {
             let mut inner = pair.into_inner();
@@ -346,7 +361,10 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 .collect();
             Expression::MathCall { func, args }
         }
-        _ => unreachable!("Unexpected rule encountered in build_expression: {:?}", pair.as_rule()),
+        _ => unreachable!(
+            "Unexpected rule encountered in build_expression: {:?}",
+            pair.as_rule()
+        ),
     }
 }
 
@@ -394,7 +412,10 @@ fn build_block(pair: pest::iterators::Pair<Rule>) -> Result<Block, String> {
 }
 
 fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
-    let inner = pair.into_inner().next().expect("Expected a specific statement type");
+    let inner = pair
+        .into_inner()
+        .next()
+        .expect("Expected a specific statement type");
     match inner.as_rule() {
         Rule::assignment => build_assignment(inner),
         Rule::call_expr => Statement::Call(build_expression(inner)),
@@ -474,13 +495,22 @@ fn build_incr_decr(pair: Pair<Rule>) -> Statement {
 
 fn build_function_call(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
-    let namespace_pair = inner.next().expect("Expected namespace identifier in function call");
-    let function_pair = inner.next().expect("Expected function identifier in function call");
-    let namespace = namespace_pair.as_str().to_string();
-    let function = function_pair.as_str().to_string();
-    let params_pair = inner.next().expect("Expected function parameters in function call");
+    let path_pair = inner.next().expect("Expected function path");
+    let mut path: Vec<String> = path_pair
+        .into_inner()
+        .map(|part| part.as_str().to_string())
+        .collect();
+    let function = path.pop().expect("Expected function name");
+    let namespace = path.join("::");
+    let params_pair = inner
+        .next()
+        .expect("Expected function parameters in function call");
     let args = build_function_params(params_pair);
-    Statement::FunctionCall(FunctionCall { namespace, function, args })
+    Statement::FunctionCall(FunctionCall {
+        namespace,
+        function,
+        args,
+    })
 }
 
 fn build_function_params(pair: Pair<Rule>) -> Vec<Argument> {
@@ -501,7 +531,9 @@ fn build_argument(pair: Pair<Rule>) -> Argument {
 
 fn build_let_decl(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
-    let ident_pair = inner.next().expect("Expected identifier in let declaration");
+    let ident_pair = inner
+        .next()
+        .expect("Expected identifier in let declaration");
     let expression_pair = inner.next().expect("Expected value in let declaration");
     let ident = ident_pair.as_str().to_string();
     let expression = build_expression(expression_pair);
@@ -511,7 +543,11 @@ fn build_let_decl(pair: Pair<Rule>) -> Statement {
 fn build_value(pair: pest::iterators::Pair<Rule>) -> Value {
     match pair.as_rule() {
         Rule::boolean => Value::Boolean(pair.as_str().to_string() == "true"),
-        Rule::integer => Value::Integer(pair.as_str().parse().expect("Failed to convert string to integer")),
+        Rule::integer => Value::Integer(
+            pair.as_str()
+                .parse()
+                .expect("Failed to convert string to integer"),
+        ),
         Rule::float => Value::Float(pair.as_str().parse::<f64>().expect("Invalid float value")),
         Rule::system_value => Value::SystemValue(pair.as_str().to_string()),
         Rule::array => {
@@ -598,14 +634,14 @@ fn build_while_loop(pair: Pair<Rule>) -> Statement {
     let condition = build_expression(inner.next().unwrap());
     let body: Vec<Statement> = inner.map(|s| build_statement(s)).collect();
 
-    Statement::While(WhileLoop {
-        condition,
-        body,
-    })
+    Statement::While(WhileLoop { condition, body })
 }
 
 fn build_return_statement(pair: Pair<Rule>) -> Statement {
-    let inner = pair.into_inner().next().expect("return must have an expression");
+    let inner = pair
+        .into_inner()
+        .next()
+        .expect("return must have an expression");
     Statement::Return(ReturnStatement {
         expression: build_expression(inner),
     })
@@ -621,7 +657,8 @@ fn build_function_def(pair: Pair<Rule>) -> FunctionDef {
     for item in inner {
         match item.as_rule() {
             Rule::param_list => {
-                params = item.into_inner()
+                params = item
+                    .into_inner()
                     .filter(|p| p.as_rule() == Rule::param)
                     .map(|p| {
                         let mut param_inner = p.into_inner();

@@ -57,6 +57,8 @@ export interface EngineModule {
   main_web(): void;
   load_script(code: string): string;
   get_last_error(): string;
+  /** CSS filter composed by the latest rendered frame. */
+  get_canvas_filter(): string;
   capture_frame(): Promise<Blob>;
   set_audio_frame(timeDomain: Uint8Array, frequency: Uint8Array, beat: boolean): void;
   clear_audio_frame(): void;

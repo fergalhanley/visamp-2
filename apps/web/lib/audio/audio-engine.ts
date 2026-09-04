@@ -134,8 +134,10 @@ class AudioEngine {
 
     this.elementSource = ctx.createMediaElementSource(element);
     this.elementSource.connect(this.analyser!);
-    // This is music the viewer chose, so it should be audible.
-    this.analyser!.connect(ctx.destination);
+    // Analysis and monitoring are separate branches. Connecting the analyser
+    // itself to the destination would also route its microphone input to the
+    // speakers, creating feedback.
+    this.elementSource.connect(ctx.destination);
   }
 
   /** Tears down any HLS session without disturbing the audio graph. */

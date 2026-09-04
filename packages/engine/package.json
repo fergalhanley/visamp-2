@@ -1,6 +1,6 @@
 {
   "name": "@visamp/engine",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "description": "Visamp DSL interpreter and renderer, compiled to WebAssembly",
@@ -21,6 +21,9 @@
   ],
   "scripts": {
     "build": "./build-wasm.sh",
+    "build:validator": "wasm-pack build --release --target web --out-dir pkg-validator",
+    "build:native": "cargo build --release --bin visamp-validate",
+    "check:parity": "./check-compiler-parity.sh",
     "dev": "./build-wasm.sh --dev",
     "test": "cargo test",
     "clean": "rm -rf pkg"

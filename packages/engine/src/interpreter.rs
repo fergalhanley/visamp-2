@@ -5,8 +5,8 @@ use web_sys::CanvasRenderingContext2d;
 use std::cell::RefCell;
 
 use crate::math3::Mat4;
-use crate::scene::*;
 use crate::model::*;
+use crate::scene::*;
 use crate::utils::start_time_ms;
 
 #[derive(Clone)]
@@ -115,7 +115,11 @@ fn set_fill_paint(ctx: &CanvasRenderingContext2d, color: Color, gradient: Option
 /// Strokes with `gradient` when the script supplied one, or falls back to the
 /// plain `color`/`stroke_color` argument otherwise. `draw::line`'s `color` is
 /// itself a stroke, so this is the counterpart to `set_fill_paint` for it.
-fn set_stroke_paint(ctx: &CanvasRenderingContext2d, color: Color, gradient: Option<&LinearGradient>) {
+fn set_stroke_paint(
+    ctx: &CanvasRenderingContext2d,
+    color: Color,
+    gradient: Option<&LinearGradient>,
+) {
     match gradient {
         Some(g) => ctx.set_stroke_style_canvas_gradient(&build_canvas_gradient(ctx, g)),
         None => set_stroke(ctx, color),
@@ -191,15 +195,25 @@ pub struct Target<'a> {
     pub ctx: Option<&'a CanvasRenderingContext2d>,
     /// Present in 3d mode.
     pub scene: Option<&'a RefCell<Scene>>,
+    /// CSS post-processing accumulated for the completed canvas frame.
+    pub filter: Option<&'a RefCell<String>>,
 }
 
 impl<'a> Target<'a> {
-    pub fn canvas(ctx: &'a CanvasRenderingContext2d) -> Self {
-        Target { ctx: Some(ctx), scene: None }
+    pub fn canvas(ctx: &'a CanvasRenderingContext2d, filter: &'a RefCell<String>) -> Self {
+        Target {
+            ctx: Some(ctx),
+            scene: None,
+            filter: Some(filter),
+        }
     }
 
-    pub fn scene(scene: &'a RefCell<Scene>) -> Self {
-        Target { ctx: None, scene: Some(scene) }
+    pub fn scene(scene: &'a RefCell<Scene>, filter: &'a RefCell<String>) -> Self {
+        Target {
+            ctx: None,
+            scene: Some(scene),
+            filter: Some(filter),
+        }
     }
 
     /// A block that draws nothing, such as `on_frame`.
@@ -208,7 +222,12 @@ impl<'a> Target<'a> {
     }
 }
 
-pub fn interpret_event_block(block: &Block, decels: &mut Declarations, runtime: &Runtime, functions: &[FunctionDef]) -> InterpResult<()> {
+pub fn interpret_event_block(
+    block: &Block,
+    decels: &mut Declarations,
+    runtime: &Runtime,
+    functions: &[FunctionDef],
+) -> InterpResult<()> {
     decels.push_scope();
     let result = (|| {
         for statement in block.statements.iter() {
@@ -288,7 +307,8 @@ fn interpret_statement(
             Ok(None)
         }
         Statement::Assignment(assignment) => {
-            let evaluated = evaluate_expression(&assignment.expression, decels, runtime, functions)?;
+            let evaluated =
+                evaluate_expression(&assignment.expression, decels, runtime, functions)?;
             if !decels.contains(&assignment.ident) {
                 return Err(format!("Variable '{}' not declared", assignment.ident));
             }
@@ -326,7 +346,9 @@ fn interpret_statement(
             }
 
             for stmt in &func.body {
-                if interpret_statement(stmt, &mut func_decels, runtime, target, functions)?.is_some() {
+                if interpret_statement(stmt, &mut func_decels, runtime, target, functions)?
+                    .is_some()
+                {
                     // A `return` inside a statement call just ends the call;
                     // there is nowhere for the value to go.
                     break;
@@ -388,9 +410,7 @@ fn interpret_statement(
                             bytes.iter().map(|b| Value::Integer(*b as i64)).collect()
                         }
                         _ => {
-                            return Err(
-                                "for loop iterable must be an array or a range".to_string()
-                            )
+                            return Err("for loop iterable must be an array or a range".to_string())
                         }
                     };
 
@@ -428,7 +448,8 @@ fn interpret_statement(
         Statement::While(while_loop) => {
             let mut iterations = 0;
             loop {
-                let condition = evaluate_expression(&while_loop.condition, decels, runtime, functions)?;
+                let condition =
+                    evaluate_expression(&while_loop.condition, decels, runtime, functions)?;
                 let is_true = match condition {
                     Value::Boolean(b) => b,
                     _ => return Err("while condition must evaluate to boolean".to_string()),
@@ -473,7 +494,9 @@ fn interpret_scene_call(
 
             match call.function.as_str() {
                 "perspective" => {
-                    let fov = args.angle("fov_deg", "fov_rad")?.unwrap_or(60.0f32.to_radians());
+                    let fov = args
+                        .angle("fov_deg", "fov_rad")?
+                        .unwrap_or(60.0f32.to_radians());
                     camera.projection = Projection::Perspective {
                         fov_rad: fov,
                         near: args.number("near")?.unwrap_or(0.1),
@@ -676,8 +699,12 @@ fn record_draw(
 
     let position = args.vec3(0.0, 0.0, 0.0)?;
     let rotation = Mat4::rotation_z(args.angle("rot_z", "rot_z_rad")?.unwrap_or(0.0))
-        .mul(&Mat4::rotation_y(args.angle("rot_y", "rot_y_rad")?.unwrap_or(0.0)))
-        .mul(&Mat4::rotation_x(args.angle("rot_x", "rot_x_rad")?.unwrap_or(0.0)));
+        .mul(&Mat4::rotation_y(
+            args.angle("rot_y", "rot_y_rad")?.unwrap_or(0.0),
+        ))
+        .mul(&Mat4::rotation_x(
+            args.angle("rot_x", "rot_x_rad")?.unwrap_or(0.0),
+        ));
 
     let local = Mat4::translation(position[0], position[1], position[2])
         .mul(&rotation)
@@ -708,7 +735,12 @@ fn record_draw(
         overlay: scene.gfx.overlay,
     };
 
-    scene.record(DrawCommand { key, model, color, opacity });
+    scene.record(DrawCommand {
+        key,
+        model,
+        color,
+        opacity,
+    });
     Ok(())
 }
 
@@ -727,7 +759,12 @@ impl<'a> ArgReader<'a> {
         runtime: &'a Runtime,
         functions: &'a [FunctionDef],
     ) -> Self {
-        ArgReader { call, decels, runtime, functions }
+        ArgReader {
+            call,
+            decels,
+            runtime,
+            functions,
+        }
     }
 
     fn raw(&mut self, name: &str) -> InterpResult<Option<Value>> {
@@ -824,7 +861,12 @@ impl<'a> ArgReader<'a> {
             _ => Vec::new(),
         };
 
-        Ok(MeshData { vertices, indices, normals, uvs })
+        Ok(MeshData {
+            vertices,
+            indices,
+            normals,
+            uvs,
+        })
     }
 
     fn points(&mut self, name: &str) -> InterpResult<Vec<[f32; 3]>> {
@@ -858,6 +900,22 @@ fn interpret_statement_function_call(
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
+    // Full-frame post-processing is handed to the JS player as CSS. Avoiding
+    // CanvasRenderingContext2D.filter here keeps every primitive on the fast
+    // drawing path and gives WebGL the same effects for free.
+    if function_call.namespace == "effect::filter" {
+        let mut args = ArgReader::new(function_call, decels, runtime, functions);
+        let fragment = filter_fragment(function_call, &mut args)?;
+        if let Some(filter) = target.filter {
+            let mut filter = filter.borrow_mut();
+            if !filter.is_empty() {
+                filter.push(' ');
+            }
+            filter.push_str(&fragment);
+        }
+        return Ok(());
+    }
+
     // 3d mode records into the scene instead of painting a canvas. The
     // resolver has already rejected these namespaces under `context 2d`, so
     // reaching here means the script asked for 3d.
@@ -879,7 +937,8 @@ fn interpret_statement_function_call(
                 let mut color = BLACK;
                 let mut gradient: Option<Rc<LinearGradient>> = None;
                 for arg in function_call.args.iter() {
-                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    let evaluated =
+                        evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "color" => color = evaluated.try_into_color()?,
                         "gradient" => gradient = Some(evaluated.try_into_gradient()?),
@@ -896,7 +955,8 @@ fn interpret_statement_function_call(
                 let mut rotate: f64 = 0.0;
 
                 for arg in function_call.args.iter() {
-                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    let evaluated =
+                        evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "points" => points = points_from_value(evaluated),
                         "color" => color = evaluated.try_into_color()?,
@@ -940,7 +1000,8 @@ fn interpret_statement_function_call(
                 let mut stroke_color = BLACK;
 
                 for arg in function_call.args.iter() {
-                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    let evaluated =
+                        evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "x" => x = evaluated.try_into_f64()?,
                         "y" => y = evaluated.try_into_f64()?,
@@ -980,7 +1041,8 @@ fn interpret_statement_function_call(
                 let mut rotate: f64 = 0.0;
 
                 for arg in function_call.args.iter() {
-                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    let evaluated =
+                        evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "x" => x = evaluated.try_into_f64()?,
                         "y" => y = evaluated.try_into_f64()?,
@@ -1023,7 +1085,8 @@ fn interpret_statement_function_call(
                 let mut stroke_weight = 1.0;
 
                 for arg in function_call.args.iter() {
-                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    let evaluated =
+                        evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "x1" => x1 = evaluated.try_into_f64()?,
                         "y1" => y1 = evaluated.try_into_f64()?,
@@ -1056,7 +1119,8 @@ fn interpret_statement_function_call(
                 let mut rotate: f64 = 0.0;
 
                 for arg in function_call.args.iter() {
-                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    let evaluated =
+                        evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "x" => x = evaluated.try_into_f64()?,
                         "y" => y = evaluated.try_into_f64()?,
@@ -1100,7 +1164,8 @@ fn interpret_statement_function_call(
                 let mut font = "monospace".to_string();
 
                 for arg in function_call.args.iter() {
-                    let evaluated = evaluate_expression(&arg.expression, decels, runtime, functions)?;
+                    let evaluated =
+                        evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
                         "content" | "text" => {
                             content = match evaluated {
@@ -1114,7 +1179,9 @@ fn interpret_statement_function_call(
                         "color" => color = evaluated.try_into_color()?,
                         "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "font" => {
-                            if let Value::String(f) = evaluated { font = f; }
+                            if let Value::String(f) = evaluated {
+                                font = f;
+                            }
                         }
                         _ => {}
                     }
@@ -1125,17 +1192,66 @@ fn interpret_statement_function_call(
                 let _ = ctx.fill_text(&content, x, y);
             }
             other => {
-                web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(&format!("Unknown draw function: {}", other)));
+                web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(&format!(
+                    "Unknown draw function: {}",
+                    other
+                )));
             }
         },
         other => {
-            web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(&format!("Unknown namespace: {}", other)));
+            web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(&format!(
+                "Unknown namespace: {}",
+                other
+            )));
         }
     }
     Ok(())
 }
 
-pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &Runtime, functions: &[FunctionDef]) -> InterpResult<Value> {
+fn filter_fragment(call: &FunctionCall, args: &mut ArgReader<'_>) -> InterpResult<String> {
+    let finite = |name: &str, value: f32| {
+        if value.is_finite() {
+            Ok(value)
+        } else {
+            Err(format!(
+                "{}::{}: '{name}' must be finite",
+                call.namespace, call.function
+            ))
+        }
+    };
+    let percentage = |amount: f32| format!("{}%", amount * 100.0);
+
+    match call.function.as_str() {
+        "blur" => {
+            let radius = finite("radius", args.number("radius")?.unwrap_or(0.0))?.max(0.0);
+            Ok(format!("blur({radius}px)"))
+        }
+        "brightness" | "contrast" | "saturate" => {
+            let amount = finite("amount", args.number("amount")?.unwrap_or(1.0))?.max(0.0);
+            Ok(format!(
+                "{}({})",
+                call.function.replace('_', "-"),
+                percentage(amount)
+            ))
+        }
+        "grayscale" | "invert" | "opacity" | "sepia" => {
+            let amount = finite("amount", args.number("amount")?.unwrap_or(1.0))?.clamp(0.0, 1.0);
+            Ok(format!("{}({})", call.function, percentage(amount)))
+        }
+        "hue_rotate" => {
+            let radians = finite("angle", args.angle("deg", "rad")?.unwrap_or(0.0))?;
+            Ok(format!("hue-rotate({radians}rad)"))
+        }
+        other => Err(format!("Unknown effect::filter call: {other}")),
+    }
+}
+
+pub fn evaluate_expression(
+    expr: &Expression,
+    decels: &Declarations,
+    runtime: &Runtime,
+    functions: &[FunctionDef],
+) -> InterpResult<Value> {
     match expr {
         Expression::Literal(lit) => Ok(match lit {
             Literal::Boolean(b) => Value::Boolean(*b),
@@ -1170,9 +1286,9 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                         Value::Integer(i) => i,
                         Value::Float(f) => {
                             return Err(format!(
-                                "array index must be a whole number, got {}. Use \\ or math::floor.",
-                                f
-                            ))
+                            "array index must be a whole number, got {}. Use \\ or math::floor.",
+                            f
+                        ))
                         }
                         other => {
                             return Err(format!(
@@ -1253,7 +1369,11 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                 let Value::Boolean(a) = l else {
                     return Err(format!(
                         "Type error: '{}' needs a boolean, got {}",
-                        if matches!(op, BinaryOperator::And) { "&&" } else { "||" },
+                        if matches!(op, BinaryOperator::And) {
+                            "&&"
+                        } else {
+                            "||"
+                        },
                         l.type_tag()
                     ));
                 };
@@ -1270,7 +1390,11 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                 let Value::Boolean(b) = r else {
                     return Err(format!(
                         "Type error: '{}' needs a boolean, got {}",
-                        if matches!(op, BinaryOperator::And) { "&&" } else { "||" },
+                        if matches!(op, BinaryOperator::And) {
+                            "&&"
+                        } else {
+                            "||"
+                        },
                         r.type_tag()
                     ));
                 };
@@ -1340,8 +1464,12 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                         Ok(Value::Float(a as f64 / b as f64))
                     }
                     (Value::Float(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a / b)),
-                    (Value::Integer(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a as f64 / b)),
-                    (Value::Float(a), Value::Integer(b)) if b != 0 => Ok(Value::Float(a / b as f64)),
+                    (Value::Integer(a), Value::Float(b)) if b != 0.0 => {
+                        Ok(Value::Float(a as f64 / b))
+                    }
+                    (Value::Float(a), Value::Integer(b)) if b != 0 => {
+                        Ok(Value::Float(a / b as f64))
+                    }
                     _ => Err("Division by zero or type error for '/'".to_string()),
                 },
                 // `\` — integer division. Accepts floats and truncates toward
@@ -1368,9 +1496,15 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                 }
                 BinaryOperator::Modulus => match (l, r) {
                     (Value::Integer(a), Value::Integer(b)) if b != 0 => Ok(Value::Integer(a % b)),
-                    (Value::Float(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a.rem_euclid(b))),
-                    (Value::Integer(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float((a as f64).rem_euclid(b))),
-                    (Value::Float(a), Value::Integer(b)) if b != 0 => Ok(Value::Float(a.rem_euclid(b as f64))),
+                    (Value::Float(a), Value::Float(b)) if b != 0.0 => {
+                        Ok(Value::Float(a.rem_euclid(b)))
+                    }
+                    (Value::Integer(a), Value::Float(b)) if b != 0.0 => {
+                        Ok(Value::Float((a as f64).rem_euclid(b)))
+                    }
+                    (Value::Float(a), Value::Integer(b)) if b != 0 => {
+                        Ok(Value::Float(a.rem_euclid(b as f64)))
+                    }
                     _ => Err("Type error or division by zero for '%'".to_string()),
                 },
                 BinaryOperator::Equal | BinaryOperator::NotEqual => {
@@ -1384,7 +1518,11 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                         (Value::Array(a), Value::Array(b)) => a == b,
                         _ => false,
                     };
-                    let result = if *op == BinaryOperator::Equal { eq } else { !eq };
+                    let result = if *op == BinaryOperator::Equal {
+                        eq
+                    } else {
+                        !eq
+                    };
                     Ok(Value::Boolean(result))
                 }
                 BinaryOperator::LessThan
@@ -1497,7 +1635,9 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
 
             let mut result = Value::Boolean(false);
             for stmt in &func.body {
-                if let Some(val) = interpret_statement(stmt, &mut func_decels, runtime, Target::none(), functions)? {
+                if let Some(val) =
+                    interpret_statement(stmt, &mut func_decels, runtime, Target::none(), functions)?
+                {
                     result = val;
                     break;
                 }
@@ -1513,7 +1653,8 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
             let get_arg = |name: &str| -> InterpResult<f64> {
                 for (n, expr) in args.iter() {
                     if n == name {
-                        return Ok(evaluate_expression(expr, decels, runtime, functions)?.try_into_f64()?);
+                        return Ok(evaluate_expression(expr, decels, runtime, functions)?
+                            .try_into_f64()?);
                     }
                 }
                 Ok(0.0)
@@ -1557,7 +1698,13 @@ pub fn evaluate_expression(expr: &Expression, decels: &Declarations, runtime: &R
                         None => Vec::new(),
                     };
 
-                    Ok(Value::Gradient(Rc::new(LinearGradient { x0, y0, x1, y1, stops })))
+                    Ok(Value::Gradient(Rc::new(LinearGradient {
+                        x0,
+                        y0,
+                        x1,
+                        y1,
+                        stops,
+                    })))
                 }
             }
         }
@@ -1652,8 +1799,13 @@ fn stops_from_value(value: Value) -> Vec<GradientStop> {
         for stop_pair in list_of_stops.iter() {
             if let Value::Array(stop_vec) = stop_pair {
                 if stop_vec.len() == 2 {
-                    if let (Some(offset), Value::Color(color)) = (stop_vec[0].as_f64(), &stop_vec[1]) {
-                        stops.push(GradientStop { offset: offset.clamp(0.0, 1.0), color: *color });
+                    if let (Some(offset), Value::Color(color)) =
+                        (stop_vec[0].as_f64(), &stop_vec[1])
+                    {
+                        stops.push(GradientStop {
+                            offset: offset.clamp(0.0, 1.0),
+                            color: *color,
+                        });
                     }
                 }
             }
@@ -1670,7 +1822,11 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
         return (l, l, l);
     }
 
-    let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
+    let q = if l < 0.5 {
+        l * (1.0 + s)
+    } else {
+        l + s - l * s
+    };
     let p = 2.0 * l - q;
 
     let r = hue_to_rgb(p, q, h + 1.0 / 3.0);
@@ -1681,11 +1837,21 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
 }
 
 fn hue_to_rgb(p: f64, q: f64, mut t: f64) -> f64 {
-    if t < 0.0 { t += 1.0; }
-    if t > 1.0 { t -= 1.0; }
-    if t < 1.0 / 6.0 { return p + (q - p) * 6.0 * t; }
-    if t < 1.0 / 2.0 { return q; }
-    if t < 2.0 / 3.0 { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
+    if t < 0.0 {
+        t += 1.0;
+    }
+    if t > 1.0 {
+        t -= 1.0;
+    }
+    if t < 1.0 / 6.0 {
+        return p + (q - p) * 6.0 * t;
+    }
+    if t < 1.0 / 2.0 {
+        return q;
+    }
+    if t < 2.0 / 3.0 {
+        return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+    }
     p
 }
 

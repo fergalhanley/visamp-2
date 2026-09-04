@@ -145,29 +145,61 @@ impl Mat4 {
     pub fn perspective(fov_rad: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
         let f = 1.0 / (fov_rad / 2.0).tan();
         let range = 1.0 / (near - far);
-        let aspect = if aspect.is_finite() && aspect > 1e-6 { aspect } else { 1.0 };
+        let aspect = if aspect.is_finite() && aspect > 1e-6 {
+            aspect
+        } else {
+            1.0
+        };
 
         Mat4([
-            f / aspect, 0.0, 0.0, 0.0, //
-            0.0, f, 0.0, 0.0, //
-            0.0, 0.0, (near + far) * range, -1.0, //
-            0.0, 0.0, near * far * range * 2.0, 0.0,
+            f / aspect,
+            0.0,
+            0.0,
+            0.0, //
+            0.0,
+            f,
+            0.0,
+            0.0, //
+            0.0,
+            0.0,
+            (near + far) * range,
+            -1.0, //
+            0.0,
+            0.0,
+            near * far * range * 2.0,
+            0.0,
         ])
     }
 
     /// Right-handed orthographic, sized by height so the script stays
     /// aspect-independent.
     pub fn orthographic(height: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
-        let aspect = if aspect.is_finite() && aspect > 1e-6 { aspect } else { 1.0 };
+        let aspect = if aspect.is_finite() && aspect > 1e-6 {
+            aspect
+        } else {
+            1.0
+        };
         let half_h = (height / 2.0).max(1e-6);
         let half_w = half_h * aspect;
         let depth = (far - near).max(1e-6);
 
         Mat4([
-            1.0 / half_w, 0.0, 0.0, 0.0, //
-            0.0, 1.0 / half_h, 0.0, 0.0, //
-            0.0, 0.0, -2.0 / depth, 0.0, //
-            0.0, 0.0, -(far + near) / depth, 1.0,
+            1.0 / half_w,
+            0.0,
+            0.0,
+            0.0, //
+            0.0,
+            1.0 / half_h,
+            0.0,
+            0.0, //
+            0.0,
+            0.0,
+            -2.0 / depth,
+            0.0, //
+            0.0,
+            0.0,
+            -(far + near) / depth,
+            1.0,
         ])
     }
 
@@ -180,10 +212,22 @@ impl Mat4 {
         let true_up = cross(forward, right);
 
         Mat4([
-            right[0], true_up[0], forward[0], 0.0, //
-            right[1], true_up[1], forward[1], 0.0, //
-            right[2], true_up[2], forward[2], 0.0, //
-            -dot(right, eye), -dot(true_up, eye), -dot(forward, eye), 1.0,
+            right[0],
+            true_up[0],
+            forward[0],
+            0.0, //
+            right[1],
+            true_up[1],
+            forward[1],
+            0.0, //
+            right[2],
+            true_up[2],
+            forward[2],
+            0.0, //
+            -dot(right, eye),
+            -dot(true_up, eye),
+            -dot(forward, eye),
+            1.0,
         ])
     }
 

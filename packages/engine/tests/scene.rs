@@ -94,8 +94,14 @@ fn the_default_camera_can_see_a_unit_cube_at_the_origin() {
         .mul(&camera.view())
         .transform_point([0.0, 0.0, 0.0]);
 
-    assert!(clip[0].abs() <= 1.0 && clip[1].abs() <= 1.0, "off screen: {clip:?}");
-    assert!(clip[2] > -1.0 && clip[2] < 1.0, "outside the clip range: {clip:?}");
+    assert!(
+        clip[0].abs() <= 1.0 && clip[1].abs() <= 1.0,
+        "off screen: {clip:?}"
+    );
+    assert!(
+        clip[2] > -1.0 && clip[2] < 1.0,
+        "outside the clip range: {clip:?}"
+    );
 }
 
 #[test]
@@ -115,7 +121,11 @@ fn orbit_yaw_swings_around_the_target() {
     let start = camera.position;
 
     camera.orbit([0.0, 0.0, 0.0], 10.0, std::f32::consts::FRAC_PI_2, 0.0);
-    assert!((camera.position[0] - 10.0).abs() < 1e-3, "{:?}", camera.position);
+    assert!(
+        (camera.position[0] - 10.0).abs() < 1e-3,
+        "{:?}",
+        camera.position
+    );
     assert!(camera.position[2].abs() < 1e-3, "{:?}", camera.position);
     assert!(start != camera.position);
 }
@@ -143,11 +153,18 @@ fn orbit_respects_the_target() {
 fn a_wild_field_of_view_is_clamped_rather_than_degenerate() {
     for fov in [0.0f32, -1.0, 400.0] {
         let camera = Camera {
-            projection: Projection::Perspective { fov_rad: fov.to_radians(), near: 0.1, far: 100.0 },
+            projection: Projection::Perspective {
+                fov_rad: fov.to_radians(),
+                near: 0.1,
+                far: 100.0,
+            },
             ..Camera::default()
         };
         let m = camera.projection_matrix(1.0);
-        assert!(m.as_slice().iter().all(|v| v.is_finite()), "fov {fov}: {m:?}");
+        assert!(
+            m.as_slice().iter().all(|v| v.is_finite()),
+            "fov {fov}: {m:?}"
+        );
     }
 }
 
@@ -274,7 +291,11 @@ fn the_draw_command_budget_drops_the_rest_of_the_frame() {
     }
 
     assert_eq!(scene.commands.len(), MAX_DRAW_COMMANDS);
-    assert_eq!(scene.warnings.len(), 1, "should warn once, not per dropped draw");
+    assert_eq!(
+        scene.warnings.len(),
+        1,
+        "should warn once, not per dropped draw"
+    );
     assert!(scene.warnings[0].contains("draw command limit"));
 }
 

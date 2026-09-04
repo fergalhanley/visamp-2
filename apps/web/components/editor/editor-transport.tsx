@@ -26,6 +26,12 @@ import { cn } from "@/lib/utils";
 
 const ACCEPTED = ".mp3,.m4a,.aac,.ogg,.opus,.wav,.flac";
 
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const total = Math.floor(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 /** The SoundCloud playlist picker, kept in a popover so the bar stays thin. */
 function SoundcloudPopover() {
   const playlist = useAudioStore((s) => s.soundcloudPlaylist);
@@ -168,6 +174,8 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
   const currentIndex = useAudioStore((s) => s.currentIndex);
   const pendingIndex = useAudioStore((s) => s.pendingIndex);
   const isPlaying = useAudioStore((s) => s.isPlaying);
+  const position = useAudioStore((s) => s.position);
+  const duration = useAudioStore((s) => s.duration);
 
   const enableMic = useAudioStore((s) => s.enableMic);
   const disableMic = useAudioStore((s) => s.disableMic);
@@ -176,6 +184,7 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
   const togglePlay = useAudioStore((s) => s.togglePlay);
   const nextTrack = useAudioStore((s) => s.nextTrack);
   const prevTrack = useAudioStore((s) => s.prevTrack);
+  const seek = useAudioStore((s) => s.seek);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const fsa = useSupportsFileSystemAccess();
@@ -191,6 +200,26 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
 
   return (
     <div className="flex shrink-0 items-center gap-2 border-y px-3 py-2">
+      <div className="flex min-w-28 flex-1 items-center gap-2">
+        <span className="w-8 shrink-0 text-right font-mono text-[10px] text-muted-foreground">
+          {formatTime(position)}
+        </span>
+        <input
+          type="range"
+          aria-label="Seek audio"
+          min={0}
+          max={duration || 0}
+          step={0.1}
+          value={Math.min(position, duration || 0)}
+          disabled={!duration}
+          onChange={(event) => seek(Number(event.target.value))}
+          className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground disabled:cursor-default disabled:opacity-40"
+        />
+        <span className="w-8 shrink-0 font-mono text-[10px] text-muted-foreground">
+          {formatTime(duration)}
+        </span>
+      </div>
+
       <div className="flex items-center gap-1.5">
         <button
           type="button"
@@ -232,7 +261,7 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
         </button>
       </div>
 
-      <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+      <p className="min-w-0 max-w-40 truncate text-xs text-muted-foreground">
         {track?.name ?? "Silent — time-driven"}
       </p>
 

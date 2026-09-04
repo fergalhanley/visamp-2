@@ -144,7 +144,9 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(gl: GL) -> Result<Self, String> {
         let program = link(&gl, VERTEX_SHADER, FRAGMENT_SHADER)?;
-        let instances = gl.create_buffer().ok_or("could not create instance buffer")?;
+        let instances = gl
+            .create_buffer()
+            .ok_or("could not create instance buffer")?;
 
         Ok(Renderer {
             gl,
@@ -167,7 +169,11 @@ impl Renderer {
         gl.depth_func(GL::LEQUAL);
         gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
 
-        let aspect = if height == 0 { 1.0 } else { width as f32 / height as f32 };
+        let aspect = if height == 0 {
+            1.0
+        } else {
+            width as f32 / height as f32
+        };
         let view_projection = scene
             .camera
             .projection_matrix(aspect)
@@ -191,7 +197,8 @@ impl Renderer {
         // Meshes are rebuilt every frame: a `Primitive::Mesh` id is only
         // meaningful within the frame that recorded it, so caching one across
         // frames would draw last frame's geometry.
-        self.meshes.retain(|primitive, _| !matches!(primitive, Primitive::Mesh { .. }));
+        self.meshes
+            .retain(|primitive, _| !matches!(primitive, Primitive::Mesh { .. }));
 
         Ok(())
     }
@@ -260,7 +267,8 @@ impl Renderer {
 
         // One float run per instance, uploaded in a single call.
         self.scratch.clear();
-        self.scratch.reserve(batch.instances.len() * INSTANCE_FLOATS);
+        self.scratch
+            .reserve(batch.instances.len() * INSTANCE_FLOATS);
         for command in &batch.instances {
             self.scratch.extend_from_slice(command.model.as_slice());
             self.scratch.push(command.color.r as f32);
@@ -330,11 +338,7 @@ impl Renderer {
         gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&triangles));
         unsafe {
             let view = js_sys::Uint32Array::view(&geometry.indices);
-            gl.buffer_data_with_array_buffer_view(
-                GL::ELEMENT_ARRAY_BUFFER,
-                &view,
-                GL::STATIC_DRAW,
-            );
+            gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &view, GL::STATIC_DRAW);
         }
 
         let edge_indices = geometry.edges();
@@ -342,11 +346,7 @@ impl Renderer {
         gl.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, Some(&edges));
         unsafe {
             let view = js_sys::Uint32Array::view(&edge_indices);
-            gl.buffer_data_with_array_buffer_view(
-                GL::ELEMENT_ARRAY_BUFFER,
-                &view,
-                GL::STATIC_DRAW,
-            );
+            gl.buffer_data_with_array_buffer_view(GL::ELEMENT_ARRAY_BUFFER, &view, GL::STATIC_DRAW);
         }
 
         // Per-instance attributes come from the shared instance buffer.
@@ -386,7 +386,10 @@ impl Renderer {
     }
 
     fn set_view_projection(&self, matrix: &[f32; 16]) {
-        if let Some(location) = self.gl.get_uniform_location(&self.program, "u_view_projection") {
+        if let Some(location) = self
+            .gl
+            .get_uniform_location(&self.program, "u_view_projection")
+        {
             self.gl
                 .uniform_matrix4fv_with_f32_array(Some(&location), false, matrix);
         }

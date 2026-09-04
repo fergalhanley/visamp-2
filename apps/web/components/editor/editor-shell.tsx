@@ -31,6 +31,7 @@ import {
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { BrandLockup } from "@/components/brand/logo";
+import { AiPrompt } from "@/components/editor/ai-prompt";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
 import { OpenVisDialog } from "@/components/editor/open-vis-dialog";
@@ -48,6 +49,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import type { GenerationEvent } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -150,6 +152,8 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [openPickerShown, setOpenPickerShown] = useState(false);
   const [deleteShown, setDeleteShown] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const preserveNextCompileLog = useRef(false);
 
   // E6.5 — debounce keystrokes into the engine.
   useEffect(() => {
@@ -174,21 +178,83 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     setCompile(result);
 
     const at = Date.now();
-    setLogLines(
-      result.ok
-        ? [{ id: (logSeq += 1), level: "info", message: "Compiled.", at }]
-        : result.diagnostics.map((diagnostic) => ({
-            id: (logSeq += 1),
-            level: "error" as const,
-            message: diagnostic.message,
-            line: diagnostic.line,
-            at,
-          })),
-    );
+    const next = result.ok
+      ? [{ id: (logSeq += 1), level: "info" as const, message: "Compiled.", at }]
+      : result.diagnostics.map((diagnostic) => ({
+          id: (logSeq += 1),
+          level: "error" as const,
+          message: diagnostic.message,
+          line: diagnostic.line,
+          at,
+        }));
+    if (preserveNextCompileLog.current) {
+      preserveNextCompileLog.current = false;
+      setLogLines((lines) => [...lines.slice(-199 + next.length), ...next]);
+    } else {
+      setLogLines(next);
+    }
 
     // E6.6 — errors force the log open.
     if (!result.ok) setLogCollapsed(false);
   }, []);
+
+  const generate = useCallback(
+    async (prompt: string) => {
+      if (!visualisation || generating) return;
+      setGenerating(true);
+      setLogCollapsed(false);
+      appendLog({ level: "info", message: "Sending prompt…" });
+
+      try {
+        const response = await fetch("/api/ai/generate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ prompt, source, visId: visualisation.id }),
+        });
+        if (!response.ok || !response.body) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(payload?.error ?? `Generation failed (${response.status})`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffered = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          buffered += decoder.decode(value, { stream: !done });
+          const lines = buffered.split("\n");
+          buffered = done ? "" : (lines.pop() ?? "");
+          for (const raw of lines) {
+            if (!raw.trim()) continue;
+            const event = JSON.parse(raw) as GenerationEvent;
+            if (event.type === "status") {
+              appendLog({ level: event.level ?? "info", message: event.message });
+            } else if (event.type === "success") {
+              preserveNextCompileLog.current = true;
+              editorHandle.current?.replaceDocument(event.source);
+              setSource(event.source);
+              setLiveSource(event.source);
+              appendLog({ level: "info", message: event.message });
+            } else if (event.type === "exhausted") {
+              appendLog({ level: "warn", message: event.message });
+              if (event.diagnostics) appendLog({ level: "error", message: event.diagnostics });
+            } else {
+              appendLog({ level: "error", message: event.message });
+            }
+          }
+          if (done) break;
+        }
+      } catch (error) {
+        appendLog({
+          level: "error",
+          message: error instanceof Error ? error.message : "Generation failed",
+        });
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [appendLog, generating, source, visualisation],
+  );
 
   const onLog = useCallback(
     (entry: LogEntry) => {
@@ -635,6 +701,11 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
       ) : (
       <div ref={splitRef} className="flex min-h-0 flex-1">
         <div style={{ width: `${ratio}%` }} className="flex min-w-0 flex-col">
+          <AiPrompt
+            disabled={!canEdit || empty}
+            generating={generating}
+            onSubmit={generate}
+          />
           <div className="min-h-0 flex-1">
             <CodeEditor
               initialValue={visualisation?.source ?? ""}

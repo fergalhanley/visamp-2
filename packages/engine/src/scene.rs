@@ -193,17 +193,31 @@ pub enum Shading {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Primitive {
     Cube,
-    Sphere { resolution: u32 },
-    Plane { subdivisions: u32 },
-    Cylinder { segments: u32 },
-    Cone { segments: u32 },
+    Sphere {
+        resolution: u32,
+    },
+    Plane {
+        subdivisions: u32,
+    },
+    Cylinder {
+        segments: u32,
+    },
+    Cone {
+        segments: u32,
+    },
     /// `tube_ratio` is the tube radius as a thousandth of the ring radius.
     /// It has to be part of the primitive's identity rather than a scale: a
     /// single matrix cannot scale a torus's tube independently of its ring, so
     /// two tori with different tube thicknesses are genuinely different meshes.
-    Torus { segments: u32, tube_segments: u32, tube_ratio: u32 },
+    Torus {
+        segments: u32,
+        tube_segments: u32,
+        tube_ratio: u32,
+    },
     Sprite,
-    Mesh { id: u32 },
+    Mesh {
+        id: u32,
+    },
 }
 
 impl Primitive {
@@ -221,9 +235,11 @@ impl Primitive {
             }
             Primitive::Cylinder { segments } => segments.max(3) as u64 * 4,
             Primitive::Cone { segments } => segments.max(3) as u64 * 2,
-            Primitive::Torus { segments, tube_segments, .. } => {
-                segments.max(3) as u64 * tube_segments.max(3) as u64 * 2
-            }
+            Primitive::Torus {
+                segments,
+                tube_segments,
+                ..
+            } => segments.max(3) as u64 * tube_segments.max(3) as u64 * 2,
             Primitive::Sprite => 2,
             Primitive::Mesh { id } => meshes
                 .get(id as usize)

@@ -42,44 +42,224 @@ impl Color {
 }
 
 // Predefined colors
-pub const BLACK: Color = Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
-pub const WHITE: Color = Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
-pub const RED: Color = Color { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
-pub const GREEN: Color = Color { r: 0.0, g: 1.0, b: 0.0, a: 1.0 };
-pub const BLUE: Color = Color { r: 0.0, g: 0.0, b: 1.0, a: 1.0 };
+pub const BLACK: Color = Color {
+    r: 0.0,
+    g: 0.0,
+    b: 0.0,
+    a: 1.0,
+};
+pub const WHITE: Color = Color {
+    r: 1.0,
+    g: 1.0,
+    b: 1.0,
+    a: 1.0,
+};
+pub const RED: Color = Color {
+    r: 1.0,
+    g: 0.0,
+    b: 0.0,
+    a: 1.0,
+};
+pub const GREEN: Color = Color {
+    r: 0.0,
+    g: 1.0,
+    b: 0.0,
+    a: 1.0,
+};
+pub const BLUE: Color = Color {
+    r: 0.0,
+    g: 0.0,
+    b: 1.0,
+    a: 1.0,
+};
 
 // Extended palette (32 colors)
-pub const ORANGE: Color = Color { r: 1.0, g: 0.647, b: 0.0, a: 1.0 };
-pub const YELLOW: Color = Color { r: 1.0, g: 1.0, b: 0.0, a: 1.0 };
-pub const PINK: Color = Color { r: 1.0, g: 0.753, b: 0.796, a: 1.0 };
-pub const MAGENTA: Color = Color { r: 1.0, g: 0.0, b: 1.0, a: 1.0 };
-pub const CYAN: Color = Color { r: 0.0, g: 1.0, b: 1.0, a: 1.0 };
-pub const TEAL: Color = Color { r: 0.0, g: 0.502, b: 0.502, a: 1.0 };
-pub const TURQUOISE: Color = Color { r: 0.251, g: 0.878, b: 0.816, a: 1.0 };
-pub const NAVY: Color = Color { r: 0.0, g: 0.0, b: 0.502, a: 1.0 };
-pub const INDIGO: Color = Color { r: 0.294, g: 0.0, b: 0.51, a: 1.0 };
-pub const VIOLET: Color = Color { r: 0.933, g: 0.51, b: 0.933, a: 1.0 };
-pub const PURPLE: Color = Color { r: 0.502, g: 0.0, b: 0.502, a: 1.0 };
-pub const LAVENDER: Color = Color { r: 0.902, g: 0.902, b: 0.98, a: 1.0 };
-pub const BROWN: Color = Color { r: 0.647, g: 0.165, b: 0.165, a: 1.0 };
-pub const MAROON: Color = Color { r: 0.502, g: 0.0, b: 0.0, a: 1.0 };
-pub const OLIVE: Color = Color { r: 0.502, g: 0.502, b: 0.0, a: 1.0 };
-pub const FOREST_GREEN: Color = Color { r: 0.133, g: 0.545, b: 0.133, a: 1.0 };
-pub const GOLD: Color = Color { r: 1.0, g: 0.843, b: 0.0, a: 1.0 };
-pub const SILVER: Color = Color { r: 0.753, g: 0.753, b: 0.753, a: 1.0 };
-pub const GRAY: Color = Color { r: 0.502, g: 0.502, b: 0.502, a: 1.0 };
-pub const DARK_GRAY: Color = Color { r: 0.333, g: 0.333, b: 0.333, a: 1.0 };
-pub const LIGHT_GRAY: Color = Color { r: 0.827, g: 0.827, b: 0.827, a: 1.0 };
-pub const CRIMSON: Color = Color { r: 0.863, g: 0.078, b: 0.235, a: 1.0 };
-pub const CORAL: Color = Color { r: 1.0, g: 0.498, b: 0.314, a: 1.0 };
-pub const SALMON: Color = Color { r: 0.98, g: 0.502, b: 0.447, a: 1.0 };
-pub const SAND: Color = Color { r: 0.957, g: 0.894, b: 0.702, a: 1.0 };
-pub const BEIGE: Color = Color { r: 0.961, g: 0.961, b: 0.863, a: 1.0 };
-pub const SKY_BLUE: Color = Color { r: 0.529, g: 0.808, b: 0.922, a: 1.0 };
-pub const AMBER: Color = Color { r: 1.0, g: 0.749, b: 0.0, a: 1.0 };
-pub const LIME: Color = Color { r: 0.753, g: 1.0, b: 0.0, a: 1.0 };
-pub const CHARTREUSE: Color = Color { r: 0.498, g: 1.0, b: 0.0, a: 1.0 };
-pub const TAN: Color = Color { r: 0.824, g: 0.706, b: 0.549, a: 1.0 };
+pub const ORANGE: Color = Color {
+    r: 1.0,
+    g: 0.647,
+    b: 0.0,
+    a: 1.0,
+};
+pub const YELLOW: Color = Color {
+    r: 1.0,
+    g: 1.0,
+    b: 0.0,
+    a: 1.0,
+};
+pub const PINK: Color = Color {
+    r: 1.0,
+    g: 0.753,
+    b: 0.796,
+    a: 1.0,
+};
+pub const MAGENTA: Color = Color {
+    r: 1.0,
+    g: 0.0,
+    b: 1.0,
+    a: 1.0,
+};
+pub const CYAN: Color = Color {
+    r: 0.0,
+    g: 1.0,
+    b: 1.0,
+    a: 1.0,
+};
+pub const TEAL: Color = Color {
+    r: 0.0,
+    g: 0.502,
+    b: 0.502,
+    a: 1.0,
+};
+pub const TURQUOISE: Color = Color {
+    r: 0.251,
+    g: 0.878,
+    b: 0.816,
+    a: 1.0,
+};
+pub const NAVY: Color = Color {
+    r: 0.0,
+    g: 0.0,
+    b: 0.502,
+    a: 1.0,
+};
+pub const INDIGO: Color = Color {
+    r: 0.294,
+    g: 0.0,
+    b: 0.51,
+    a: 1.0,
+};
+pub const VIOLET: Color = Color {
+    r: 0.933,
+    g: 0.51,
+    b: 0.933,
+    a: 1.0,
+};
+pub const PURPLE: Color = Color {
+    r: 0.502,
+    g: 0.0,
+    b: 0.502,
+    a: 1.0,
+};
+pub const LAVENDER: Color = Color {
+    r: 0.902,
+    g: 0.902,
+    b: 0.98,
+    a: 1.0,
+};
+pub const BROWN: Color = Color {
+    r: 0.647,
+    g: 0.165,
+    b: 0.165,
+    a: 1.0,
+};
+pub const MAROON: Color = Color {
+    r: 0.502,
+    g: 0.0,
+    b: 0.0,
+    a: 1.0,
+};
+pub const OLIVE: Color = Color {
+    r: 0.502,
+    g: 0.502,
+    b: 0.0,
+    a: 1.0,
+};
+pub const FOREST_GREEN: Color = Color {
+    r: 0.133,
+    g: 0.545,
+    b: 0.133,
+    a: 1.0,
+};
+pub const GOLD: Color = Color {
+    r: 1.0,
+    g: 0.843,
+    b: 0.0,
+    a: 1.0,
+};
+pub const SILVER: Color = Color {
+    r: 0.753,
+    g: 0.753,
+    b: 0.753,
+    a: 1.0,
+};
+pub const GRAY: Color = Color {
+    r: 0.502,
+    g: 0.502,
+    b: 0.502,
+    a: 1.0,
+};
+pub const DARK_GRAY: Color = Color {
+    r: 0.333,
+    g: 0.333,
+    b: 0.333,
+    a: 1.0,
+};
+pub const LIGHT_GRAY: Color = Color {
+    r: 0.827,
+    g: 0.827,
+    b: 0.827,
+    a: 1.0,
+};
+pub const CRIMSON: Color = Color {
+    r: 0.863,
+    g: 0.078,
+    b: 0.235,
+    a: 1.0,
+};
+pub const CORAL: Color = Color {
+    r: 1.0,
+    g: 0.498,
+    b: 0.314,
+    a: 1.0,
+};
+pub const SALMON: Color = Color {
+    r: 0.98,
+    g: 0.502,
+    b: 0.447,
+    a: 1.0,
+};
+pub const SAND: Color = Color {
+    r: 0.957,
+    g: 0.894,
+    b: 0.702,
+    a: 1.0,
+};
+pub const BEIGE: Color = Color {
+    r: 0.961,
+    g: 0.961,
+    b: 0.863,
+    a: 1.0,
+};
+pub const SKY_BLUE: Color = Color {
+    r: 0.529,
+    g: 0.808,
+    b: 0.922,
+    a: 1.0,
+};
+pub const AMBER: Color = Color {
+    r: 1.0,
+    g: 0.749,
+    b: 0.0,
+    a: 1.0,
+};
+pub const LIME: Color = Color {
+    r: 0.753,
+    g: 1.0,
+    b: 0.0,
+    a: 1.0,
+};
+pub const CHARTREUSE: Color = Color {
+    r: 0.498,
+    g: 1.0,
+    b: 0.0,
+    a: 1.0,
+};
+pub const TAN: Color = Color {
+    r: 0.824,
+    g: 0.706,
+    b: 0.549,
+    a: 1.0,
+};
 
 /// 2D point
 #[derive(Debug, Clone, Copy)]
@@ -272,7 +452,11 @@ pub fn format_float(value: f64) -> String {
         return "NaN".to_string();
     }
     if value.is_infinite() {
-        return if value > 0.0 { "∞".to_string() } else { "-∞".to_string() };
+        return if value > 0.0 {
+            "∞".to_string()
+        } else {
+            "-∞".to_string()
+        };
     }
     let rounded = format!("{:.3}", value);
     // `0.500` reads worse than `0.5`, but `0.000` must stay `0`.
@@ -399,7 +583,6 @@ impl ContextKind {
             ContextKind::ThreeD => "webgl2",
         }
     }
-
 }
 
 #[derive(Debug, Clone)]

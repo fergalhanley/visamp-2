@@ -7,20 +7,40 @@ use web_sys::CanvasRenderingContext2d;
 
 pub mod builtins;
 pub mod geometry;
+pub mod interpreter;
 pub mod math3;
 pub mod model;
-pub mod utils;
 pub mod parser;
 pub mod renderer;
-pub mod scene;
 pub mod resolver;
-pub mod interpreter;
+pub mod scene;
+pub mod utils;
 
+use interpreter::*;
 use model::*;
+use parser::build_ast;
 use renderer::Renderer;
 use scene::Scene;
-use parser::build_ast;
-use interpreter::*;
+
+/// The compiler identity persisted with generated and saved scripts.
+///
+/// Both native validation and the browser export read this exact constant, so
+/// there is no second version that can drift from the crate being compiled.
+pub const COMPILER_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Parse and resolve a script without requiring a browser or rendering state.
+/// An empty string means success; failures use the same diagnostic text as the
+/// browser's `load_script` entry point.
+#[wasm_bindgen]
+pub fn validate_script(code: &str) -> String {
+    build_ast(code).err().unwrap_or_default()
+}
+
+/// Return the compiler version used by this build.
+#[wasm_bindgen]
+pub fn compiler_version() -> String {
+    COMPILER_VERSION.to_string()
+}
 
 /// What the canvas has actually been bound to.
 ///
@@ -50,6 +70,8 @@ struct AppState {
     backend: RefCell<Option<Backend>>,
     /// Rebuilt from scratch every 3d frame; see `Scene::reset`.
     scene: RefCell<Scene>,
+    /// CSS filter composed while interpreting the most recent frame.
+    canvas_filter: RefCell<String>,
     last_error: RefCell<Option<String>>,
 }
 
@@ -72,9 +94,11 @@ pub fn main_web() {
             false
         }
     });
-    
+
     if already_initialized {
-        web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str("main_web() called multiple times, ignoring"));
+        web_sys::console::warn_1(&wasm_bindgen::JsValue::from_str(
+            "main_web() called multiple times, ignoring",
+        ));
         return;
     }
 
@@ -89,8 +113,11 @@ pub fn main_web() {
         } else {
             "Unknown initialization error".to_string()
         };
-        web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!("Initialization failed: {}", msg)));
-        
+        web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!(
+            "Initialization failed: {}",
+            msg
+        )));
+
         // Display error on page
         if let Some(window) = web_sys::window() {
             if let Some(document) = window.document() {
@@ -120,7 +147,10 @@ fn init_app() -> Result<(), String> {
     let canvas_width = host.client_width() as f64;
     let canvas_height = host.client_height() as f64;
 
-    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("Canvas size: {}x{}", canvas_width, canvas_height)));
+    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!(
+        "Canvas size: {}x{}",
+        canvas_width, canvas_height
+    )));
 
     // Nothing to draw until the page loads a script. The engine used to carry a
     // demo of its own, which meant every host briefly rendered something it had
@@ -139,6 +169,7 @@ fn init_app() -> Result<(), String> {
         kind: RefCell::new(None),
         backend: RefCell::new(None),
         scene: RefCell::new(Scene::default()),
+        canvas_filter: RefCell::new(String::new()),
         last_error: RefCell::new(None),
     });
 
@@ -147,12 +178,13 @@ fn init_app() -> Result<(), String> {
     {
         let state_clone = state.clone();
         let host_clone = host.clone();
-        let closure = Closure::<dyn FnMut(web_sys::MouseEvent)>::new(move |e: web_sys::MouseEvent| {
-            let rect = host_clone.get_bounding_client_rect();
-            let mut rt = state_clone.runtime.borrow_mut();
-            rt.mouse_x = e.client_x() as f64 - rect.left();
-            rt.mouse_y = e.client_y() as f64 - rect.top();
-        });
+        let closure =
+            Closure::<dyn FnMut(web_sys::MouseEvent)>::new(move |e: web_sys::MouseEvent| {
+                let rect = host_clone.get_bounding_client_rect();
+                let mut rt = state_clone.runtime.borrow_mut();
+                rt.mouse_x = e.client_x() as f64 - rect.left();
+                rt.mouse_y = e.client_y() as f64 - rect.top();
+            });
         host.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())
             .unwrap();
         closure.forget();
@@ -190,13 +222,14 @@ fn init_app() -> Result<(), String> {
     *g.borrow_mut() = Some(Closure::new(move || {
         // Schedule next frame first to keep animation running
         request_animation_frame(f.borrow().as_ref().unwrap());
-        
+
         // Skipping a frame is invisible; panicking here is not. A capture or a
         // property read holding the state briefly should cost one frame, not
         // abort mid-borrow and leave every later frame unable to run.
-        let (Ok(mut model), Ok(mut runtime)) =
-            (state_ref.model.try_borrow_mut(), state_ref.runtime.try_borrow_mut())
-        else {
+        let (Ok(mut model), Ok(mut runtime)) = (
+            state_ref.model.try_borrow_mut(),
+            state_ref.runtime.try_borrow_mut(),
+        ) else {
             return;
         };
         runtime.frame_count += 1;
@@ -228,13 +261,14 @@ fn init_app() -> Result<(), String> {
             return;
         };
 
+        let frame_filter = RefCell::new(String::new());
         match backend {
             Backend::TwoD(ctx) => {
                 for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
                     if let Err(e) = interpret_render_block(
                         block,
                         decels,
-                        Target::canvas(ctx),
+                        Target::canvas(ctx, &frame_filter),
                         &*runtime,
                         functions,
                     ) {
@@ -253,7 +287,7 @@ fn init_app() -> Result<(), String> {
                     if let Err(e) = interpret_render_block(
                         block,
                         decels,
-                        Target::scene(&state_ref.scene),
+                        Target::scene(&state_ref.scene, &frame_filter),
                         &*runtime,
                         functions,
                     ) {
@@ -290,11 +324,14 @@ fn init_app() -> Result<(), String> {
                 }
             }
         }
+        *state_ref.canvas_filter.borrow_mut() = frame_filter.into_inner();
     }));
 
     request_animation_frame(g.borrow().as_ref().unwrap());
-    
-    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str("Visamp initialized successfully"));
+
+    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(
+        "Visamp initialized successfully",
+    ));
     Ok(())
 }
 
@@ -308,16 +345,23 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
 /// Load a new DSL script from JavaScript. Returns error message or empty string.
 #[wasm_bindgen]
 pub fn load_script(code: &str) -> String {
-    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("load_script called with {} chars", code.len())));
+    web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!(
+        "load_script called with {} chars",
+        code.len()
+    )));
     match build_ast(code) {
         Ok(ast) => {
             let mut model = Model::from_script(&ast);
-            let block_info: Vec<String> = model.blocks.iter().map(|b| {
-                format!("{:?}({} stmts)", b.block_type, b.statements.len())
-            }).collect();
-            web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(
-                &format!("Parsed OK: blocks=[{}], functions={}", block_info.join(", "), model.functions.len())
-            ));
+            let block_info: Vec<String> = model
+                .blocks
+                .iter()
+                .map(|b| format!("{:?}({} stmts)", b.block_type, b.statements.len()))
+                .collect();
+            web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!(
+                "Parsed OK: blocks=[{}], functions={}",
+                block_info.join(", "),
+                model.functions.len()
+            )));
             // Give the script the context it asked for, replacing the canvas
             // when that differs from the one currently mounted. A canvas keeps
             // its first context for life, so switching between 2d and 3d is
@@ -353,7 +397,12 @@ pub fn load_script(code: &str) -> String {
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     let runtime = state.runtime.borrow();
-                    let Model { blocks, functions, decels, .. } = &mut model;
+                    let Model {
+                        blocks,
+                        functions,
+                        decels,
+                        ..
+                    } = &mut model;
                     for block in blocks.iter().filter(|b| b.block_type == BlockType::OnInit) {
                         if let Err(e) = interpret_event_block(block, decels, &runtime, functions) {
                             init_error = Some(e);
@@ -372,7 +421,10 @@ pub fn load_script(code: &str) -> String {
             String::new()
         }
         Err(e) => {
-            web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!("Parse error: {}", e)));
+            web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!(
+                "Parse error: {}",
+                e
+            )));
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     *state.last_error.borrow_mut() = Some(e.clone());
@@ -439,12 +491,46 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
 
     // Only layer blocks run. on_frame is deliberately skipped: a capture is a
     // snapshot of the current state, not a step forward in time.
+    let filter = RefCell::new(String::new());
     for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
-        interpret_render_block(block, &mut model.decels, Target::canvas(&ctx), &runtime, &functions)
-            .map_err(|e| format!("Capture failed: {}", e))?;
+        interpret_render_block(
+            block,
+            &mut model.decels,
+            Target::canvas(&ctx, &filter),
+            &runtime,
+            &functions,
+        )
+        .map_err(|e| format!("Capture failed: {}", e))?;
     }
 
-    Ok(canvas)
+    let filter = filter.into_inner();
+
+    // Always composite onto opaque black. CSS styles are not baked into
+    // `canvas.toBlob()`, and a transparent capture otherwise lets the tile's
+    // decorative gradient show through and muddy the thumbnail.
+    let output: web_sys::HtmlCanvasElement = document
+        .create_element("canvas")
+        .map_err(|_| "Could not create capture output canvas")?
+        .dyn_into()
+        .map_err(|_| "Capture output element is not a canvas")?;
+    output.set_width(CAPTURE_WIDTH);
+    output.set_height(CAPTURE_HEIGHT);
+    let output_ctx: CanvasRenderingContext2d = output
+        .get_context("2d")
+        .map_err(|_| "Failed to get capture output context")?
+        .ok_or("Capture output 2d context is null")?
+        .dyn_into()
+        .map_err(|_| "Failed to cast capture output context")?;
+    output_ctx.set_fill_style_str("black");
+    output_ctx.fill_rect(0.0, 0.0, CAPTURE_WIDTH as f64, CAPTURE_HEIGHT as f64);
+    if !filter.is_empty() {
+        output_ctx.set_filter(&filter);
+    }
+    output_ctx
+        .draw_image_with_html_canvas_element(&canvas, 0.0, 0.0)
+        .map_err(|_| "Failed to composite the filtered capture")?;
+
+    Ok(output)
 }
 
 /// Capture the current frame as a PNG `Blob` at a fixed 1280x720.
@@ -644,8 +730,16 @@ fn resize_canvas(state: &AppState) {
     // / `$HEIGHT` inside the hook read the size that triggered it.
     let mut model = state.model.borrow_mut();
     let runtime = state.runtime.borrow();
-    let Model { blocks, functions, decels, .. } = &mut *model;
-    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnResize) {
+    let Model {
+        blocks,
+        functions,
+        decels,
+        ..
+    } = &mut *model;
+    for block in blocks
+        .iter()
+        .filter(|b| b.block_type == BlockType::OnResize)
+    {
         if let Err(e) = interpret_event_block(block, decels, &runtime, functions) {
             *state.last_error.borrow_mut() = Some(e);
         }
@@ -735,5 +829,16 @@ pub fn get_last_error() -> String {
         } else {
             String::new()
         }
+    })
+}
+
+/// CSS filter composed by `effect::filter` calls in the latest frame.
+#[wasm_bindgen]
+pub fn get_canvas_filter() -> String {
+    STATE.with(|s| {
+        s.borrow()
+            .as_ref()
+            .map(|state| state.canvas_filter.borrow().clone())
+            .unwrap_or_default()
     })
 }

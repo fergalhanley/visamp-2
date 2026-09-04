@@ -1,7 +1,7 @@
 [package]
 name = "visamp_2"
 description = "A visual programming DSL for creative coding in the browser"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Fergal Hanley <fergalhanley@gmail.com>"]
 categories = ["wasm"]
 readme = "README.md"
@@ -11,6 +11,10 @@ edition = "2021"
 name = "visamp_2"
 path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "visamp-validate"
+path = "src/bin/visamp-validate.rs"
 
 [dependencies]
 wasm-bindgen = "0.2.127"

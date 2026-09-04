@@ -14,6 +14,8 @@ pub enum Availability {
     Both,
     /// 3d only — using it in 2d is E3070.
     ThreeDOnly,
+    /// Canvas 2D only — using it in 3d is rejected at compile time.
+    TwoDOnly,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,8 +40,18 @@ pub struct Builtin {
 /// misunderstanding worth naming, rather than being told the argument does not
 /// exist at all.
 pub const PROMOTED_3D_ARGS: &[&str] = &[
-    "z", "z1", "z2", "rot_x", "rot_y", "rot_z", "rot_x_rad", "rot_y_rad", "rot_z_rad",
-    "shading", "wireframe", "opacity",
+    "z",
+    "z1",
+    "z2",
+    "rot_x",
+    "rot_y",
+    "rot_z",
+    "rot_x_rad",
+    "rot_y_rad",
+    "rot_z_rad",
+    "shading",
+    "wireframe",
+    "opacity",
 ];
 
 /// The §6.6 arguments every `draw::` call accepts in 3d.
@@ -48,8 +60,16 @@ pub const PROMOTED_3D_ARGS: &[&str] = &[
 /// `x1`/`y1`/`x2`/`y2`, so a blanket `x`/`y` would make `draw::line(x: 1)` look
 /// legal; the primitives that do take a centre list it themselves.
 pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
-    "color", "shading", "wireframe", "opacity",
-    "rot_x", "rot_y", "rot_z", "rot_x_rad", "rot_y_rad", "rot_z_rad",
+    "color",
+    "shading",
+    "wireframe",
+    "opacity",
+    "rot_x",
+    "rot_y",
+    "rot_z",
+    "rot_x_rad",
+    "rot_y_rad",
+    "rot_z_rad",
 ];
 
 /// Pairs of argument names that mean the same angle in different units.
@@ -73,10 +93,59 @@ pub const BUILTINS: &[Builtin] = &[
     d2("clear", &[]),
     d2("background", &["color", "gradient"]),
     d2("polygon", &["points", "color", "gradient", "rotate"]),
-    d2("circle", &["x", "y", "radius", "color", "gradient", "stroke", "stroke_weight", "stroke_color"]),
-    d2("rect", &["x", "y", "width", "w", "height", "h", "color", "gradient", "stroke", "stroke_weight", "stroke_color", "rotate"]),
-    d2("ellipse", &["x", "y", "rx", "radius_x", "ry", "radius_y", "color", "gradient", "stroke", "stroke_weight", "stroke_color", "rotate"]),
-    d2("text", &["content", "text", "x", "y", "size", "color", "gradient", "font"]),
+    d2(
+        "circle",
+        &[
+            "x",
+            "y",
+            "radius",
+            "color",
+            "gradient",
+            "stroke",
+            "stroke_weight",
+            "stroke_color",
+        ],
+    ),
+    d2(
+        "rect",
+        &[
+            "x",
+            "y",
+            "width",
+            "w",
+            "height",
+            "h",
+            "color",
+            "gradient",
+            "stroke",
+            "stroke_weight",
+            "stroke_color",
+            "rotate",
+        ],
+    ),
+    d2(
+        "ellipse",
+        &[
+            "x",
+            "y",
+            "rx",
+            "radius_x",
+            "ry",
+            "radius_y",
+            "color",
+            "gradient",
+            "stroke",
+            "stroke_weight",
+            "stroke_color",
+            "rotate",
+        ],
+    ),
+    d2(
+        "text",
+        &[
+            "content", "text", "x", "y", "size", "color", "gradient", "font",
+        ],
+    ),
     // `line` gains z1/z2 rather than a separate draw::line3, and its
     // thickness becomes world units in 3d (§6.5).
     Builtin {
@@ -94,11 +163,24 @@ pub const BUILTINS: &[Builtin] = &[
     d3("plane", &["w", "d", "subdivisions"], &[]),
     d3("cylinder", &["radius", "height", "segments"], &[]),
     d3("cone", &["radius", "height", "segments"], &[]),
-    d3("torus", &["radius", "tube", "segments", "tube_segments"], &[]),
+    d3(
+        "torus",
+        &["radius", "tube", "segments", "tube_segments"],
+        &[],
+    ),
     d3("sprite", &["size", "w", "h"], &[]),
-    d3("mesh", &["vertices", "indices", "normals", "uvs"], &["vertices"]),
+    d3(
+        "mesh",
+        &["vertices", "indices", "normals", "uvs"],
+        &["vertices"],
+    ),
     // ── camera:: ──────────────────────────────────────────────────────────
-    ns3("camera", "perspective", &["fov_deg", "fov_rad", "near", "far"], &[]),
+    ns3(
+        "camera",
+        "perspective",
+        &["fov_deg", "fov_rad", "near", "far"],
+        &[],
+    ),
     ns3("camera", "orthographic", &["height", "near", "far"], &[]),
     ns3("camera", "position", XYZ, &[]),
     ns3("camera", "look_at", XYZ, &[]),
@@ -107,7 +189,16 @@ pub const BUILTINS: &[Builtin] = &[
     ns3(
         "camera",
         "orbit",
-        &["target_x", "target_y", "target_z", "distance", "yaw_deg", "yaw_rad", "pitch_deg", "pitch_rad"],
+        &[
+            "target_x",
+            "target_y",
+            "target_z",
+            "distance",
+            "yaw_deg",
+            "yaw_rad",
+            "pitch_deg",
+            "pitch_rad",
+        ],
         &[],
     ),
     // ── transform:: ───────────────────────────────────────────────────────
@@ -121,14 +212,34 @@ pub const BUILTINS: &[Builtin] = &[
     ns3("transform", "scale", &["x", "y", "z", "all"], &[]),
     // ── light:: ───────────────────────────────────────────────────────────
     ns3("light", "ambient", &["color"], &[]),
-    ns3("light", "directional", &["x", "y", "z", "color", "intensity"], &[]),
-    ns3("light", "point", &["x", "y", "z", "color", "intensity", "range"], &[]),
+    ns3(
+        "light",
+        "directional",
+        &["x", "y", "z", "color", "intensity"],
+        &[],
+    ),
+    ns3(
+        "light",
+        "point",
+        &["x", "y", "z", "color", "intensity", "range"],
+        &[],
+    ),
     // ── gfx:: ─────────────────────────────────────────────────────────────
     ns3("gfx", "depth", &["enabled", "write"], &[]),
     ns3("gfx", "blend", &["mode"], &[]),
     ns3("gfx", "cull", &["mode"], &[]),
     ns3("gfx", "clear", &["color"], &[]),
     ns3("gfx", "overlay", &["enabled"], &[]),
+    // ── effect::filter:: CSS post-processing (2D and 3D) ──────────────────────
+    ns("effect::filter", "blur", &["radius"]),
+    ns("effect::filter", "brightness", &["amount"]),
+    ns("effect::filter", "contrast", &["amount"]),
+    ns("effect::filter", "grayscale", &["amount"]),
+    ns("effect::filter", "hue_rotate", &["deg", "rad"]),
+    ns("effect::filter", "invert", &["amount"]),
+    ns("effect::filter", "opacity", &["amount"]),
+    ns("effect::filter", "saturate", &["amount"]),
+    ns("effect::filter", "sepia", &["amount"]),
 ];
 
 /// A 2D `draw::` primitive: legal in both modes, gains the promoted 3d args.
@@ -176,6 +287,19 @@ const fn ns3(
         args,
         args_3d: &[],
         required,
+        takes_common_3d: false,
+    }
+}
+
+/// A non-`draw::` builtin available in both canvas modes.
+const fn ns(namespace: &'static str, name: &'static str, args: &'static [&'static str]) -> Builtin {
+    Builtin {
+        namespace,
+        name,
+        availability: Availability::Both,
+        args,
+        args_3d: &[],
+        required: &[],
         takes_common_3d: false,
     }
 }
@@ -230,7 +354,14 @@ pub const RENAMED_COLOR_ARGS: &[(&str, &str)] = &[
 ];
 
 /// The namespaces the resolver knows about, for "unknown namespace" reporting.
-pub const KNOWN_NAMESPACES: &[&str] = &["draw", "camera", "transform", "light", "gfx"];
+pub const KNOWN_NAMESPACES: &[&str] = &[
+    "draw",
+    "camera",
+    "transform",
+    "light",
+    "gfx",
+    "effect::filter",
+];
 
 pub fn lookup(namespace: &str, name: &str) -> Option<&'static Builtin> {
     BUILTINS

@@ -26,6 +26,10 @@
 - [Colors](./drawing/colors.md)
 - [Color Constructors](./drawing/color-constructors.md)
 
+# Effects
+
+- [Canvas Filters](./effects/filters.md)
+
 # Programming
 
 - [Control Flow](./programming/control-flow.md)

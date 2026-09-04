@@ -20,6 +20,19 @@ compiled to WebAssembly with `wasm-pack`.
 pnpm --filter @visamp/engine build   # or: turbo run build --filter=@visamp/engine
 ```
 
+The same crate also exposes the native validator used by server-side code:
+
+```bash
+cargo build --release --bin visamp-validate
+target/release/visamp-validate path/to/script.vdsl
+cat path/to/script.vdsl | target/release/visamp-validate
+```
+
+Validation exits `0` and prints `OK` on success, or exits `1` and writes the
+same positioned diagnostic used by the browser compiler. Run
+`pnpm --filter @visamp/engine check:parity` to build both targets and verify
+their recorded versions match.
+
 This runs `build-wasm.sh`, which calls `wasm-pack build --target bundler --out-dir pkg`
 and then optimises the `.wasm` with `wasm-opt` if Binaryen is installed.
 

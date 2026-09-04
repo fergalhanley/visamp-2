@@ -117,19 +117,21 @@ impl Resolver {
 
     fn check_call(&mut self, pair: &Pair<Rule>) {
         let mut inner = pair.clone().into_inner();
-        let Some(namespace_pair) = inner.next() else { return };
-        let Some(name_pair) = inner.next() else { return };
-
-        let namespace = namespace_pair.as_str();
+        let Some(path_pair) = inner.next() else {
+            return;
+        };
+        let mut path: Vec<Pair<Rule>> = path_pair.into_inner().collect();
+        let Some(name_pair) = path.pop() else { return };
+        let namespace = path.iter().map(Pair::as_str).collect::<Vec<_>>().join("::");
         let name = name_pair.as_str();
 
-        if !KNOWN_NAMESPACES.contains(&namespace) {
+        if !KNOWN_NAMESPACES.contains(&namespace.as_str()) {
             // Left alone: an unknown namespace is the interpreter's to report,
             // and user-defined functions are a separate grammar rule.
             return;
         }
 
-        let Some(builtin) = builtins::lookup(namespace, name) else {
+        let Some(builtin) = builtins::lookup(&namespace, name) else {
             let candidates: Vec<&str> = builtins::BUILTINS
                 .iter()
                 .filter(|b| b.namespace == namespace)
@@ -153,6 +155,14 @@ impl Resolver {
                     "{} is only available in 3d mode (add `context 3d`)",
                     builtin.qualified()
                 ),
+            ));
+            return;
+        }
+
+        if builtin.availability == Availability::TwoDOnly && self.context == ContextKind::ThreeD {
+            self.errors.push(located(
+                pair,
+                format!("{} is only available in 2d mode", builtin.qualified()),
             ));
             return;
         }
@@ -183,14 +193,11 @@ impl Resolver {
     }
 
     /// Checks a call whose accepted arguments do not vary by mode.
-    fn check_fixed_args(
-        &mut self,
-        pair: &Pair<Rule>,
-        namespace: &str,
-        table: &[(&str, &[&str])],
-    ) {
+    fn check_fixed_args(&mut self, pair: &Pair<Rule>, namespace: &str, table: &[(&str, &[&str])]) {
         let mut inner = pair.clone().into_inner();
-        let Some(kind_pair) = inner.next() else { return };
+        let Some(kind_pair) = inner.next() else {
+            return;
+        };
         let kind = kind_pair.as_str();
 
         let Some((_, accepted)) = table.iter().find(|(name, _)| *name == kind) else {
@@ -203,7 +210,9 @@ impl Resolver {
             if !matches!(arg.as_rule(), Rule::color_arg | Rule::math_arg) {
                 continue;
             }
-            let Some(name_pair) = arg.clone().into_inner().next() else { continue };
+            let Some(name_pair) = arg.clone().into_inner().next() else {
+                continue;
+            };
             let name = name_pair.as_str();
             if accepted.contains(&name) {
                 continue;
@@ -305,10 +314,7 @@ impl Resolver {
                 if accepted.contains(deg) && accepted.contains(rad) {
                     self.errors.push(located(
                         pair,
-                        format!(
-                            "{}: specify {deg} or {rad}, not both",
-                            builtin.qualified()
-                        ),
+                        format!("{}: specify {deg} or {rad}, not both", builtin.qualified()),
                     ));
                 }
             }

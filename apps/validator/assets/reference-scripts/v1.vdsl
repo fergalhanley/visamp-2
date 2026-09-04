@@ -1,0 +1,19 @@
+prop phase = 0.0
+
+on_frame {
+  phase = phase + 0.03
+}
+
+render {
+  draw::background(color: color::rgb(r: 0.02, g: 0.03, b: 0.08))
+  for i in 0..32 {
+    let level = $FREQUENCY_DATA[i * 4] / 255.0
+    draw::rect(
+      x: i * ($WIDTH / 32.0),
+      y: $HEIGHT,
+      width: ($WIDTH / 32.0) - 1.0,
+      height: 8.0 + level * ($HEIGHT - 8.0),
+      color: color::hsl(h: i / 32.0 + phase, s: 0.8, l: 0.55)
+    )
+  }
+}

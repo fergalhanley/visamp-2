@@ -20,7 +20,7 @@ fn run(source: &str) -> Scene {
         interpret_render_block(
             block,
             &mut model.decels,
-            Target::scene(&scene),
+            Target::scene(&scene, &std::cell::RefCell::new(String::new())),
             &runtime,
             &functions,
         )
@@ -42,7 +42,7 @@ fn run_err(source: &str) -> String {
         if let Err(e) = interpret_render_block(
             block,
             &mut model.decels,
-            Target::scene(&scene),
+            Target::scene(&scene, &std::cell::RefCell::new(String::new())),
             &runtime,
             &functions,
         ) {
@@ -69,7 +69,9 @@ fn a_bare_cube_records_one_unit_sized_draw_at_the_origin() {
 #[test]
 fn every_three_d_primitive_records_something() {
     // §11.2 — each must be legal bare and produce a command.
-    for name in ["cube", "sphere", "plane", "cylinder", "cone", "torus", "sprite"] {
+    for name in [
+        "cube", "sphere", "plane", "cylinder", "cone", "torus", "sprite",
+    ] {
         let scene = run(&format!("context 3d\nrender {{\n  draw::{name}()\n}}\n"));
         assert_eq!(scene.commands.len(), 1, "draw::{name} recorded nothing");
     }
@@ -83,7 +85,10 @@ fn size_arguments_scale_the_model_matrix() {
 
     // `size` is uniform shorthand.
     let scene = run("context 3d\nrender {\n  draw::cube(size: 4.0)\n}\n");
-    assert_eq!(scene.commands[0].model.transform_point([0.5, 0.0, 0.0])[0], 2.0);
+    assert_eq!(
+        scene.commands[0].model.transform_point([0.5, 0.0, 0.0])[0],
+        2.0
+    );
 }
 
 #[test]
@@ -97,9 +102,8 @@ fn position_moves_the_primitive() {
 
 #[test]
 fn the_transform_stack_composes_with_a_primitives_own_position() {
-    let scene = run(
-        "context 3d\nrender {\n  transform::translate(x: 10.0)\n  draw::cube(x: 1.0)\n}\n",
-    );
+    let scene =
+        run("context 3d\nrender {\n  transform::translate(x: 10.0)\n  draw::cube(x: 1.0)\n}\n");
     assert_eq!(
         scene.commands[0].model.transform_point([0.0, 0.0, 0.0])[0],
         11.0
@@ -112,8 +116,14 @@ fn push_and_pop_isolate_a_transform() {
         "context 3d\nrender {\n  transform::push()\n  transform::translate(x: 10.0)\n  draw::cube()\n  transform::pop()\n  draw::cube()\n}\n",
     );
 
-    assert_eq!(scene.commands[0].model.transform_point([0.0, 0.0, 0.0])[0], 10.0);
-    assert_eq!(scene.commands[1].model.transform_point([0.0, 0.0, 0.0])[0], 0.0);
+    assert_eq!(
+        scene.commands[0].model.transform_point([0.0, 0.0, 0.0])[0],
+        10.0
+    );
+    assert_eq!(
+        scene.commands[1].model.transform_point([0.0, 0.0, 0.0])[0],
+        0.0
+    );
 }
 
 #[test]
@@ -133,8 +143,11 @@ fn a_loop_of_draws_becomes_one_instanced_batch() {
 fn rotation_accepts_either_unit_and_agrees() {
     // §11.6 — deg and rad forms of the same rotation must produce the same
     // output.
-    let by_deg = run("context 3d\nrender {\n  transform::rotate_y(deg: 90.0)\n  draw::cube(x: 1.0)\n}\n");
-    let by_rad = run("context 3d\nrender {\n  transform::rotate_y(rad: 1.5707963)\n  draw::cube(x: 1.0)\n}\n");
+    let by_deg =
+        run("context 3d\nrender {\n  transform::rotate_y(deg: 90.0)\n  draw::cube(x: 1.0)\n}\n");
+    let by_rad = run(
+        "context 3d\nrender {\n  transform::rotate_y(rad: 1.5707963)\n  draw::cube(x: 1.0)\n}\n",
+    );
 
     let a = by_deg.commands[0].model.transform_point([0.0, 0.0, 0.0]);
     let b = by_rad.commands[0].model.transform_point([0.0, 0.0, 0.0]);
@@ -171,7 +184,8 @@ fn a_later_camera_call_overrides_what_orbit_worked_out() {
 #[test]
 fn shading_follows_whether_a_light_came_first() {
     // §6.6 — decided at draw time, which is the ordering requirement.
-    let scene = run("context 3d\nrender {\n  draw::cube()\n  light::ambient()\n  draw::cube()\n}\n");
+    let scene =
+        run("context 3d\nrender {\n  draw::cube()\n  light::ambient()\n  draw::cube()\n}\n");
 
     assert_eq!(scene.commands[0].key.shading, Shading::Unlit);
     assert_eq!(scene.commands[1].key.shading, Shading::Lambert);
@@ -238,7 +252,8 @@ fn popping_without_a_push_fails_at_runtime() {
 #[test]
 fn a_mesh_that_is_too_large_fails_at_runtime() {
     // Built in script rather than typed out.
-    let source = "context 3d\nprop n = 70000\nrender {\n  draw::mesh(vertices: [[0.0, 0.0, 0.0]])\n}\n";
+    let source =
+        "context 3d\nprop n = 70000\nrender {\n  draw::mesh(vertices: [[0.0, 0.0, 0.0]])\n}\n";
     // The small mesh is fine; the limit itself is covered in the scene tests.
     assert_eq!(run(source).commands.len(), 1);
 }

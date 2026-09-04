@@ -1,0 +1,15 @@
+{
+  "name": "@visamp/validator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @visamp/engine build:validator",
+    "start": "node src/server.mjs",
+    "test": "node --test src/*.test.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0",
+    "pngjs": "^7.0.0"
+  }
+}

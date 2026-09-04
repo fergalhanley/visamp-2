@@ -52,7 +52,11 @@ pub fn build(primitive: Primitive, meshes: &[MeshData]) -> Geometry {
         Primitive::Plane { subdivisions } => plane(subdivisions.clamp(1, 128)),
         Primitive::Cylinder { segments } => cylinder(segments.clamp(3, 128)),
         Primitive::Cone { segments } => cone(segments.clamp(3, 128)),
-        Primitive::Torus { segments, tube_segments, tube_ratio } => torus(
+        Primitive::Torus {
+            segments,
+            tube_segments,
+            tube_ratio,
+        } => torus(
             segments.clamp(3, 128),
             tube_segments.clamp(3, 64),
             tube_ratio as f32 / 1000.0,
@@ -71,12 +75,12 @@ fn cube() -> Geometry {
     let mut g = Geometry::default();
 
     let faces: [([f32; 3], [f32; 3], [f32; 3]); 6] = [
-        ([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]),   // +Z
+        ([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]), // +Z
         ([0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]), // -Z
-        ([1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]),  // +X
-        ([-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]),  // -X
-        ([0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]),  // +Y
-        ([0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]),  // -Y
+        ([1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]), // +X
+        ([-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]), // -X
+        ([0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]), // +Y
+        ([0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]), // -Y
     ];
 
     for (normal, right, up) in faces {
@@ -315,11 +319,7 @@ fn custom(mesh: &MeshData) -> Geometry {
         let face = normalise(cross(sub(p[1], p[0]), sub(p[2], p[0])));
 
         for (slot, point) in tri.iter().zip(p.iter()) {
-            let normal = mesh
-                .normals
-                .get(*slot as usize)
-                .copied()
-                .unwrap_or(face);
+            let normal = mesh.normals.get(*slot as usize).copied().unwrap_or(face);
             let index = g.vertex(*point, normal);
             g.indices.push(index);
         }

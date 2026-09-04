@@ -165,11 +165,19 @@ render {
 "#;
     let script = build_ast(source).expect("should parse");
     assert_eq!(
-        script.blocks.iter().filter(|b| b.block_type == BlockType::OnInit).count(),
+        script
+            .blocks
+            .iter()
+            .filter(|b| b.block_type == BlockType::OnInit)
+            .count(),
         1
     );
     assert_eq!(
-        script.blocks.iter().filter(|b| b.block_type == BlockType::OnResize).count(),
+        script
+            .blocks
+            .iter()
+            .filter(|b| b.block_type == BlockType::OnResize)
+            .count(),
         1
     );
 }
@@ -203,11 +211,19 @@ render {
 "#;
     let script = build_ast(source).expect("should parse");
     assert_eq!(
-        script.blocks.iter().filter(|b| b.block_type == BlockType::OnInit).count(),
+        script
+            .blocks
+            .iter()
+            .filter(|b| b.block_type == BlockType::OnInit)
+            .count(),
         2
     );
     assert_eq!(
-        script.blocks.iter().filter(|b| b.block_type == BlockType::OnResize).count(),
+        script
+            .blocks
+            .iter()
+            .filter(|b| b.block_type == BlockType::OnResize)
+            .count(),
         2
     );
 }
@@ -263,7 +279,10 @@ fn on_resize_reads_the_runtime_and_writes_a_property() {
     let functions = model.functions.clone();
     let blocks = model.blocks.clone();
 
-    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnResize) {
+    for block in blocks
+        .iter()
+        .filter(|b| b.block_type == BlockType::OnResize)
+    {
         interpret_event_block(block, &mut model.decels, &runtime, &functions)
             .unwrap_or_else(|e| panic!("interpret failed: {e}"));
     }
@@ -292,7 +311,10 @@ render {
   }
 }
 "#;
-    assert!(build_ast(source).is_ok(), "audio system values should parse");
+    assert!(
+        build_ast(source).is_ok(),
+        "audio system values should parse"
+    );
 }
 
 #[test]
@@ -362,8 +384,9 @@ fn integer_division_produces_a_float() {
     let runtime = Runtime::new();
 
     let expr = {
-        let parsed = build_ast("prop x = 0.0\non_frame {\n  x = 1 / 2\n}\nrender {\n  draw::clear()\n}\n")
-            .expect("should parse");
+        let parsed =
+            build_ast("prop x = 0.0\non_frame {\n  x = 1 / 2\n}\nrender {\n  draw::clear()\n}\n")
+                .expect("should parse");
         match &parsed.blocks[0].statements[0] {
             visamp_2::model::Statement::Assignment(assignment) => assignment.expression.clone(),
             other => panic!("expected an assignment, got {other:?}"),
@@ -583,9 +606,8 @@ fn a_comment_between_range_parts_is_fine() {
 // ── integer division ────────────────────────────────────────────────────────
 
 fn eval_expr_prop(expr: &str) -> Value {
-    let source = format!(
-        "prop x = 0\non_frame {{\n  x = {expr}\n}}\nrender {{\n  draw::clear()\n}}\n"
-    );
+    let source =
+        format!("prop x = 0\non_frame {{\n  x = {expr}\n}}\nrender {{\n  draw::clear()\n}}\n");
     eval_prop(&source, "x")
 }
 
@@ -706,7 +728,10 @@ fn array_literals_still_work_as_iterables() {
 #[test]
 fn nested_array_arguments_still_parse() {
     let source = "render {\n  draw::polygon(points: [[0.0, 0.0], [10.0, 0.0], [5.0, 9.0]], color: $COLOR_RED)\n}\n";
-    assert!(build_ast(source).is_ok(), "polygon points should still parse");
+    assert!(
+        build_ast(source).is_ok(),
+        "polygon points should still parse"
+    );
 }
 
 #[test]
@@ -738,8 +763,14 @@ fn an_error_inside_a_loop_does_not_leak_its_scope() {
         .expect_err("should fail the same way every frame");
     assert_eq!(model.decels.depth(), depth, "scope leaked after frame 2");
 
-    assert!(first.contains("Undefined identifier: missing"), "unexpected: {first}");
-    assert_eq!(first, second, "the reported error changed on the second frame");
+    assert!(
+        first.contains("Undefined identifier: missing"),
+        "unexpected: {first}"
+    );
+    assert_eq!(
+        first, second,
+        "the reported error changed on the second frame"
+    );
 }
 
 #[test]
@@ -761,9 +792,13 @@ fn an_error_inside_an_if_does_not_leak_its_scope() {
 
     let depth = model.decels.depth();
     let first = interpret_event_block(&block, &mut model.decels, &runtime, &functions).unwrap_err();
-    let second = interpret_event_block(&block, &mut model.decels, &runtime, &functions).unwrap_err();
+    let second =
+        interpret_event_block(&block, &mut model.decels, &runtime, &functions).unwrap_err();
     assert_eq!(model.decels.depth(), depth, "scope leaked");
-    assert_eq!(first, second, "the reported error changed on the second frame");
+    assert_eq!(
+        first, second,
+        "the reported error changed on the second frame"
+    );
 }
 
 #[test]
@@ -774,7 +809,10 @@ fn a_broken_colour_argument_is_reported_rather_than_read_as_zero() {
     let err = expect_runtime_error(
         "on_frame {\n  let c = color::rgb(r: missing, g: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
     );
-    assert!(err.contains("Undefined identifier: missing"), "unexpected: {err}");
+    assert!(
+        err.contains("Undefined identifier: missing"),
+        "unexpected: {err}"
+    );
 }
 
 #[test]
@@ -789,7 +827,8 @@ fn an_omitted_colour_channel_still_defaults_to_zero() {
 fn properties_keep_their_declared_order() {
     // The scope is a HashMap, so without the recorded order the inspector
     // would shuffle the list between runs.
-    let source = "prop zoom = 0.5\nprop angle = 0.0\nprop label = \"hi\"\nrender {\n  draw::clear()\n}\n";
+    let source =
+        "prop zoom = 0.5\nprop angle = 0.0\nprop label = \"hi\"\nrender {\n  draw::clear()\n}\n";
     let script = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
     let model = visamp_2::model::Model::from_script(&script);
     assert_eq!(model.prop_names, vec!["zoom", "angle", "label"]);
@@ -832,7 +871,10 @@ fn long_arrays_are_summarised_rather_than_dumped() {
 
     let spectrum = Value::Array((0..1024).map(Value::Integer).collect());
     let shown = spectrum.display();
-    assert!(shown.starts_with("[0, 1, 2, 3, 4, 5, 6, 7, … 1024 items]"), "unexpected: {shown}");
+    assert!(
+        shown.starts_with("[0, 1, 2, 3, 4, 5, 6, 7, … 1024 items]"),
+        "unexpected: {shown}"
+    );
 }
 
 #[test]
@@ -881,14 +923,23 @@ fn logical_and_or_and_not() {
 fn and_binds_tighter_than_or() {
     // `false && false || true` must be `(false && false) || true`, not
     // `false && (false || true)`.
-    assert_eq!(eval_expr_prop("false && false || true"), Value::Boolean(true));
-    assert_eq!(eval_expr_prop("true || true && false"), Value::Boolean(true));
+    assert_eq!(
+        eval_expr_prop("false && false || true"),
+        Value::Boolean(true)
+    );
+    assert_eq!(
+        eval_expr_prop("true || true && false"),
+        Value::Boolean(true)
+    );
 }
 
 #[test]
 fn comparisons_bind_tighter_than_logical_operators() {
     assert_eq!(eval_expr_prop("1 < 2 && 3 > 2"), Value::Boolean(true));
-    assert_eq!(eval_expr_prop("1 + 1 == 2 && 2 * 2 == 4"), Value::Boolean(true));
+    assert_eq!(
+        eval_expr_prop("1 + 1 == 2 && 2 * 2 == 4"),
+        Value::Boolean(true)
+    );
 }
 
 #[test]
@@ -902,7 +953,8 @@ fn and_stops_before_evaluating_the_right_side() {
 #[test]
 fn or_stops_before_evaluating_the_right_side() {
     // `missing` is undeclared, so reaching it at all would be an error.
-    let source = "prop ok = false\non_frame {\n  ok = true || missing\n}\nrender {\n  draw::clear()\n}\n";
+    let source =
+        "prop ok = false\non_frame {\n  ok = true || missing\n}\nrender {\n  draw::clear()\n}\n";
     assert_eq!(eval_prop(source, "ok"), Value::Boolean(true));
 }
 
@@ -935,7 +987,10 @@ fn bitwise_precedence_runs_and_then_xor_then_or() {
 fn bitwise_binds_tighter_than_logical() {
     // `1 & 1 == 1` groups as `1 & (1 == 1)` under C precedence, which is a type
     // error — the useful check is that `&&` is looser than `&`.
-    assert_eq!(eval_expr_prop("(6 & 2) > 0 && (6 & 1) == 0"), Value::Boolean(true));
+    assert_eq!(
+        eval_expr_prop("(6 & 2) > 0 && (6 & 1) == 0"),
+        Value::Boolean(true)
+    );
 }
 
 #[test]
@@ -987,7 +1042,8 @@ fn increment_and_decrement() {
 
 #[test]
 fn increment_accepts_either_spelling() {
-    let source = "prop a = 0\nprop b = 0\non_frame {\n  ++a\n  --b\n}\nrender {\n  draw::clear()\n}\n";
+    let source =
+        "prop a = 0\nprop b = 0\non_frame {\n  ++a\n  --b\n}\nrender {\n  draw::clear()\n}\n";
     assert_eq!(eval_prop(source, "a"), Value::Integer(1));
     assert_eq!(eval_prop(source, "b"), Value::Integer(-1));
 }
@@ -1061,12 +1117,15 @@ fn three_d_calls_are_rejected_in_two_d_mode() {
 /// §11.10 — a promoted argument used without the mode that grants it.
 #[test]
 fn promoted_arguments_are_rejected_in_two_d_mode() {
-    for arg in ["z: 1.0", "rot_x: 90.0", "rot_y: 90.0", "shading: \"lambert\"", "opacity: 0.5"] {
+    for arg in [
+        "z: 1.0",
+        "rot_x: 90.0",
+        "rot_y: 90.0",
+        "shading: \"lambert\"",
+        "opacity: 0.5",
+    ] {
         let err = resolve_err(&format!("render {{\n  draw::rect(x: 0.0, {arg})\n}}\n"));
-        assert!(
-            err.contains("requires `context 3d`"),
-            "for {arg}: {err}"
-        );
+        assert!(err.contains("requires `context 3d`"), "for {arg}: {err}");
     }
 }
 
@@ -1076,18 +1135,30 @@ fn an_angle_given_in_both_units_is_rejected() {
     let err = resolve_err("context 3d\nrender {\n  transform::rotate_y(deg: 1.0, rad: 1.0)\n}\n");
     assert!(err.contains("specify deg or rad, not both"), "{err}");
 
-    let err = resolve_err("context 3d\nrender {\n  camera::perspective(fov_deg: 60.0, fov_rad: 1.0)\n}\n");
-    assert!(err.contains("specify fov_deg or fov_rad, not both"), "{err}");
+    let err = resolve_err(
+        "context 3d\nrender {\n  camera::perspective(fov_deg: 60.0, fov_rad: 1.0)\n}\n",
+    );
+    assert!(
+        err.contains("specify fov_deg or fov_rad, not both"),
+        "{err}"
+    );
 
-    let err = resolve_err("context 3d\nrender {\n  camera::orbit(yaw_deg: 60.0, yaw_rad: 1.0)\n}\n");
-    assert!(err.contains("specify yaw_deg or yaw_rad, not both"), "{err}");
+    let err =
+        resolve_err("context 3d\nrender {\n  camera::orbit(yaw_deg: 60.0, yaw_rad: 1.0)\n}\n");
+    assert!(
+        err.contains("specify yaw_deg or yaw_rad, not both"),
+        "{err}"
+    );
 }
 
 /// §11.12 — an argument that does not exist on the primitive.
 #[test]
 fn an_unknown_argument_is_rejected_and_suggests_a_near_match() {
     let err = resolve_err("context 3d\nrender {\n  draw::cube(radius: 1.0)\n}\n");
-    assert!(err.contains("draw::cube: unknown argument 'radius'"), "{err}");
+    assert!(
+        err.contains("draw::cube: unknown argument 'radius'"),
+        "{err}"
+    );
 
     // Close enough to be worth a suggestion.
     let err = resolve_err("context 3d\nrender {\n  draw::sphere(radus: 1.0)\n}\n");
@@ -1118,7 +1189,10 @@ fn a_missing_required_argument_is_rejected() {
 
     // A call with no arguments at all still has to be located somewhere.
     let err = resolve_err("context 3d\nrender {\n  draw::mesh()\n}\n");
-    assert!(err.contains("missing required argument 'vertices'"), "{err}");
+    assert!(
+        err.contains("missing required argument 'vertices'"),
+        "{err}"
+    );
     assert!(err.contains("--> 3:3"), "should point at the call: {err}");
 }
 
@@ -1160,9 +1234,15 @@ fn a_conditional_overlay_is_not_guessed_at() {
 fn every_three_d_primitive_parses_with_no_arguments() {
     // §11.2 — each must be legal bare; whether it *renders* is the runtime's
     // job, but nothing here may require an argument except draw::mesh.
-    for name in ["cube", "sphere", "plane", "cylinder", "cone", "torus", "sprite"] {
+    for name in [
+        "cube", "sphere", "plane", "cylinder", "cone", "torus", "sprite",
+    ] {
         let source = format!("context 3d\nrender {{\n  draw::{name}()\n}}\n");
-        assert!(build_ast(&source).is_ok(), "draw::{name}: {}", resolve_err(&source));
+        assert!(
+            build_ast(&source).is_ok(),
+            "draw::{name}: {}",
+            resolve_err(&source)
+        );
     }
 }
 
@@ -1199,7 +1279,11 @@ fn the_full_builtin_surface_resolves() {
 
     for call in calls {
         let source = format!("context 3d\nrender {{\n  {call}\n}}\n");
-        assert!(build_ast(&source).is_ok(), "{call}: {}", resolve_err(&source));
+        assert!(
+            build_ast(&source).is_ok(),
+            "{call}: {}",
+            resolve_err(&source)
+        );
     }
 }
 
@@ -1293,14 +1377,17 @@ fn transparency_keeps_its_whole_word() {
 /// darker than intended with nothing said about it.
 #[test]
 fn a_misspelled_colour_argument_is_reported() {
-    let err = build_ast("render {\n  draw::clear()\n  draw::background(color: color::rgb(red: 1.0))\n}\n")
-        .unwrap_err();
+    let err = build_ast(
+        "render {\n  draw::clear()\n  draw::background(color: color::rgb(red: 1.0))\n}\n",
+    )
+    .unwrap_err();
     assert!(
         err.contains("color::rgb: unknown argument 'red'") && err.contains("it is 'r' now"),
         "{err}"
     );
 
-    let err = build_ast("render {\n  draw::background(color: color::hsl(hue: 1.0))\n}\n").unwrap_err();
+    let err =
+        build_ast("render {\n  draw::background(color: color::hsl(hue: 1.0))\n}\n").unwrap_err();
     assert!(err.contains("color::hsl: unknown argument 'hue'"), "{err}");
 }
 
@@ -1323,7 +1410,8 @@ fn eval_gradient_let(source: &str) -> Value {
     let mut decels = Declarations::new();
     decels.push_scope();
     let runtime = Runtime::new();
-    evaluate_expression(&expr, &decels, &runtime, &[]).unwrap_or_else(|e| panic!("interpret failed: {e}"))
+    evaluate_expression(&expr, &decels, &runtime, &[])
+        .unwrap_or_else(|e| panic!("interpret failed: {e}"))
 }
 
 #[test]
@@ -1356,7 +1444,10 @@ fn linear_gradient_evaluates_its_axis_and_stops() {
     let Value::Gradient(gradient) = value else {
         panic!("expected a gradient, got {value:?}");
     };
-    assert_eq!((gradient.x0, gradient.y0, gradient.x1, gradient.y1), (1.0, 2.0, 3.0, 4.0));
+    assert_eq!(
+        (gradient.x0, gradient.y0, gradient.x1, gradient.y1),
+        (1.0, 2.0, 3.0, 4.0)
+    );
     assert_eq!(gradient.stops.len(), 2);
     assert_eq!(gradient.stops[0].offset, 0.0);
     assert_eq!(gradient.stops[0].color, Color::new(1.0, 0.0, 0.0, 1.0));
@@ -1369,13 +1460,17 @@ fn linear_gradient_evaluates_its_axis_and_stops() {
 /// with no stops rather than a compile error.
 #[test]
 fn linear_gradient_arguments_are_all_optional() {
-    let source = "on_frame {\n  let g = color::linear_gradient()\n}\nrender {\n  draw::clear()\n}\n";
+    let source =
+        "on_frame {\n  let g = color::linear_gradient()\n}\nrender {\n  draw::clear()\n}\n";
     let value = eval_gradient_let(source);
 
     let Value::Gradient(gradient) = value else {
         panic!("expected a gradient, got {value:?}");
     };
-    assert_eq!((gradient.x0, gradient.y0, gradient.x1, gradient.y1), (0.0, 0.0, 0.0, 0.0));
+    assert_eq!(
+        (gradient.x0, gradient.y0, gradient.x1, gradient.y1),
+        (0.0, 0.0, 0.0, 0.0)
+    );
     assert!(gradient.stops.is_empty());
 }
 
@@ -1404,16 +1499,22 @@ fn a_malformed_gradient_stop_is_dropped() {
     let Value::Gradient(gradient) = value else {
         panic!("expected a gradient, got {value:?}");
     };
-    assert_eq!(gradient.stops.len(), 1, "only the well-formed stop should survive");
+    assert_eq!(
+        gradient.stops.len(),
+        1,
+        "only the well-formed stop should survive"
+    );
 }
 
 #[test]
 fn a_misspelled_gradient_argument_is_reported() {
-    let err = build_ast(
-        "render {\n  draw::background(gradient: color::linear_gradient(xx: 1.0))\n}\n",
-    )
-    .unwrap_err();
-    assert!(err.contains("color::linear_gradient: unknown argument 'xx'"), "{err}");
+    let err =
+        build_ast("render {\n  draw::background(gradient: color::linear_gradient(xx: 1.0))\n}\n")
+            .unwrap_err();
+    assert!(
+        err.contains("color::linear_gradient: unknown argument 'xx'"),
+        "{err}"
+    );
 }
 
 /// `gradient` rides alongside `color` on every primitive that can be filled —
@@ -1462,10 +1563,13 @@ render {
 /// Same trap, same fix: `math::sin(radian: x)` silently returned sin(0).
 #[test]
 fn a_misspelled_maths_argument_is_reported() {
-    let err = build_ast("prop a = 0.0\non_frame {\n  a = math::sin(radian: 1.0)\n}\nrender {\n  draw::clear()\n}\n")
-        .unwrap_err();
+    let err = build_ast(
+        "prop a = 0.0\non_frame {\n  a = math::sin(radian: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
+    )
+    .unwrap_err();
     assert!(
-        err.contains("math::sin: unknown argument 'radian'") && err.contains("did you mean 'radians'?"),
+        err.contains("math::sin: unknown argument 'radian'")
+            && err.contains("did you mean 'radians'?"),
         "{err}"
     );
 }
@@ -1479,8 +1583,14 @@ fn correct_maths_arguments_still_resolve() {
         "math::clamp(value: 5.0, min: 0.0, max: 1.0)",
         "math::min(a: 1.0, b: 2.0)",
     ] {
-        let source = format!("prop a = 0.0\non_frame {{\n  a = {call}\n}}\nrender {{\n  draw::clear()\n}}\n");
-        assert!(build_ast(&source).is_ok(), "{call}: {:?}", build_ast(&source).err());
+        let source = format!(
+            "prop a = 0.0\non_frame {{\n  a = {call}\n}}\nrender {{\n  draw::clear()\n}}\n"
+        );
+        assert!(
+            build_ast(&source).is_ok(),
+            "{call}: {:?}",
+            build_ast(&source).err()
+        );
     }
 }
 
@@ -1526,7 +1636,10 @@ fn a_builtin_call_is_still_matched_before_a_user_call() {
     let script = build_ast(source).unwrap();
     let block = &script.blocks[0];
     assert!(
-        matches!(block.statements[0], visamp_2::model::Statement::FunctionCall(_)),
+        matches!(
+            block.statements[0],
+            visamp_2::model::Statement::FunctionCall(_)
+        ),
         "expected a builtin call, got {:?}",
         block.statements[0]
     );
@@ -1534,9 +1647,7 @@ fn a_builtin_call_is_still_matched_before_a_user_call() {
 
 #[test]
 fn calling_an_undefined_function_is_an_error() {
-    let err = expect_runtime_error(
-        "on_frame {\n  nope(a: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
-    );
+    let err = expect_runtime_error("on_frame {\n  nope(a: 1.0)\n}\nrender {\n  draw::clear()\n}\n");
     assert!(err.contains("Undefined function: nope"), "{err}");
 }
 
@@ -1567,10 +1678,12 @@ fn eval_prop_with_audio(source: &str, prop: &str) -> Value {
 fn an_audio_array_can_be_indexed() {
     // The buffer is handed to the script by reference rather than expanded into
     // a thousand boxed integers, so this must still read the right byte.
-    let source = "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[7]\n}\nrender {\n  draw::clear()\n}\n";
+    let source =
+        "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[7]\n}\nrender {\n  draw::clear()\n}\n";
     assert_eq!(eval_prop_with_audio(source, "v"), Value::Integer(7));
 
-    let source = "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[300]\n}\nrender {\n  draw::clear()\n}\n";
+    let source =
+        "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[300]\n}\nrender {\n  draw::clear()\n}\n";
     assert_eq!(eval_prop_with_audio(source, "v"), Value::Integer(44));
 }
 
@@ -1579,10 +1692,13 @@ fn reading_past_an_audio_array_gives_zero() {
     // Deliberate: the buffers are empty whenever nothing is playing, and an
     // error would break every audio-reactive script the moment it fell silent.
     for expr in ["$FREQUENCY_DATA[99999]", "$FREQUENCY_DATA[-1]"] {
-        let source = format!(
-            "prop v = 1\non_frame {{\n  v = {expr}\n}}\nrender {{\n  draw::clear()\n}}\n"
+        let source =
+            format!("prop v = 1\non_frame {{\n  v = {expr}\n}}\nrender {{\n  draw::clear()\n}}\n");
+        assert_eq!(
+            eval_prop_with_audio(&source, "v"),
+            Value::Integer(0),
+            "{expr}"
         );
-        assert_eq!(eval_prop_with_audio(&source, "v"), Value::Integer(0), "{expr}");
     }
 }
 
@@ -1590,7 +1706,10 @@ fn reading_past_an_audio_array_gives_zero() {
 fn an_audio_array_can_be_iterated() {
     let source = "prop total = 0\non_frame {\n  total = 0\n  for v in $TIME_DOMAIN_DATA {\n    total = total + v\n  }\n}\nrender {\n  draw::clear()\n}\n";
     // 2048 samples of 128.
-    assert_eq!(eval_prop_with_audio(source, "total"), Value::Integer(2048 * 128));
+    assert_eq!(
+        eval_prop_with_audio(source, "total"),
+        Value::Integer(2048 * 128)
+    );
 }
 
 #[test]
@@ -1601,7 +1720,8 @@ fn an_empty_audio_array_iterates_zero_times() {
 
 #[test]
 fn a_fractional_index_into_an_audio_array_is_still_rejected() {
-    let source = "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[1.5]\n}\nrender {\n  draw::clear()\n}\n";
+    let source =
+        "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[1.5]\n}\nrender {\n  draw::clear()\n}\n";
     let err = expect_runtime_error(source);
     assert!(err.contains("whole number"), "{err}");
 }
@@ -1613,6 +1733,60 @@ fn an_audio_array_reports_itself_as_an_array() {
     assert_eq!(bytes.type_tag(), "array");
     assert_eq!(bytes.display(), "[1, 2, 3]");
 
-    let long = V::Bytes(std::rc::Rc::new((0..1024).map(|i| (i % 256) as u8).collect()));
-    assert!(long.display().ends_with("… 1024 items]"), "{}", long.display());
+    let long = V::Bytes(std::rc::Rc::new(
+        (0..1024).map(|i| (i % 256) as u8).collect(),
+    ));
+    assert!(
+        long.display().ends_with("… 1024 items]"),
+        "{}",
+        long.display()
+    );
+}
+
+// ── effect::filter ────────────────────────────────────────────────────────
+
+#[test]
+fn canvas_filter_calls_parse_and_resolve() {
+    let calls = [
+        "effect::filter::blur(radius: 4.0)",
+        "effect::filter::brightness(amount: 1.2)",
+        "effect::filter::contrast(amount: 0.8)",
+        "effect::filter::grayscale(amount: 1.0)",
+        "effect::filter::hue_rotate(deg: 90.0)",
+        "effect::filter::hue_rotate(rad: 1.57)",
+        "effect::filter::invert(amount: 0.5)",
+        "effect::filter::opacity(amount: 0.75)",
+        "effect::filter::saturate(amount: 1.5)",
+        "effect::filter::sepia(amount: 1.0)",
+    ];
+
+    for call in calls {
+        let source = format!("render {{\n  {call}\n  draw::clear()\n}}\n");
+        let script = build_ast(&source).unwrap_or_else(|error| panic!("{call}: {error}"));
+        let visamp_2::model::Statement::FunctionCall(parsed) = &script.blocks[0].statements[0]
+        else {
+            panic!("{call} was not parsed as a builtin call");
+        };
+        assert_eq!(parsed.namespace, "effect::filter");
+    }
+}
+
+#[test]
+fn canvas_filter_arguments_are_checked() {
+    let error =
+        build_ast("render {\n  effect::filter::brightness(value: 1.2)\n  draw::clear()\n}\n")
+            .unwrap_err();
+    assert!(error.contains("unknown argument 'value'"), "{error}");
+
+    let error = build_ast(
+        "render {\n  effect::filter::hue_rotate(deg: 90.0, rad: 1.57)\n  draw::clear()\n}\n",
+    )
+    .unwrap_err();
+    assert!(error.contains("specify deg or rad, not both"), "{error}");
+}
+
+#[test]
+fn canvas_filters_are_available_in_three_d() {
+    build_ast("context 3d\nrender {\n  effect::filter::blur(radius: 4.0)\n  draw::cube()\n}\n")
+        .expect("CSS filters should be valid for a WebGL-backed canvas");
 }

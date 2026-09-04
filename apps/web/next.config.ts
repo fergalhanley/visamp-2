@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
   // @visamp/player ships TypeScript source; Next compiles it in-place.
   transpilePackages: ["@visamp/player"],
 
+  outputFileTracingIncludes: {
+    "/api/ai/generate": [
+      "../../packages/engine/visamp_dsl.pest",
+      "../docs/src/examples/basic.md",
+      "../docs/src/examples/animation.md",
+      "../docs/src/programming/system-values.md",
+      "../docs/src/effects/filters.md",
+    ],
+  },
+
   turbopack: {
     rules: {
       // DSL scripts are kept as `.vdsl` so they read as source rather than as a

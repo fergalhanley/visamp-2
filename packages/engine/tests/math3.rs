@@ -10,7 +10,10 @@ fn point_close(a: Vec3, b: Vec3) -> bool {
 
 #[test]
 fn identity_leaves_a_point_alone() {
-    assert!(point_close(Mat4::IDENTITY.transform_point([1.0, 2.0, 3.0]), [1.0, 2.0, 3.0]));
+    assert!(point_close(
+        Mat4::IDENTITY.transform_point([1.0, 2.0, 3.0]),
+        [1.0, 2.0, 3.0]
+    ));
 }
 
 #[test]
@@ -18,32 +21,50 @@ fn multiplication_applies_the_right_hand_side_first() {
     // `translate * scale` must scale then move, which is what `parent * child`
     // means when walking a transform stack.
     let m = Mat4::translation(10.0, 0.0, 0.0).mul(&Mat4::scaling(2.0, 2.0, 2.0));
-    assert!(point_close(m.transform_point([1.0, 0.0, 0.0]), [12.0, 0.0, 0.0]));
+    assert!(point_close(
+        m.transform_point([1.0, 0.0, 0.0]),
+        [12.0, 0.0, 0.0]
+    ));
 
     // The other order moves then scales, and the two must differ.
     let n = Mat4::scaling(2.0, 2.0, 2.0).mul(&Mat4::translation(10.0, 0.0, 0.0));
-    assert!(point_close(n.transform_point([1.0, 0.0, 0.0]), [22.0, 0.0, 0.0]));
+    assert!(point_close(
+        n.transform_point([1.0, 0.0, 0.0]),
+        [22.0, 0.0, 0.0]
+    ));
 }
 
 #[test]
 fn rotations_turn_the_right_way() {
     // Right-handed, +Y up: a quarter turn about Y sends +X to -Z.
     let m = Mat4::rotation_y(std::f32::consts::FRAC_PI_2);
-    assert!(point_close(m.transform_point([1.0, 0.0, 0.0]), [0.0, 0.0, -1.0]));
+    assert!(point_close(
+        m.transform_point([1.0, 0.0, 0.0]),
+        [0.0, 0.0, -1.0]
+    ));
 
     // About X, +Y goes to +Z.
     let m = Mat4::rotation_x(std::f32::consts::FRAC_PI_2);
-    assert!(point_close(m.transform_point([0.0, 1.0, 0.0]), [0.0, 0.0, 1.0]));
+    assert!(point_close(
+        m.transform_point([0.0, 1.0, 0.0]),
+        [0.0, 0.0, 1.0]
+    ));
 
     // About Z, +X goes to +Y.
     let m = Mat4::rotation_z(std::f32::consts::FRAC_PI_2);
-    assert!(point_close(m.transform_point([1.0, 0.0, 0.0]), [0.0, 1.0, 0.0]));
+    assert!(point_close(
+        m.transform_point([1.0, 0.0, 0.0]),
+        [0.0, 1.0, 0.0]
+    ));
 }
 
 #[test]
 fn a_full_turn_returns_where_it_started() {
     let m = Mat4::rotation_y(std::f32::consts::TAU);
-    assert!(point_close(m.transform_point([1.0, 2.0, 3.0]), [1.0, 2.0, 3.0]));
+    assert!(point_close(
+        m.transform_point([1.0, 2.0, 3.0]),
+        [1.0, 2.0, 3.0]
+    ));
 }
 
 #[test]
@@ -51,7 +72,10 @@ fn the_default_camera_puts_the_origin_in_front_of_it() {
     // Position (0,0,10) looking at the origin: the origin should land 10 units
     // down -Z in view space, which is what "in front" means here.
     let view = Mat4::look_at([0.0, 0.0, 10.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-    assert!(point_close(view.transform_point([0.0, 0.0, 0.0]), [0.0, 0.0, -10.0]));
+    assert!(point_close(
+        view.transform_point([0.0, 0.0, 0.0]),
+        [0.0, 0.0, -10.0]
+    ));
 }
 
 #[test]
@@ -144,6 +168,12 @@ fn a_singular_model_matrix_does_not_produce_nan() {
 
 #[test]
 fn normalising_a_zero_vector_falls_back() {
-    assert_eq!(normalise_or([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]), [0.0, 1.0, 0.0]);
-    assert!(point_close(normalise_or([0.0, 5.0, 0.0], [1.0, 0.0, 0.0]), [0.0, 1.0, 0.0]));
+    assert_eq!(
+        normalise_or([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
+        [0.0, 1.0, 0.0]
+    );
+    assert!(point_close(
+        normalise_or([0.0, 5.0, 0.0], [1.0, 0.0, 0.0]),
+        [0.0, 1.0, 0.0]
+    ));
 }

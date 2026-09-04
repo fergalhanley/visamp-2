@@ -3,11 +3,17 @@ use visamp_2::scene::{MeshData, Primitive};
 
 /// Every vertex position, as triples.
 fn positions(g: &Geometry) -> Vec<[f32; 3]> {
-    g.vertices.chunks_exact(6).map(|v| [v[0], v[1], v[2]]).collect()
+    g.vertices
+        .chunks_exact(6)
+        .map(|v| [v[0], v[1], v[2]])
+        .collect()
 }
 
 fn normals(g: &Geometry) -> Vec<[f32; 3]> {
-    g.vertices.chunks_exact(6).map(|v| [v[3], v[4], v[5]]).collect()
+    g.vertices
+        .chunks_exact(6)
+        .map(|v| [v[3], v[4], v[5]])
+        .collect()
 }
 
 fn extent(g: &Geometry) -> ([f32; 3], [f32; 3]) {
@@ -28,7 +34,11 @@ const ALL: &[Primitive] = &[
     Primitive::Plane { subdivisions: 4 },
     Primitive::Cylinder { segments: 16 },
     Primitive::Cone { segments: 16 },
-    Primitive::Torus { segments: 16, tube_segments: 8, tube_ratio: 300 },
+    Primitive::Torus {
+        segments: 16,
+        tube_segments: 8,
+        tube_ratio: 300,
+    },
     Primitive::Sprite,
 ];
 
@@ -45,8 +55,22 @@ fn every_primitive_produces_geometry() {
 fn a_torus_tube_is_sized_relative_to_its_ring() {
     // The tube cannot be a scale — one matrix cannot thicken the tube without
     // also widening the ring — so it belongs to the mesh.
-    let thin = extent(&build(Primitive::Torus { segments: 16, tube_segments: 8, tube_ratio: 100 }, &[]));
-    let fat = extent(&build(Primitive::Torus { segments: 16, tube_segments: 8, tube_ratio: 600 }, &[]));
+    let thin = extent(&build(
+        Primitive::Torus {
+            segments: 16,
+            tube_segments: 8,
+            tube_ratio: 100,
+        },
+        &[],
+    ));
+    let fat = extent(&build(
+        Primitive::Torus {
+            segments: 16,
+            tube_segments: 8,
+            tube_ratio: 600,
+        },
+        &[],
+    ));
 
     // Ring radius is fixed at 0.5; the tube adds to the outer extent.
     assert!((thin.1[0] - 0.55).abs() < 1e-3, "{thin:?}");
@@ -102,7 +126,10 @@ fn all_normals_are_unit_length() {
     for primitive in ALL {
         for n in normals(&build(*primitive, &[])) {
             let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
-            assert!((len - 1.0).abs() < 1e-3, "{primitive:?}: {n:?} has length {len}");
+            assert!(
+                (len - 1.0).abs() < 1e-3,
+                "{primitive:?}: {n:?} has length {len}"
+            );
         }
     }
 }
@@ -130,7 +157,11 @@ fn a_cube_has_six_flat_faces() {
             distinct.push(n);
         }
     }
-    assert_eq!(distinct.len(), 6, "expected one normal per face: {distinct:?}");
+    assert_eq!(
+        distinct.len(),
+        6,
+        "expected one normal per face: {distinct:?}"
+    );
 }
 
 #[test]
@@ -170,7 +201,11 @@ fn a_degenerate_resolution_is_clamped_rather_than_producing_nothing() {
         Primitive::Plane { subdivisions: 0 },
         Primitive::Cylinder { segments: 0 },
         Primitive::Cone { segments: 1 },
-        Primitive::Torus { segments: 0, tube_segments: 0, tube_ratio: 300 },
+        Primitive::Torus {
+            segments: 0,
+            tube_segments: 0,
+            tube_ratio: 300,
+        },
     ] {
         let g = build(primitive, &[]);
         assert!(g.triangle_count() > 0, "{primitive:?} produced nothing");
@@ -206,11 +241,19 @@ fn a_script_supplied_mesh_is_used_as_given() {
 #[test]
 fn a_mesh_with_indices_expands_them() {
     let mesh = MeshData {
-        vertices: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]],
+        vertices: vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0],
+        ],
         indices: vec![0, 1, 2, 1, 3, 2],
         ..MeshData::default()
     };
-    assert_eq!(build(Primitive::Mesh { id: 0 }, &[mesh]).triangle_count(), 2);
+    assert_eq!(
+        build(Primitive::Mesh { id: 0 }, &[mesh]).triangle_count(),
+        2
+    );
 }
 
 #[test]

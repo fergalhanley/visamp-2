@@ -224,6 +224,35 @@ export function VisampCanvas({
     return () => window.clearInterval(id);
   }, [active]);
 
+  // Apply effects once to the completed canvas in the browser compositor.
+  // Doing this in the player avoids filtering every 2D primitive and works
+  // equally for canvases backed by WebGL.
+  useEffect(() => {
+    if (!active || !ready) return;
+
+    let animationFrame = 0;
+    let previous = "";
+    let previousCanvas: HTMLCanvasElement | null = null;
+    const syncFilter = () => {
+      const engine = engineRef.current;
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        `#${HOST_ID} > canvas`,
+      );
+      if (engine && canvas) {
+        const filter = engine.get_canvas_filter();
+        if (filter !== previous || canvas !== previousCanvas) {
+          canvas.style.filter = filter || "none";
+          previous = filter;
+          previousCanvas = canvas;
+        }
+      }
+      animationFrame = window.requestAnimationFrame(syncFilter);
+    };
+
+    animationFrame = window.requestAnimationFrame(syncFilter);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [active, ready]);
+
   // Runs only while there is something to listen to, so a silent session
   // costs no per-frame work.
   useEffect(() => {

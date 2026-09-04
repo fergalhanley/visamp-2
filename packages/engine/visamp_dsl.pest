@@ -93,7 +93,11 @@ prop_def = { "prop" ~ identifier ~ "=" ~ value }
 
 function_params = { "(" ~ (argument ~ ("," ~ argument)* ~ ","?)? ~ ")" }
 
-function_call = { identifier ~ "::" ~ identifier ~ function_params }
+// One or more namespace segments followed by the function name. Existing
+// `draw::circle` calls have one namespace segment; libraries can nest, as in
+// `effect::filter::blur`.
+function_call = { function_path ~ function_params }
+function_path = { identifier ~ ("::" ~ identifier)+ }
 
 ////////////////////////////////////
 // Expression grammar starts here //

@@ -132,6 +132,7 @@ function toCodeMirrorDiagnostics(
 
 export interface CodeEditorHandle {
   goToLine: (line: number) => void;
+  replaceDocument: (source: string) => void;
 }
 
 interface CodeEditorProps {
@@ -202,6 +203,15 @@ export function CodeEditor({
           view.dispatch({
             selection: { anchor: from },
             scrollIntoView: true,
+          });
+          view.focus();
+        },
+        replaceDocument(source: string) {
+          view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: source },
+            selection: { anchor: 0 },
+            scrollIntoView: true,
+            userEvent: "input.ai",
           });
           view.focus();
         },

@@ -34,3 +34,23 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## AI editor generation
+
+The edit page includes an AI prompt composer above CodeMirror. Generation is
+server-side and requires:
+
+```dotenv
+ANTHROPIC_API_KEY=...
+ANTHROPIC_WORKSPACE_ID=... # required for identity-linked API keys
+AI_STANDARD_MODEL=...
+AI_VALIDATOR_URL=http://validator:4318
+```
+
+Optional controls are `ANTHROPIC_BASE_URL`, `AI_ATTEMPT_BUDGET` (default `3`),
+`AI_MAX_OUTPUT_TOKENS` (default `8192`), `AI_MODEL_TIMEOUT_MS` (default
+`60000`), and `AI_VALIDATOR_TIMEOUT_MS` (default `20000`). Model identifiers
+remain configuration rather than UI-visible constants.
+
+`AI_VALIDATOR_URL` must point to the private render-validator service. It must
+not be exposed to browsers or the public internet.
