@@ -1,5 +1,5 @@
 import { callModel, extractScript, validateRender } from "@/lib/ai/server";
-import type { GenerationEvent } from "@/lib/ai/types";
+import { isAiModelKey, type GenerationEvent } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ function line(event: GenerationEvent) {
 }
 
 export async function POST(request: Request) {
-  let input: { prompt?: unknown; source?: unknown; visId?: unknown };
+  let input: { prompt?: unknown; source?: unknown; visId?: unknown; model?: unknown };
   try {
     input = (await request.json()) as typeof input;
   } catch {
@@ -21,13 +21,15 @@ export async function POST(request: Request) {
     input.prompt.length > 4000 ||
     typeof input.source !== "string" ||
     input.source.length > 200_000 ||
-    typeof input.visId !== "string"
+    typeof input.visId !== "string" ||
+    !isAiModelKey(input.model)
   ) {
     return Response.json({ error: "Invalid generation request" }, { status: 400 });
   }
   const prompt = input.prompt;
   const source = input.source;
   const visId = input.visId;
+  const model = input.model;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
           : 3;
         for (let attempt = 1; attempt <= attempts; attempt += 1) {
           emit({ type: "status", message: attempt === 1 ? "Generating…" : `Retrying… (attempt ${attempt})` });
-          const raw = await callModel(messages);
+          const raw = await callModel(model, messages);
           closest = extractScript(raw);
           emit({ type: "status", message: `Generated attempt ${attempt}. Checking render…` });
           const validation = await validateRender(closest);

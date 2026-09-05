@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { useFullscreen } from "@/hooks/use-fullscreen";
-import type { GenerationEvent } from "@/lib/ai/types";
+import type { AiModelKey, GenerationEvent } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -199,7 +199,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   }, []);
 
   const generate = useCallback(
-    async (prompt: string) => {
+    async (prompt: string, model: AiModelKey) => {
       if (!visualisation || generating) return;
       setGenerating(true);
       setLogCollapsed(false);
@@ -209,7 +209,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         const response = await fetch("/api/ai/generate", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ prompt, source, visId: visualisation.id }),
+          body: JSON.stringify({ prompt, source, visId: visualisation.id, model }),
         });
         if (!response.ok || !response.body) {
           const payload = (await response.json().catch(() => null)) as { error?: string } | null;

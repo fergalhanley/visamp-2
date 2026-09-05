@@ -431,9 +431,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     try {
       if (track.source === "soundcloud" && track.soundcloudId) {
-        // The signed CDN URL is fetched per play rather than up front: they
-        // expire after roughly two hours, and a long queue would go stale.
-        const response = await fetch(`/api/soundcloud/stream/${track.soundcloudId}`);
+        // Signed CDN URLs can expire within minutes, so resolve one afresh for
+        // every playback and bypass the browser's HTTP cache.
+        const response = await fetch(`/api/soundcloud/stream/${track.soundcloudId}`, {
+          cache: "no-store",
+        });
         const data = (await response.json()) as { url?: string; error?: string };
 
         if (!response.ok || !data.url) {

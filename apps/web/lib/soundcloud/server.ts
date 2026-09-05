@@ -6,31 +6,43 @@ import "server-only";
  * The client secret never leaves the server. Browsers are handed pre-signed CDN
  * URLs instead of tokens — see `resolveStreamUrl`.
  *
- * Only the client-credentials flow is used, which covers public playlists. A
- * user-level Authorization Code flow (and the registered redirect URI) would
- * only be needed for private playlists or a listener's own likes.
+ * Client credentials are used for the initial token, which covers public
+ * playlists. The returned refresh token is then rotated as access tokens
+ * expire. A user-level Authorization Code flow would only be needed for
+ * private playlists or a listener's own likes.
  */
 
 const TOKEN_ENDPOINT = "https://secure.soundcloud.com/oauth/token";
 const API = "https://api.soundcloud.com";
 
 interface CachedToken {
-  value: string;
+  accessToken: string;
+  refreshToken: string;
   /** Epoch ms. */
   expiresAt: number;
+}
+
+interface TokenState {
+  cached: CachedToken | null;
+  /** Collapses concurrent token exchanges into a single request. */
+  inFlight: Promise<string> | null;
 }
 
 /**
  * Tokens are rate limited to 50 per 12 hours per app, so one must be reused
  * across requests rather than minted per call.
  *
- * Module scope means one token per server instance. That is fine for a single
- * long-lived process, but a serverless deployment that cold-starts often could
- * still approach the cap — move this to a shared cache before it matters.
+ * Keeping this on globalThis preserves it across Next.js module replacement in
+ * local development. Separate processes still need a shared secure cache if
+ * this app is deployed with enough cold starts to approach SoundCloud's cap.
  */
-let cachedToken: CachedToken | null = null;
-/** Collapses concurrent misses into a single token request. */
-let inFlight: Promise<string> | null = null;
+const soundCloudGlobal = globalThis as typeof globalThis & {
+  __visampSoundCloudTokenState?: TokenState;
+};
+const tokenState = (soundCloudGlobal.__visampSoundCloudTokenState ??= {
+  cached: null,
+  inFlight: null,
+});
 
 function credentials(): { id: string; secret: string } {
   const id = process.env.SOUNDCLOUD_CLIENT_ID;
@@ -42,16 +54,25 @@ function credentials(): { id: string; secret: string } {
   return { id, secret };
 }
 
-async function requestToken(): Promise<string> {
-  const { id, secret } = credentials();
+interface TokenResponse {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+}
+
+async function exchangeToken(
+  body: URLSearchParams,
+  authorization?: string,
+): Promise<string> {
+  const headers = new Headers({
+    "Content-Type": "application/x-www-form-urlencoded",
+  });
+  if (authorization) headers.set("Authorization", authorization);
 
   const response = await fetch(TOKEN_ENDPOINT, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
-    },
-    body: "grant_type=client_credentials",
+    headers,
+    body,
     cache: "no-store",
   });
 
@@ -59,42 +80,76 @@ async function requestToken(): Promise<string> {
     throw new Error(`SoundCloud token request failed (${response.status})`);
   }
 
-  const data = (await response.json()) as { access_token: string; expires_in: number };
+  const data = (await response.json()) as TokenResponse;
+  if (
+    !data.access_token ||
+    !data.refresh_token ||
+    typeof data.expires_in !== "number" ||
+    !Number.isFinite(data.expires_in)
+  ) {
+    throw new Error("SoundCloud returned an invalid token response");
+  }
 
-  cachedToken = {
-    value: data.access_token,
+  // Only replace the cache after a complete response. Refresh tokens are
+  // single-use, so this atomically rotates access and refresh credentials.
+  tokenState.cached = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
     // Renew a minute early rather than racing the expiry.
-    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+    expiresAt: Date.now() + Math.max(0, data.expires_in - 60) * 1000,
   };
 
-  return cachedToken.value;
+  return tokenState.cached.accessToken;
+}
+
+async function requestClientCredentialsToken(): Promise<string> {
+  const { id, secret } = credentials();
+  return exchangeToken(
+    new URLSearchParams({ grant_type: "client_credentials" }),
+    `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
+  );
+}
+
+async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const { id, secret } = credentials();
+  return exchangeToken(
+    new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: id,
+      client_secret: secret,
+      refresh_token: refreshToken,
+    }),
+  );
 }
 
 async function getToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now()) {
-    return cachedToken.value;
+  if (tokenState.cached && tokenState.cached.expiresAt > Date.now()) {
+    return tokenState.cached.accessToken;
   }
 
-  inFlight ??= requestToken().finally(() => {
-    inFlight = null;
+  tokenState.inFlight ??= (
+    tokenState.cached
+      ? refreshAccessToken(tokenState.cached.refreshToken)
+      : requestClientCredentialsToken()
+  ).finally(() => {
+    tokenState.inFlight = null;
   });
 
-  return inFlight;
+  return tokenState.inFlight;
 }
 
 async function scFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = await getToken();
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `OAuth ${token}`);
+  headers.set("accept", "application/json; charset=utf-8");
 
   return fetch(`${API}${path}`, {
     ...init,
-    headers: {
-      ...init?.headers,
-      Authorization: `Bearer ${token}`,
-      accept: "application/json; charset=utf-8",
-    },
+    headers,
     cache: "no-store",
     // /resolve answers with a 302 to the real resource.
-    redirect: "follow",
+    redirect: init?.redirect ?? "follow",
   });
 }
 
@@ -179,7 +234,7 @@ export async function resolvePlaylist(url: string): Promise<SoundCloudPlaylist> 
 /**
  * Turns a track id into a browser-usable HLS URL.
  *
- * The API's stream endpoint needs our bearer token, but answers with a 302 to a
+ * The API's stream endpoint needs our OAuth token, but answers with a 302 to a
  * CDN URL that is signed and needs no auth — and which does send permissive
  * CORS headers, so hls.js can read it and the analyser can see the audio. We
  * follow that redirect here and hand the browser only the signed URL.
@@ -201,13 +256,13 @@ export async function resolveStreamUrl(trackId: number): Promise<string> {
 
   const token = await getToken();
   const redirect = await fetch(hls, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `OAuth ${token}` },
     redirect: "manual",
     cache: "no-store",
   });
 
   const signed = redirect.headers.get("location");
-  if (!signed) {
+  if (redirect.status < 300 || redirect.status >= 400 || !signed) {
     throw new Error("SoundCloud did not return a signed stream URL");
   }
 

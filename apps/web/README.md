@@ -43,14 +43,27 @@ server-side and requires:
 ```dotenv
 ANTHROPIC_API_KEY=...
 ANTHROPIC_WORKSPACE_ID=... # required for identity-linked API keys
-AI_STANDARD_MODEL=...
+AI_ANTHROPIC_MODEL=claude-sonnet-5
+
+OPENAI_API_KEY=...
+AI_OPENAI_MODEL=... # an OpenAI Responses API model available to the project
+
+DASHSCOPE_API_KEY=...
+AI_QWEN_MODEL=qwen3.8-max
+# Region/workspace-specific Model Studio compatible-mode URL, ending in /v1
+ALIBABA_BASE_URL=https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+
 AI_VALIDATOR_URL=http://validator:4318
 ```
 
-Optional controls are `ANTHROPIC_BASE_URL`, `AI_ATTEMPT_BUDGET` (default `3`),
+`AI_STANDARD_MODEL` remains a backwards-compatible alias for
+`AI_ANTHROPIC_MODEL`. Optional provider settings are `ANTHROPIC_BASE_URL`,
+`OPENAI_BASE_URL`, `OPENAI_ORGANIZATION`, and `OPENAI_PROJECT`.
+
+Shared controls are `AI_ATTEMPT_BUDGET` (default `3`),
 `AI_MAX_OUTPUT_TOKENS` (default `8192`), `AI_MODEL_TIMEOUT_MS` (default
-`60000`), and `AI_VALIDATOR_TIMEOUT_MS` (default `20000`). Model identifiers
-remain configuration rather than UI-visible constants.
+`60000`), and `AI_VALIDATOR_TIMEOUT_MS` (default `20000`). Provider model IDs
+remain server configuration; the browser sends only a fixed provider key.
 
 `AI_VALIDATOR_URL` must point to the private render-validator service. It must
 not be exposed to browsers or the public internet.

@@ -22,11 +22,11 @@ export async function GET(
 
   try {
     const url = await resolveStreamUrl(trackId);
-    // Signed URLs last about two hours; let the browser reuse one for a while
-    // but re-request well before it lapses.
+    // SoundCloud CDN signatures can be very short-lived. Never let a browser or
+    // intermediary reuse a resolved URL for a later playback.
     return NextResponse.json(
       { url },
-      { headers: { "Cache-Control": "private, max-age=1800" } },
+      { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
     return NextResponse.json(
