@@ -205,6 +205,7 @@ Browser rendering feasibility remains to be established.
 Owner: unassigned. State: defining.
 Replace policy/licensing placeholders; update About/beta messaging and copyright details.
 Set up approved accounts using admin@visamp.io and wire real links.
+Use Visamp branding for the social accounts; Fergal is the host and visual creator.
 Launch priorities: existing Discord; YouTube Shorts, TikTok, Instagram and X for short-form content;
 Twitch and YouTube for livestreams. Bluesky is outside the selected initial priorities.
 Discord is the community and beta bug-reporting/user-support channel. Reuse Fergal's existing
@@ -246,9 +247,13 @@ Community selection and posting cadence remain open. No outreach has been sent b
 Owner: Fergal Hanley as visual artist/host; supporting execution unassigned. State: defining.
 Start in earnest around the soft launch. Priorities: short-form videos on YouTube Shorts,
 TikTok, Instagram and X; live on Twitch and YouTube; community interaction in Discord.
-Planned live cadence: one hour on Saturday morning, Australia/Adelaide, aiming at Friday evening
-US East Coast / late afternoon West Coast. Exact time and first date remain to be chosen.
-Scope: stream format, production/simulcast workflow, reusable clips and signup calls to action.
+Initial live slot: Saturdays 10:00–11:00 am, Australia/Adelaide, aiming at Friday evening
+US East Coast / late afternoon West Coast. Additional days may be added later.
+Format: showcase existing visuals, then create a new visual live to demonstrate Visamp features.
+Record each session and repurpose it into shorter content for the other launch platforms.
+Use Visamp-branded social accounts, with Fergal as host/visual creator.
+Scope: detailed running order, production/simulcast workflow, recording, reusable clips and
+signup calls to action. First stream date and additional broadcast days remain open.
 Acceptance: reviewable first-stream plan, confirmed channel links, cleared source content,
 working broadcast setup and a repeatable clipping/distribution workflow.
 Check seasonal time-zone differences before publishing schedules. No broadcast or scheduled
