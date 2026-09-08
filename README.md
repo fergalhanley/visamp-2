@@ -2,6 +2,11 @@
 
 A visual programming DSL for creative coding in the browser. Write simple declarative code to create animated graphics using Canvas 2D.
 
+## MVP planning
+
+The current application is a PoC being developed into an open beta. Start with the
+[MVP specification](dev/mvp.md) and [ticket drafts](dev/mvp-backlog.md).
+
 ## Repository
 
 A pnpm + Turborepo monorepo.
