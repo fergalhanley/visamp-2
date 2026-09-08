@@ -108,9 +108,8 @@ Automatic/default music, site-shared music lists and audio used in shared sets m
 Visamp-hosted tracks. Preferred audio tracks must also be Visamp-hosted.
 SoundCloud and local files remain personal inputs; do not mix them into site-shared collections.
 This supersedes the PoC SoundCloud default: its integration stays available for personal listening.
-User described these personal sources as for consumption or video generation; exact export eligibility
-is still to be specified. Personal playback access does not itself approve SoundCloud capture/export.
-Earlier local/microphone-only export proposal must be reconciled during export discovery.
+MVP video export accepts local files, microphone audio and eligible Visamp-hosted tracks.
+SoundCloud is explicitly excluded from export.
 
 
 An artist uploading music should initially see one of their own visuals if they have any,
@@ -192,8 +191,16 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Rename the DSL to a marketable name and propagate through code, site and docs.
   Viscript and VDSL are candidates, not a decision. Naming/compatibility checks remain open.
 - MVP includes an asset library and user uploads: bitmaps, SVGs and 3D models.
-  Users can make assets public to contribute them to the shared library.
-  Format details, visibility defaults, reuse licence/attribution, quotas and lifecycle remain open.
+  Assets are private by default and usable only by their uploader until made public.
+  Public assets are available for other users to reuse, including in exported videos.
+  Upload requires confirmation of upload rights and implies reuse permission within the applicable
+  visibility scope. Exact permission/attribution wording, formats and quotas remain to be defined.
+- Only an admin can remove a public asset from public availability, optionally replacing it.
+  Removal makes it unavailable everywhere, including existing visualisations.
+- Visualisations with a removed asset continue rendering without that asset and show a warning.
+  If unresolved after 24 hours, automatically make the affected visualisation private.
+  Owner notifications are later-release work. Define timer handling, replacement compatibility
+  and recovery/republishing behaviour before implementation.
 - GLSL/shader authoring context is a later-release feature.
 - Editor is generally satisfactory. Improve error reporting beyond the first error where feasible.
 - Silent compile/interpreter/render-update failures need reproduction, investigation and fixing.
@@ -209,11 +216,21 @@ One public user profile shows Visualisations and Music tabs when both content ty
 
 ## Video export
 
-Rendered video export supports artists' releases/social distribution and needs its own spec.
-The earlier local/microphone proposal and later mention of personal SoundCloud video use
-need reconciliation. Final source eligibility, permission, formats, duration and rendering remain open.
-Define visual/asset reuse, fork attribution and export permissions. Public visibility alone does
-not resolve permission for external or commercial reuse.
+- MVP export is track-based: one visualisation for the full track duration.
+  Advanced sequencing, multiple visuals per track and other export features come later.
+- Eligible audio sources: local files, microphone and Visamp-hosted music. Exclude SoundCloud.
+  Define how a microphone recording starts/ends and becomes the finite audio for an export.
+- Output: 1080p at 30 fps, with landscape 16:9 and portrait 9:16 options.
+- Investigate client-side rendering first. Use server-side rendering if the required export
+  quality/reliability cannot be delivered client-side. Feasibility is not yet established.
+- Include a discreet Visamp watermark in the free tier/MVP.
+  Paid watermark-free export is a later feature.
+- Validate audio/video sync, full-duration completion, portrait composition and asset loading.
+  Codec/container, browser support, rendering limits and failure handling remain to be defined.
+- Resolve visual reuse/fork attribution and hosted-music export permission in the relevant
+  agreements; existing site-playback permission alone does not establish export permission.
+  Public assets carry the reuse permission described above.
+- Credit charging, especially for client-side renders versus server costs, remains open.
 
 ## Credits, billing and measurement
 
