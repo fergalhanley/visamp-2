@@ -4,7 +4,77 @@ These are repository drafts, not created Linear issues. Linear IDs and live stat
 be added on transfer; thereafter Linear is authoritative. Owner names below record Fergal's
 instructions, not verified external assignments. Product reference: [MVP specification](mvp.md).
 
+## Linear transfer plan
+
+Prepared for live setup; no Linear objects have been created or inspected yet because
+the Linear plugin is not available in this session. D01–D35 below are local draft references,
+not Linear issue IDs. Project names, priorities and dependencies are an initial delivery plan,
+not additional product decisions or a claim that work is already in progress.
+
+Use the existing Visamp team where available. Inspect existing projects/issues first and reuse
+matching work rather than duplicating it. Create seven projects:
+
+| Project | Outcome |
+| --- | --- |
+| Beta — Listening and community | Reliable desktop/mobile listening, discovery, accounts and hosted music |
+| Beta — Creation and assets | Beta-ready visual language, editor, automatic AI routing and asset library |
+| Beta — Credits and video export | Credit purchases/accounting and track-based video export |
+| Beta — Launch operations | Production deployment, measurement and operational visibility |
+| Launch — Community and content | Public beta recruitment, social accounts and founder livestream/content |
+| Business — Company and funding | Company setup and funding research/application preparation |
+| Roadmap — Post-MVP | Timed sets/VJ follow-up and other deferred capabilities |
+
+Use existing workflow states where possible: Backlog, Todo, In Progress, In Review, Done.
+Import unstarted work into Backlog; ready first-wave work can move to Todo after checking
+the workspace. Preserve Fergal's explicit ownership in the drafts; leave implementation
+ownership unassigned unless a real assignee is resolved. Do not create artificial agent users.
+Link the product spec and this PR to each project; keep unresolved choices visible.
+The approximate two-week beta ambition is not a validated delivery forecast. Do not invent
+calendar deadlines or silently remove agreed beta features to fit it.
+
+Suggested first wave: D23 auth repair; D29 editor failure investigation; D25 selected-port
+inventory; D13 export feasibility; D08 identity presentation; D27 asset foundation; D31 AI
+routing; D33 deployment configuration; D10 analytics definition; D15 company setup; D16 grant
+research. Fergal can work on D01 landing alongside these. Feature and rollout dependencies
+must not prevent independent configuration/design work.
+
+Split broad drafts into bounded issues/sub-issues during live transfer:
+- D09: pricing/cost calibration; allocation ledger and spending/expiry; signup/admin grants;
+  Stripe one-off purchases/webhooks; editor balance/top-up; account billing UI; optional
+  Adaptive Pricing eligibility/setup. Preserve the agreed policies in all affected issues.
+- D25: Fergal selects v1 visuals; gap inventory; approved language feature implementation;
+  selected visual ports/validation. Selection precedes feature-driven implementation.
+- D27: asset storage/access/rights; library/upload UI; renderer loading and fork references.
+  D28 owns missing-asset warnings and the 24-hour privacy rule.
+- D05/D07: distinguish artist/licence admin onboarding, self-upload agreement/publication
+  changes and end-to-end validation; code presence is not completion.
+- D14: site/policy/beta information, authenticated Discord invite, and branded social setup.
+- D21: MVP set data/route contract separately from post-MVP set authoring/playback/VJ work.
+  D20 depends only on the model contract, never on the post-MVP UI release.
+- D32: separate client history, shader authoring and notifications. Preserve the remaining
+  roadmap from the product spec: TV browser/native apps, subscriptions, ads, artist revenue
+  sharing, paid watermark removal and richer exports as unstarted roadmap items.
+
+Important completion dependencies in addition to the local draft references below:
+- D01 discovery data depends on D03/D08 and agreed simple ranking rules; hero design can start now.
+- D09 final AI pricing uses D31 cost/retry evaluation; server-export pricing also uses D13.
+- D12 depends on the relevant D09 credit work only if server rendering is selected; free
+  client rendering is not blocked on paid-export metering.
+- D18 requires export/livestream reuse permission for the chosen audio/visuals; site playback
+  permission alone is not enough. D12 is useful for rendered social content, but recording
+  a livestream need not wait for an in-product export feature.
+- D33 initial deployment can occur before feature completion. Public beta readiness still
+  requires the agreed core flows, hosted audio, billing, mobile, analytics and monitoring checks.
+- D16 grant research can start alongside D15; only applications with relevant registration
+  requirements depend on completed company setup.
+
+After live creation: replace local draft references with real issue links, create supported
+blocking relations, verify priorities/owners/project membership and write the resulting
+Linear project/issue mapping back here. Do not mark drafts Done merely because they were imported.
+
 ## Landing experience and discovery
+
+Planning reference: D01. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
 
 Owner: Fergal Hanley. State: assigned in planning; design in progress/ready to pick up.
 
@@ -20,6 +90,8 @@ Do not assign the hero design to another agent.
 
 ## Player navigation and panel layout
 
+Planning reference: D02. Project: Beta — Listening and community. Phase: Beta. Proposed priority: Normal.
+
 Owner: unassigned. State: defining.
 Outcome: easier browsing and account/navigation access without obscuring visuals at rest.
 Scope: fixed panels approximately 2x current desktop width; top bar with navigation, login,
@@ -29,6 +101,9 @@ logged-in/out states supported; desktop behaviour verified.
 Open: navigation links, hide timing/focus, smaller-screen constraints and touch design.
 
 ## Featured artist configuration and entry routing
+
+Planning reference: D03. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D04, D05, D20.
 
 Owner: unassigned. State: defining.
 Outcome: player starts the intended visual/music combination from every discovery entry.
@@ -43,6 +118,9 @@ are excluded from site-shared collections.
 
 ## Gereon founding artist onboarding
 
+Planning reference: D04. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D05.
+
 Owner: unassigned. State: awaiting artist details and source material.
 Outcome: Gereon's approved tracks are available as initial featured music.
 Fergal reports permission for site use. Record exact artist identity, music sources and permission;
@@ -52,6 +130,9 @@ Open: exact artist identity/links, tracks, documents and scope of permission.
 Do not fabricate records or extend site permission to social/video/live distribution.
 
 ## Admin artist and licence onboarding
+
+Planning reference: D05. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D08.
 
 Owner: unassigned. State: defining.
 Outcome: routine artist/permission setup can be performed through admin UI.
@@ -65,6 +146,9 @@ Open: claiming verification, agreement fields and management of multiple artist 
 
 ## Validate accounts and community
 
+Planning reference: D06. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D23, D24.
+
 Owner: Fergal Hanley. State: needs user validation.
 Cover sign-in/signup/reset, username/avatar/bio, ownership, public/private visuals,
 likes, comments, favourites, forks and attribution.
@@ -72,6 +156,9 @@ Acceptance: outcomes and reproduction steps recorded; resulting bugs/change requ
 into scoped tickets. Presence of code does not count as a passing test.
 
 ## Validate artist uploads and admin
+
+Planning reference: D07. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D05.
 
 Owner: unassigned. State: untested by Fergal.
 Cover authorised upload, rejection/error recovery, processing worker, automatic publication,
@@ -85,6 +172,8 @@ Do not require a separate staging stack for MVP.
 
 ## Define user/creator/music-artist presentation
 
+Planning reference: D08. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+
 Owner: unassigned. State: defining.
 Outcome: one user can create visuals and music, with clear attribution and artist pages.
 Use contextual Creator/Artist presentation, preserving artists without accounts.
@@ -93,6 +182,9 @@ Acceptance: terminology, profile routes, claims/ownership and both-content prese
 migration plan builds on existing optional music_artists.claimed_by.
 
 ## Define and implement credits with Stripe
+
+Planning reference: D09. Project: Beta — Credits and video export. Phase: Beta. Proposed priority: High.
+Depends on: D23.
 
 Owner: unassigned. State: defining.
 Outcome: users can understand credit costs, obtain signup credits and purchase additional usage.
@@ -147,6 +239,8 @@ See the Stripe reference and conversion-fee note in the MVP specification.
 
 ## Define and implement Mixpanel
 
+Planning reference: D10. Project: Beta — Launch operations. Phase: Beta. Proposed priority: High.
+
 Owner: unassigned. State: defining.
 Outcome: trustworthy listening, creation, community and conversion measurement from beta.
 Treat repeat listening and active creation as equally important beta outcomes.
@@ -164,6 +258,9 @@ other precise metric definitions and configuration.
 
 ## Implement mobile/tablet viewer layout
 
+Planning reference: D11. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D02.
+
 Owner: unassigned. State: MVP direction agreed; detailed layout pending.
 Outcome: comfortable touch playback, discovery and community interaction at launch.
 Keep discovery, profiles, following, likes and comments available on mobile/tablet.
@@ -178,6 +275,9 @@ Do not assume the existing desktop hover controls already satisfy mobile require
 
 ## Implement track-based video export
 
+Planning reference: D12. Project: Beta — Credits and video export. Phase: Beta. Proposed priority: High.
+Depends on: D13, D27.
+
 Owner: unassigned. State: MVP scope agreed; technical design pending.
 Outcome: export one visualisation for the full duration of one track.
 Sources: local files and eligible Visamp-hosted tracks only; exclude microphone input and SoundCloud.
@@ -191,6 +291,8 @@ Multiple visuals per track, advanced export editing and paid watermark removal a
 
 ## Evaluate client-side export and select rendering approach
 
+Planning reference: D13. Project: Beta — Credits and video export. Phase: Beta. Proposed priority: High.
+
 Owner: unassigned. State: investigation required before export implementation.
 Prefer client-side rendering; fall back to server-side if required quality/reliability is not feasible.
 Evaluate representative full tracks and complex visuals at the agreed output settings, including
@@ -201,6 +303,8 @@ Client-rendered exports with the Visamp watermark are free; server-rendered expo
 Browser rendering feasibility remains to be established.
 
 ## Publish site information and establish social accounts
+
+Planning reference: D14. Project: Launch — Community and content. Phase: Beta launch. Proposed priority: High.
 
 Owner: unassigned. State: defining.
 Replace policy/licensing placeholders; update About/beta messaging and copyright details.
@@ -221,6 +325,8 @@ Open: handles, account ownership, publication approvals and content schedule.
 
 ## Begin company setup
 
+Planning reference: D15. Project: Business — Company and funding. Phase: Start now. Proposed priority: High.
+
 Owner: Fergal Hanley (founder decisions); preparation/execution unassigned. State: needs to start.
 Outcome: prepare and carry out the agreed Australian company setup.
 First prepare a current-source setup sequence, required founder inputs, costs and dependencies
@@ -230,6 +336,8 @@ recorded for executed steps. Do not claim the company already exists.
 
 ## Research grants and prepare funding applications
 
+Planning reference: D16. Project: Business — Company and funding. Phase: Start now. Proposed priority: High.
+
 Owner: Fergal Hanley (founder decisions); research/execution unassigned. State: defining.
 Track Australian funding eligibility, deadlines, matching requirements, application evidence
 and budget, accounting for company setup and the product/user traction timeline.
@@ -237,6 +345,9 @@ Acceptance: source-verified shortlist with requirements and next actions, realis
 fit and application tasks for selected opportunities. No assumed grant award.
 
 ## Recruit founding beta users
+
+Planning reference: D17. Project: Launch — Community and content. Phase: Beta launch. Proposed priority: High.
+Depends on: D14.
 
 Owner: Fergal Hanley for outreach; supporting preparation unassigned. State: plan agreed.
 Start with a couple of friends, then relevant Reddit community posts and signup invitations
@@ -246,6 +357,9 @@ plus signup destinations and measurement consistent with the Mixpanel plan.
 Community selection and posting cadence remain open. No outreach has been sent by this planning task.
 
 ## Establish founder content and weekly livestream
+
+Planning reference: D18. Project: Launch — Community and content. Phase: Beta launch. Proposed priority: High.
+Depends on: D14, D25.
 
 Owner: Fergal Hanley as visual artist/host; supporting execution unassigned. State: defining.
 Start in earnest around the soft launch. Priorities: short-form videos on YouTube Shorts,
@@ -266,6 +380,9 @@ automation has been created by this planning task.
 
 ## Restore local files and listening sessions after reload
 
+Planning reference: D19. Project: Beta — Listening and community. Phase: Beta. Proposed priority: Normal.
+Depends on: D20.
+
 Owner: unassigned. State: defining/fix investigation.
 Fergal reports current playback reliability is good; re-adding local files on reload is the known issue.
 Outcome: return to the previous listening context without unnecessary file reselection.
@@ -281,6 +398,9 @@ Confirmed: restore selected visual, available audio and player settings; track p
 
 ## Route the player by track, music list and visual playlist; prepare set model
 
+Planning reference: D20. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D21.
+
 Owner: unassigned. State: defining.
 Use the route shapes in the MVP spec: /track/<source>/<id>, /track_list/<id>,
 /playlist/<id>, /set/<id>, retaining /vis/<id>.
@@ -295,12 +415,17 @@ Model sets now; authoring/playback and /set execution ship in an early post-MVP 
 
 ## Model timed sets and plan early VJ follow-up
 
+Planning reference: D21. Project: Roadmap — Post-MVP. Phase: Model in beta; release shortly after. Proposed priority: High.
+
 Owner: unassigned. State: model defining; release after MVP, high-priority follow-up.
 Outcome: a shareable set of visual/Visamp-hosted track pairings with timing, feeding into VJ mode.
 MVP work: agree data/route contracts and extension points. Keep set authoring/playback out of beta.
 Open: timing representation, transitions, manual overrides, editing and VJ controls.
 
 ## Visual transport controls and shortcuts
+
+Planning reference: D22. Project: Beta — Listening and community. Phase: Beta. Proposed priority: Normal.
+Depends on: D20.
 
 Owner: unassigned. State: defining.
 Outcome: Next/Previous visual buttons plus Space for next and Backspace for previous.
@@ -311,6 +436,8 @@ Confirmed: automatic stays automatic, manual stays manual. Explicit visual selec
 
 ## Repair signup and password-reset navigation
 
+Planning reference: D23. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+
 Owner: unassigned. State: reported broken.
 Fergal reports Google/GitHub work, Create account and Forgot password links fail.
 Email/password login is unverified and treated as blocked until signup works.
@@ -318,6 +445,9 @@ Acceptance: signup, confirmation, email login and reset verified locally and aft
 record tested outcomes instead of assuming email login itself is proven broken.
 
 ## Follow creators/artists and filter discovery
+
+Planning reference: D24. Project: Beta — Listening and community. Phase: Beta. Proposed priority: High.
+Depends on: D08.
 
 Owner: unassigned. State: MVP requirement.
 Outcome: follow/unfollow plus Following discovery filter.
@@ -328,6 +458,8 @@ Public visuals appear immediately after the owner sets Public.
 
 ## Select v1 visuals and drive language gap analysis
 
+Planning reference: D25. Project: Beta — Creation and assets. Phase: Beta. Proposed priority: High.
+
 Owner: Fergal Hanley for collection selection; port implementation unassigned.
 Fergal will choose quality visuals from a separate v1 repository (location pending).
 Acceptance: selected inventory, per-visual missing capabilities, port validation and broader gap analysis.
@@ -336,12 +468,16 @@ Keep real-music validator fixtures, scramble filter and extra ports as candidate
 
 ## Choose and propagate the visual-language name
 
+Planning reference: D26. Project: Beta — Creation and assets. Phase: Beta. Proposed priority: Normal.
+
 Owner: unassigned. State: decision pending.
 Candidates include Viscript and VDSL; no chosen name yet.
 Acceptance: agreed name checked, usage inventory, consistent code/site/docs terminology,
 and explicit compatibility/migration handling for file extensions/APIs where needed.
 
 ## Asset library, upload and public contributions
+
+Planning reference: D27. Project: Beta — Creation and assets. Phase: Beta. Proposed priority: High.
 
 Owner: unassigned. State: MVP requirement, defining.
 Support bitmap, SVG and 3D-model assets; uploads are private by default and usable only by the uploader.
@@ -355,6 +491,9 @@ Open: exact formats, permission/attribution wording, quotas, replacement compati
 
 ## Handle missing assets and enforce the 24-hour repair window
 
+Planning reference: D28. Project: Beta — Creation and assets. Phase: Beta. Proposed priority: High.
+Depends on: D27.
+
 Owner: unassigned. State: MVP requirement, defining.
 When an asset is removed, affected visuals skip that asset and show a warning.
 If not fixed within 24 hours, automatically make each affected visual private.
@@ -366,6 +505,8 @@ system to implement the beta warning and visibility enforcement.
 
 ## Investigate silent editor failures
 
+Planning reference: D29. Project: Beta — Creation and assets. Phase: Beta. Proposed priority: High.
+
 Owner: Fergal Hanley, working with an agent. State: reproduction needed.
 Reported: new code sometimes produces no error yet the visual fails to rerender.
 Acceptance: reproducible example, fix, explicit failure diagnostics and validation that successful
@@ -373,12 +514,16 @@ edits replace the output. Fergal will investigate; do not claim an identified ca
 
 ## Report multiple editor diagnostics
 
+Planning reference: D30. Project: Beta — Creation and assets. Phase: Beta. Proposed priority: Normal.
+
 Owner: unassigned. State: defining.
 Current complaint: compiling/interpreting reports only the first error.
 Acceptance: surface multiple independent errors where recoverable with useful locations;
 clearly handle fatal errors and do not invent downstream diagnostics.
 
 ## Automatic AI provider choice with admin configuration
+
+Planning reference: D31. Project: Beta — Creation and assets. Phase: Beta. Proposed priority: High.
 
 Owner: unassigned. State: MVP requirement, defining.
 Use ChatGPT first and fall back to Claude when unavailable. Exclude Qwen.
@@ -391,11 +536,15 @@ Evaluate quality/cost to inform pricing and retain existing undo across AI edits
 
 ## Later creation and community refinements
 
+Planning reference: D32. Project: Roadmap — Post-MVP. Phase: Post-MVP. Proposed priority: Low.
+
 Post-MVP: client-side history panel; GLSL/shader authoring context; publication notifications.
 Existing comments remain sufficient; revisit expansion based on actual uptake.
 Timed sets/VJ follow-up remains a separate high-priority post-MVP project.
 
 ## Prepare the existing environment and deploy the beta to Vercel
+
+Planning reference: D33. Project: Beta — Launch operations. Phase: Beta. Proposed priority: High.
 
 Owner: unassigned. State: not deployed; planning.
 Current state: local application and one Supabase environment.
@@ -412,6 +561,8 @@ A separate staging stack is not an MVP dependency.
 
 ## Define and set up beta monitoring
 
+Planning reference: D34. Project: Beta — Launch operations. Phase: Beta. Proposed priority: High.
+
 Owner: unassigned. State: nothing currently configured; scope defining.
 Outcome: visibility into application failures and service outages.
 Define minimal error reporting, uptime checks and actionable alerts for the beta.
@@ -421,6 +572,9 @@ Acceptance to finalise: representative error/outage reaches the chosen reporting
 Do not assume monitoring or alerts already exist.
 
 ## Separate staging infrastructure after MVP
+
+Planning reference: D35. Project: Roadmap — Post-MVP. Phase: Post-MVP. Proposed priority: Normal.
+Depends on: D33.
 
 Owner: unassigned. State: post-MVP.
 Outcome: a separately deployed staging app/backend, with database, storage, worker and
