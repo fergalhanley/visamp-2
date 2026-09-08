@@ -99,9 +99,14 @@ creator grants and expiry. MVP purchases are one-off credit packs through Stripe
 subscriptions and recurring credit plans are post-MVP.
 Confirmed: AI creation/editing and server-rendered video exports consume credits.
 Client-rendered exports with the Visamp watermark, listening, manual visual editing and
-community features are free. Define metering rates, pre-action cost display and failed-job charging.
+community features are free.
+AI billing: fixed credits per successful user request, covering automatic retries/provider fallback.
+Failed responses incur no charge. Calibrate the fixed amount against average provider costs
+across all users, including retry and failure costs; do not pass individual retry costs to the user.
+Open: fixed amount, success criteria, pre-action cost display and server-export rates/failure charging.
 Acceptance to finalise: stage purchase -> verified payment -> credit allocation -> metered use,
-including duplicate-payment-event handling and failed generation behaviour.
+including duplicate-payment-event handling, one AI charge for a successful request despite
+retries/fallback, and no charge for a failed response.
 
 ## Define and implement Mixpanel
 
@@ -278,7 +283,8 @@ Owner: unassigned. State: MVP requirement, defining.
 Use ChatGPT first and fall back to Claude when unavailable. Exclude Qwen.
 Replace user model picker with admin primary/fallback preference settings.
 Acceptance: configured route used; simulate unavailable primary and working fallback;
-both unavailable produces clear failure; failed attempts do not create duplicate charges.
+both unavailable produces clear failure with no charge; a successful request incurs one fixed
+credit charge even when automatic retries/provider fallback were required.
 Open: error categories/timeouts/retry budget; do not conflate invalid code with unavailable provider.
 Evaluate quality/cost to inform pricing and retain existing undo across AI edits.
 
