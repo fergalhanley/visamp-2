@@ -232,7 +232,8 @@ One public user profile shows Visualisations and Music tabs when both content ty
   agreements; existing site-playback permission alone does not establish export permission.
   Public assets carry the reuse permission described above.
 - Server-rendered video exports consume credits. Client-rendered exports with the
-  Visamp watermark are free. Exact server-render credit rates remain to be defined.
+  Visamp watermark are free. Server-render pricing is based on video duration and the exact
+  credit cost is shown before starting. Failed exports incur no charge. Rates and rounding remain open.
 
 ## Credits, billing and measurement
 
@@ -245,27 +246,46 @@ One public user profile shows Visualisations and Music tabs when both content ty
   Reconsider this policy if user complaints warrant it.
 - Set the fixed amount using average provider costs across all users, including retries and
   failed requests. The amount and success criteria still need definition.
-- Server-render export rates/failure charging and pre-action cost display remain to be defined.
+- Server-rendered exports are priced by video duration, with the exact credit cost shown
+  before starting. Failed exports incur no charge. Rate and duration rounding remain open.
+- Show credit costs on AI/export actions and provide an account billing page with balance,
+  purchases, usage and upcoming expiries.
+- In the editor, show the credit balance next to the AI prompt submission button.
+  At a balance of zero or below, disable submission and offer a top-up button.
+  Enforce sufficient credit for the full request cost on the server as well, including a
+  positive balance below the required cost and concurrent submissions.
 - Initial signup allowance target: enough credits for 20 successful AI requests at the
   applicable fixed request rate, giving new users room to learn the system.
 - Make the signup credit amount admin-configurable so it can be calibrated over time and
   increased for new-user promotions. Final credit units depend on the AI pricing calculation.
 - Record the amount/configuration used when granting credits; subsequent configuration changes
-  apply to new grants without rewriting existing balances. Grant signup credits once per user.
+  apply to new grants without rewriting existing balances. Grant signup credits once per user:
+  after successful Google/GitHub signup, or after email verification for email signup.
 - MVP signup promotions are controlled manually by changing the admin signup allowance
   and restoring it when the promotion ends. Scheduled campaigns are outside MVP scope.
-  The active allowance applies to new signup grants; further eligibility rules remain open.
+  The active allowance applies to new eligible signup grants.
 - Allow discretionary free credits for prolific creators.
 - Signup credits do not expire. Discretionary free grants may have an optional expiry date
   to encourage use; no universal expiry period is agreed.
 - Build credit accounting to distinguish purchased, signup and discretionary allocations,
   with remaining amounts and optional per-grant expiry. Expiring one grant must not expire
-  unrelated credits. Consumption order and expiry handling for in-flight requests remain open.
+  unrelated credits. Spend earliest-expiring credits first, then non-expiring free credits,
+  then purchased credits. Expiry handling for in-flight requests remains open.
 - MVP billing uses Stripe for one-off credit pack purchases. Subscriptions and recurring
   credit plans are deferred until after MVP.
 - Purchased credits do not expire; they remain available until used.
-- Pack sizes, prices, signup credit-unit calculation, discretionary grant expiry settings, refunds, taxes
-  and billing UI remain open.
+- Manage one USD price per pack for MVP. Offer automatic local-currency pricing only through
+  Stripe support with low implementation effort; do not maintain separate currency price lists.
+  Otherwise defer localisation until after MVP and retain USD pricing.
+- Stripe Adaptive Pricing supports automatic conversion in Checkout, but requires the price
+  currency (USD here) to be a settlement currency on the Stripe account. Verify account eligibility
+  during billing setup. Customers choosing conversion pay a 2–4% fee included in Stripe's rate.
+  Use USD on Visamp pack listings and Stripe's local-currency presentation at checkout; no custom
+  currency-conversion engine is required for MVP.
+  Reference checked 8 September 2026:
+  [Stripe Adaptive Pricing](https://docs.stripe.com/payments/currencies/localize-prices/adaptive-pricing?payment-ui=stripe-hosted).
+- Pack sizes, prices, signup credit-unit calculation, discretionary grant expiry settings,
+  purchase refunds, taxes and detailed billing layout remain open.
 - Existing AI ledger is a foundation, not a completed billing system.
 - Mixpanel is the selected provider, built in from launch.
 - Separate staging and production targets so development/testing does not contaminate
