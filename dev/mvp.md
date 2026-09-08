@@ -60,7 +60,8 @@ This community should retain meaningful value as the platform expands.
 
 | Entry | Visual | Audio |
 | --- | --- | --- |
-| Direct to player | Topmost visualisation | Featured music artist |
+| Direct to player, returning listener | Restore previous session visual/context | Restore previous audio state |
+| Direct to player, no saved session | Topmost visualisation | Featured music artist |
 | Visual discovery tile | Selected visualisation | Featured music artist |
 | Music discovery tile | Visual assigned to the track, otherwise most popular visual | Selected track |
 
@@ -69,8 +70,31 @@ on the site; onboard the artist and record the actual permission scope.
 Do not infer permission for exports, social redistribution or livestreams from site permission.
 
 Admin must be able to configure featured artists as more join.
+A track's preferred visual may be assigned by an admin or the music artist. It applies
+only when visuals are not already driven by a user's explicit visual selection or visual playlist.
+Changing music must not override those deliberate visual choices.
+Restore previous state for returning listeners by default. An explicit visual route overrides
+the restored visual. Detailed precedence for track/list/set routes and unrelated restored state
+remains to be defined.
+
 Open: meaning of topmost; first track and running order; multiple featured artists;
-popularity metric; unavailable-content fallbacks; precedence of remembered sessions.
+popularity metric; unavailable-content fallbacks; restoration fields and cross-device scope.
+
+### Player content routes
+
+| Route | Content/context |
+| --- | --- |
+| /vis/<vis id> | Explicit visualisation |
+| /track/<source>/<id> | Track identified by source and ID |
+| /track_list/<track_list id> | Music track list |
+| /playlist/<playlist id> | Visual playlist |
+| /set/<set id> | Visual/track pairings and timing |
+
+These are requested route shapes; only /vis exists in the reviewed player.
+Extend the shared player/session model to understand content context, rather than rewriting
+every visit as a visual-only URL. Direct load, reload and browser back/forward need acceptance
+coverage. Open: set creation/timing scope for beta; source identifiers; list storage/sharing;
+local-file references on another device; manual overrides during sets.
 
 An artist uploading music should initially see one of their own visuals if they have any,
 otherwise a community visual. Selection details remain open.
@@ -78,13 +102,27 @@ Track assignment is distinct from this suggested starting visual.
 
 ## Player interface
 
-- Widen the side panels; exact width/resizing behaviour remains open.
+- Fixed-width side panels approximately twice their current desktop width; no drag resizing.
+  Constrain layout on smaller viewports during responsive design.
 - Add a top menu bar containing navigation, login, account/profile access,
   Create Vis and Fork Vis.
-- Reveal the bar on mouse activity/hover and hide it consistently with player controls.
-  Exact reveal region, timing and focus behaviour remain open.
+- Reveal the bar by hovering at the top of the player, with a fade-in.
+  It must not overlap the side panels. Exact hide timing and focus behaviour remain open.
 - Define touch equivalents during mobile design; do not assume hover works on touch.
-- Playback reliability and desired changes need Fergal's validation.
+- Fergal reports playback reliability is now good across the board, with local-file restoration
+  on reload as a known issue. This is user-reported validation, not automated test evidence.
+- Retain local files across reloads where supported. Investigate existing IndexedDB file handles,
+  permission reconnection, file ordering and source/session restoration.
+- Current code restores local handles with granted access but reduces reauthorisation candidates
+  to names; no requestPermission call is made. It also starts SoundCloud during restore and saves
+  only the latest picker batch of handles. These are implementation gaps to investigate.
+- Browser feasibility: persistent file handles are available in supporting browsers; a
+  user-triggered reconnect can be required. Optional browser-local copies (IndexedDB/OPFS)
+  are an alternative with quota/eviction/storage-management tradeoffs, not yet an approved design.
+  No local-audio upload to Visamp is implied.
+  References: [Chrome file access](https://developer.chrome.com/docs/capabilities/web-apis/file-system-access),
+  [Chrome persistent permission](https://developer.chrome.com/blog/persistent-permissions-for-the-file-system-access-api),
+  [browser storage limits](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria).
 
 ## Users, creators and artists
 
