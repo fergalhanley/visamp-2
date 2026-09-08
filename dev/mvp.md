@@ -313,16 +313,24 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Current state reported by Fergal: one Supabase environment, application running locally,
   and no Vercel deployment yet.
 - MVP: prepare the existing environment for production and deploy to Vercel.
-  A separate staging application/backend environment is post-MVP work.
+  Merging to main automatically deploys production once the deployment integration is configured.
+  Retain the existing authorised PR-merge process; no separate manual deployment action is required.
+- Post-MVP: adopt Gitflow with develop automatically deploying to a separate staging environment
+  and main continuing to deploy production. Define release/hotfix details when introducing that flow.
 - Update validation plans to use local execution against the existing backend before deployment,
   followed by focused checks of the deployed app. A full staging stack is not an MVP prerequisite.
   Keep local/test analytics pointed to staging Mixpanel.
 - Stripe payment testing uses its test mode/sandbox; this does not require a separate staging
   application stack. Keep test purchases distinct from real credit purchases.
 - No error reporting, uptime monitoring or alerts are currently in place.
-  Define a minimal monitoring setup and alert destination as launch operations work.
-- Discord is the beta channel for bug reports and user support, alongside its community role.
-  Provide working support links in the site. Server/channel setup and invite URL remain to be confirmed.
+  Define a minimal monitoring setup as launch operations work; send error/outage alerts to Slack.
+  Monitoring provider(s) and the specific Slack channel remain to be selected.
+- Discord is the community and beta bug-reporting/user-support channel. Fergal has an existing
+  server; use the perpetual invite he supplied: https://discord.gg/exV68HvWV8.
+  Make the invite available through Visamp only to signed-in users. Signed-out site UI must not
+  expose the invite; it can direct users to sign in. This controls invite presentation in Visamp,
+  not whether someone can forward a Discord invite externally.
+  Review existing server channels before defining any additional setup.
 
 ## Company, funding and growth
 
