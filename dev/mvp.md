@@ -334,10 +334,26 @@ One public user profile shows Visualisations and Music tabs when both content ty
 
 ## Company, funding and growth
 
-Fergal will publish as a visual artist, starting in earnest at beta: livestreams on
-Twitch/YouTube (possibly simultaneously elsewhere), a Discord fan/user/creator community,
-and content on X, Instagram, Bluesky, YouTube and TikTok. Channel priority/cadence remains open.
-Slack is the agent/company progress feed; Discord is the public community.
+Fergal will recruit a couple of friends first, post to relevant Reddit communities, and
+encourage signups through social content and a regular livestream starting around beta.
+He will publish as a visual artist using Visamp.
+
+Launch priorities:
+- Discord for community and beta support.
+- Short-form video on YouTube Shorts, TikTok, Instagram and X.
+- Livestreams on Twitch and YouTube.
+Bluesky remains a candidate for later expansion, outside the selected initial channel priorities.
+
+Intended livestream cadence: one hour on Saturday mornings in Australia/Adelaide, targeting
+Friday evening on the US East Coast and late afternoon on the West Coast.
+Exact start time, first stream date, content format and simulcast setup remain open.
+Account for seasonal daylight-saving differences when communicating US times.
+
+Company setup has not started and needs to begin. Track it as a distinct business workstream,
+alongside Australian grant research and preparation; do not assume registration or grant funding
+has been completed. Fergal owns founder decisions.
+
+Slack is the agent/company progress and operational-alert feed; Discord is the community.
 
 admin@visamp.io is ready. Social accounts and their actual URLs still need setup.
 Provision accounts and send messages only under the relevant user authorisation.
