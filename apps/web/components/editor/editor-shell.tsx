@@ -324,8 +324,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
     if (error) throw new Error(error.message);
 
-    const { data } = supabase.storage.from("thumbnails").getPublicUrl(path);
-    return `${data.publicUrl}?v=${Date.now()}`;
+    return path;
   }, [visualisation]);
 
   const captureThumbnail = useCallback(async () => {
@@ -335,11 +334,11 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     setSaveError(null);
 
     try {
-      const thumbUrl = await uploadThumbnail();
-      if (thumbUrl) {
+      const thumbPath = await uploadThumbnail();
+      if (thumbPath) {
         const { error } = await createClient()
           .from("visualisations")
-          .update({ thumb_url: thumbUrl, thumb_pinned: true })
+          .update({ thumb_path: thumbPath, thumb_pinned: true })
           .eq("id", visualisation.id);
 
         if (error) throw new Error(error.message);
@@ -366,11 +365,11 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     // E6.10 — an unpinned thumb is refreshed from the current frame on save.
     // A thumbnail failure must never cost the author their work, so this is
     // best-effort and the update goes ahead either way.
-    let thumbnail: { thumb_url: string } | undefined;
+    let thumbnail: { thumb_path: string } | undefined;
     if (!thumbPinned) {
       try {
-        const thumbUrl = await uploadThumbnail();
-        if (thumbUrl) thumbnail = { thumb_url: thumbUrl };
+        const thumbPath = await uploadThumbnail();
+        if (thumbPath) thumbnail = { thumb_path: thumbPath };
       } catch {
         // Swallowed deliberately; the save below is what matters.
       }
@@ -537,14 +536,12 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
       <header className="flex h-12 shrink-0 items-center gap-4 border-b bg-black px-4">
         {/* Hard navigation on purpose: leaving the editor must tear down the
             document so the player's canvas can claim the WASM singleton. */}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/" className="shrink-0" aria-label="Back to the player">
+        <a href="/player" className="shrink-0" aria-label="Back to the player">
           <BrandLockup className="h-5" />
         </a>
 
         <nav className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a href="/" className="transition hover:text-foreground">
+          <a href="/player" className="transition hover:text-foreground">
             Player
           </a>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

@@ -34,6 +34,17 @@ const nextConfig: NextConfig = {
     },
   },
 
+  // Keep the documented webpack fallback viable for constrained build
+  // environments where Turbopack cannot start its internal worker endpoint.
+  webpack(config) {
+    config.module.rules.push({
+      test: /\.vdsl$/,
+      use: [path.join(import.meta.dirname, "lib/dsl/vdsl-loader.cjs")],
+    });
+    config.experiments = { ...config.experiments, asyncWebAssembly: true };
+    return config;
+  },
+
   images: {
     remotePatterns: supabaseHost
       ? [

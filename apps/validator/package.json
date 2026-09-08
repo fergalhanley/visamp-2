@@ -6,7 +6,9 @@
   "scripts": {
     "build": "pnpm --filter @visamp/engine build:validator",
     "start": "node src/server.mjs",
-    "test": "node --test src/*.test.mjs"
+    "test": "node --test src/*.test.mjs",
+    "test:site": "node --test src/site-pages.test.mjs src/site-authenticated.test.mjs",
+    "test:hosted-audio": "node --test src/hosted-audio.test.mjs"
   },
   "dependencies": {
     "playwright": "^1.55.0",

@@ -235,7 +235,7 @@ function VisActions() {
         <button
           type="button"
           onClick={() => select(parent)}
-          title={`Forked from ${parent.title} by ${parent.artist.displayName}`}
+          title={`Forked from ${parent.title} by ${parent.artist.username}`}
           className="flex cursor-pointer items-center gap-1 transition hover:text-foreground"
         >
           <CornerUpLeft className="h-3.5 w-3.5" />
@@ -346,7 +346,7 @@ export function Transport() {
               href={`/artists/${current.artist.username}`}
               className="text-muted-foreground hover:underline"
             >
-              {current.artist.displayName}
+              {current.artist.username}
             </a>
           </p>
 

@@ -78,7 +78,7 @@ export function VPanel() {
     return favourites.filter(
       (vis) =>
         vis.title.toLowerCase().includes(needle) ||
-        vis.artist.displayName.toLowerCase().includes(needle),
+        vis.artist.username.toLowerCase().includes(needle),
     );
   }, [favourites, needle]);
 
@@ -88,7 +88,7 @@ export function VPanel() {
         ? publicVis.filter(
             (v) =>
               v.title.toLowerCase().includes(needle) ||
-              v.artist.displayName.toLowerCase().includes(needle),
+              v.artist.username.toLowerCase().includes(needle),
           )
         : publicVis,
     [publicVis, needle],
@@ -99,7 +99,8 @@ export function VPanel() {
       {/* E3.1 */}
       <header className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-4">
-          <BrandLockup className="h-6" />
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- reset the engine when leaving the player */}
+          <a href="/" aria-label="VisAmp home"><BrandLockup className="h-6" /></a>
           {/* The gallery owns a canvas, so it needs a fresh document rather
               than client-side navigation away from the player. */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

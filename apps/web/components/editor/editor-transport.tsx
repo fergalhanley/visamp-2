@@ -2,6 +2,7 @@
 
 import {
   Cloud,
+  Library,
   Loader2,
   Maximize,
   Mic,
@@ -17,7 +18,11 @@ import {
 } from "lucide-react";
 import { useRef, type RefObject } from "react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useAudioLevel } from "@/hooks/use-audio-level";
 import { useSupportsFileSystemAccess } from "@/hooks/use-capabilities";
 import { useFullscreen } from "@/hooks/use-fullscreen";
@@ -46,6 +51,7 @@ function SoundcloudPopover() {
   const loadPlaylist = useAudioStore((s) => s.loadSoundcloudPlaylist);
   const clearSoundcloud = useAudioStore((s) => s.clearSoundcloud);
   const playIndex = useAudioStore((s) => s.playIndex);
+  const selectSoundcloud = useAudioStore((s) => s.selectSoundcloudSource);
   // Shared with the player panel and restored from localStorage on load.
   const url = useAudioStore((s) => s.soundcloudUrl);
   const setUrl = useAudioStore((s) => s.setSoundcloudUrl);
@@ -85,7 +91,11 @@ function SoundcloudPopover() {
             disabled={loading || !url.trim()}
             className="shrink-0 rounded-md border px-2 py-1.5 text-xs transition hover:bg-foreground/5 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Load"}
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              "Load"
+            )}
           </button>
         </form>
 
@@ -124,7 +134,10 @@ function SoundcloudPopover() {
                 <li key={track.id}>
                   <button
                     type="button"
-                    onClick={() => void playIndex(index)}
+                    onClick={() => {
+                      if (kind !== "soundcloud") selectSoundcloud();
+                      void playIndex(index);
+                    }}
                     className={cn(
                       "flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition",
                       // Highlighted while it loads too, so the click lands
@@ -142,7 +155,113 @@ function SoundcloudPopover() {
                       ) : null}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs">{track.name}</span>
+                      <span className="block truncate text-xs">
+                        {track.name}
+                      </span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {track.artist}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** VisAmp-hosted catalogue picker. Playback URLs are resolved only on click. */
+function HostedAudioPopover() {
+  const tracks = useAudioStore((s) => s.hostedTracks);
+  const loading = useAudioStore((s) => s.hostedLoading);
+  const error = useAudioStore((s) => s.hostedError);
+  const kind = useAudioStore((s) => s.kind);
+  const currentIndex = useAudioStore((s) => s.currentIndex);
+  const pendingIndex = useAudioStore((s) => s.pendingIndex);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const load = useAudioStore((s) => s.loadHostedCatalogue);
+  const select = useAudioStore((s) => s.selectHostedSource);
+  const playIndex = useAudioStore((s) => s.playIndex);
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label="VisAmp music catalogue"
+        className={cn(
+          "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition",
+          kind === "hosted"
+            ? "border-foreground/30 bg-foreground/10"
+            : "hover:bg-foreground/5",
+        )}
+        onClick={() => {
+          if (tracks.length === 0 && !loading) void load();
+        }}
+      >
+        <Library className="h-3.5 w-3.5" />
+        VisAmp
+      </PopoverTrigger>
+
+      <PopoverContent align="start" className="w-80 p-0">
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <div>
+            <p className="text-xs font-medium">VisAmp music</p>
+            <p className="text-[11px] text-muted-foreground">
+              Licensed artist catalogue
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              "Refresh"
+            )}
+          </button>
+        </div>
+
+        {error && <p className="px-3 py-2 text-xs text-destructive">{error}</p>}
+        <ul className="max-h-64 overflow-y-auto py-1">
+          {tracks.length === 0 ? (
+            <li className="px-3 py-2 text-xs text-muted-foreground">
+              {loading ? "Loading…" : "No hosted tracks are live yet."}
+            </li>
+          ) : (
+            tracks.map((track, index) => {
+              const active = kind === "hosted" && index === currentIndex;
+              const starting = kind === "hosted" && index === pendingIndex;
+              return (
+                <li key={track.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (kind !== "hosted") select();
+                      void playIndex(index);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 px-3 py-1.5 text-left transition",
+                      active || starting
+                        ? "bg-foreground/10"
+                        : "hover:bg-foreground/5",
+                    )}
+                  >
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                      {starting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : active && isPlaying ? (
+                        <Volume2 className="h-3.5 w-3.5" />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs">
+                        {track.name}
+                      </span>
                       <span className="block truncate text-[11px] text-muted-foreground">
                         {track.artist}
                       </span>
@@ -190,7 +309,8 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
   const fsa = useSupportsFileSystemAccess();
   const micLive = kind === "mic";
   const level = useAudioLevel(micLive);
-  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(fullscreenTarget);
+  const { isFullscreen, toggle: toggleFullscreen } =
+    useFullscreen(fullscreenTarget);
 
   const starting = pendingIndex !== -1;
   // The track being started wins, so the name changes the moment it is picked
@@ -269,10 +389,14 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
         <div className="h-1 w-12 shrink-0 overflow-hidden rounded-full bg-foreground/10">
           <div
             className="h-full rounded-full bg-foreground/70"
-            style={{ width: `${Math.min(100, Math.round(Math.sqrt(level) * 140))}%` }}
+            style={{
+              width: `${Math.min(100, Math.round(Math.sqrt(level) * 140))}%`,
+            }}
           />
         </div>
       )}
+
+      <HostedAudioPopover />
 
       <SoundcloudPopover />
 
@@ -291,10 +415,16 @@ export function EditorTransport({ fullscreenTarget }: EditorTransportProps) {
         aria-label={micLive ? "Disable microphone" : "Enable microphone"}
         className={cn(
           "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition",
-          micLive ? "border-foreground/30 bg-foreground/10" : "hover:bg-foreground/5",
+          micLive
+            ? "border-foreground/30 bg-foreground/10"
+            : "hover:bg-foreground/5",
         )}
       >
-        {micLive ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+        {micLive ? (
+          <Mic className="h-3.5 w-3.5" />
+        ) : (
+          <MicOff className="h-3.5 w-3.5" />
+        )}
         Mic
       </button>
 

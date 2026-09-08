@@ -1,6 +1,7 @@
 function number(name, fallback) {
   const value = Number(process.env[name] ?? fallback);
-  if (!Number.isFinite(value) || value <= 0) throw new Error(`${name} must be positive`);
+  if (!Number.isFinite(value) || value <= 0)
+    throw new Error(`${name} must be positive`);
   return value;
 }
 
@@ -19,6 +20,8 @@ function toggle(name, fallback = true) {
 export const config = Object.freeze({
   port: integer("VALIDATOR_PORT", 4318),
   poolSize: integer("VALIDATOR_BROWSER_POOL_SIZE", 2),
+  maxQueue: integer("VALIDATOR_MAX_QUEUE", 8),
+  queueWaitMs: integer("VALIDATOR_QUEUE_WAIT_MS", 5_000),
   wallClockMs: integer("VALIDATOR_WALL_CLOCK_MS", 15_000),
   width: integer("VALIDATOR_WIDTH", 320),
   height: integer("VALIDATOR_HEIGHT", 180),

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useSessionStore } from "@/lib/store/session";
+import { profileAvatarUrl } from "@/lib/storage-urls";
 import { artistName } from "@/lib/visualisations";
 
 export interface Comment {
@@ -21,7 +22,7 @@ export interface Comment {
 // `profiles(...)` in the codebase at once.
 const SELECT = `
   id, body, created_at, author_id,
-  profiles!comments_author_id_fkey(username, display_name, avatar_url)
+  profiles!comments_author_id_fkey(username, avatar_url, avatar_path)
 `;
 
 interface Row {
@@ -31,8 +32,8 @@ interface Row {
   author_id: string;
   profiles: {
     username: string | null;
-    display_name: string | null;
     avatar_url: string | null;
+    avatar_path: string | null;
   } | null;
 }
 
@@ -44,7 +45,7 @@ function toComment(row: Row): Comment {
     authorId: row.author_id,
     authorName: artistName(row.profiles),
     authorUsername: row.profiles?.username ?? null,
-    authorAvatarUrl: row.profiles?.avatar_url ?? null,
+    authorAvatarUrl: profileAvatarUrl(row.profiles) ?? null,
   };
 }
 
@@ -73,7 +74,8 @@ export function useComments(visId: string, active: boolean): CommentsThread {
       .from("comments")
       .select(SELECT)
       .eq("vis_id", visId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(200);
 
     return {
       items: ((data ?? []) as Row[]).map(toComment),

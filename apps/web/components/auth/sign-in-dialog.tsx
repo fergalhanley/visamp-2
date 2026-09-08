@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Turnstile } from "@/components/auth/turnstile";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-type Mode = "sign-in" | "sign-up";
+type Mode = "sign-in" | "sign-up" | "reset";
 
 function GoogleIcon() {
   return (
@@ -64,17 +65,24 @@ interface SignInDialogProps {
 /**
  * E5.1 — Google, GitHub and email.
  *
- * Email uses a password rather than a magic link, because E5.2 calls for
- * Turnstile on signup *and password reset*, which only makes sense with
- * passwords. The Turnstile work itself is still outstanding.
+ * Email authentication passes a short-lived Turnstile token to Supabase Auth
+ * for server-side verification. OAuth continues through the provider.
  */
-export function SignInDialog({ open, onOpenChange, next = "/" }: SignInDialogProps) {
+export function SignInDialog({
+  open,
+  onOpenChange,
+  next = "/",
+}: SignInDialogProps) {
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  const needsCaptcha = true;
 
   const signInWithProvider = async (provider: "google" | "github") => {
     setError(null);
@@ -103,27 +111,54 @@ export function SignInDialog({ open, onOpenChange, next = "/" }: SignInDialogPro
 
     const supabase = createClient();
 
+    if (needsCaptcha && (!turnstileSiteKey || !captchaToken)) {
+      setError(
+        turnstileSiteKey
+          ? "Complete the security check first."
+          : "Email authentication is not configured.",
+      );
+      setPending(false);
+      return;
+    }
+
     if (mode === "sign-up") {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+          captchaToken: captchaToken!,
         },
       });
 
       if (signUpError) setError(signUpError.message);
       else setNotice("Check your email to confirm your account.");
+    } else if (mode === "reset") {
+      const resetPath = `/auth/reset-password?next=${encodeURIComponent(next)}`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(resetPath)}`,
+          captchaToken: captchaToken!,
+        },
+      );
+      if (resetError) setError(resetError.message);
+      else setNotice("Check your email for a password reset link.");
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: { captchaToken: captchaToken! },
       });
 
       if (signInError) setError(signInError.message);
       else onOpenChange(false);
     }
 
+    if (needsCaptcha) {
+      setCaptchaToken(null);
+      setCaptchaAttempt((value) => value + 1);
+    }
     setPending(false);
   };
 
@@ -132,7 +167,11 @@ export function SignInDialog({ open, onOpenChange, next = "/" }: SignInDialogPro
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>
-            {mode === "sign-in" ? "Sign in to VisAmp" : "Create an account"}
+            {mode === "sign-in"
+              ? "Sign in to VisAmp"
+              : mode === "sign-up"
+                ? "Create an account"
+                : "Reset your password"}
           </DialogTitle>
           <DialogDescription>
             Watching is anonymous. You only need an account to create, like and
@@ -179,40 +218,79 @@ export function SignInDialog({ open, onOpenChange, next = "/" }: SignInDialogPro
               onChange={(event) => setEmail(event.target.value)}
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="auth-password">Password</Label>
-            <Input
-              id="auth-password"
-              type="password"
-              autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
-              required
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
+
+          {turnstileSiteKey && (
+            <Turnstile
+              key={captchaAttempt}
+              siteKey={turnstileSiteKey}
+              onToken={setCaptchaToken}
             />
-          </div>
+          )}
+          {!turnstileSiteKey && (
+            <p className="text-xs text-destructive">
+              Email authentication is unavailable. Use Google or GitHub.
+            </p>
+          )}
+          {mode !== "reset" && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="auth-password">Password</Label>
+              <Input
+                id="auth-password"
+                type="password"
+                autoComplete={
+                  mode === "sign-up" ? "new-password" : "current-password"
+                }
+                required
+                minLength={8}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </div>
+          )}
 
           {error && <p className="text-xs text-destructive">{error}</p>}
           {notice && <p className="text-xs text-muted-foreground">{notice}</p>}
 
-          <Button type="submit" disabled={pending}>
-            {mode === "sign-in" ? "Sign in" : "Sign up"}
+          <Button
+            type="submit"
+            disabled={pending || (needsCaptcha && !captchaToken)}
+          >
+            {mode === "sign-in"
+              ? "Sign in"
+              : mode === "sign-up"
+                ? "Sign up"
+                : "Send reset link"}
           </Button>
         </form>
 
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-            setError(null);
-            setNotice(null);
-          }}
-          className={cn("text-xs text-muted-foreground hover:text-foreground")}
-        >
-          {mode === "sign-in"
-            ? "No account? Sign up"
-            : "Already have an account? Sign in"}
-        </button>
+        <div className="flex justify-between gap-3 text-xs text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "sign-up" ? "sign-in" : "sign-up");
+              setCaptchaToken(null);
+              setCaptchaAttempt((value) => value + 1);
+              setError(null);
+              setNotice(null);
+            }}
+            className={cn("hover:text-foreground")}
+          >
+            {mode === "sign-up" ? "Already have an account?" : "Create account"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "reset" ? "sign-in" : "reset");
+              setCaptchaToken(null);
+              setCaptchaAttempt((value) => value + 1);
+              setError(null);
+              setNotice(null);
+            }}
+            className={cn("hover:text-foreground")}
+          >
+            {mode === "reset" ? "Back to sign in" : "Forgot password?"}
+          </button>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compiler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run native compiler fixtures
+        run: cargo test --workspace
+      - name: Build both targets and compare versions
+        run: packages/engine/check-compiler-parity.sh
+      - name: Lint web application
+        run: pnpm --filter @visamp/web lint
+      - name: Check TypeScript
+        run: pnpm --filter @visamp/player check-types && pnpm --filter @visamp/web check-types
+      - name: Test player
+        run: pnpm --filter @visamp/player test
+      - name: Test artist upload rules
+        run: pnpm --filter @visamp/web test:uploads
+      - name: Build web application
+        run: pnpm --filter @visamp/web exec next build --webpack
+      - name: Test validator metrics
+        run: pnpm --filter @visamp/validator test
+      - name: Build validator WASM target
+        run: pnpm --filter @visamp/validator build
+      - name: Install validator browser
+        run: pnpm --filter @visamp/validator exec playwright install --with-deps chromium
+      - name: Smoke-test render validation
+        run: |
+          pnpm --filter @visamp/validator start &
+          validator_pid=$!
+          trap 'kill "$validator_pid"' EXIT
+          node --input-type=module - <<'NODE'
+          const script = `
+          prop phase = 0.0
+          on_frame { phase = phase + 0.1 }
+          render {
+            draw::background(color: color::rgb(r: 0.02, g: 0.02, b: 0.05))
+            draw::circle(
+              x: $WIDTH / 2.0 + math::sin(radians: phase) * 40.0,
+              y: $HEIGHT / 2.0,
+              radius: 20.0 + $FREQUENCY_DATA[4] / 16.0,
+              color: $COLOR_RED
+            )
+          }`;
+          for (let attempt = 0; attempt < 50; attempt += 1) {
+            try {
+              const response = await fetch("http://127.0.0.1:4318/validate", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ script }),
+              });
+              if (!response.ok) throw new Error(await response.text());
+              const result = await response.json();
+              if (!result.compilerVersion) throw new Error("missing compiler version");
+              process.exit(0);
+            } catch (error) {
+              if (attempt === 49) throw error;
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+          }
+          NODE

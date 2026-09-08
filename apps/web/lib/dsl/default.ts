@@ -24,7 +24,6 @@ export const DEFAULT_VISUALISATION: Visualisation = {
   source: DEFAULT_SOURCE,
   artist: {
     username: "visamp",
-    displayName: "Visamp",
     visCount: 0,
     totalViews: 0,
   },

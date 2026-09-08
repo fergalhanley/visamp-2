@@ -42,11 +42,17 @@ export function useArtistGallery(): Gallery {
     const supabase = createClient();
 
     void Promise.all([
-      supabase.from("profiles").select("*").gt("vis_count", 0),
+      supabase
+        .from("profiles")
+        .select("*")
+        .gt("vis_count", 0)
+        .order("total_views", { ascending: false })
+        .limit(200),
       supabase
         .from("visualisations")
         .select("owner_id, like_count")
-        .eq("visibility", "public"),
+        .eq("visibility", "public")
+        .limit(5000),
     ]).then(([profiles, work]) => {
       if (!live) return;
 
@@ -101,6 +107,7 @@ export function useArtistWork(ownerId: string | null): {
       .eq("owner_id", ownerId)
       .eq("visibility", "public")
       .order("created_at", { ascending: false })
+      .limit(200)
       .then(({ data }) => {
         if (!live) return;
         setState({

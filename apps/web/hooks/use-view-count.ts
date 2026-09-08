@@ -2,17 +2,14 @@
 
 import { useEffect, useRef } from "react";
 
-import { createClient } from "@/lib/supabase/client";
 import { useSessionStore } from "@/lib/store/session";
 
 /**
  * Counts a view each time something new starts playing.
  *
- * Every view counts, once: no per-viewer dedupe, because watching is anonymous
- * and there is nothing to dedupe against. The ref guard is only there to stop
- * the same visualisation being counted twice for one arrival — StrictMode runs
- * every effect twice in development, and the store notifies on unrelated
- * changes to `current`.
+ * The server deduplicates a viewer for 24 hours and caps cookie-reset traffic
+ * per network. The ref also avoids a redundant request when StrictMode runs an
+ * effect twice in development.
  *
  * Fires for database-backed work only. The built-in default and the local
  * fixtures have no row to count against; `ownerId` is what separates them.
@@ -27,18 +24,29 @@ export function useViewCount(): void {
 
   useEffect(() => {
     if (!ownerId || counted.current === id) return;
-    counted.current = id;
+    const timer = window.setTimeout(() => {
+      counted.current = id;
+      void fetch(`/api/visualisations/${encodeURIComponent(id)}/view`, {
+        method: "POST",
+        credentials: "same-origin",
+      })
+        .then(async (response) => {
+          const result = (await response.json()) as {
+            counted?: boolean;
+            error?: string;
+          };
+          if (!response.ok)
+            throw new Error(result.error ?? "View was not recorded");
+          if (result.counted) useSessionStore.getState().countView(id);
+        })
+        .catch((error: unknown) => {
+          console.warn(
+            "[visamp] view not recorded:",
+            error instanceof Error ? error.message : error,
+          );
+        });
+    }, 5_000);
 
-    void createClient()
-      .rpc("record_vis_view", { vis_id: id })
-      .then(({ error }) => {
-        // A view that fails to record is not worth telling the viewer about,
-        // but showing a number that never moved is worse than a console line.
-        if (error) {
-          console.warn("[visamp] view not recorded:", error.message);
-          return;
-        }
-        useSessionStore.getState().countView(id);
-      });
+    return () => window.clearTimeout(timer);
   }, [id, ownerId]);
 }

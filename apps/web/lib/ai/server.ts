@@ -66,11 +66,15 @@ function maxOutputTokens() {
   return Number(process.env.AI_MAX_OUTPUT_TOKENS ?? 8192);
 }
 
-function modelTimeout() {
-  return AbortSignal.timeout(Number(process.env.AI_MODEL_TIMEOUT_MS ?? 60_000));
+function timedSignal(signal: AbortSignal | undefined, timeoutMs: number) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
-async function callAnthropic(messages: ConversationMessage[]) {
+async function callAnthropic(
+  messages: ConversationMessage[],
+  signal?: AbortSignal,
+) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const model = process.env.AI_ANTHROPIC_MODEL ?? process.env.AI_STANDARD_MODEL;
   if (!apiKey || !model) {
@@ -97,7 +101,10 @@ async function callAnthropic(messages: ConversationMessage[]) {
       system: await dslReference(),
       messages,
     }),
-    signal: modelTimeout(),
+    signal: timedSignal(
+      signal,
+      Number(process.env.AI_MODEL_TIMEOUT_MS ?? 60_000),
+    ),
   });
   const payload = (await response.json()) as AnthropicResponse;
   if (!response.ok) throw new Error(payload.error?.message ?? `Model request failed (${response.status})`);
@@ -110,7 +117,10 @@ async function callAnthropic(messages: ConversationMessage[]) {
   return text;
 }
 
-async function callOpenAi(messages: ConversationMessage[]) {
+async function callOpenAi(
+  messages: ConversationMessage[],
+  signal?: AbortSignal,
+) {
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.AI_OPENAI_MODEL;
   if (!apiKey || !model) {
@@ -139,7 +149,10 @@ async function callOpenAi(messages: ConversationMessage[]) {
       max_output_tokens: maxOutputTokens(),
       store: false,
     }),
-    signal: modelTimeout(),
+    signal: timedSignal(
+      signal,
+      Number(process.env.AI_MODEL_TIMEOUT_MS ?? 60_000),
+    ),
   });
   const payload = (await response.json()) as OpenAiResponse;
   if (!response.ok) {
@@ -157,7 +170,10 @@ async function callOpenAi(messages: ConversationMessage[]) {
   return text;
 }
 
-async function callQwen(messages: ConversationMessage[]) {
+async function callQwen(
+  messages: ConversationMessage[],
+  signal?: AbortSignal,
+) {
   const apiKey = process.env.DASHSCOPE_API_KEY ?? process.env.ALIBABA_API_KEY;
   const model = process.env.AI_QWEN_MODEL;
   const baseUrl = process.env.ALIBABA_BASE_URL ?? process.env.DASHSCOPE_BASE_URL;
@@ -180,7 +196,10 @@ async function callQwen(messages: ConversationMessage[]) {
       enable_thinking: false,
       stream: false,
     }),
-    signal: modelTimeout(),
+    signal: timedSignal(
+      signal,
+      Number(process.env.AI_MODEL_TIMEOUT_MS ?? 60_000),
+    ),
   });
   const payload = (await response.json()) as QwenResponse;
   if (!response.ok) {
@@ -193,14 +212,18 @@ async function callQwen(messages: ConversationMessage[]) {
   return text;
 }
 
-export function callModel(model: AiModelKey, messages: ConversationMessage[]) {
+export function callModel(
+  model: AiModelKey,
+  messages: ConversationMessage[],
+  signal?: AbortSignal,
+) {
   switch (model) {
     case "anthropic":
-      return callAnthropic(messages);
+      return callAnthropic(messages, signal);
     case "openai":
-      return callOpenAi(messages);
+      return callOpenAi(messages, signal);
     case "qwen":
-      return callQwen(messages);
+      return callQwen(messages, signal);
   }
 }
 
@@ -209,14 +232,17 @@ export function extractScript(response: string) {
   return (fenced?.[1] ?? response).trim();
 }
 
-export async function validateRender(script: string) {
+export async function validateRender(script: string, signal?: AbortSignal) {
   const validatorUrl = process.env.AI_VALIDATOR_URL;
   if (!validatorUrl) throw new Error("AI generation is not configured (AI_VALIDATOR_URL)");
   const response = await fetch(`${validatorUrl.replace(/\/$/, "")}/validate`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ script }),
-    signal: AbortSignal.timeout(Number(process.env.AI_VALIDATOR_TIMEOUT_MS ?? 20_000)),
+    signal: timedSignal(
+      signal,
+      Number(process.env.AI_VALIDATOR_TIMEOUT_MS ?? 20_000),
+    ),
   });
   const result = (await response.json()) as ValidationResponse;
   if (!response.ok) return { ok: false, diagnostic: result.error ?? "Render validation failed" };

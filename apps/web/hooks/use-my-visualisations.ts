@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
+import { profileAvatarUrl } from "@/lib/storage-urls";
 import type { Artist, Visualisation } from "@/lib/types";
-import { artistName, visualisationFromRow } from "@/lib/visualisations";
+import { visualisationFromRow } from "@/lib/visualisations";
 
 interface Fetched {
   userId: string;
@@ -42,6 +43,7 @@ export function useMyVisualisations(): {
       .select("*")
       .eq("owner_id", userId)
       .order("updated_at", { ascending: false })
+      .limit(500)
       .then(({ data, error }) => {
         if (!active) return;
 
@@ -49,8 +51,7 @@ export function useMyVisualisations(): {
         // by artist tiles, which this list never renders.
         const artist: Artist = {
           username: profile?.username ?? "you",
-          displayName: artistName(profile, "You"),
-          avatarUrl: profile?.avatar_url ?? undefined,
+          avatarUrl: profileAvatarUrl(profile),
           visCount: profile?.vis_count ?? 0,
           totalViews: profile?.total_views ?? 0,
         };

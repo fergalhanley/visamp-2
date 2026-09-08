@@ -37,6 +37,7 @@ export function useFavouriteVisualisations(): {
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
+      .limit(500)
       .then(({ data, error }) => {
         if (!active) return;
         setFetched({

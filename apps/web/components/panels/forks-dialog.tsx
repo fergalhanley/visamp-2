@@ -70,7 +70,7 @@ export function ForksDialog({ vis, open, onOpenChange }: ForksDialogProps) {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{fork.title}</span>
                     <span className="block truncate text-[11px] text-muted-foreground">
-                      {fork.artist.displayName} · {relativeDate(fork.updatedAt)}
+                      {fork.artist.username} · {relativeDate(fork.updatedAt)}
                     </span>
                   </span>
                 </button>

@@ -1,6 +1,5 @@
 export interface Artist {
   username: string;
-  displayName: string;
   avatarUrl?: string;
   bio?: string;
   visCount: number;
@@ -48,9 +47,10 @@ export type PlayerMode = "track-audio" | "time-interval" | "manual";
 export const INTERVAL_CHOICES = [10, 20, 30, 60, 120, 300, 600] as const;
 
 /** Where the analyser gets its signal (E4). */
-export type AudioSourceKind = "silent" | "mic" | "files" | "soundcloud";
+export type AudioSourceKind =
+  "silent" | "mic" | "files" | "soundcloud" | "hosted";
 
-export type TrackSource = "file" | "soundcloud";
+export type TrackSource = "file" | "soundcloud" | "hosted";
 
 export interface Track {
   id: string;
@@ -60,6 +60,8 @@ export interface Track {
   file?: File;
   /** SoundCloud tracks only — the stream URL is fetched on demand. */
   soundcloudId?: number;
+  /** VisAmp-hosted tracks only — playback URLs are fetched on demand. */
+  hostedTrackId?: string;
   artist?: string;
   durationMs?: number;
 }

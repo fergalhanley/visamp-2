@@ -5,6 +5,7 @@ import {
   ChevronUp,
   Cloud,
   ExternalLink,
+  Library,
   Loader2,
   Mic,
   Music,
@@ -17,7 +18,10 @@ import { useRef, useState } from "react";
 
 import { Panel } from "@/components/panels/panel";
 import { useAudioLevel } from "@/hooks/use-audio-level";
-import { useIsChromium, useSupportsFileSystemAccess } from "@/hooks/use-capabilities";
+import {
+  useIsChromium,
+  useSupportsFileSystemAccess,
+} from "@/hooks/use-capabilities";
 import { useAudioStore } from "@/lib/store/audio";
 import { useChromeStore } from "@/lib/store/chrome";
 import type { AudioSourceKind } from "@/lib/types";
@@ -25,9 +29,10 @@ import { cn } from "@/lib/utils";
 
 const ACCEPTED = ".mp3,.m4a,.aac,.ogg,.opus,.wav,.flac";
 
-type SourceTab = "soundcloud" | "files" | "mic";
+type SourceTab = "hosted" | "soundcloud" | "files" | "mic";
 
 const SOURCES: { value: SourceTab; label: string; icon: typeof Cloud }[] = [
+  { value: "hosted", label: "VisAmp", icon: Library },
   { value: "soundcloud", label: "SoundCloud", icon: Cloud },
   { value: "files", label: "My Files", icon: Music },
   { value: "mic", label: "Mic", icon: Mic },
@@ -36,6 +41,7 @@ const SOURCES: { value: SourceTab; label: string; icon: typeof Cloud }[] = [
 /** Which tab to show for the current audio source. */
 function tabForKind(kind: AudioSourceKind): SourceTab {
   if (kind === "mic") return "mic";
+  if (kind === "hosted") return "hosted";
   if (kind === "soundcloud") return "soundcloud";
   return "files";
 }
@@ -107,6 +113,9 @@ export function APanel() {
   const scTracks = useAudioStore((s) => s.soundcloudTracks);
   const scLoading = useAudioStore((s) => s.soundcloudLoading);
   const scError = useAudioStore((s) => s.soundcloudError);
+  const hostedTracks = useAudioStore((s) => s.hostedTracks);
+  const hostedLoading = useAudioStore((s) => s.hostedLoading);
+  const hostedError = useAudioStore((s) => s.hostedError);
 
   const enableMic = useAudioStore((s) => s.enableMic);
   const disableMic = useAudioStore((s) => s.disableMic);
@@ -123,6 +132,8 @@ export function APanel() {
   const setUrl = useAudioStore((s) => s.setSoundcloudUrl);
   const selectSoundcloudSource = useAudioStore((s) => s.selectSoundcloudSource);
   const selectFilesSource = useAudioStore((s) => s.selectFilesSource);
+  const loadHostedCatalogue = useAudioStore((s) => s.loadHostedCatalogue);
+  const selectHostedSource = useAudioStore((s) => s.selectHostedSource);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const fsa = useSupportsFileSystemAccess();
@@ -142,9 +153,14 @@ export function APanel() {
     } else if (next === "files") {
       if (micLive) disableMic();
       selectFilesSource();
-    } else {
+    } else if (next === "soundcloud") {
       if (micLive) disableMic();
       if (scTracks.length > 0) selectSoundcloudSource();
+    } else {
+      if (micLive) disableMic();
+      selectHostedSource();
+      if (hostedTracks.length === 0 && !hostedLoading)
+        void loadHostedCatalogue();
     }
   };
 
@@ -153,12 +169,12 @@ export function APanel() {
       <header className="shrink-0 border-b px-4 py-3">
         <h2 className="text-sm font-medium">Audio</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          A SoundCloud playlist, your own files, or the microphone.
+          VisAmp artists, SoundCloud, your own files, or the microphone.
         </p>
       </header>
 
       <div className="shrink-0 border-b px-4 py-3">
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-foreground/5 p-1">
+        <div className="grid grid-cols-4 gap-1 rounded-lg bg-foreground/5 p-1">
           {SOURCES.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
@@ -178,6 +194,82 @@ export function APanel() {
           ))}
         </div>
       </div>
+
+      {activeTab === "hosted" && (
+        <section className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
+            <div>
+              <h3 className="text-xs font-medium">VisAmp music</h3>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Music hosted with permission from the artists.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadHostedCatalogue()}
+              disabled={hostedLoading}
+              aria-label="Refresh VisAmp music"
+              className="text-muted-foreground transition hover:text-foreground disabled:opacity-40"
+            >
+              <RefreshCw
+                className={cn("h-3.5 w-3.5", hostedLoading && "animate-spin")}
+              />
+            </button>
+          </div>
+
+          {hostedError && (
+            <p className="px-4 pb-2 text-xs text-destructive">{hostedError}</p>
+          )}
+
+          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
+            {hostedTracks.length === 0 ? (
+              <li className="px-4 py-2 text-xs text-muted-foreground">
+                {hostedLoading
+                  ? "Loading VisAmp music…"
+                  : "No hosted tracks are live yet."}
+              </li>
+            ) : (
+              hostedTracks.map((track, index) => {
+                const active = kind === "hosted" && index === currentIndex;
+                const loading = kind === "hosted" && index === pendingIndex;
+                return (
+                  <li
+                    key={track.id}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-1.5 transition",
+                      !(active || loading) && "hover:bg-foreground/5",
+                      (active || loading) && "bg-foreground/10",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void playIndex(index)}
+                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                    >
+                      <TrackStatus
+                        loading={loading}
+                        current={active}
+                        playing={isPlaying}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs">
+                          {track.name}
+                        </span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {track.artist}
+                        </span>
+                      </span>
+                    </button>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                      {formatDuration(track.durationMs)}
+                    </span>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </section>
+      )}
 
       {activeTab === "soundcloud" && (
         <section className="flex min-h-0 flex-1 flex-col">
@@ -204,7 +296,11 @@ export function APanel() {
                 disabled={scLoading || !url.trim()}
                 className="shrink-0 rounded-md border px-2 py-1.5 text-xs transition hover:bg-foreground/5 disabled:opacity-50"
               >
-                {scLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Load"}
+                {scLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  "Load"
+                )}
               </button>
             </div>
 
@@ -214,7 +310,9 @@ export function APanel() {
           {scPlaylist && (
             <div className="flex shrink-0 items-center justify-between gap-2 px-4 pb-2">
               <div className="min-w-0">
-                <p className="truncate text-xs font-medium">{scPlaylist.title}</p>
+                <p className="truncate text-xs font-medium">
+                  {scPlaylist.title}
+                </p>
                 <p className="text-[11px] text-muted-foreground">
                   {scTracks.length} playable
                   {scPlaylist.unplayable > 0 &&
@@ -241,7 +339,9 @@ export function APanel() {
                   title="Reload the playlist from SoundCloud"
                   className="text-muted-foreground transition hover:text-foreground disabled:opacity-40"
                 >
-                  <RefreshCw className={cn("h-3.5 w-3.5", scLoading && "animate-spin")} />
+                  <RefreshCw
+                    className={cn("h-3.5 w-3.5", scLoading && "animate-spin")}
+                  />
                 </button>
                 <button
                   type="button"
@@ -266,36 +366,42 @@ export function APanel() {
                 const loading = kind === "soundcloud" && index === pendingIndex;
 
                 return (
-                <li
-                  key={track.id}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-1.5 transition",
-                    // Tailwind emits `hover:bg-*` after plain `bg-*`, so an
-                    // unconditional hover tint *dims* an already-highlighted
-                    // row. The row that is playing keeps its own shade.
-                    !(active || loading) && "hover:bg-foreground/5",
-                    // Highlighted while loading too, so the click registers
-                    // before the sound does.
-                    (active || loading) && "bg-foreground/10",
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => void playIndex(index)}
-                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                  <li
+                    key={track.id}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-1.5 transition",
+                      // Tailwind emits `hover:bg-*` after plain `bg-*`, so an
+                      // unconditional hover tint *dims* an already-highlighted
+                      // row. The row that is playing keeps its own shade.
+                      !(active || loading) && "hover:bg-foreground/5",
+                      // Highlighted while loading too, so the click registers
+                      // before the sound does.
+                      (active || loading) && "bg-foreground/10",
+                    )}
                   >
-                    <TrackStatus loading={loading} current={active} playing={isPlaying} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs">{track.name}</span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {track.artist}
+                    <button
+                      type="button"
+                      onClick={() => void playIndex(index)}
+                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                    >
+                      <TrackStatus
+                        loading={loading}
+                        current={active}
+                        playing={isPlaying}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs">
+                          {track.name}
+                        </span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {track.artist}
+                        </span>
                       </span>
+                    </button>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                      {formatDuration(track.durationMs)}
                     </span>
-                  </button>
-                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                    {formatDuration(track.durationMs)}
-                  </span>
-                </li>
+                  </li>
                 );
               })
             )}
@@ -320,7 +426,9 @@ export function APanel() {
               )}
               <button
                 type="button"
-                onClick={() => (fsa ? void addViaPicker() : inputRef.current?.click())}
+                onClick={() =>
+                  fsa ? void addViaPicker() : inputRef.current?.click()
+                }
                 className="rounded-md border px-2 py-1 text-xs transition hover:bg-foreground/5"
               >
                 Add files
@@ -341,16 +449,18 @@ export function APanel() {
           />
 
           <p className="shrink-0 px-4 pb-2 text-[11px] text-muted-foreground">
-            MP3, M4A, AAC, OGG, Opus, WAV, FLAC. Nothing is uploaded.
+            MP3, M4A, AAC, OGG, Opus, WAV, FLAC. Local files stay on this device.
           </p>
 
           {pendingNames.length > 0 && (
             <div className="mx-4 mb-2 shrink-0 rounded-md border border-dashed px-3 py-2">
               <p className="text-[11px] text-muted-foreground">
                 {pendingNames.length} track
-                {pendingNames.length === 1 ? "" : "s"} from your last session need
-                re-adding:{" "}
-                <span className="text-foreground">{pendingNames.join(", ")}</span>
+                {pendingNames.length === 1 ? "" : "s"} from your last session
+                need re-adding:{" "}
+                <span className="text-foreground">
+                  {pendingNames.join(", ")}
+                </span>
               </p>
               {!chromium && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
@@ -363,7 +473,8 @@ export function APanel() {
           <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
             {tracks.length === 0 ? (
               <li className="px-4 py-2 text-xs text-muted-foreground">
-                No tracks yet — the visualisation runs time-driven until you add some.
+                No tracks yet — the visualisation runs time-driven until you add
+                some.
               </li>
             ) : (
               tracks.map((track, index) => {
@@ -371,56 +482,62 @@ export function APanel() {
                 const loading = kind === "files" && index === pendingIndex;
 
                 return (
-                <li
-                  key={track.id}
-                  className={cn(
-                    // `group` still drives the reorder controls on hover.
-                    "group flex items-center gap-2 px-4 py-1.5 transition",
-                    // Tailwind emits `hover:bg-*` after plain `bg-*`, so an
-                    // unconditional hover tint *dims* an already-highlighted
-                    // row. The row that is playing keeps its own shade.
-                    !(active || loading) && "hover:bg-foreground/5",
-                    (active || loading) && "bg-foreground/10",
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => void playIndex(index)}
-                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                  <li
+                    key={track.id}
+                    className={cn(
+                      // `group` still drives the reorder controls on hover.
+                      "group flex items-center gap-2 px-4 py-1.5 transition",
+                      // Tailwind emits `hover:bg-*` after plain `bg-*`, so an
+                      // unconditional hover tint *dims* an already-highlighted
+                      // row. The row that is playing keeps its own shade.
+                      !(active || loading) && "hover:bg-foreground/5",
+                      (active || loading) && "bg-foreground/10",
+                    )}
                   >
-                    <TrackStatus loading={loading} current={active} playing={isPlaying} />
-                    <span className="min-w-0 flex-1 truncate text-xs">{track.name}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => void playIndex(index)}
+                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                    >
+                      <TrackStatus
+                        loading={loading}
+                        current={active}
+                        playing={isPlaying}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-xs">
+                        {track.name}
+                      </span>
+                    </button>
 
-                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                    <button
-                      type="button"
-                      aria-label="Move up"
-                      disabled={index === 0}
-                      onClick={() => moveTrack(index, index - 1)}
-                      className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                    >
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Move down"
-                      disabled={index === tracks.length - 1}
-                      onClick={() => moveTrack(index, index + 1)}
-                      className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                    >
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${track.name}`}
-                      onClick={() => removeTrack(track.id)}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </li>
+                    <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      <button
+                        type="button"
+                        aria-label="Move up"
+                        disabled={index === 0}
+                        onClick={() => moveTrack(index, index - 1)}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Move down"
+                        disabled={index === tracks.length - 1}
+                        onClick={() => moveTrack(index, index + 1)}
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${track.name}`}
+                        onClick={() => removeTrack(track.id)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </li>
                 );
               })
             )}
@@ -435,7 +552,9 @@ export function APanel() {
             onClick={() => (micLive ? disableMic() : void enableMic())}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs transition",
-              micLive ? "border-foreground/30 bg-foreground/10" : "hover:bg-foreground/5",
+              micLive
+                ? "border-foreground/30 bg-foreground/10"
+                : "hover:bg-foreground/5",
             )}
           >
             <Mic className="h-3.5 w-3.5" />
@@ -446,8 +565,9 @@ export function APanel() {
           {micError && <p className="text-xs text-destructive">{micError}</p>}
 
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            The mic hears whatever your speakers play. On headphones it hears the
-            room instead — so the visualisation won&apos;t react to your music.
+            The mic hears whatever your speakers play. On headphones it hears
+            the room instead — so the visualisation won&apos;t react to your
+            music.
           </p>
         </section>
       )}

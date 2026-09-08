@@ -8,14 +8,12 @@ import type { Artist, Visualisation } from "@/lib/types";
 
 const nova: Artist = {
   username: "nova",
-  displayName: "Nova",
   visCount: 3,
   totalViews: 18420,
 };
 
 const kestrel: Artist = {
   username: "kestrel",
-  displayName: "Kestrel",
   visCount: 2,
   totalViews: 7310,
 };

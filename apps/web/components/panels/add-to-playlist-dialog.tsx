@@ -52,8 +52,13 @@ export function AddToPlaylistDialog({
         .from("playlists")
         .select("id, title")
         .eq("owner_id", user.id)
-        .order("created_at", { ascending: false }),
-      supabase.from("playlist_items").select("playlist_id").eq("vis_id", vis.id),
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("playlist_items")
+        .select("playlist_id")
+        .eq("vis_id", vis.id)
+        .limit(200),
     ]);
 
     if (listError) return { items: [], error: listError.message };

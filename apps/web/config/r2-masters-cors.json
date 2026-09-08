@@ -1,0 +1,9 @@
+[
+  {
+    "AllowedOrigins": ["https://visamp.io", "https://www.visamp.io", "http://localhost:3000"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]

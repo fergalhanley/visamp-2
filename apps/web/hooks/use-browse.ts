@@ -29,6 +29,7 @@ export function useBrowseVisualisations(): Loaded<Visualisation> & { loading: bo
       .select("*, profiles!visualisations_owner_id_fkey(*)")
       .eq("visibility", "public")
       .order("created_at", { ascending: false })
+      .limit(200)
       .then(({ data, error }) => {
         if (!active) return;
 

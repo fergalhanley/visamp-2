@@ -31,7 +31,7 @@ function sortArtists(items: ArtistStats[], by: Sort): ArtistStats[] {
   sorted.sort((a, b) => {
     switch (by) {
       case "name":
-        return a.artist.displayName.localeCompare(b.artist.displayName);
+        return a.artist.username.localeCompare(b.artist.username);
       case "views":
         return b.views - a.views;
       case "likes":
@@ -75,7 +75,6 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
     const filtered = needle
       ? items.filter(
           (row) =>
-            row.artist.displayName.toLowerCase().includes(needle) ||
             row.artist.username.toLowerCase().includes(needle),
         )
       : items;
@@ -96,9 +95,8 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
           <BrandLockup className="h-6" />
           {/* Hard navigation on purpose, as in the editor: the player needs a
               fresh document to claim the WASM singleton back off this page. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
-            href="/"
+            href="/player"
             className="text-xs text-muted-foreground transition hover:text-foreground"
           >
             Player
@@ -175,16 +173,16 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
                         {row.artist.avatarUrl && (
                           <AvatarImage
                             src={row.artist.avatarUrl}
-                            alt={`${row.artist.displayName}'s avatar`}
+                            alt={`${row.artist.username}'s avatar`}
                           />
                         )}
                         <AvatarFallback style={posterStyle(row.artist.username)}>
-                          <span className="sr-only">{row.artist.displayName}</span>
+                          <span className="sr-only">{row.artist.username}</span>
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
-                          {row.artist.displayName}
+                          {row.artist.username}
                         </p>
                         <p className="truncate text-[11px] text-muted-foreground">
                           {formatCount(row.views)} views · {formatCount(row.likes)} likes ·{" "}
@@ -259,15 +257,15 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
                     {activeArtist.artist.avatarUrl && (
                       <AvatarImage
                         src={activeArtist.artist.avatarUrl}
-                        alt={`${activeArtist.artist.displayName}'s avatar`}
+                        alt={`${activeArtist.artist.username}'s avatar`}
                       />
                     )}
                     <AvatarFallback className="text-xl">
-                      {activeArtist.artist.displayName.charAt(0).toUpperCase()}
+                      {activeArtist.artist.username.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <h1 className="mt-3 text-sm font-medium">
-                    {activeArtist.artist.displayName}
+                    {activeArtist.artist.username}
                   </h1>
                   <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                     {activeArtist.artist.bio || "This artist has not added a bio yet."}

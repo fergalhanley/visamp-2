@@ -15,7 +15,15 @@ import {
   type FileSystemFileHandleLike,
 } from "@/lib/audio/persistence";
 import { useSessionStore } from "@/lib/store/session";
-import type { AudioSourceKind, SoundCloudPlaylistInfo, Track } from "@/lib/types";
+import type {
+  HostedPlayback,
+  HostedTrackSummary,
+} from "@/lib/hosted-audio/types";
+import type {
+  AudioSourceKind,
+  SoundCloudPlaylistInfo,
+  Track,
+} from "@/lib/types";
 
 let trackSeq = 0;
 const nextTrackId = () => `track-${(trackSeq += 1)}`;
@@ -29,8 +37,11 @@ function activeTracks(state: {
   kind: AudioSourceKind;
   tracks: Track[];
   soundcloudTracks: Track[];
+  hostedTracks: Track[];
 }): Track[] {
-  return state.kind === "soundcloud" ? state.soundcloudTracks : state.tracks;
+  if (state.kind === "soundcloud") return state.soundcloudTracks;
+  if (state.kind === "hosted") return state.hostedTracks;
+  return state.tracks;
 }
 
 interface AudioState {
@@ -67,6 +78,10 @@ interface AudioState {
   soundcloudLoading: boolean;
   soundcloudError: string | null;
 
+  hostedTracks: Track[];
+  hostedLoading: boolean;
+  hostedError: string | null;
+
   setSilent: () => void;
   enableMic: () => Promise<void>;
   disableMic: () => void;
@@ -74,13 +89,19 @@ interface AudioState {
   setSoundcloudUrl: (url: string) => void;
   loadSoundcloudPlaylist: (
     url: string,
-    options?: { persist?: boolean; autoplay?: boolean; preservePlayback?: boolean },
+    options?: {
+      persist?: boolean;
+      autoplay?: boolean;
+      preservePlayback?: boolean;
+    },
   ) => Promise<void>;
   /** Re-fetch the current playlist, for when it changed on SoundCloud. */
   refreshSoundcloud: () => Promise<void>;
   clearSoundcloud: () => void;
   selectSoundcloudSource: () => void;
   selectFilesSource: () => void;
+  loadHostedCatalogue: () => Promise<void>;
+  selectHostedSource: () => void;
 
   addFiles: (files: File[]) => void;
   addViaPicker: () => Promise<void>;
@@ -116,7 +137,8 @@ export const DEFAULT_SOUNDCLOUD_PLAYLIST =
 function isAutoplayBlocked(error: unknown): boolean {
   return (
     (error instanceof DOMException && error.name === "NotAllowedError") ||
-    (error instanceof Error && /gesture|not allowed|interact/i.test(error.message))
+    (error instanceof Error &&
+      /gesture|not allowed|interact/i.test(error.message))
   );
 }
 
@@ -130,6 +152,150 @@ let waitingForGesture = false;
  * rather than what was asked for.
  */
 let playToken = 0;
+let soundcloudLoadToken = 0;
+let hostedCatalogueToken = 0;
+let hostedRenewalTimer: ReturnType<typeof setTimeout> | null = null;
+let hostedPlayCountTimer: ReturnType<typeof setTimeout> | null = null;
+let hostedRecoveryTrackId: string | null = null;
+let hostedPlayCountTrackId: string | null = null;
+let hostedPlayedMs = 0;
+let hostedLastCountTick = 0;
+let hostedPlayCountReported = false;
+
+function cancelHostedTimers(): void {
+  if (hostedRenewalTimer) clearTimeout(hostedRenewalTimer);
+  if (hostedPlayCountTimer) clearTimeout(hostedPlayCountTimer);
+  hostedRenewalTimer = null;
+  hostedPlayCountTimer = null;
+  hostedPlayCountTrackId = null;
+  hostedPlayedMs = 0;
+  hostedLastCountTick = 0;
+  hostedPlayCountReported = false;
+}
+
+function chooseHostedSource(playback: HostedPlayback) {
+  const canOpus =
+    document.createElement("audio").canPlayType('audio/ogg; codecs="opus"') !==
+    "";
+  return (
+    playback.sources.find(
+      (source) => source.format === (canOpus ? "opus" : "aac"),
+    ) ?? playback.sources[0]
+  );
+}
+
+async function fetchHostedPlayback(trackId: string): Promise<HostedPlayback> {
+  const response = await fetch(`/api/tracks/${trackId}/playback`, {
+    cache: "no-store",
+  });
+  const data = (await response.json()) as HostedPlayback & { error?: string };
+  if (!response.ok || !data.sources?.length) {
+    throw new Error(data.error ?? "That hosted track could not be played");
+  }
+  return data;
+}
+
+function armHostedPlayCount(trackId: string): void {
+  if (hostedPlayCountTimer) clearTimeout(hostedPlayCountTimer);
+  if (hostedPlayCountTrackId !== trackId) {
+    hostedPlayCountTrackId = trackId;
+    hostedPlayedMs = 0;
+    hostedPlayCountReported = false;
+  }
+  if (hostedPlayCountReported) return;
+  hostedLastCountTick = performance.now();
+
+  const tick = () => {
+    const state = useAudioStore.getState();
+    const current = state.hostedTracks[state.currentIndex];
+    if (
+      state.kind !== "hosted" ||
+      !state.isPlaying ||
+      current?.hostedTrackId !== trackId
+    ) {
+      hostedPlayCountTimer = null;
+      return;
+    }
+
+    const now = performance.now();
+    if (getAudioEngine().isMediaActuallyPlaying()) {
+      hostedPlayedMs += now - hostedLastCountTick;
+    }
+    hostedLastCountTick = now;
+
+    if (hostedPlayedMs >= 5000) {
+      hostedPlayCountTimer = null;
+      hostedPlayCountReported = true;
+      void fetch(`/api/tracks/${trackId}/play`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context: "vis" }),
+      });
+      return;
+    }
+    hostedPlayCountTimer = setTimeout(tick, 250);
+  };
+
+  hostedPlayCountTimer = setTimeout(tick, 250);
+}
+
+function scheduleHostedRenewal(trackId: string, expiresAt: string): void {
+  if (hostedRenewalTimer) clearTimeout(hostedRenewalTimer);
+  const delay = Math.max(1000, Date.parse(expiresAt) - Date.now() - 60_000);
+  hostedRenewalTimer = setTimeout(() => {
+    void renewHostedPlayback(trackId, false);
+  }, delay);
+}
+
+async function renewHostedPlayback(
+  trackId: string,
+  recovering: boolean,
+): Promise<void> {
+  const state = useAudioStore.getState();
+  const current = state.hostedTracks[state.currentIndex];
+  if (state.kind !== "hosted" || current?.hostedTrackId !== trackId) return;
+  if (recovering) {
+    if (hostedRecoveryTrackId === trackId) return;
+    hostedRecoveryTrackId = trackId;
+  }
+
+  try {
+    const playback = await fetchHostedPlayback(trackId);
+    const source = chooseHostedSource(playback);
+    if (!source) throw new Error("No compatible hosted rendition is available");
+    const beforeReplace = useAudioStore.getState();
+    const beforeTrack = beforeReplace.hostedTracks[beforeReplace.currentIndex];
+    if (
+      beforeReplace.kind !== "hosted" ||
+      beforeTrack?.hostedTrackId !== trackId
+    ) return;
+
+    await getAudioEngine().replaceUrl(source.url);
+    const afterReplace = useAudioStore.getState();
+    const afterTrack = afterReplace.hostedTracks[afterReplace.currentIndex];
+    if (
+      afterReplace.kind !== "hosted" ||
+      afterTrack?.hostedTrackId !== trackId
+    ) return;
+    scheduleHostedRenewal(trackId, source.expiresAt);
+  } catch (error) {
+    const latest = useAudioStore.getState();
+    const latestTrack = latest.hostedTracks[latest.currentIndex];
+    if (
+      latest.kind === "hosted" &&
+      latestTrack?.hostedTrackId === trackId &&
+      !(error instanceof DOMException && error.name === "AbortError")
+    ) {
+      useAudioStore.setState({
+        hostedError:
+          error instanceof Error ? error.message : "Hosted playback failed",
+        isPlaying: false,
+      });
+    }
+  } finally {
+    if (hostedRecoveryTrackId === trackId) hostedRecoveryTrackId = null;
+  }
+}
 
 /**
  * Starts playback on the first thing the viewer does.
@@ -156,7 +322,11 @@ function startOnFirstGesture(): void {
       // released this was a click on a track, that track is already starting
       // and nothing is playing yet — without this check the armed default
       // starts the top of the list instead of the one that was clicked.
-      if (state.isPlaying || state.currentIndex !== -1 || state.pendingIndex !== -1) {
+      if (
+        state.isPlaying ||
+        state.currentIndex !== -1 ||
+        state.pendingIndex !== -1
+      ) {
         return;
       }
       void state.playIndex(0);
@@ -186,19 +356,38 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   soundcloudLoading: false,
   soundcloudError: null,
 
+  hostedTracks: [],
+  hostedLoading: false,
+  hostedError: null,
+
   setSilent: () => {
+    playToken += 1;
+    cancelHostedTimers();
     const engine = getAudioEngine();
     engine.disableMic();
     engine.stopFiles();
-    set({ kind: "silent", isPlaying: false, currentIndex: -1, pendingIndex: -1, position: 0 });
+    set({
+      kind: "silent",
+      isPlaying: false,
+      currentIndex: -1,
+      pendingIndex: -1,
+      position: 0,
+    });
   },
 
   enableMic: async () => {
+    const token = (playToken += 1);
     try {
+      cancelHostedTimers();
       getAudioEngine().stopFiles();
       await getAudioEngine().enableMic();
+      if (token !== playToken) {
+        getAudioEngine().disableMic();
+        return;
+      }
       set({ kind: "mic", micError: null, isPlaying: false });
     } catch (error) {
+      if (token !== playToken) return;
       const message =
         error instanceof DOMException && error.name === "NotAllowedError"
           ? "Microphone permission was denied."
@@ -208,13 +397,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   disableMic: () => {
+    playToken += 1;
     getAudioEngine().disableMic();
     set({ kind: "silent", micError: null });
   },
 
-  setSoundcloudUrl: (soundcloudUrl) => set({ soundcloudUrl }),
+  setSoundcloudUrl: (soundcloudUrl) => {
+    soundcloudLoadToken += 1;
+    set({ soundcloudUrl, soundcloudLoading: false });
+  },
 
   loadSoundcloudPlaylist: async (url, options) => {
+    const token = (soundcloudLoadToken += 1);
+    const current = () => token === soundcloudLoadToken;
     set({ soundcloudUrl: url, soundcloudLoading: true, soundcloudError: null });
 
     try {
@@ -237,7 +432,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         error?: string;
       };
 
-      if (!response.ok) throw new Error(data.error ?? "Could not load that playlist");
+      if (!response.ok)
+        throw new Error(data.error ?? "Could not load that playlist");
+      if (!current()) return;
 
       const tracks: Track[] = (data.tracks ?? []).map((track) => ({
         id: `sc-${track.id}`,
@@ -248,8 +445,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         durationMs: track.durationMs,
       }));
 
-      // Selecting SoundCloud takes over from the microphone.
+      // A new playlist becomes the active source. A background refresh leaves
+      // the current SoundCloud stream untouched.
       getAudioEngine().disableMic();
+      if (!options?.preservePlayback) {
+        playToken += 1;
+        cancelHostedTimers();
+        getAudioEngine().stopFiles();
+      }
 
       // Persist only on success, so a typo is never restored next visit — and
       // only what the viewer chose, never the built-in default.
@@ -266,8 +469,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         // by id rather than position, because the whole point of refreshing is
         // that the running order may have changed.
         const before = get();
-        const playingId = before.soundcloudTracks[before.currentIndex]?.soundcloudId;
-        const stillThere = tracks.findIndex((t) => t.soundcloudId === playingId);
+        const playingId =
+          before.soundcloudTracks[before.currentIndex]?.soundcloudId;
+        const stillThere = tracks.findIndex(
+          (t) => t.soundcloudId === playingId,
+        );
 
         set({
           soundcloudPlaylist: playlist,
@@ -295,10 +501,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         await get().playIndex(0);
       }
     } catch (error) {
+      if (!current()) return;
       set({
         soundcloudLoading: false,
         soundcloudError:
-          error instanceof Error ? error.message : "Could not load that playlist",
+          error instanceof Error
+            ? error.message
+            : "Could not load that playlist",
       });
     }
   },
@@ -316,12 +525,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   clearSoundcloud: () => {
+    soundcloudLoadToken += 1;
+    playToken += 1;
     getAudioEngine().stopFiles();
     saveSoundcloudUrl("");
     set({
       soundcloudUrl: "",
       soundcloudPlaylist: null,
       soundcloudTracks: [],
+      soundcloudLoading: false,
       soundcloudError: null,
       kind: "silent",
       currentIndex: -1,
@@ -330,18 +542,93 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   selectSoundcloudSource: () => {
+    soundcloudLoadToken += 1;
+    playToken += 1;
+    cancelHostedTimers();
     getAudioEngine().disableMic();
     getAudioEngine().stopFiles();
-    set({ kind: "soundcloud", currentIndex: -1, pendingIndex: -1, isPlaying: false, position: 0 });
+    set({
+      kind: "soundcloud",
+      soundcloudLoading: false,
+      currentIndex: -1,
+      pendingIndex: -1,
+      isPlaying: false,
+      position: 0,
+    });
   },
 
   selectFilesSource: () => {
+    playToken += 1;
+    cancelHostedTimers();
     getAudioEngine().disableMic();
     getAudioEngine().stopFiles();
-    set({ kind: "files", currentIndex: -1, pendingIndex: -1, isPlaying: false, position: 0 });
+    set({
+      kind: "files",
+      currentIndex: -1,
+      pendingIndex: -1,
+      isPlaying: false,
+      position: 0,
+    });
+  },
+
+  loadHostedCatalogue: async () => {
+    const token = (hostedCatalogueToken += 1);
+    set({ hostedLoading: true, hostedError: null });
+    try {
+      const response = await fetch("/api/tracks");
+      const data = (await response.json()) as {
+        tracks?: HostedTrackSummary[];
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(data.error ?? "Could not load hosted tracks");
+      if (token !== hostedCatalogueToken) return;
+
+      set({
+        hostedTracks: (data.tracks ?? []).map((track) => ({
+          id: `hosted-${track.id}`,
+          name: track.title,
+          source: "hosted" as const,
+          hostedTrackId: track.id,
+          artist: track.artist,
+          durationMs: track.durationMs,
+        })),
+        hostedLoading: false,
+      });
+    } catch (error) {
+      if (token !== hostedCatalogueToken) return;
+      set({
+        hostedLoading: false,
+        hostedError:
+          error instanceof Error
+            ? error.message
+            : "Could not load hosted tracks",
+      });
+    }
+  },
+
+  selectHostedSource: () => {
+    playToken += 1;
+    cancelHostedTimers();
+    getAudioEngine().disableMic();
+    getAudioEngine().stopFiles();
+    set({
+      kind: "hosted",
+      currentIndex: -1,
+      pendingIndex: -1,
+      isPlaying: false,
+      position: 0,
+      hostedError: null,
+    });
   },
 
   addFiles: (files) => {
+    if (get().kind !== "files") {
+      playToken += 1;
+      cancelHostedTimers();
+      getAudioEngine().disableMic();
+      getAudioEngine().stopFiles();
+    }
     const added: Track[] = files.map((file) => ({
       id: nextTrackId(),
       name: file.name,
@@ -384,6 +671,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }),
 
   clearTracks: () => {
+    playToken += 1;
     getAudioEngine().stopFiles();
     saveTrackNames([]);
     set({
@@ -424,19 +712,49 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     // Claimed before anything is awaited, so the row highlights and the
     // transport renames the moment it is clicked.
     const token = (playToken += 1);
-    set({ pendingIndex: index, soundcloudError: null });
+    cancelHostedTimers();
+    hostedRecoveryTrackId = null;
+    set({ pendingIndex: index, soundcloudError: null, hostedError: null });
 
     /** False once a newer request has taken over. */
     const current = () => token === playToken;
 
     try {
+      if (track.source === "hosted" && track.hostedTrackId) {
+        const playback = await fetchHostedPlayback(track.hostedTrackId);
+        const source = chooseHostedSource(playback);
+        if (!source)
+          throw new Error("No compatible hosted rendition is available");
+        if (!current()) return;
+
+        await engine.playUrl(source.url);
+        if (!current()) return;
+
+        set({
+          kind: "hosted",
+          currentIndex: index,
+          pendingIndex: -1,
+          isPlaying: true,
+          hostedError: null,
+        });
+        scheduleHostedRenewal(track.hostedTrackId, source.expiresAt);
+        armHostedPlayCount(track.hostedTrackId);
+        return;
+      }
+
       if (track.source === "soundcloud" && track.soundcloudId) {
         // Signed CDN URLs can expire within minutes, so resolve one afresh for
         // every playback and bypass the browser's HTTP cache.
-        const response = await fetch(`/api/soundcloud/stream/${track.soundcloudId}`, {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as { url?: string; error?: string };
+        const response = await fetch(
+          `/api/soundcloud/stream/${track.soundcloudId}`,
+          {
+            cache: "no-store",
+          },
+        );
+        const data = (await response.json()) as {
+          url?: string;
+          error?: string;
+        };
 
         if (!response.ok || !data.url) {
           throw new Error(data.error ?? "That track could not be streamed");
@@ -461,7 +779,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         await engine.playFile(track.file);
         if (!current()) return;
 
-        set({ kind: "files", currentIndex: index, pendingIndex: -1, isPlaying: true });
+        set({
+          kind: "files",
+          currentIndex: index,
+          pendingIndex: -1,
+          isPlaying: true,
+        });
       }
     } catch (error) {
       // A superseded request must not clear the newer one's spinner.
@@ -478,8 +801,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({
         isPlaying: false,
         pendingIndex: -1,
+        hostedError:
+          track.source === "hosted"
+            ? error instanceof Error
+              ? error.message
+              : "Playback failed"
+            : null,
         soundcloudError:
-          error instanceof Error ? error.message : "Playback failed",
+          track.source === "soundcloud"
+            ? error instanceof Error
+              ? error.message
+              : "Playback failed"
+            : null,
       });
     }
   },
@@ -496,10 +829,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     if (isPlaying) {
       getAudioEngine().pause();
+      if (hostedPlayCountTimer) clearTimeout(hostedPlayCountTimer);
+      hostedPlayCountTimer = null;
       set({ isPlaying: false });
     } else {
       await getAudioEngine().resume();
       set({ isPlaying: true });
+      const track = list[currentIndex];
+      if (state.kind === "hosted" && track?.hostedTrackId) {
+        armHostedPlayCount(track.hostedTrackId);
+      }
     }
   },
 
@@ -531,6 +870,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   restore: async () => {
+    void get().loadHostedCatalogue();
     // Re-resolve the remembered playlist, or fall back to the default. One
     // request either way, and it has to be a fresh one: stored stream URLs
     // would have expired.
@@ -576,9 +916,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 /** The tracklist the transport is currently driving. */
 export function useActiveTracks(): Track[] {
-  return useAudioStore((s) =>
-    s.kind === "soundcloud" ? s.soundcloudTracks : s.tracks,
-  );
+  return useAudioStore((s) => activeTracks(s));
 }
 
 /**
@@ -590,11 +928,19 @@ export function wireAudioEvents(): void {
     onTimeUpdate: (position, duration) =>
       useAudioStore.setState({ position, duration }),
     onEnded: () => {
+      cancelHostedTimers();
       void useAudioStore.getState().nextTrack();
 
       // E3.2 — in track-audio mode the visualisation follows the track.
       const session = useSessionStore.getState();
       if (session.mode === "track-audio") session.advance(1);
+    },
+    onMediaError: () => {
+      const state = useAudioStore.getState();
+      if (state.kind !== "hosted") return;
+      const track = state.hostedTracks[state.currentIndex];
+      if (track?.hostedTrackId)
+        void renewHostedPlayback(track.hostedTrackId, true);
     },
   });
 }

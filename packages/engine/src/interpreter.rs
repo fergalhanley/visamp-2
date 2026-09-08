@@ -49,9 +49,102 @@ fn byte_array_value(bytes: &std::rc::Rc<Vec<u8>>) -> Value {
 
 type InterpResult<T> = Result<T, String>;
 
+/// Aggregate work allowed for one engine entry point. The browser creates one
+/// scope around all handlers that belong to the same frame/event; direct
+/// interpreter callers still receive a fresh scope for an individual block.
+/// Counting both statements and expression nodes means nested loops cannot
+/// multiply individually legal limits into unbounded work.
+const MAX_EXECUTION_STEPS: u32 = 50_000;
+const MAX_FUNCTION_CALL_DEPTH: u16 = 64;
+
+struct ExecutionBudget {
+    remaining_steps: u32,
+    function_depth: u16,
+}
+
 thread_local! {
     /// Scratch space for CSS colour strings, reused across every draw call.
     static CSS: RefCell<String> = RefCell::new(String::with_capacity(24));
+    static EXECUTION_BUDGET: RefCell<Option<ExecutionBudget>> = const { RefCell::new(None) };
+}
+
+pub struct ExecutionScope {
+    owns_budget: bool,
+}
+
+impl Drop for ExecutionScope {
+    fn drop(&mut self) {
+        if self.owns_budget {
+            EXECUTION_BUDGET.with(|budget| *budget.borrow_mut() = None);
+        }
+    }
+}
+
+/// Start an aggregate interpreter budget unless the caller is already inside
+/// one. Holding the returned guard lets several blocks share the same limit.
+pub fn execution_scope() -> ExecutionScope {
+    let owns_budget = EXECUTION_BUDGET.with(|budget| {
+        let mut budget = budget.borrow_mut();
+        if budget.is_some() {
+            false
+        } else {
+            *budget = Some(ExecutionBudget {
+                remaining_steps: MAX_EXECUTION_STEPS,
+                function_depth: 0,
+            });
+            true
+        }
+    });
+    ExecutionScope { owns_budget }
+}
+
+fn with_execution_budget<T>(run: impl FnOnce() -> InterpResult<T>) -> InterpResult<T> {
+    let _scope = execution_scope();
+    run()
+}
+
+fn charge_execution_step() -> InterpResult<()> {
+    EXECUTION_BUDGET.with(|budget| {
+        let mut budget = budget.borrow_mut();
+        let Some(budget) = budget.as_mut() else {
+            return Err("internal error: execution budget is not active".to_string());
+        };
+        if budget.remaining_steps == 0 {
+            return Err(format!(
+                "execution budget exceeded; a block may perform at most {MAX_EXECUTION_STEPS} operations"
+            ));
+        }
+        budget.remaining_steps -= 1;
+        Ok(())
+    })
+}
+
+struct FunctionDepthGuard;
+
+impl Drop for FunctionDepthGuard {
+    fn drop(&mut self) {
+        EXECUTION_BUDGET.with(|budget| {
+            if let Some(budget) = budget.borrow_mut().as_mut() {
+                budget.function_depth = budget.function_depth.saturating_sub(1);
+            }
+        });
+    }
+}
+
+fn enter_function() -> InterpResult<FunctionDepthGuard> {
+    EXECUTION_BUDGET.with(|budget| {
+        let mut budget = budget.borrow_mut();
+        let Some(budget) = budget.as_mut() else {
+            return Err("internal error: execution budget is not active".to_string());
+        };
+        if budget.function_depth >= MAX_FUNCTION_CALL_DEPTH {
+            return Err(format!(
+                "function call depth exceeded; the limit is {MAX_FUNCTION_CALL_DEPTH}"
+            ));
+        }
+        budget.function_depth += 1;
+        Ok(FunctionDepthGuard)
+    })
 }
 
 /// Sets the fill style without allocating a `String` or a `JsValue`.
@@ -130,7 +223,7 @@ fn set_stroke_paint(
 /// runaway range would lock the tab — and the editor recompiles as you type,
 /// which means a half-finished number like `0..100000` is easy to produce by
 /// accident. Erring here beats freezing.
-const MAX_RANGE_ITERATIONS: i64 = 100_000;
+const MAX_LOOP_ITERATIONS: i64 = 10_000;
 
 /// Ranges are integers only, so a float bound is rejected rather than rounded.
 fn range_int(
@@ -173,10 +266,10 @@ fn range_count(start: i64, end: i64, inclusive: bool, step: i64) -> InterpResult
         }
     };
 
-    if count > MAX_RANGE_ITERATIONS {
+    if count > MAX_LOOP_ITERATIONS {
         return Err(format!(
             "range would run {} times; the limit is {}",
-            count, MAX_RANGE_ITERATIONS
+            count, MAX_LOOP_ITERATIONS
         ));
     }
 
@@ -228,15 +321,17 @@ pub fn interpret_event_block(
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
-    decels.push_scope();
-    let result = (|| {
-        for statement in block.statements.iter() {
-            interpret_statement(statement, decels, runtime, Target::none(), functions)?;
-        }
-        Ok(())
-    })();
-    decels.pop_scope();
-    result
+    with_execution_budget(|| {
+        decels.push_scope();
+        let result = (|| {
+            for statement in block.statements.iter() {
+                interpret_statement(statement, decels, runtime, Target::none(), functions)?;
+            }
+            Ok(())
+        })();
+        decels.pop_scope();
+        result
+    })
 }
 
 pub fn interpret_render_block(
@@ -246,15 +341,17 @@ pub fn interpret_render_block(
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
-    decels.push_scope();
-    let result = (|| {
-        for statement in block.statements.iter() {
-            interpret_statement(statement, decels, runtime, target, functions)?;
-        }
-        Ok(())
-    })();
-    decels.pop_scope();
-    result
+    with_execution_budget(|| {
+        decels.push_scope();
+        let result = (|| {
+            for statement in block.statements.iter() {
+                interpret_statement(statement, decels, runtime, target, functions)?;
+            }
+            Ok(())
+        })();
+        decels.pop_scope();
+        result
+    })
 }
 
 /// Runs a nested block body in its own scope, always popping it again.
@@ -297,6 +394,7 @@ fn interpret_statement(
     target: Target<'_>,
     functions: &[FunctionDef],
 ) -> InterpResult<Option<Value>> {
+    charge_execution_step()?;
     match statement {
         Statement::LetDecl(let_decl) => {
             if decels.contains(&let_decl.ident) {
@@ -330,6 +428,7 @@ fn interpret_statement(
                 .ok_or_else(|| format!("Undefined function: {name}"))?
                 .clone();
 
+            let _depth = enter_function()?;
             let mut func_decels = Declarations::new();
             func_decels.push_scope();
 
@@ -454,8 +553,13 @@ fn interpret_statement(
                     Value::Boolean(b) => b,
                     _ => return Err("while condition must evaluate to boolean".to_string()),
                 };
-                if !is_true || iterations > 10000 {
+                if !is_true {
                     break;
+                }
+                if iterations >= MAX_LOOP_ITERATIONS {
+                    return Err(format!(
+                        "while loop exceeded the limit of {MAX_LOOP_ITERATIONS} iterations"
+                    ));
                 }
                 if let Some(val) =
                     run_scoped_body(&while_loop.body, None, decels, runtime, target, functions)?
@@ -1252,6 +1356,18 @@ pub fn evaluate_expression(
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<Value> {
+    with_execution_budget(|| {
+        charge_execution_step()?;
+        evaluate_expression_inner(expr, decels, runtime, functions)
+    })
+}
+
+fn evaluate_expression_inner(
+    expr: &Expression,
+    decels: &Declarations,
+    runtime: &Runtime,
+    functions: &[FunctionDef],
+) -> InterpResult<Value> {
     match expr {
         Expression::Literal(lit) => Ok(match lit {
             Literal::Boolean(b) => Value::Boolean(*b),
@@ -1618,6 +1734,7 @@ pub fn evaluate_expression(
                 .find(|f| f.name == *name)
                 .ok_or_else(|| format!("Undefined function: {}", name))?;
 
+            let _depth = enter_function()?;
             let mut func_decels = Declarations::new();
             func_decels.push_scope();
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { checkApiRateLimit } from "@/lib/rate-limit";
 import { resolveStreamUrl } from "@/lib/soundcloud/server";
 
 /**
@@ -10,9 +11,20 @@ import { resolveStreamUrl } from "@/lib/soundcloud/server";
  * latency to playback.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const rate = await checkApiRateLimit(request, "soundcloud:stream", 60, 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: rate.configured ? "Too many stream requests" : "SoundCloud unavailable" },
+      {
+        status: rate.configured ? 429 : 503,
+        headers: { "Retry-After": String(rate.retryAfterSeconds) },
+      },
+    );
+  }
+
   const { id } = await params;
   const trackId = Number(id);
 

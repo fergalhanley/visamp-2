@@ -802,6 +802,50 @@ fn an_error_inside_an_if_does_not_leak_its_scope() {
 }
 
 #[test]
+fn nested_loops_share_one_execution_budget() {
+    let err = expect_runtime_error(
+        "prop total = 0\non_frame {\n  for x in 0..1000 {\n    for y in 0..1000 {\n      total = total + x + y\n    }\n  }\n}\nrender {\n  draw::clear()\n}\n",
+    );
+    assert!(err.contains("execution budget exceeded"), "unexpected: {err}");
+}
+
+#[test]
+fn multiple_blocks_can_share_one_execution_budget() {
+    use visamp_2::interpreter::{execution_scope, interpret_event_block, Runtime};
+    use visamp_2::model::{BlockType, Model};
+
+    let source = "prop total = 0\non_frame {\n  for x in 0..8000 {\n    total = total + x\n  }\n}\non_frame {\n  for y in 0..8000 {\n    total = total + y\n  }\n}\nrender {\n  draw::clear()\n}\n";
+    let script = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
+    let mut model = Model::from_script(&script);
+    let runtime = Runtime::new();
+    let functions = model.functions.clone();
+    let blocks = model.blocks.clone();
+    let _execution = execution_scope();
+    let mut failure = None;
+
+    for block in blocks.iter().filter(|b| b.block_type == BlockType::OnFrame) {
+        if let Err(error) = interpret_event_block(block, &mut model.decels, &runtime, &functions) {
+            failure = Some(error);
+            break;
+        }
+    }
+
+    let err = failure.expect("the aggregate budget should stop the second block");
+    assert!(err.contains("execution budget exceeded"), "unexpected: {err}");
+}
+
+#[test]
+fn recursive_functions_stop_at_a_bounded_depth() {
+    let err = expect_runtime_error(
+        "fn recurse(value: 0) {\n  return recurse(value: value + 1)\n}\nprop result = 0\non_frame {\n  result = recurse()\n}\nrender {\n  draw::clear()\n}\n",
+    );
+    assert!(
+        err.contains("function call depth exceeded"),
+        "unexpected: {err}"
+    );
+}
+
+#[test]
 fn a_broken_colour_argument_is_reported_rather_than_read_as_zero() {
     // A colour argument that fails to evaluate used to be swallowed and
     // treated as 0.0, so a typo silently turned the channel black instead of

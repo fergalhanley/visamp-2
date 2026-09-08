@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { checkApiRateLimit } from "@/lib/rate-limit";
 import { resolvePlaylist } from "@/lib/soundcloud/server";
 
 /** Only accept SoundCloud permalinks — this endpoint is not a general fetcher. */
@@ -16,6 +17,17 @@ function isSoundCloudUrl(value: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  const rate = await checkApiRateLimit(request, "soundcloud:resolve", 10, 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: rate.configured ? "Too many SoundCloud requests" : "SoundCloud unavailable" },
+      {
+        status: rate.configured ? 429 : 503,
+        headers: { "Retry-After": String(rate.retryAfterSeconds) },
+      },
+    );
+  }
+
   let url: unknown;
 
   try {

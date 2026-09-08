@@ -80,7 +80,7 @@ export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProp
                 {vis.visibility}
               </span>
             ) : (
-              vis.artist.displayName
+              vis.artist.username
             )}
           </p>
           {vis.usesAudio && (

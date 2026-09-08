@@ -30,7 +30,7 @@ export async function generateMetadata({
   const vis = await loadVisualisation(id);
   if (!vis) return { title: "Not found" };
 
-  const title = `${vis.title} by ${vis.artist.displayName}`;
+  const title = `${vis.title} by ${vis.artist.username}`;
 
   return {
     title: vis.title,
@@ -74,7 +74,7 @@ export default async function VisPage({ params }: PageProps<"/vis/[id]">) {
           <p>
             by{" "}
             <Link href={`/artists/${vis.artist.username}`}>
-              {vis.artist.displayName}
+              {vis.artist.username}
             </Link>
           </p>
           {vis.description && <p>{vis.description}</p>}

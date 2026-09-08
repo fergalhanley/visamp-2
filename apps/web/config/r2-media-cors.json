@@ -1,0 +1,18 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://visamp.io",
+      "https://www.visamp.io",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["Range", "Content-Type"],
+    "ExposeHeaders": [
+      "Content-Length",
+      "Content-Range",
+      "Accept-Ranges",
+      "Content-Type"
+    ],
+    "MaxAgeSeconds": 86400
+  }
+]

@@ -27,3 +27,41 @@
 - Tune thresholds only from an eval run across representative scripts. Record
   the chosen thresholds with the new fixture-set version rather than silently
   changing the meaning of an existing validation baseline.
+
+
+----
+
+- new Landing page before player
+  - visamp logo centered
+  - tag line - make one up
+  - buttons Play Now (goes to player page) | Discover (scrolls down to gallery)
+  - top bar - appears when the user starts scrolling down
+    - links:
+      - Player (same as Play Now button)
+      - Artists
+      - Site links (dropdown)
+        - Cookie Policy
+        - Privacy Policy
+        - Terms and Sonditions
+        - Licencing
+        - Epilepsy Warning
+        - About
+      - Login/profile username and image
+    - social links (placeholder values we need to set up the accounts)
+      - X
+      - Instagram
+      - Discord
+      - Youtube
+      - TikTok
+      - Email
+  - gallery section at the bottom - infinite scroll of vis tiles linking to visualisations Eg /vis/<vis>
+    - Title artist, views
+- Upload page for artists to ingest tracks
+- admin dashboard for site admin - get a placeholder in here. Basic stats. Upload and manage audio tracks
+- for users we'll get rid of the display name and just have username
+- 
+- scramble filter
+- port in other codexes
+
+
+- 

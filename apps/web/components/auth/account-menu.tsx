@@ -1,10 +1,12 @@
 "use client";
+// Account navigation uses a fresh document to reset the singleton player engine.
 
 import { LogOut, User as UserIcon, UserPlus } from "lucide-react";
-import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
+import { AdminMenuItem } from "@/components/auth/admin-menu-item";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { UsernameClaimDialog } from "@/components/auth/username-claim-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { profileAvatarUrl } from "@/lib/storage-urls";
 import { artistName } from "@/lib/visualisations";
 
 /**
@@ -24,6 +27,7 @@ import { artistName } from "@/lib/visualisations";
  * signed in.
  */
 export function AccountMenu() {
+  const pathname = usePathname();
   const { user, profile, loading, needsUsername, signOut } = useAuth();
   const [signInOpen, setSignInOpen] = useState(false);
   const [claimRequested, setClaimRequested] = useState(false);
@@ -54,15 +58,16 @@ export function AccountMenu() {
         >
           Log in
         </button>
-        <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
+        <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next={pathname} />
       </>
     );
   }
 
   // Was the only surface that had this right; it now shares the rule with
   // everywhere else rather than restating it.
-  const name = artistName(profile, user.email ?? "Account");
+  const name = artistName(profile, "Account");
   const initial = name.charAt(0).toUpperCase();
+  const avatarUrl = profileAvatarUrl(profile);
 
   return (
     <>
@@ -73,13 +78,13 @@ export function AccountMenu() {
             className="transition hover:text-foreground"
           >
           <Avatar className="h-6 w-6">
-            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="" />}
+            {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
             <AvatarFallback className="text-[10px]">{initial}</AvatarFallback>
           </Avatar>
           </DropdownMenuTrigger>
-          <Link href="/account" className="max-w-24 truncate transition hover:text-foreground">
+          <a href="/account" className="max-w-24 truncate transition hover:text-foreground">
             {name}
-          </Link>
+          </a>
         </div>
 
         <DropdownMenuContent align="end" className="w-48">
@@ -94,7 +99,7 @@ export function AccountMenu() {
           {profile?.username ? (
             <DropdownMenuItem
               nativeButton={false}
-              render={<Link href="/account" />}
+              render={<a href="/account" />}
             >
               <UserIcon className="h-3.5 w-3.5" />
               Your account
@@ -106,6 +111,10 @@ export function AccountMenu() {
             </DropdownMenuItem>
           )}
 
+          <DropdownMenuItem nativeButton={false} render={<a href="/upload" />}>
+            Upload music
+          </DropdownMenuItem>
+          <AdminMenuItem key={user.id} />
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => void signOut()}>
             <LogOut className="h-3.5 w-3.5" />

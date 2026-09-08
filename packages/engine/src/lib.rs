@@ -245,6 +245,10 @@ fn init_app() -> Result<(), String> {
             ..
         } = &mut *model;
 
+        // All lifecycle and render blocks for this animation frame share one
+        // interpreter budget, even when a script declares several of them.
+        let _execution = execution_scope();
+
         // on_frame always runs to completion before render, so a render block
         // always draws from state that is current for this frame.
         for block in blocks.iter() {
@@ -403,6 +407,7 @@ pub fn load_script(code: &str) -> String {
                         decels,
                         ..
                     } = &mut model;
+                    let _execution = execution_scope();
                     for block in blocks.iter().filter(|b| b.block_type == BlockType::OnInit) {
                         if let Err(e) = interpret_event_block(block, decels, &runtime, functions) {
                             init_error = Some(e);
@@ -492,6 +497,7 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
     // Only layer blocks run. on_frame is deliberately skipped: a capture is a
     // snapshot of the current state, not a step forward in time.
     let filter = RefCell::new(String::new());
+    let _execution = execution_scope();
     for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
         interpret_render_block(
             block,
@@ -736,6 +742,7 @@ fn resize_canvas(state: &AppState) {
         decels,
         ..
     } = &mut *model;
+    let _execution = execution_scope();
     for block in blocks
         .iter()
         .filter(|b| b.block_type == BlockType::OnResize)

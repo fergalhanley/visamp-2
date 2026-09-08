@@ -2,7 +2,6 @@
 /target/
 **/*.rs.bk
 .tmp
-.github
 # wasm-pack output
 packages/engine/pkg/
 packages/engine/pkg-validator/

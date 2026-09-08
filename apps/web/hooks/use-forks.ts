@@ -36,6 +36,7 @@ export function useForks(visId: string, active: boolean): Forks {
       .select(SELECT)
       .eq("forked_from_id", visId)
       .order("created_at", { ascending: false })
+      .limit(200)
       .then(({ data, error }) => {
         if (!live) return;
         setState({

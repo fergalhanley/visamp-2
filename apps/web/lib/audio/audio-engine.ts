@@ -12,9 +12,34 @@
 
 const FFT_SIZE = 2048;
 
+function supersededPlaybackError(): DOMException {
+  return new DOMException("Playback was superseded", "AbortError");
+}
+
+function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(supersededPlaybackError());
+
+  return new Promise<T>((resolve, reject) => {
+    const aborted = () => reject(supersededPlaybackError());
+    signal.addEventListener("abort", aborted, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", aborted);
+        if (signal.aborted) reject(supersededPlaybackError());
+        else resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", aborted);
+        reject(error);
+      },
+    );
+  });
+}
+
 export interface AudioEngineEvents {
   onTimeUpdate?: (position: number, duration: number) => void;
   onEnded?: () => void;
+  onMediaError?: () => void;
 }
 
 class AudioEngine {
@@ -23,6 +48,7 @@ class AudioEngine {
 
   private micStream: MediaStream | null = null;
   private micSource: MediaStreamAudioSourceNode | null = null;
+  private micGeneration = 0;
 
   private element: HTMLAudioElement | null = null;
   /** A media element may only be adopted by one source node, ever. */
@@ -30,6 +56,8 @@ class AudioEngine {
   private objectUrl: string | null = null;
   /** Active hls.js session, when the current source needs one. */
   private hls: import("hls.js").default | null = null;
+  /** Cancels every asynchronous step belonging to a superseded source. */
+  private sourceController = new AbortController();
 
   private levelBuffer: Uint8Array<ArrayBuffer> | null = null;
   private events: AudioEngineEvents = {};
@@ -85,6 +113,7 @@ class AudioEngine {
   // ── Microphone ────────────────────────────────────────────────────────────
 
   async enableMic(): Promise<void> {
+    const generation = (this.micGeneration += 1);
     const ctx = this.ensureContext();
 
     // Only ever requested from an explicit click (E4.1).
@@ -96,6 +125,13 @@ class AudioEngine {
       },
     });
 
+    if (generation !== this.micGeneration) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw supersededPlaybackError();
+    }
+
+    this.micSource?.disconnect();
+    this.micStream?.getTracks().forEach((track) => track.stop());
     this.micStream = stream;
     this.micSource = ctx.createMediaStreamSource(stream);
     // Deliberately not connected to destination — that would echo the room.
@@ -103,6 +139,7 @@ class AudioEngine {
   }
 
   disableMic(): void {
+    this.micGeneration += 1;
     this.micSource?.disconnect();
     this.micSource = null;
     this.micStream?.getTracks().forEach((track) => track.stop());
@@ -123,6 +160,7 @@ class AudioEngine {
       this.events.onTimeUpdate?.(element.currentTime, element.duration || 0);
     });
     element.addEventListener("ended", () => this.events.onEnded?.());
+    element.addEventListener("error", () => this.events.onMediaError?.());
 
     this.element = element;
     return element;
@@ -146,7 +184,14 @@ class AudioEngine {
     this.hls = null;
   }
 
+  private beginSource(): AbortSignal {
+    this.sourceController.abort();
+    this.sourceController = new AbortController();
+    return this.sourceController.signal;
+  }
+
   async playFile(file: File): Promise<void> {
+    const signal = this.beginSource();
     const ctx = this.ensureContext();
     const element = this.ensureElement();
     this.detachHls();
@@ -156,7 +201,55 @@ class AudioEngine {
     this.objectUrl = URL.createObjectURL(file);
     element.src = this.objectUrl;
 
-    await element.play();
+    await abortable(element.play(), signal);
+  }
+
+  /** Plays a progressive cross-origin file such as an R2 Opus/AAC rendition. */
+  async playUrl(url: string): Promise<void> {
+    const signal = this.beginSource();
+    const ctx = this.ensureContext();
+    const element = this.ensureElement();
+    this.detachHls();
+    this.connectElement(ctx, element);
+
+    if (this.objectUrl) {
+      URL.revokeObjectURL(this.objectUrl);
+      this.objectUrl = null;
+    }
+    element.src = url;
+    await abortable(element.play(), signal);
+  }
+
+  /** Replaces an expiring hosted URL while retaining position and pause state. */
+  async replaceUrl(url: string): Promise<void> {
+    const signal = this.beginSource();
+    const element = this.ensureElement();
+    const position = element.currentTime;
+    const shouldResume = !element.paused;
+
+    element.src = url;
+    element.load();
+    await abortable(new Promise<void>((resolve, reject) => {
+      const ready = () => {
+        cleanup();
+        resolve();
+      };
+      const failed = () => {
+        cleanup();
+        reject(new Error("Hosted audio URL could not be loaded"));
+      };
+      const cleanup = () => {
+        element.removeEventListener("loadedmetadata", ready);
+        element.removeEventListener("error", failed);
+      };
+      element.addEventListener("loadedmetadata", ready, { once: true });
+      element.addEventListener("error", failed, { once: true });
+    }), signal);
+
+    if (Number.isFinite(position) && position > 0) {
+      element.currentTime = Math.min(position, element.duration || position);
+    }
+    if (shouldResume) await abortable(element.play(), signal);
   }
 
   /**
@@ -171,6 +264,7 @@ class AudioEngine {
    * only ever use the microphone or their own files.
    */
   async playHlsStream(url: string): Promise<void> {
+    const signal = this.beginSource();
     const ctx = this.ensureContext();
     const element = this.ensureElement();
     this.detachHls();
@@ -181,7 +275,7 @@ class AudioEngine {
       this.objectUrl = null;
     }
 
-    const { default: Hls } = await import("hls.js");
+    const { default: Hls } = await abortable(import("hls.js"), signal);
 
     // Media Source Extensions are checked *before* canPlayType, because Chrome
     // answers "maybe" to the HLS mime type and then silently stalls on it. Only
@@ -189,7 +283,7 @@ class AudioEngine {
     if (!Hls.isSupported()) {
       if (element.canPlayType("application/vnd.apple.mpegurl")) {
         element.src = url;
-        await element.play();
+        await abortable(element.play(), signal);
         return;
       }
       throw new Error("This browser cannot play SoundCloud streams");
@@ -199,16 +293,28 @@ class AudioEngine {
     this.hls = hls;
 
     await new Promise<void>((resolve, reject) => {
-      hls.on(Hls.Events.MANIFEST_PARSED, () => resolve());
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) reject(new Error(data.details ?? "HLS playback failed"));
-      });
+      const parsed = () => finish(resolve);
+      const failed = (_event: string, data: { fatal: boolean; details?: string }) => {
+        if (data.fatal)
+          finish(() => reject(new Error(data.details ?? "HLS playback failed")));
+      };
+      const aborted = () => finish(() => reject(supersededPlaybackError()));
+      const finish = (settle: () => void) => {
+        hls.off(Hls.Events.MANIFEST_PARSED, parsed);
+        hls.off(Hls.Events.ERROR, failed);
+        signal.removeEventListener("abort", aborted);
+        settle();
+      };
+
+      hls.on(Hls.Events.MANIFEST_PARSED, parsed);
+      hls.on(Hls.Events.ERROR, failed);
+      signal.addEventListener("abort", aborted, { once: true });
 
       hls.loadSource(url);
       hls.attachMedia(element);
     });
 
-    await element.play();
+    await abortable(element.play(), signal);
   }
 
   async resume(): Promise<void> {
@@ -224,8 +330,19 @@ class AudioEngine {
     if (this.element) this.element.currentTime = seconds;
   }
 
+  /** True only while media time is capable of advancing, excluding stalls. */
+  isMediaActuallyPlaying(): boolean {
+    return Boolean(
+      this.element &&
+      !this.element.paused &&
+      !this.element.ended &&
+      this.element.readyState >= 2,
+    );
+  }
+
   /** Detach any media playback without tearing down the context. */
   stopFiles(): void {
+    this.sourceController.abort();
     this.detachHls();
     this.element?.pause();
     if (this.element) this.element.removeAttribute("src");
