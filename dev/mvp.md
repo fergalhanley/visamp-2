@@ -249,7 +249,8 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Grant signup credits and allow discretionary free credits for prolific creators.
 - MVP billing uses Stripe for one-off credit pack purchases. Subscriptions and recurring
   credit plans are deferred until after MVP.
-- Pack sizes, prices, expiry, refunds, taxes and billing UI remain open.
+- Purchased credits do not expire; they remain available until used.
+- Pack sizes, prices, expiry of signup/promotional credits, refunds, taxes and billing UI remain open.
 - Existing AI ledger is a foundation, not a completed billing system.
 - Mixpanel is the selected provider, built in from launch.
 - Separate staging and production targets so development/testing does not contaminate
