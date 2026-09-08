@@ -5,7 +5,7 @@ Code baseline: f224eeebd0fa003cda6c5fbd65e01eb3ac3f9a7e, reviewed 8 September 20
 The current application is a PoC. Code presence is not evidence of beta readiness.
 
 This replaces the former PoC product specification. Linear remains the authority for
-assigned work and delivery status. [Ticket drafts](mvp-backlog.md) await transfer to Linear.
+assigned work and delivery status. [Linear backlog mapping](mvp-backlog.md) links the live projects and issues.
 [AI baseline](../agents/visamp-ai-codegen-spec.md) and
 [hosted-audio baseline](../agents/visamp-hosted-audio-spec.md) describe existing implementation.
 
