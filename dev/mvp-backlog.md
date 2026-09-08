@@ -78,8 +78,10 @@ Cover authorised upload, rejection/error recovery, processing worker, automatic 
 metadata edit, playback, unpublish/withdrawal and admin permissions.
 Change PoC draft/admin-review default: publish after processing and permission checks.
 Artist controls include title, artwork, description, preferred visual and withdrawal.
-Acceptance: end-to-end results with real stage configuration recorded; failures become tickets.
-Open: who executes validation and whether stage workers/storage are already deployed.
+Acceptance: end-to-end results recorded using local execution and the existing backend,
+then focused checks after production deployment; failures become tickets.
+Open: who executes validation and the production worker/storage configuration.
+Do not require a separate staging stack for MVP.
 
 ## Define user/creator/music-artist presentation
 
@@ -128,7 +130,7 @@ below and offer a top-up button. Server must also enforce sufficient credit for 
 including positive-but-insufficient balances and concurrent requests.
 Server exports: charge by video duration; show exact cost before starting; no charge for failed exports.
 Open: fixed AI amount, technical success criteria, server-export rate and duration rounding.
-Acceptance to finalise: stage purchase -> verified payment -> credit allocation -> metered use,
+Acceptance to finalise: Stripe test-mode purchase -> verified payment -> test credit allocation -> metered use,
 including duplicate-payment-event handling, one AI charge for a successful request despite
 retries/fallback, and no charge for a failed response.
 Disliking a successful result or undoing the AI edit must not reverse the charge.
@@ -150,10 +152,13 @@ Outcome: trustworthy listening, creation, community and conversion measurement f
 Treat repeat listening and active creation as equally important beta outcomes.
 Dashboard: active listeners, listening time, returning users, successful AI requests,
 published visualisations, music uploads and credit purchases.
-Include Fergal's real usage in production metrics. Test/agent accounts use instances configured
-to report to stage Mixpanel; no production account-filtering feature is required for beta.
-Acceptance: separate stage/prod projects; development and test instances cannot silently target
-prod; agreed events/identity and dashboard validated in stage; documented consent behaviour.
+Include Fergal's real usage in production metrics. Local development and test/agent sessions
+report to staging Mixpanel; real usage on the deployed app reports to production Mixpanel.
+No production account-filtering feature is required for beta.
+Acceptance: separate staging/production Mixpanel projects despite one Supabase environment;
+local/test configuration cannot silently target production analytics; events/identity and dashboard
+validated in staging Mixpanel; documented consent behaviour.
+Do not require a separately deployed staging app/backend for MVP.
 Open: event dictionary, identity handling, returning-user measures, listening-duration rules,
 other precise metric definitions and configuration.
 
@@ -201,6 +206,8 @@ Owner: unassigned. State: defining.
 Replace policy/licensing placeholders; update About/beta messaging and copyright details.
 Set up approved accounts using admin@visamp.io and wire real links; include Discord,
 Twitch/YouTube, X, Instagram, Bluesky and TikTok in planning.
+Discord is the selected beta bug-reporting and user-support channel; wire the confirmed invite
+into site support links. Server/channel setup remains to be confirmed.
 Acceptance: final destinations/content verified and no accidental placeholder links.
 Open: handles, account ownership, publication approvals and content schedule.
 
@@ -262,7 +269,7 @@ Confirmed: automatic stays automatic, manual stays manual. Explicit visual selec
 Owner: unassigned. State: reported broken.
 Fergal reports Google/GitHub work, Create account and Forgot password links fail.
 Email/password login is unverified and treated as blocked until signup works.
-Acceptance: signup, confirmation, email login and reset complete in stage; preserve OAuth;
+Acceptance: signup, confirmation, email login and reset verified locally and after deployment; preserve OAuth;
 record tested outcomes instead of assuming email login itself is proven broken.
 
 ## Follow creators/artists and filter discovery
@@ -342,3 +349,31 @@ Evaluate quality/cost to inform pricing and retain existing undo across AI edits
 Post-MVP: client-side history panel; GLSL/shader authoring context; publication notifications.
 Existing comments remain sufficient; revisit expansion based on actual uptake.
 Timed sets/VJ follow-up remains a separate high-priority post-MVP project.
+
+## Prepare the existing environment and deploy the beta to Vercel
+
+Owner: unassigned. State: not deployed; planning.
+Current state: local application and one Supabase environment.
+Outcome: working production deployment using the existing backend.
+Scope: Vercel project/build setup, production configuration, domain, auth redirects,
+storage/worker connectivity and payment webhook configuration as applicable.
+Acceptance: deployed discovery/player, auth and core upload/payment flows checked; deployment
+and recovery steps documented. Local/agent testing continues to use staging Mixpanel.
+Open: deployment trigger/approval process and production service configuration.
+A separate staging stack is not an MVP dependency.
+
+## Define and set up beta monitoring
+
+Owner: unassigned. State: nothing currently configured; scope defining.
+Outcome: visibility into application failures and service outages.
+Define minimal error reporting, uptime checks and actionable alerts for the beta.
+Open: provider(s), alert destination, coverage and operating cost.
+Acceptance to finalise: representative error/outage reaches the chosen reporting/alert destination.
+Do not assume monitoring or alerts already exist.
+
+## Separate staging infrastructure after MVP
+
+Owner: unassigned. State: post-MVP.
+Outcome: a separately deployed staging app/backend, with database, storage, worker and
+integration separation defined during implementation.
+Retain the staging/production Mixpanel separation already required for MVP.
