@@ -95,8 +95,14 @@ migration plan builds on existing optional music_artists.claimed_by.
 Owner: unassigned. State: defining.
 Outcome: users can understand credit costs, obtain signup credits and purchase additional usage.
 Build on the AI ledger; define packs/pricing, balance/history UI, failures/refunds,
-creator grants and signup/promotional credit expiry. Purchased credits do not expire and remain
-available until used. MVP purchases are one-off credit packs through Stripe;
+creator grants and optional expiry for discretionary free credits.
+Purchased credits and signup credits do not expire; they remain available until used.
+Discretionary grants may expire, with an optional expiry date per grant; no fixed duration agreed.
+Support allocation-level source, remaining amount and expiry so grants can expire independently.
+Acceptance: expiring a discretionary grant removes only its unused credits; purchased/signup
+credits and non-expiring grants remain available. Show applicable expiry in the balance/history UI.
+Open: credit consumption order and expiry during in-flight requests.
+MVP purchases are one-off credit packs through Stripe;
 subscriptions and recurring credit plans are post-MVP.
 Confirmed: AI creation/editing and server-rendered video exports consume credits.
 Client-rendered exports with the Visamp watermark, listening, manual visual editing and
