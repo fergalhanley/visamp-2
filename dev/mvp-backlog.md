@@ -151,12 +151,19 @@ Acceptance: separate stage/prod projects; dev/tests cannot silently target prod;
 agreed events/identity validated in stage; documented internal-user filtering and consent behaviour.
 Open: event dictionary, returning-user measures, listening-duration rules and configuration.
 
-## Define mobile/tablet viewer layout
+## Implement mobile/tablet viewer layout
 
-Owner: unassigned. State: defining.
-Outcome: comfortable touch playback for launch, with desktop-only creation.
-Acceptance: agreed navigation/panel/control layout; portrait/landscape checks;
-editor entry handled clearly; audio/visual behaviour tested on agreed browser/device matrix.
+Owner: unassigned. State: MVP direction agreed; detailed layout pending.
+Outcome: comfortable touch playback, discovery and community interaction at launch.
+Keep discovery, profiles, following, likes and comments available on mobile/tablet.
+Visual creation/editing is desktop-only: hide Create/Edit and other visual-authoring entry points.
+Player: full-screen visuals with popover controls revealed when the user taps the player,
+adapting the desktop controls for mobile. Support portrait and immersive landscape layouts.
+Acceptance: touch navigation and transport controls work in both orientations; popovers remain
+usable within the viewport; authoring actions are hidden; community actions remain available;
+audio/visual behaviour verified on the agreed browser/device matrix.
+Open: exact control/panel placement, dismissal timing, direct editor URL handling and test devices.
+Do not assume the existing desktop hover controls already satisfy mobile requirements.
 
 ## Implement track-based video export
 
