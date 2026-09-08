@@ -95,7 +95,8 @@ migration plan builds on existing optional music_artists.claimed_by.
 Owner: unassigned. State: defining.
 Outcome: users can understand credit costs, obtain signup credits and purchase additional usage.
 Build on the AI ledger; define packs/pricing, balance/history UI, failures/refunds,
-creator grants and expiry. MVP purchases are one-off credit packs through Stripe;
+creator grants and signup/promotional credit expiry. Purchased credits do not expire and remain
+available until used. MVP purchases are one-off credit packs through Stripe;
 subscriptions and recurring credit plans are post-MVP.
 Confirmed: AI creation/editing and server-rendered video exports consume credits.
 Client-rendered exports with the Visamp watermark, listening, manual visual editing and
