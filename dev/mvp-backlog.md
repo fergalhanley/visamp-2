@@ -147,9 +147,15 @@ See the Stripe reference and conversion-fee note in the MVP specification.
 
 Owner: unassigned. State: defining.
 Outcome: trustworthy listening, creation, community and conversion measurement from beta.
-Acceptance: separate stage/prod projects; dev/tests cannot silently target prod;
-agreed events/identity validated in stage; documented internal-user filtering and consent behaviour.
-Open: event dictionary, returning-user measures, listening-duration rules and configuration.
+Treat repeat listening and active creation as equally important beta outcomes.
+Dashboard: active listeners, listening time, returning users, successful AI requests,
+published visualisations, music uploads and credit purchases.
+Include Fergal's real usage in production metrics. Test/agent accounts use instances configured
+to report to stage Mixpanel; no production account-filtering feature is required for beta.
+Acceptance: separate stage/prod projects; development and test instances cannot silently target
+prod; agreed events/identity and dashboard validated in stage; documented consent behaviour.
+Open: event dictionary, identity handling, returning-user measures, listening-duration rules,
+other precise metric definitions and configuration.
 
 ## Implement mobile/tablet viewer layout
 
