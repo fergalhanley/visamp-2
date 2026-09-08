@@ -13,14 +13,15 @@ this protocol; it does not replace its prerequisite, progress or review requirem
   dependencies, ownership, status, and acceptance criteria.
 - **GitHub** is the source of truth for code, branches, commits, pull requests,
   reviews, and permanent technical documentation.
+<<<<<<< HEAD
 - **Slack #progress** is the progress feed for concise agent updates, blockers,
   questions, and handoffs in the Visamp workspace. Resolve the channel through the
   connected Slack tools before posting. Do not rely on Slack as the permanent
   record of requirements or decisions.
-- **Slack** is the progress feed for concise agent updates, blockers, questions,
-  and handoffs, and the destination for operational error/outage alerts.
-  **Discord** is for community and beta user support.
-  Do not rely on Slack as the permanent record of requirements or decisions.
+- **Slack #progress** is the progress feed for concise agent updates, blockers,
+  questions, and handoffs in the Visamp workspace. Resolve the channel through the
+  connected Slack tools before posting. Do not rely on Slack as the permanent
+  record of requirements or decisions.
 - If these sources disagree, stop and ask for clarification. Do not silently
   choose one interpretation.
 
