@@ -96,6 +96,13 @@ Owner: unassigned. State: defining.
 Outcome: users can understand credit costs, obtain signup credits and purchase additional usage.
 Build on the AI ledger; define packs/pricing, balance/history UI, failures/refunds,
 creator grants and optional expiry for discretionary free credits.
+Initial signup allowance target: credits covering 20 successful AI requests at the applicable
+fixed request rate. Make the signup credit amount admin-configurable for calibration and
+higher new-user promotional allowances.
+Record each grant's amount and configuration/promotion reference where applicable; changes
+affect new grants and do not recalculate existing balances. Issue the signup grant once per user,
+including when signup callbacks or jobs are retried.
+Open: promotion activation/scheduling, eligibility and final credit-unit conversion.
 Purchased credits and signup credits do not expire; they remain available until used.
 Discretionary grants may expire, with an optional expiry date per grant; no fixed duration agreed.
 Support allocation-level source, remaining amount and expiry so grants can expire independently.
