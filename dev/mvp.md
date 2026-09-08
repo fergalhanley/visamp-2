@@ -81,8 +81,8 @@ Open: meaning of topmost; first track and running order; multiple featured artis
 popularity metric; unavailable-content fallbacks and cross-device scope.
 Restore selected visual, available audio and player settings; exact track position need not persist.
 Manual visual choice remains authoritative until the user explicitly returns to follow-music mode.
-Next/Previous visual navigation preserves the selection mode; clarify whether navigation in automatic
-mode remains automatic, and exactly how explicit selection changes/resets the override.
+Next/Previous visual navigation preserves the selection mode: automatic stays automatic and manual
+stays manual. Explicitly selecting a visual activates manual override.
 
 ### Player content routes
 
@@ -157,20 +157,63 @@ Proposed terminology, pending final confirmation: "creator" for visualisation at
 Current schema: auth users/profiles own visuals; music_artists has optional claimed_by linking
 an artist to a user. Preserve support for unclaimed artists. Profile presentation, artist
 claiming and administrative permissions require definition. Existing /artists lists visual creators.
+One public user profile shows Visualisations and Music tabs when both content types apply.
 
-## Creation, community and artist operations
+## Accounts and community
 
-- DSL and editor exist; define a bounded version-one feature set and validation checklist.
-- AI generation exists; assess quality, reliability and cost before pricing credits.
-- Accounts/community are implemented but await Fergal's validation; record resulting changes.
-- Artist uploads and admin dashboard are untested by Fergal.
-- Implement admin artist/licence onboarding to remove routine direct database setup.
-- Validate upload, processing, preview, publication and withdrawal end to end.
-- Rendered video export is intended for artists' own releases/social distribution and needs a spec.
-  The earlier local/microphone proposal and latest mention of personal SoundCloud video use
-  need reconciliation. Final source eligibility, permission, formats, duration and rendering remain open.
-- Define visual reuse, fork attribution and export permissions. Public visibility alone does
-  not resolve permission for external or commercial reuse.
+- Fergal reports Google/GitHub sign-in working. Create account and Forgot password links
+  do not work. Email/password login is unverified and treated as blocked pending signup repair.
+- Follow/unfollow and a Following filter in discovery are MVP requirements.
+  New-publication notifications are later-release work.
+- Setting a visual to Public makes it viewable immediately; no approval queue.
+- Existing comments/replies suffice for beta. Discord is expected to be the primary community;
+  expand comments if usage justifies it.
+- Moderation tooling is explicitly outside beta scope; revisit in response to need.
+
+## Music-artist onboarding and publication
+
+- Fergal primarily recruits/ingests artists; artists must also be able to upload their music.
+- Artist self-uploads accept the non-exclusive agreement online.
+- For Fergal-managed uploads, his intended process is to email the agreement and record
+  the confirmation reply. Store the agreement and evidence together; this records a product
+  workflow, not a determination that any particular wording clears every required right.
+- Automatically publish after successful processing and applicable permission checks.
+  Keep published/unpublished status so content can be unpublished. This changes the PoC
+  worker/admin-review flow, which currently leaves processed tracks in draft.
+- Artist-managed fields/actions: title, artwork, description, preferred visual and withdrawal.
+- Implement admin artist/licence onboarding to remove routine database setup.
+- Upload/admin still needs end-to-end user validation.
+
+## Visual language, editor, AI and assets
+
+- Fergal will hand-pick suitable v1 visuals from another repository for porting.
+  Repository location and chosen collection are pending; do not port the entire catalogue.
+- Use those ports to identify required language capabilities, plus explicit exploration/gap analysis.
+- Rename the DSL to a marketable name and propagate through code, site and docs.
+  Viscript and VDSL are candidates, not a decision. Naming/compatibility checks remain open.
+- MVP includes an asset library and user uploads: bitmaps, SVGs and 3D models.
+  Users can make assets public to contribute them to the shared library.
+  Format details, visibility defaults, reuse licence/attribution, quotas and lifecycle remain open.
+- GLSL/shader authoring context is a later-release feature.
+- Editor is generally satisfactory. Improve error reporting beyond the first error where feasible.
+- Silent compile/interpreter/render-update failures need reproduction, investigation and fixing.
+  Owner: Fergal Hanley, working with an agent; he will investigate the reproduction.
+- Qwen is not working adequately and is excluded from MVP.
+- Provider choice is automatic: ChatGPT first, Claude if ChatGPT is unavailable.
+  Admin selects the provider preference/fallback configuration; remove end-user provider selection.
+  Define unavailable/error categories, retries and failure accounting before implementation.
+  Invalid generated code is not automatically synonymous with provider unavailability.
+- Existing undo across AI edits is sufficient for MVP. Client-side history panel is a
+  post-MVP refinement; no server-side history requirement has been agreed.
+- AI quality/cost evaluation and a bounded language launch feature set remain required.
+
+## Video export
+
+Rendered video export supports artists' releases/social distribution and needs its own spec.
+The earlier local/microphone proposal and later mention of personal SoundCloud video use
+need reconciliation. Final source eligibility, permission, formats, duration and rendering remain open.
+Define visual/asset reuse, fork attribution and export permissions. Public visibility alone does
+not resolve permission for external or commercial reuse.
 
 ## Credits, billing and measurement
 
