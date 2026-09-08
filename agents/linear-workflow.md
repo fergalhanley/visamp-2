@@ -88,11 +88,11 @@ If access is missing, stop with the actual connection or permission error.
 - Confirm GitHub access for this repository before code work: fetch/push through
   the existing Git authentication and create PRs through an available authenticated
   GitHub tool or GitHub CLI. Linear authentication does not grant GitHub access.
-- AGENTS.md requires Slack progress messages. The repository currently has no
-  confirmed Slack channel ID or shared Slack connection. Resolve the destination,
-  client access and posting authorisation with Fergal before executing work that
-  requires those posts. Do not guess a channel, claim a post was sent, or silently
-  replace that requirement with another channel.
+- Send the progress messages required by AGENTS.md to **#progress** in Fergal's
+  Visamp Slack workspace. Fergal created and selected this channel. Resolve that
+  channel in the connected workspace before posting; confirm the local client's
+  Slack access and posting authorisation. Linear OAuth does not connect Slack.
+  Do not claim a post was sent unless the Slack tool confirms it.
 - Use an isolated branch/worktree for each active task. Do not share a working tree
   with another running agent.
 
@@ -185,7 +185,8 @@ authorise agents to take work assigned to Fergal without explicit delegation.
 
 ## Setup validation status
 
-Repository configuration and documentation can be checked independently of login.
-Local OAuth and the read-only smoke check must still be completed in both clients
-on the developer's machine. Record those results on VIS-70 before treating local
-task pickup as connected and verified.
+Fergal reports local authentication is complete. The read-only smoke check above
+still needs recorded results from each client; authentication alone does not prove
+issue read/write access. The Slack destination is #progress; local Slack integration
+and a successful authorised post remain to be verified. Track activation evidence
+on VIS-70.
