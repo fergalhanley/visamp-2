@@ -114,12 +114,26 @@ Outcome: comfortable touch playback for launch, with desktop-only creation.
 Acceptance: agreed navigation/panel/control layout; portrait/landscape checks;
 editor entry handled clearly; audio/visual behaviour tested on agreed browser/device matrix.
 
-## Define video export
+## Implement track-based video export
 
-Owner: unassigned. State: defining.
-Export: source/permission rules, video formats, aspect ratios, duration, audio sync,
-render location, costs, failure handling and creator attribution.
-Porting, language/AI and asset tasks are below. Export must account for asset reuse permissions.
+Owner: unassigned. State: MVP scope agreed; technical design pending.
+Outcome: export one visualisation for the full duration of one track.
+Sources: local files, microphone audio and eligible Visamp-hosted tracks; exclude SoundCloud.
+Output: 1080p, 30 fps, 16:9 landscape or 9:16 portrait, with a discreet Visamp watermark.
+Acceptance: complete playable download, synchronised audio/visuals, correct duration/aspect ratio,
+assets loaded and watermark present; clear failures without incorrect credit charges.
+Open: microphone recording workflow, codec/container, limits, credit policy and permission/attribution.
+Multiple visuals per track, advanced export editing and paid watermark removal are post-MVP.
+
+## Evaluate client-side export and select rendering approach
+
+Owner: unassigned. State: investigation required before export implementation.
+Prefer client-side rendering; fall back to server-side if required quality/reliability is not feasible.
+Evaluate representative full tracks and complex visuals at the agreed output settings, including
+audio/video sync, encoding/muxing, browser support, memory use and interrupted exports.
+Acceptance: recorded feasibility evidence and implementation choice; if server rendering is needed,
+define cost controls and feed estimated costs into credit pricing.
+Do not assume browser rendering is feasible or decide client-render credit pricing implicitly.
 
 ## Publish site information and establish social accounts
 
@@ -218,10 +232,25 @@ and explicit compatibility/migration handling for file extensions/APIs where nee
 ## Asset library, upload and public contributions
 
 Owner: unassigned. State: MVP requirement, defining.
-Support bitmap, SVG and 3D-model assets; users upload assets and can make them public in the library.
-Acceptance to define: discovery/selection, upload validation/limits, access controls, render loading,
-reference stability for forks, attribution/reuse permissions and delete/unpublish behaviour.
-Open: exact formats, privacy defaults, licence model, storage quotas and AI access to assets.
+Support bitmap, SVG and 3D-model assets; uploads are private by default and usable only by the uploader.
+Users can make assets public for reuse by other users, including in exported videos.
+Upload requires confirmation of rights and implies reuse permission within its visibility scope.
+Only admins can remove public assets from availability, optionally providing a replacement.
+Removal applies everywhere, including visuals that already reference the asset.
+Acceptance: discovery/selection, upload validation, private/public access enforcement, render loading,
+and explicit rights/reuse acceptance. References in forks must respect asset access.
+Open: exact formats, permission/attribution wording, quotas, replacement compatibility and AI asset access.
+
+## Handle missing assets and enforce the 24-hour repair window
+
+Owner: unassigned. State: MVP requirement, defining.
+When an asset is removed, affected visuals skip that asset and show a warning.
+If not fixed within 24 hours, automatically make each affected visual private.
+Acceptance: affected references identified, rendering continues where possible, warning displayed,
+repaired references clear the condition, and overdue unresolved visuals become private.
+Open: timer semantics, handling multiple missing assets and republishing after repair.
+Owner notifications for warnings/privacy changes are post-MVP; do not require a notification
+system to implement the beta warning and visibility enforcement.
 
 ## Investigate silent editor failures
 
