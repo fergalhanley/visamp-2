@@ -39,7 +39,13 @@ This community should retain meaningful value as the platform expands.
 ## Devices
 
 - Initial launch: desktop browser with creation and playback.
-- Initial launch: mobile/tablet viewer and player; layout still needs definition and implementation.
+- Initial launch: mobile/tablet playback, discovery, profiles, following, likes and comments.
+  Visual creation/editing remains desktop-only; hide Create/Edit and other visual-authoring
+  entry points on mobile/tablet.
+- Mobile/tablet player: full-screen visual experience with popover controls revealed by tapping
+  the player. Adapt the desktop controls for touch and smaller screens.
+- Support portrait and landscape, with landscape providing a more immersive viewing layout.
+  Detailed popover layout, dismissal timing and device/browser acceptance matrix remain to be defined.
 - Later: TV browser mode at visamp.io, followed by platform-specific smart TV apps.
 - Existing touch controls do not constitute mobile acceptance testing.
 
@@ -129,7 +135,9 @@ Track assignment is distinct from this suggested starting visual.
   Preserve selection mode when using these controls; explicit visual selection is a distinct action.
 - Implementation acceptance: shortcuts must not interfere with text inputs, editable content or
   focused buttons/dialogs; prevent page scrolling/history effects only when handling a player shortcut.
-- Define touch equivalents during mobile design; do not assume hover works on touch.
+- On mobile/tablet, tapping the player reveals popover controls over the full-screen visual.
+  Adapt navigation and transport controls for touch; hide visual creation/editing actions.
+  Support portrait and landscape. Detailed placement and dismissal behaviour remain open.
 - Fergal reports playback reliability is now good across the board, with local-file restoration
   on reload as a known issue. This is user-reported validation, not automated test evidence.
 - Retain local files across reloads where supported. Investigate existing IndexedDB file handles,
