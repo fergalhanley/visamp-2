@@ -22,19 +22,22 @@ Do not assign the hero design to another agent.
 
 Owner: unassigned. State: defining.
 Outcome: easier browsing and account/navigation access without obscuring visuals at rest.
-Scope: wider side panels; top bar with navigation, login, profile/account, Create Vis and Fork Vis.
+Scope: fixed panels approximately 2x current desktop width; top bar with navigation, login,
+profile/account, Create Vis and Fork Vis. Top-edge hover triggers fade-in; bar does not overlap panels.
 Acceptance: bar follows agreed reveal/hide behaviour; existing player controls continue to work;
 logged-in/out states supported; desktop behaviour verified.
-Open: widths, resize behaviour, navigation links, reveal timing/region and touch design.
+Open: navigation links, hide timing/focus, smaller-screen constraints and touch design.
 
 ## Featured artist configuration and entry routing
 
 Owner: unassigned. State: defining.
 Outcome: player starts the intended visual/music combination from every discovery entry.
-Scope: admin featured artist configuration; Gereon onboarding dependency; track-to-visual assignment.
-Acceptance: all three entry cases in the MVP spec work; selected track/visual is preserved;
+Scope: admin featured artist configuration; Gereon onboarding dependency; preferred track visual
+assigned by admin or music artist. User-selected visual/visual playlist takes precedence over the
+track preference. Restore previous session on return; explicit visual routes override restored visuals.
+Acceptance: all entry cases in the MVP spec work; selected track/visual is preserved;
 defaults are controlled by admin; unavailable content has an agreed fallback.
-Open: topmost/popularity definitions, featured track ordering, multiple artists and remembered state.
+Open: topmost/popularity definitions, featured track ordering, multiple artists and exact restore fields.
 
 ## Gereon founding artist onboarding
 
@@ -129,3 +132,29 @@ Track company setup, funding eligibility/deadlines, matching requirements, evide
 Plan reusable visual sessions, livestreams and social clips starting at beta.
 Acceptance: bounded first-month plan, rights-cleared content sources, cost tracking and
 measurable recruitment/usage outcomes. No assumed grant award or revenue-sharing launch.
+
+## Restore local files and listening sessions after reload
+
+Owner: unassigned. State: defining/fix investigation.
+Fergal reports current playback reliability is good; re-adding local files on reload is the known issue.
+Outcome: return to the previous listening context without unnecessary file reselection.
+Investigate: saved handles and permissions, cumulative picker batches, add/remove/reorder/clear,
+restoring the selected audio source (currently SoundCloud restore always runs), and one missing
+file failing the entire restore.
+Acceptance: granted handles restore; permission-needed handles can be reconnected by user gesture;
+names/order retained for unavailable files; saved source/context respects explicit routes;
+no upload of local files; unavailable-storage cases clearly handled.
+Open: opt-in browser-local copies for unsupported file-handle paths, storage limits/clear controls,
+same-device versus account sync, track position and paused/playing restoration.
+
+## Route the player by track, music list, visual playlist and set
+
+Owner: unassigned. State: defining.
+Use the route shapes in the MVP spec: /track/<source>/<id>, /track_list/<id>,
+/playlist/<id>, /set/<id>, retaining /vis/<id>.
+Outcome: URLs establish the requested content and playback context.
+Acceptance: direct load/reload, sharing and back/forward resolve correctly; explicit choices
+are not replaced by restored state or automatic track visuals; changing visual does not
+unconditionally destroy a track/list/set route; invalid/unavailable/private content handled.
+Open: approved source IDs, music-list persistence/publicity, unavailable local-file references,
+set timing/authoring and beta scope. Do not assume every route is a funded beta feature yet.
