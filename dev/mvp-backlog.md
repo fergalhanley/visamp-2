@@ -6,8 +6,9 @@ instructions, not verified external assignments. Product reference: [MVP specifi
 
 ## Linear transfer plan
 
-Prepared for live setup; no Linear objects have been created or inspected yet because
-the Linear plugin is not available in this session. D01–D35 below are local draft references,
+Prepared for live setup; no Linear objects have been created or inspected yet.
+Linear was confirmed connected on 8 September 2026, but its issue/project actions were not
+exposed in the running session. Resume live transfer when those actions are available. D01–D35 below are local draft references,
 not Linear issue IDs. Project names, priorities and dependencies are an initial delivery plan,
 not additional product decisions or a claim that work is already in progress.
 
