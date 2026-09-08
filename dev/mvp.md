@@ -78,7 +78,11 @@ the restored visual. Detailed precedence for track/list/set routes and unrelated
 remains to be defined.
 
 Open: meaning of topmost; first track and running order; multiple featured artists;
-popularity metric; unavailable-content fallbacks; restoration fields and cross-device scope.
+popularity metric; unavailable-content fallbacks and cross-device scope.
+Restore selected visual, available audio and player settings; exact track position need not persist.
+Manual visual choice remains authoritative until the user explicitly returns to follow-music mode.
+Next/Previous visual navigation preserves the selection mode; clarify whether navigation in automatic
+mode remains automatic, and exactly how explicit selection changes/resets the override.
 
 ### Player content routes
 
@@ -93,8 +97,21 @@ popularity metric; unavailable-content fallbacks; restoration fields and cross-d
 These are requested route shapes; only /vis exists in the reviewed player.
 Extend the shared player/session model to understand content context, rather than rewriting
 every visit as a visual-only URL. Direct load, reload and browser back/forward need acceptance
-coverage. Open: set creation/timing scope for beta; source identifiers; list storage/sharing;
-local-file references on another device; manual overrides during sets.
+coverage. Model sets now; release set authoring/playback soon after MVP as an important step
+into the VJ mode screen. Do not include the set UI/player in the initial beta deadline.
+Favourites are personal and not shareable. Playlists and sets should be shareable.
+Open: source identifiers, privacy/default visibility for shareable collections and set timing design.
+
+### Audio source boundaries
+
+Automatic/default music, site-shared music lists and audio used in shared sets must use
+Visamp-hosted tracks. Preferred audio tracks must also be Visamp-hosted.
+SoundCloud and local files remain personal inputs; do not mix them into site-shared collections.
+This supersedes the PoC SoundCloud default: its integration stays available for personal listening.
+User described these personal sources as for consumption or video generation; exact export eligibility
+is still to be specified. Personal playback access does not itself approve SoundCloud capture/export.
+Earlier local/microphone-only export proposal must be reconciled during export discovery.
+
 
 An artist uploading music should initially see one of their own visuals if they have any,
 otherwise a community visual. Selection details remain open.
@@ -108,6 +125,11 @@ Track assignment is distinct from this suggested starting visual.
   Create Vis and Fork Vis.
 - Reveal the bar by hovering at the top of the player, with a fade-in.
   It must not overlap the side panels. Exact hide timing and focus behaviour remain open.
+- Add or ensure visible Next/Previous visual buttons on player controls.
+- Visual shortcuts: Space = next visual; Backspace = previous visual.
+  Preserve selection mode when using these controls; explicit visual selection is a distinct action.
+- Implementation acceptance: shortcuts must not interfere with text inputs, editable content or
+  focused buttons/dialogs; prevent page scrolling/history effects only when handling a player shortcut.
 - Define touch equivalents during mobile design; do not assume hover works on touch.
 - Fergal reports playback reliability is now good across the board, with local-file restoration
   on reload as a known issue. This is user-reported validation, not automated test evidence.
@@ -145,8 +167,8 @@ claiming and administrative permissions require definition. Existing /artists li
 - Implement admin artist/licence onboarding to remove routine direct database setup.
 - Validate upload, processing, preview, publication and withdrawal end to end.
 - Rendered video export is intended for artists' own releases/social distribution and needs a spec.
-  User proposes restricting audio sources to local/microphone input. Final eligibility,
-  confirmation of rights, formats, duration and local/hosted rendering remain open.
+  The earlier local/microphone proposal and latest mention of personal SoundCloud video use
+  need reconciliation. Final source eligibility, permission, formats, duration and rendering remain open.
 - Define visual reuse, fork attribution and export permissions. Public visibility alone does
   not resolve permission for external or commercial reuse.
 
