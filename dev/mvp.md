@@ -29,8 +29,8 @@ This community should retain meaningful value as the platform expands.
 - Beta is open to anyone with the URL; no invitation gate.
 - Clearly identify the service as beta and explain that features may change or be removed.
   Beta wording manages expectations; it does not replace published terms.
-- Free platform initially, with paid credits through Stripe in initial scope.
-- Advertising, broader subscriptions and artist revenue sharing are later roadmap work.
+- Free platform initially, with one-off credit packs purchased through Stripe in MVP.
+- Subscriptions (including recurring credit plans), advertising and artist revenue sharing are later roadmap work.
 - Initially onboard artists under non-exclusive permission to host their music, offering
   promotion and visual creation benefits. Exact agreement and grants remain to be defined.
 - Pursue Australian grants, company formation and later investment, using a launched product
@@ -236,8 +236,9 @@ One public user profile shows Visualisations and Music tabs when both content ty
 
 - Use a credit system for AI usage and video generation costs.
 - Grant signup credits and allow discretionary free credits for prolific creators.
-- Stripe is initial scope. Pack sizes, prices, expiry, refunds, taxes, billing UI and
-  whether recurring credit plans ship in beta remain open.
+- MVP billing uses Stripe for one-off credit pack purchases. Subscriptions and recurring
+  credit plans are deferred until after MVP.
+- Pack sizes, prices, expiry, refunds, taxes and billing UI remain open.
 - Existing AI ledger is a foundation, not a completed billing system.
 - Mixpanel is the selected provider, built in from launch.
 - Separate staging and production targets so development/testing does not contaminate
