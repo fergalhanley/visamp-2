@@ -336,7 +336,8 @@ One public user profile shows Visualisations and Music tabs when both content ty
 
 Fergal will recruit a couple of friends first, post to relevant Reddit communities, and
 encourage signups through social content and a regular livestream starting around beta.
-He will publish as a visual artist using Visamp.
+He will publish as a visual artist using Visamp. Social accounts will use Visamp branding,
+with Fergal hosting the streams and creating the featured work.
 
 Launch priorities:
 - Discord for community and beta support.
@@ -344,9 +345,11 @@ Launch priorities:
 - Livestreams on Twitch and YouTube.
 Bluesky remains a candidate for later expansion, outside the selected initial channel priorities.
 
-Intended livestream cadence: one hour on Saturday mornings in Australia/Adelaide, targeting
-Friday evening on the US East Coast and late afternoon on the West Coast.
-Exact start time, first stream date, content format and simulcast setup remain open.
+Initial livestream slot: Saturdays 10:00–11:00 am, Australia/Adelaide, targeting Friday evening
+on the US East Coast and late afternoon on the West Coast. Fergal may add more days later.
+Format: showcase existing visuals, then build a new visual live while demonstrating Visamp's
+creation features. Record the session and repurpose it into content for the other launch platforms.
+First stream date, detailed running order and production/simulcast setup remain open.
 Account for seasonal daylight-saving differences when communicating US times.
 
 Company setup has not started and needs to begin. Track it as a distinct business workstream,
