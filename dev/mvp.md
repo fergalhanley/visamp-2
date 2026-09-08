@@ -300,12 +300,29 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Initial dashboard: active listeners, listening time, returning users, successful AI requests,
   published visualisations, music uploads and credit purchases.
 - Include Fergal's activity in production metrics: he is a real user.
-- Test/agent accounts operate on instances reporting to staging Mixpanel. No separate
+- Local development and test/agent sessions report to the staging Mixpanel project;
+  real usage on the production deployment reports to production Mixpanel. No separate
   production account-filtering feature is required for beta.
-- Separate staging and production targets so development/testing does not contaminate
-  production analytics, particularly during the small-user beta.
+- Keep these two analytics projects separate even while using a single Supabase environment.
+  A separate deployed staging application/backend is deferred until after MVP.
 - Define events, identity, consent, environment routing and precise metric definitions.
 - Tests and development must never default to production tracking.
+
+## Beta deployment and support
+
+- Current state reported by Fergal: one Supabase environment, application running locally,
+  and no Vercel deployment yet.
+- MVP: prepare the existing environment for production and deploy to Vercel.
+  A separate staging application/backend environment is post-MVP work.
+- Update validation plans to use local execution against the existing backend before deployment,
+  followed by focused checks of the deployed app. A full staging stack is not an MVP prerequisite.
+  Keep local/test analytics pointed to staging Mixpanel.
+- Stripe payment testing uses its test mode/sandbox; this does not require a separate staging
+  application stack. Keep test purchases distinct from real credit purchases.
+- No error reporting, uptime monitoring or alerts are currently in place.
+  Define a minimal monitoring setup and alert destination as launch operations work.
+- Discord is the beta channel for bug reports and user support, alongside its community role.
+  Provide working support links in the site. Server/channel setup and invite URL remain to be confirmed.
 
 ## Company, funding and growth
 
@@ -323,7 +340,8 @@ Replace placeholder policy/licensing pages with suitable final content.
 Code review found landing/gallery, player/audio sources, accounts/social features, editor/AI,
 artist upload processing and admin track management. Credit accounting exists.
 No Stripe purchasing, Mixpanel instrumentation or rendered-video export was found.
-Deployment configuration and real end-to-end functionality remain unverified.
+Fergal confirms the app runs locally with one Supabase environment and has not been deployed
+on Vercel. Production deployment and its end-to-end functionality remain unverified.
 
 Continue discovery in order: player; accounts/community; creator/artist identity and onboarding;
 DSL/editor/AI; exports; credits/Stripe; mobile; analytics; operations/growth/funding.
