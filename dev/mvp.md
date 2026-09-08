@@ -230,11 +230,15 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Resolve visual reuse/fork attribution and hosted-music export permission in the relevant
   agreements; existing site-playback permission alone does not establish export permission.
   Public assets carry the reuse permission described above.
-- Credit charging, especially for client-side renders versus server costs, remains open.
+- Server-rendered video exports consume credits. Client-rendered exports with the
+  Visamp watermark are free. Exact server-render credit rates remain to be defined.
 
 ## Credits, billing and measurement
 
-- Use a credit system for AI usage and video generation costs.
+- AI creation/editing and server-rendered video exports consume credits.
+- Client-rendered exports with the Visamp watermark are free.
+- Listening, manual visual editing and community features are free.
+- Exact metering rates, cost display and failed-job charging rules remain to be defined.
 - Grant signup credits and allow discretionary free credits for prolific creators.
 - MVP billing uses Stripe for one-off credit pack purchases. Subscriptions and recurring
   credit plans are deferred until after MVP.
