@@ -241,6 +241,8 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Listening, manual visual editing and community features are free.
 - Charge a fixed credit amount per successful user AI request. Automatic retries and provider
   fallback are included in that one charge; failed responses incur no charge.
+- Disliking a successful result or undoing the AI edit does not reverse its credit charge.
+  Reconsider this policy if user complaints warrant it.
 - Set the fixed amount using average provider costs across all users, including retries and
   failed requests. The amount and success criteria still need definition.
 - Server-render export rates/failure charging and pre-action cost display remain to be defined.
