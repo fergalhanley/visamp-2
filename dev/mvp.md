@@ -247,10 +247,16 @@ One public user profile shows Visualisations and Music tabs when both content ty
   failed requests. The amount and success criteria still need definition.
 - Server-render export rates/failure charging and pre-action cost display remain to be defined.
 - Grant signup credits and allow discretionary free credits for prolific creators.
+- Signup credits do not expire. Discretionary free grants may have an optional expiry date
+  to encourage use; no universal expiry period is agreed.
+- Build credit accounting to distinguish purchased, signup and discretionary allocations,
+  with remaining amounts and optional per-grant expiry. Expiring one grant must not expire
+  unrelated credits. Consumption order and expiry handling for in-flight requests remain open.
 - MVP billing uses Stripe for one-off credit pack purchases. Subscriptions and recurring
   credit plans are deferred until after MVP.
 - Purchased credits do not expire; they remain available until used.
-- Pack sizes, prices, expiry of signup/promotional credits, refunds, taxes and billing UI remain open.
+- Pack sizes, prices, signup amounts, discretionary grant expiry settings, refunds, taxes
+  and billing UI remain open.
 - Existing AI ledger is a foundation, not a completed billing system.
 - Mixpanel is the selected provider, built in from launch.
 - Separate staging and production targets so development/testing does not contaminate
