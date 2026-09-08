@@ -3,6 +3,10 @@
 This file applies to the entire Visamp monorepo. All coding agents working in
 this repository must follow this protocol.
 
+For Linear connection setup, eligible task selection, claim coordination and handoff,
+read [the Linear agent workflow](agents/linear-workflow.md). That guide supplements
+this protocol; it does not replace its prerequisite, progress or review requirements.
+
 ## Sources of truth
 
 - **Linear** is the source of truth for planned work, scope, priority,

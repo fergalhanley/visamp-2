@@ -16,6 +16,12 @@ packages/
   typescript-config/  shared tsconfig bases
 ```
 
+## Coding agents
+
+Codex CLI and Claude Code can access the Visamp backlog through the checked-in
+Linear MCP configurations. Follow [Linear agent setup and task pickup](agents/linear-workflow.md)
+for local authentication, connection checks and the shared delivery workflow.
+
 ## Quick Start
 
 ```sh
