@@ -204,8 +204,9 @@ Browser rendering feasibility remains to be established.
 
 Owner: unassigned. State: defining.
 Replace policy/licensing placeholders; update About/beta messaging and copyright details.
-Set up approved accounts using admin@visamp.io and wire real links; include Discord,
-Twitch/YouTube, X, Instagram, Bluesky and TikTok in planning.
+Set up approved accounts using admin@visamp.io and wire real links.
+Launch priorities: existing Discord; YouTube Shorts, TikTok, Instagram and X for short-form content;
+Twitch and YouTube for livestreams. Bluesky is outside the selected initial priorities.
 Discord is the community and beta bug-reporting/user-support channel. Reuse Fergal's existing
 server and supplied perpetual invite: https://discord.gg/exV68HvWV8.
 Expose the invite only to signed-in users through Visamp; signed-out support entry points can
@@ -214,13 +215,44 @@ No new Discord server is required.
 Acceptance: final destinations/content verified and no accidental placeholder links.
 Open: handles, account ownership, publication approvals and content schedule.
 
-## Company formation, grants and founder content
+## Begin company setup
 
-Owner: Fergal Hanley (founder decisions); execution unassigned. State: defining.
-Track company setup, funding eligibility/deadlines, matching requirements, evidence and budget.
-Plan reusable visual sessions, livestreams and social clips starting at beta.
-Acceptance: bounded first-month plan, rights-cleared content sources, cost tracking and
-measurable recruitment/usage outcomes. No assumed grant award or revenue-sharing launch.
+Owner: Fergal Hanley (founder decisions); preparation/execution unassigned. State: needs to start.
+Outcome: prepare and carry out the agreed Australian company setup.
+First prepare a current-source setup sequence, required founder inputs, costs and dependencies
+for the intended Pty Ltd structure; record actual registration status as work progresses.
+Acceptance: concrete setup tasks and required decisions identified, then completion evidence
+recorded for executed steps. Do not claim the company already exists.
+
+## Research grants and prepare funding applications
+
+Owner: Fergal Hanley (founder decisions); research/execution unassigned. State: defining.
+Track Australian funding eligibility, deadlines, matching requirements, application evidence
+and budget, accounting for company setup and the product/user traction timeline.
+Acceptance: source-verified shortlist with requirements and next actions, realistic funding/budget
+fit and application tasks for selected opportunities. No assumed grant award.
+
+## Recruit founding beta users
+
+Owner: Fergal Hanley for outreach; supporting preparation unassigned. State: plan agreed.
+Start with a couple of friends, then relevant Reddit community posts and signup invitations
+through social content and regular livestreams.
+Acceptance: initial tester list/recruitment steps, candidate communities and reviewable post drafts,
+plus signup destinations and measurement consistent with the Mixpanel plan.
+Community selection and posting cadence remain open. No outreach has been sent by this planning task.
+
+## Establish founder content and weekly livestream
+
+Owner: Fergal Hanley as visual artist/host; supporting execution unassigned. State: defining.
+Start in earnest around the soft launch. Priorities: short-form videos on YouTube Shorts,
+TikTok, Instagram and X; live on Twitch and YouTube; community interaction in Discord.
+Planned live cadence: one hour on Saturday morning, Australia/Adelaide, aiming at Friday evening
+US East Coast / late afternoon West Coast. Exact time and first date remain to be chosen.
+Scope: stream format, production/simulcast workflow, reusable clips and signup calls to action.
+Acceptance: reviewable first-stream plan, confirmed channel links, cleared source content,
+working broadcast setup and a repeatable clipping/distribution workflow.
+Check seasonal time-zone differences before publishing schedules. No broadcast or scheduled
+automation has been created by this planning task.
 
 ## Restore local files and listening sessions after reload
 
