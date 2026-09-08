@@ -205,7 +205,10 @@ Browser rendering feasibility remains to be established.
 Owner: unassigned. State: defining.
 Replace policy/licensing placeholders; update About/beta messaging and copyright details.
 Set up approved accounts using admin@visamp.io and wire real links.
-Use Visamp branding for the social accounts; Fergal is the host and visual creator.
+Use Visamp branding for the social accounts; Fergal is the recognisable host and visual creator.
+Use the same logo and handle across platforms where available; verify handle availability during setup.
+Preserve individual creator/music-artist attribution, including Fergal's own work, when featuring content.
+The official channels should support featuring other creators and artists as the community grows.
 Launch priorities: existing Discord; YouTube Shorts, TikTok, Instagram and X for short-form content;
 Twitch and YouTube for livestreams. Bluesky is outside the selected initial priorities.
 Discord is the community and beta bug-reporting/user-support channel. Reuse Fergal's existing
@@ -250,7 +253,9 @@ TikTok, Instagram and X; live on Twitch and YouTube; community interaction in Di
 Initial live slot: Saturdays 10:00–11:00 am, Australia/Adelaide, aiming at Friday evening
 US East Coast / late afternoon West Coast. Additional days may be added later.
 Format: showcase existing visuals, then create a new visual live to demonstrate Visamp features.
-Record each session and repurpose it into shorter content for the other launch platforms.
+Record each session and repurpose it into condensed creation walkthroughs and short visual highlights
+for the other launch platforms. Lead clips with the visual or creation moment, then explain the process.
+Use a consistent livestream series identity; "Visamp Live with Fergal" remains a suggested title.
 Use Visamp-branded social accounts, with Fergal as host/visual creator.
 Scope: detailed running order, production/simulcast workflow, recording, reusable clips and
 signup calls to action. First stream date and additional broadcast days remain open.
