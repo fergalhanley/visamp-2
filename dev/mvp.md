@@ -108,8 +108,8 @@ Automatic/default music, site-shared music lists and audio used in shared sets m
 Visamp-hosted tracks. Preferred audio tracks must also be Visamp-hosted.
 SoundCloud and local files remain personal inputs; do not mix them into site-shared collections.
 This supersedes the PoC SoundCloud default: its integration stays available for personal listening.
-MVP video export accepts local files, microphone audio and eligible Visamp-hosted tracks.
-SoundCloud is explicitly excluded from export.
+MVP video export accepts local files and eligible Visamp-hosted tracks only.
+Microphone input and SoundCloud are excluded from MVP export.
 
 
 An artist uploading music should initially see one of their own visuals if they have any,
@@ -218,8 +218,8 @@ One public user profile shows Visualisations and Music tabs when both content ty
 
 - MVP export is track-based: one visualisation for the full track duration.
   Advanced sequencing, multiple visuals per track and other export features come later.
-- Eligible audio sources: local files, microphone and Visamp-hosted music. Exclude SoundCloud.
-  Define how a microphone recording starts/ends and becomes the finite audio for an export.
+- Eligible audio sources: local files and Visamp-hosted music only.
+  Exclude microphone input and SoundCloud from MVP export.
 - Output: 1080p at 30 fps, with landscape 16:9 and portrait 9:16 options.
 - Investigate client-side rendering first. Use server-side rendering if the required export
   quality/reliability cannot be delivered client-side. Feasibility is not yet established.
