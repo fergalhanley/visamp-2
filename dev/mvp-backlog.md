@@ -59,6 +59,8 @@ Scope: create/edit artist, support an artist without a user, optionally link an 
 record permission details/documents/status, and make eligible artists available in upload flow.
 Acceptance: authorised admin can onboard without SQL; non-admin access is rejected;
 licence constraints still apply during upload/publication; no forced account for music artists.
+Support online agreement acceptance for self-uploads and recorded emailed agreement/confirmation
+for Fergal-managed uploads. Capture agreement version and acceptance evidence.
 Open: claiming verification, agreement fields and management of multiple artist identities.
 
 ## Validate accounts and community
@@ -72,8 +74,10 @@ into scoped tickets. Presence of code does not count as a passing test.
 ## Validate artist uploads and admin
 
 Owner: unassigned. State: untested by Fergal.
-Cover authorised upload, rejection/error recovery, processing worker, draft preview,
-metadata edit, publish, playback, withdrawal and admin permissions.
+Cover authorised upload, rejection/error recovery, processing worker, automatic publication,
+metadata edit, playback, unpublish/withdrawal and admin permissions.
+Change PoC draft/admin-review default: publish after processing and permission checks.
+Artist controls include title, artwork, description, preferred visual and withdrawal.
 Acceptance: end-to-end results with real stage configuration recorded; failures become tickets.
 Open: who executes validation and whether stage workers/storage are already deployed.
 
@@ -81,7 +85,8 @@ Open: who executes validation and whether stage workers/storage are already depl
 
 Owner: unassigned. State: defining.
 Outcome: one user can create visuals and music, with clear attribution and artist pages.
-Consider Creator for visuals and Artist for music; preserve artists without accounts.
+Use contextual Creator/Artist presentation, preserving artists without accounts.
+One public user profile has Visualisations and Music tabs when both apply.
 Acceptance: terminology, profile routes, claims/ownership and both-content presentation agreed;
 migration plan builds on existing optional music_artists.claimed_by.
 
@@ -109,14 +114,12 @@ Outcome: comfortable touch playback for launch, with desktop-only creation.
 Acceptance: agreed navigation/panel/control layout; portrait/landscape checks;
 editor entry handled clearly; audio/visual behaviour tested on agreed browser/device matrix.
 
-## Define video export and DSL/AI launch readiness
+## Define video export
 
-Owner: unassigned. State: defining; split after discovery.
+Owner: unassigned. State: defining.
 Export: source/permission rules, video formats, aspect ratios, duration, audio sync,
 render location, costs, failure handling and creator attribution.
-DSL/AI: bounded launch feature set, known deficiencies, reference visuals and
-quality/reliability/cost evaluation. Preserve old unresolved work on versioned real-music
-validator fixtures, scramble filter and additional codex ports as candidates, not automatic scope.
+Porting, language/AI and asset tasks are below. Export must account for asset reuse permissions.
 
 ## Publish site information and establish social accounts
 
@@ -178,5 +181,74 @@ Outcome: Next/Previous visual buttons plus Space for next and Backspace for prev
 Acceptance: keyboard/buttons perform the same navigation; preserve current selection mode;
 manual choice continues to take precedence over track defaults; inputs/editors/focused controls
 retain normal keys; no accidental scrolling/navigation when a player shortcut is handled.
-Open: confirm navigation in automatic mode remains automatic and the exact meaning of resetting
-manual override through an explicit visual selection. Record that answer before implementation.
+Confirmed: automatic stays automatic, manual stays manual. Explicit visual selection activates override.
+
+## Repair signup and password-reset navigation
+
+Owner: unassigned. State: reported broken.
+Fergal reports Google/GitHub work, Create account and Forgot password links fail.
+Email/password login is unverified and treated as blocked until signup works.
+Acceptance: signup, confirmation, email login and reset complete in stage; preserve OAuth;
+record tested outcomes instead of assuming email login itself is proven broken.
+
+## Follow creators/artists and filter discovery
+
+Owner: unassigned. State: MVP requirement.
+Outcome: follow/unfollow plus Following discovery filter.
+Acceptance: correct target identities, persistent state, authenticated writes and matching content.
+Open: relationship between user creator profiles and unclaimed music artists.
+Notifications are later-release work. Current comments/replies suffice; no beta moderation project.
+Public visuals appear immediately after the owner sets Public.
+
+## Select v1 visuals and drive language gap analysis
+
+Owner: Fergal Hanley for collection selection; port implementation unassigned.
+Fergal will choose quality visuals from a separate v1 repository (location pending).
+Acceptance: selected inventory, per-visual missing capabilities, port validation and broader gap analysis.
+Do not assume every historical visual is launch scope.
+Keep real-music validator fixtures, scramble filter and extra ports as candidates to assess.
+
+## Choose and propagate the visual-language name
+
+Owner: unassigned. State: decision pending.
+Candidates include Viscript and VDSL; no chosen name yet.
+Acceptance: agreed name checked, usage inventory, consistent code/site/docs terminology,
+and explicit compatibility/migration handling for file extensions/APIs where needed.
+
+## Asset library, upload and public contributions
+
+Owner: unassigned. State: MVP requirement, defining.
+Support bitmap, SVG and 3D-model assets; users upload assets and can make them public in the library.
+Acceptance to define: discovery/selection, upload validation/limits, access controls, render loading,
+reference stability for forks, attribution/reuse permissions and delete/unpublish behaviour.
+Open: exact formats, privacy defaults, licence model, storage quotas and AI access to assets.
+
+## Investigate silent editor failures
+
+Owner: Fergal Hanley, working with an agent. State: reproduction needed.
+Reported: new code sometimes produces no error yet the visual fails to rerender.
+Acceptance: reproducible example, fix, explicit failure diagnostics and validation that successful
+edits replace the output. Fergal will investigate; do not claim an identified cause.
+
+## Report multiple editor diagnostics
+
+Owner: unassigned. State: defining.
+Current complaint: compiling/interpreting reports only the first error.
+Acceptance: surface multiple independent errors where recoverable with useful locations;
+clearly handle fatal errors and do not invent downstream diagnostics.
+
+## Automatic AI provider choice with admin configuration
+
+Owner: unassigned. State: MVP requirement, defining.
+Use ChatGPT first and fall back to Claude when unavailable. Exclude Qwen.
+Replace user model picker with admin primary/fallback preference settings.
+Acceptance: configured route used; simulate unavailable primary and working fallback;
+both unavailable produces clear failure; failed attempts do not create duplicate charges.
+Open: error categories/timeouts/retry budget; do not conflate invalid code with unavailable provider.
+Evaluate quality/cost to inform pricing and retain existing undo across AI edits.
+
+## Later creation and community refinements
+
+Post-MVP: client-side history panel; GLSL/shader authoring context; publication notifications.
+Existing comments remain sufficient; revisit expansion based on actual uptake.
+Timed sets/VJ follow-up remains a separate high-priority post-MVP project.
