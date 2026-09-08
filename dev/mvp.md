@@ -296,9 +296,15 @@ One public user profile shows Visualisations and Music tabs when both content ty
   purchase refunds, taxes and detailed billing layout remain open.
 - Existing AI ledger is a foundation, not a completed billing system.
 - Mixpanel is the selected provider, built in from launch.
+- Measure repeat listening and active creation as equally important beta outcomes.
+- Initial dashboard: active listeners, listening time, returning users, successful AI requests,
+  published visualisations, music uploads and credit purchases.
+- Include Fergal's activity in production metrics: he is a real user.
+- Test/agent accounts operate on instances reporting to staging Mixpanel. No separate
+  production account-filtering feature is required for beta.
 - Separate staging and production targets so development/testing does not contaminate
   production analytics, particularly during the small-user beta.
-- Define events, identity, consent, internal-user handling and environment routing.
+- Define events, identity, consent, environment routing and precise metric definitions.
 - Tests and development must never default to production tracking.
 
 ## Company, funding and growth
