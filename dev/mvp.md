@@ -246,7 +246,14 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Set the fixed amount using average provider costs across all users, including retries and
   failed requests. The amount and success criteria still need definition.
 - Server-render export rates/failure charging and pre-action cost display remain to be defined.
-- Grant signup credits and allow discretionary free credits for prolific creators.
+- Initial signup allowance target: enough credits for 20 successful AI requests at the
+  applicable fixed request rate, giving new users room to learn the system.
+- Make the signup credit amount admin-configurable so it can be calibrated over time and
+  increased for new-user promotions. Final credit units depend on the AI pricing calculation.
+- Record the amount/configuration used when granting credits; subsequent configuration changes
+  apply to new grants without rewriting existing balances. Grant signup credits once per user.
+- Promotion activation/scheduling and eligibility details remain to be defined.
+- Allow discretionary free credits for prolific creators.
 - Signup credits do not expire. Discretionary free grants may have an optional expiry date
   to encourage use; no universal expiry period is agreed.
 - Build credit accounting to distinguish purchased, signup and discretionary allocations,
@@ -255,7 +262,7 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - MVP billing uses Stripe for one-off credit pack purchases. Subscriptions and recurring
   credit plans are deferred until after MVP.
 - Purchased credits do not expire; they remain available until used.
-- Pack sizes, prices, signup amounts, discretionary grant expiry settings, refunds, taxes
+- Pack sizes, prices, signup credit-unit calculation, discretionary grant expiry settings, refunds, taxes
   and billing UI remain open.
 - Existing AI ledger is a foundation, not a completed billing system.
 - Mixpanel is the selected provider, built in from launch.
