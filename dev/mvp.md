@@ -252,7 +252,9 @@ One public user profile shows Visualisations and Music tabs when both content ty
   increased for new-user promotions. Final credit units depend on the AI pricing calculation.
 - Record the amount/configuration used when granting credits; subsequent configuration changes
   apply to new grants without rewriting existing balances. Grant signup credits once per user.
-- Promotion activation/scheduling and eligibility details remain to be defined.
+- MVP signup promotions are controlled manually by changing the admin signup allowance
+  and restoring it when the promotion ends. Scheduled campaigns are outside MVP scope.
+  The active allowance applies to new signup grants; further eligibility rules remain open.
 - Allow discretionary free credits for prolific creators.
 - Signup credits do not expire. Discretionary free grants may have an optional expiry date
   to encourage use; no universal expiry period is agreed.
