@@ -337,7 +337,14 @@ One public user profile shows Visualisations and Music tabs when both content ty
 Fergal will recruit a couple of friends first, post to relevant Reddit communities, and
 encourage signups through social content and a regular livestream starting around beta.
 He will publish as a visual artist using Visamp. Social accounts will use Visamp branding,
-with Fergal hosting the streams and creating the featured work.
+with Fergal as the recognisable host and visual creator.
+Use a consistent logo and handle across platforms where available. Keep individual creator
+and music-artist attribution on featured work, including Fergal's own visuals, so the official
+channels can also feature community creators and artists.
+Give the livestream a consistent series identity; "Visamp Live with Fergal" is a suggested title,
+not a final naming decision. Lead clips with a striking visual or interesting creation moment,
+then show how it was made. Plan full recordings, condensed creation walkthroughs and short
+visual highlights as complementary outputs.
 
 Launch priorities:
 - Discord for community and beta support.
