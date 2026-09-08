@@ -107,6 +107,8 @@ Open: fixed amount, success criteria, pre-action cost display and server-export 
 Acceptance to finalise: stage purchase -> verified payment -> credit allocation -> metered use,
 including duplicate-payment-event handling, one AI charge for a successful request despite
 retries/fallback, and no charge for a failed response.
+Disliking a successful result or undoing the AI edit must not reverse the charge.
+Reconsider this policy if user complaints warrant it.
 
 ## Define and implement Mixpanel
 
