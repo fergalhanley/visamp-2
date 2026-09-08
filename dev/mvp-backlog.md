@@ -102,7 +102,9 @@ higher new-user promotional allowances.
 Record each grant's amount and configuration/promotion reference where applicable; changes
 affect new grants and do not recalculate existing balances. Issue the signup grant once per user,
 including when signup callbacks or jobs are retried.
-Open: promotion activation/scheduling, eligibility and final credit-unit conversion.
+MVP promotion control is manual: admin changes the signup allowance and restores it when
+finished. New signup grants use the active amount. No scheduled campaign system in MVP.
+Open: further eligibility rules and final credit-unit conversion.
 Purchased credits and signup credits do not expire; they remain available until used.
 Discretionary grants may expire, with an optional expiry date per grant; no fixed duration agreed.
 Support allocation-level source, remaining amount and expiry so grants can expire independently.
