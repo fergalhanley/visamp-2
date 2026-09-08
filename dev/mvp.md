@@ -208,7 +208,8 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - Qwen is not working adequately and is excluded from MVP.
 - Provider choice is automatic: ChatGPT first, Claude if ChatGPT is unavailable.
   Admin selects the provider preference/fallback configuration; remove end-user provider selection.
-  Define unavailable/error categories, retries and failure accounting before implementation.
+  Define unavailable/error categories and retry limits before implementation.
+  Apply the fixed-per-request AI charging rules below across retries and provider fallback.
   Invalid generated code is not automatically synonymous with provider unavailability.
 - Existing undo across AI edits is sufficient for MVP. Client-side history panel is a
   post-MVP refinement; no server-side history requirement has been agreed.
@@ -238,7 +239,11 @@ One public user profile shows Visualisations and Music tabs when both content ty
 - AI creation/editing and server-rendered video exports consume credits.
 - Client-rendered exports with the Visamp watermark are free.
 - Listening, manual visual editing and community features are free.
-- Exact metering rates, cost display and failed-job charging rules remain to be defined.
+- Charge a fixed credit amount per successful user AI request. Automatic retries and provider
+  fallback are included in that one charge; failed responses incur no charge.
+- Set the fixed amount using average provider costs across all users, including retries and
+  failed requests. The amount and success criteria still need definition.
+- Server-render export rates/failure charging and pre-action cost display remain to be defined.
 - Grant signup credits and allow discretionary free credits for prolific creators.
 - MVP billing uses Stripe for one-off credit pack purchases. Subscriptions and recurring
   credit plans are deferred until after MVP.
