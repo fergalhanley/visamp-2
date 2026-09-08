@@ -206,8 +206,11 @@ Owner: unassigned. State: defining.
 Replace policy/licensing placeholders; update About/beta messaging and copyright details.
 Set up approved accounts using admin@visamp.io and wire real links; include Discord,
 Twitch/YouTube, X, Instagram, Bluesky and TikTok in planning.
-Discord is the selected beta bug-reporting and user-support channel; wire the confirmed invite
-into site support links. Server/channel setup remains to be confirmed.
+Discord is the community and beta bug-reporting/user-support channel. Reuse Fergal's existing
+server and supplied perpetual invite: https://discord.gg/exV68HvWV8.
+Expose the invite only to signed-in users through Visamp; signed-out support entry points can
+direct users to sign in. Verify signed-in/out rendering. Inspect existing channels before adding setup.
+No new Discord server is required.
 Acceptance: final destinations/content verified and no accidental placeholder links.
 Open: handles, account ownership, publication approvals and content schedule.
 
@@ -359,7 +362,10 @@ Scope: Vercel project/build setup, production configuration, domain, auth redire
 storage/worker connectivity and payment webhook configuration as applicable.
 Acceptance: deployed discovery/player, auth and core upload/payment flows checked; deployment
 and recovery steps documented. Local/agent testing continues to use staging Mixpanel.
-Open: deployment trigger/approval process and production service configuration.
+Configure main as the production deployment branch: merging an authorised PR automatically
+deploys production, with no separate manual deployment step.
+Acceptance includes verifying the main-to-production deployment trigger.
+Open: production service configuration.
 A separate staging stack is not an MVP dependency.
 
 ## Define and set up beta monitoring
@@ -367,7 +373,8 @@ A separate staging stack is not an MVP dependency.
 Owner: unassigned. State: nothing currently configured; scope defining.
 Outcome: visibility into application failures and service outages.
 Define minimal error reporting, uptime checks and actionable alerts for the beta.
-Open: provider(s), alert destination, coverage and operating cost.
+Send error/outage alerts to Slack; Discord remains the community/support channel.
+Open: provider(s), specific Slack channel, coverage and operating cost.
 Acceptance to finalise: representative error/outage reaches the chosen reporting/alert destination.
 Do not assume monitoring or alerts already exist.
 
@@ -376,4 +383,7 @@ Do not assume monitoring or alerts already exist.
 Owner: unassigned. State: post-MVP.
 Outcome: a separately deployed staging app/backend, with database, storage, worker and
 integration separation defined during implementation.
+Adopt Gitflow: develop automatically deploys to staging; main automatically deploys production.
+Define release/hotfix branch handling and update agent PR-target guidance when activating the flow.
+Until then MVP PRs continue targeting main.
 Retain the staging/production Mixpanel separation already required for MVP.
