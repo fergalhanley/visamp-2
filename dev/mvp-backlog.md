@@ -37,7 +37,9 @@ assigned by admin or music artist. User-selected visual/visual playlist takes pr
 track preference. Restore previous session on return; explicit visual routes override restored visuals.
 Acceptance: all entry cases in the MVP spec work; selected track/visual is preserved;
 defaults are controlled by admin; unavailable content has an agreed fallback.
-Open: topmost/popularity definitions, featured track ordering, multiple artists and exact restore fields.
+Open: topmost/popularity definitions, featured track ordering and multiple artists.
+Automatic/default and preferred audio must be Visamp-hosted. Personal SoundCloud/local selections
+are excluded from site-shared collections.
 
 ## Gereon founding artist onboarding
 
@@ -145,9 +147,10 @@ Acceptance: granted handles restore; permission-needed handles can be reconnecte
 names/order retained for unavailable files; saved source/context respects explicit routes;
 no upload of local files; unavailable-storage cases clearly handled.
 Open: opt-in browser-local copies for unsupported file-handle paths, storage limits/clear controls,
-same-device versus account sync, track position and paused/playing restoration.
+same-device versus account sync and paused/playing restoration.
+Confirmed: restore selected visual, available audio and player settings; track position is unnecessary.
 
-## Route the player by track, music list, visual playlist and set
+## Route the player by track, music list and visual playlist; prepare set model
 
 Owner: unassigned. State: defining.
 Use the route shapes in the MVP spec: /track/<source>/<id>, /track_list/<id>,
@@ -156,5 +159,24 @@ Outcome: URLs establish the requested content and playback context.
 Acceptance: direct load/reload, sharing and back/forward resolve correctly; explicit choices
 are not replaced by restored state or automatic track visuals; changing visual does not
 unconditionally destroy a track/list/set route; invalid/unavailable/private content handled.
-Open: approved source IDs, music-list persistence/publicity, unavailable local-file references,
-set timing/authoring and beta scope. Do not assume every route is a funded beta feature yet.
+Shared music lists use Visamp-hosted tracks only; no mixed lists with SoundCloud/local inputs.
+Favourites are personal/non-shareable; playlists and sets are shareable.
+Open: approved source IDs, privacy/default visibility and personal routes on another device.
+Model sets now; authoring/playback and /set execution ship in an early post-MVP release.
+
+## Model timed sets and plan early VJ follow-up
+
+Owner: unassigned. State: model defining; release after MVP, high-priority follow-up.
+Outcome: a shareable set of visual/Visamp-hosted track pairings with timing, feeding into VJ mode.
+MVP work: agree data/route contracts and extension points. Keep set authoring/playback out of beta.
+Open: timing representation, transitions, manual overrides, editing and VJ controls.
+
+## Visual transport controls and shortcuts
+
+Owner: unassigned. State: defining.
+Outcome: Next/Previous visual buttons plus Space for next and Backspace for previous.
+Acceptance: keyboard/buttons perform the same navigation; preserve current selection mode;
+manual choice continues to take precedence over track defaults; inputs/editors/focused controls
+retain normal keys; no accidental scrolling/navigation when a player shortcut is handled.
+Open: confirm navigation in automatic mode remains automatic and the exact meaning of resetting
+manual override through an explicit visual selection. Record that answer before implementation.
