@@ -101,16 +101,18 @@ fixed request rate. Make the signup credit amount admin-configurable for calibra
 higher new-user promotional allowances.
 Record each grant's amount and configuration/promotion reference where applicable; changes
 affect new grants and do not recalculate existing balances. Issue the signup grant once per user,
-including when signup callbacks or jobs are retried.
+including when signup callbacks or jobs are retried. Award after successful Google/GitHub signup,
+or after email verification for email signup; unverified email signup does not receive the grant.
 MVP promotion control is manual: admin changes the signup allowance and restores it when
 finished. New signup grants use the active amount. No scheduled campaign system in MVP.
-Open: further eligibility rules and final credit-unit conversion.
+Open: final credit-unit conversion.
 Purchased credits and signup credits do not expire; they remain available until used.
 Discretionary grants may expire, with an optional expiry date per grant; no fixed duration agreed.
 Support allocation-level source, remaining amount and expiry so grants can expire independently.
 Acceptance: expiring a discretionary grant removes only its unused credits; purchased/signup
 credits and non-expiring grants remain available. Show applicable expiry in the balance/history UI.
-Open: credit consumption order and expiry during in-flight requests.
+Spend earliest-expiring credits first, then non-expiring free credits, then purchased credits.
+Open: expiry during in-flight requests.
 MVP purchases are one-off credit packs through Stripe;
 subscriptions and recurring credit plans are post-MVP.
 Confirmed: AI creation/editing and server-rendered video exports consume credits.
@@ -119,12 +121,27 @@ community features are free.
 AI billing: fixed credits per successful user request, covering automatic retries/provider fallback.
 Failed responses incur no charge. Calibrate the fixed amount against average provider costs
 across all users, including retry and failure costs; do not pass individual retry costs to the user.
-Open: fixed amount, success criteria, pre-action cost display and server-export rates/failure charging.
+Show credit costs on AI/export actions. Provide an account billing page showing balance,
+purchases, usage and upcoming expiries.
+Editor: credit balance beside the AI prompt submission button; disable submission at zero or
+below and offer a top-up button. Server must also enforce sufficient credit for the full request,
+including positive-but-insufficient balances and concurrent requests.
+Server exports: charge by video duration; show exact cost before starting; no charge for failed exports.
+Open: fixed AI amount, technical success criteria, server-export rate and duration rounding.
 Acceptance to finalise: stage purchase -> verified payment -> credit allocation -> metered use,
 including duplicate-payment-event handling, one AI charge for a successful request despite
 retries/fallback, and no charge for a failed response.
 Disliking a successful result or undoing the AI edit must not reverse the charge.
 Reconsider this policy if user complaints warrant it.
+
+Currency: one founder-managed USD price per pack. Include automatic local-currency checkout
+only if Stripe supports it with low implementation effort for this account/integration; otherwise
+ship USD-only and defer localisation. No manually maintained prices in other currencies.
+Evaluate Stripe Adaptive Pricing using Checkout. USD must be a settlement currency on the account;
+verify this in billing setup. Keep pack listings in USD and let Stripe calculate checkout conversion.
+Acceptance: unchanged credit quantity across checkout currencies; verified payment grants the
+purchased pack once; unsupported localisation falls back to USD.
+See the Stripe reference and conversion-fee note in the MVP specification.
 
 ## Define and implement Mixpanel
 
@@ -149,8 +166,9 @@ Sources: local files and eligible Visamp-hosted tracks only; exclude microphone 
 Output: 1080p, 30 fps, 16:9 landscape or 9:16 portrait, with a discreet Visamp watermark.
 Acceptance: complete playable download, synchronised audio/visuals, correct duration/aspect ratio,
 assets loaded and watermark present; clear failures without incorrect credit charges.
-Open: codec/container, limits, server-render credit rates, failed-job charging and permission/attribution.
-Confirmed: server-rendered exports consume credits; client-rendered watermarked exports are free.
+Open: codec/container, limits, server-render credit rates/rounding and permission/attribution.
+Confirmed: server-rendered exports consume credits based on duration, with exact cost displayed
+before starting and no charge for a failed export. Client-rendered watermarked exports are free.
 Multiple visuals per track, advanced export editing and paid watermark removal are post-MVP.
 
 ## Evaluate client-side export and select rendering approach
