@@ -118,11 +118,11 @@ editor entry handled clearly; audio/visual behaviour tested on agreed browser/de
 
 Owner: unassigned. State: MVP scope agreed; technical design pending.
 Outcome: export one visualisation for the full duration of one track.
-Sources: local files, microphone audio and eligible Visamp-hosted tracks; exclude SoundCloud.
+Sources: local files and eligible Visamp-hosted tracks only; exclude microphone input and SoundCloud.
 Output: 1080p, 30 fps, 16:9 landscape or 9:16 portrait, with a discreet Visamp watermark.
 Acceptance: complete playable download, synchronised audio/visuals, correct duration/aspect ratio,
 assets loaded and watermark present; clear failures without incorrect credit charges.
-Open: microphone recording workflow, codec/container, limits, credit policy and permission/attribution.
+Open: codec/container, limits, credit policy and permission/attribution.
 Multiple visuals per track, advanced export editing and paid watermark removal are post-MVP.
 
 ## Evaluate client-side export and select rendering approach
