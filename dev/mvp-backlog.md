@@ -97,6 +97,9 @@ Outcome: users can understand credit costs, obtain signup credits and purchase a
 Build on the AI ledger; define packs/pricing, balance/history UI, failures/refunds,
 creator grants and expiry. MVP purchases are one-off credit packs through Stripe;
 subscriptions and recurring credit plans are post-MVP.
+Confirmed: AI creation/editing and server-rendered video exports consume credits.
+Client-rendered exports with the Visamp watermark, listening, manual visual editing and
+community features are free. Define metering rates, pre-action cost display and failed-job charging.
 Acceptance to finalise: stage purchase -> verified payment -> credit allocation -> metered use,
 including duplicate-payment-event handling and failed generation behaviour.
 
@@ -123,7 +126,8 @@ Sources: local files and eligible Visamp-hosted tracks only; exclude microphone 
 Output: 1080p, 30 fps, 16:9 landscape or 9:16 portrait, with a discreet Visamp watermark.
 Acceptance: complete playable download, synchronised audio/visuals, correct duration/aspect ratio,
 assets loaded and watermark present; clear failures without incorrect credit charges.
-Open: codec/container, limits, credit policy and permission/attribution.
+Open: codec/container, limits, server-render credit rates, failed-job charging and permission/attribution.
+Confirmed: server-rendered exports consume credits; client-rendered watermarked exports are free.
 Multiple visuals per track, advanced export editing and paid watermark removal are post-MVP.
 
 ## Evaluate client-side export and select rendering approach
@@ -134,7 +138,8 @@ Evaluate representative full tracks and complex visuals at the agreed output set
 audio/video sync, encoding/muxing, browser support, memory use and interrupted exports.
 Acceptance: recorded feasibility evidence and implementation choice; if server rendering is needed,
 define cost controls and feed estimated costs into credit pricing.
-Do not assume browser rendering is feasible or decide client-render credit pricing implicitly.
+Client-rendered exports with the Visamp watermark are free; server-rendered exports consume credits.
+Browser rendering feasibility remains to be established.
 
 ## Publish site information and establish social accounts
 
