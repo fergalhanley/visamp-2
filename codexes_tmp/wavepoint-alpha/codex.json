@@ -1,0 +1,23 @@
+{
+    "properties": [
+    ],
+    "initProperties": {
+        "audio_waveformFactor": 4.7,
+        "audio_colorformFactor": 3.7,
+        "css_filters_saturate": 3.222,
+        "css_filters_brightness": 3
+    },
+    "context": "webgl",
+    "lib": [],
+    "macros": [{
+        "type": "loop-updated",
+        "property": "css_filters_hue_rotate",
+        "exec": "return Math.floor(t / 20) % 360"
+    }],
+    "assets": {
+        "images": {
+        },
+        "models": {
+        }
+    }
+}

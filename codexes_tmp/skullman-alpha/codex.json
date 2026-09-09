@@ -1,0 +1,102 @@
+{
+    "properties": [
+        {
+            "name": "custom_prop_radius",
+            "dataType": "f64",
+            "description": "The radius",
+            "defaultValue": 0.420,
+            "channel": "update",
+            "inputControls": [
+                {
+                    "type": "mouse",
+                    "action": "scrolly",
+                    "activationKey": {
+                        "key": "c"
+                    },
+                    "function": "log-asc",
+                    "cycle": false,
+                    "min": 0.1,
+                    "max": 10.0,
+                    "step": 0.1
+                }
+            ]
+        },
+        {
+            "name": "custom_texture_select",
+            "dataType": "number",
+            "description": "Select sprite texture",
+            "defaultValue": 0,
+            "channel": "update",
+            "inputControls": [
+                {
+                    "type": "key",
+                    "key": "t",
+                    "action": "inc",
+                    "cycle": true,
+                    "min": 0,
+                    "max": 10,
+                    "step": 1
+                }
+            ]
+        }
+    ],
+    "initProperties": {
+        "audio_waveformFactor": 4.7,
+        "audio_colorformFactor": 3.7,
+        "three_cameraX": 63.60774451454019,
+        "three_cameraY": -57.48573117890322,
+        "three_cameraZ": 1602.042936278409,
+        "three_pitch_yaw": [
+            3.1731,
+            1.579
+        ],
+        "three_fov": 45.2,
+        "three_rotateX": 1.5,
+        "three_rotateY": 2.7,
+        "three_rotateZ": 4.9,
+        "css_filters_saturate": 3.222,
+        "css_filters_brightness": 3
+    },
+    "context": "webgl",
+    "lib": [],
+    "macros": [
+        {
+            "type": "loop-updated",
+            "property": "css_filters_hue_rotate",
+            "exec": "return Math.floor(t / 50 % 360)"
+        },
+        {
+            "type": "loop-updated",
+            "property": "three_rotateX",
+            "exec": "return t / 9000"
+        },
+        {
+            "type": "loop-updated",
+            "property": "three_rotateY",
+            "exec": "return t / 9000"
+        },
+        {
+            "type": "loop-updated",
+            "property": "three_cameraZ",
+            "exec": "return Math.sin(t / 18000) * 1000 + 1000"
+        }
+    ],
+    "assets": {
+        "images": {
+            "ball": "ball.png",
+            "cactus": "cactus.png",
+            "circle": "circle.png",
+            "cube": "cube.png",
+            "face": "face.png",
+            "face2": "face2.png",
+            "face3": "face3.png",
+            "flower": "flower.png",
+            "star": "star.png",
+            "bubble": "bubble.png",
+            "leo": "leo.png"
+        },
+        "models": {
+            "skull": "skull.obj"
+        }
+    }
+}
