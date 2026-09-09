@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check-types": "tsc --noEmit",
+    "check-types": "next typegen && tsc --noEmit",
     "ingest": "node --env-file=.env.local scripts/ingest-hosted-audio.mjs",
     "audio:process": "node --env-file=.env.local scripts/process-audio-uploads.mjs",
     "test:uploads": "node --experimental-strip-types --test scripts/upload-rules.test.mjs",
