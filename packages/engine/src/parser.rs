@@ -321,6 +321,19 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 .collect();
             Expression::Call { name, args }
         }
+        Rule::asset_expr => {
+            let mut inner = pair.into_inner();
+            let kind = match inner.next().unwrap().as_str() {
+                "bitmap" => AssetKind::Bitmap,
+                "vector" => AssetKind::Vector,
+                "model" => AssetKind::Model,
+                other => unreachable!("Unknown asset kind: {other}"),
+            };
+            // The grammar guarantees a string literal here; strip its quotes.
+            let raw = inner.next().unwrap().as_str();
+            let id = raw.trim_matches('"').to_string();
+            Expression::AssetRef { kind, id }
+        }
         Rule::color_expr => {
             let mut inner = pair.into_inner();
             let kind_pair = inner.next().unwrap();

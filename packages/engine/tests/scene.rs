@@ -5,6 +5,7 @@ use visamp_2::scene::*;
 fn command(primitive: Primitive) -> DrawCommand {
     DrawCommand {
         key: BatchKey {
+            texture: None,
             primitive,
             shading: Shading::Unlit,
             wireframe: false,
