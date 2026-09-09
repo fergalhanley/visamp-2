@@ -7,19 +7,23 @@
 
 use crate::scene::{MeshData, Primitive};
 
-/// Interleaved position + normal, ready to upload.
+/// Interleaved position + normal + texture coordinate, ready to upload.
 #[derive(Debug, Clone, Default)]
 pub struct Geometry {
-    /// `[x, y, z, nx, ny, nz]` per vertex.
+    /// `[x, y, z, nx, ny, nz, u, v]` per vertex.
     pub vertices: Vec<f32>,
     pub indices: Vec<u32>,
 }
 
+/// Floats per vertex: position, normal, texture coordinate.
+pub const VERTEX_FLOATS: usize = 8;
+
 impl Geometry {
-    fn vertex(&mut self, position: [f32; 3], normal: [f32; 3]) -> u32 {
-        let index = (self.vertices.len() / 6) as u32;
+    fn vertex(&mut self, position: [f32; 3], normal: [f32; 3], uv: [f32; 2]) -> u32 {
+        let index = (self.vertices.len() / VERTEX_FLOATS) as u32;
         self.vertices.extend_from_slice(&position);
         self.vertices.extend_from_slice(&normal);
+        self.vertices.extend_from_slice(&uv);
         index
     }
 
@@ -32,7 +36,7 @@ impl Geometry {
     }
 
     pub fn vertex_count(&self) -> usize {
-        self.vertices.len() / 6
+        self.vertices.len() / VERTEX_FLOATS
     }
 
     /// Line-segment indices for wireframe drawing, one pair per triangle edge.
@@ -93,10 +97,10 @@ fn cube() -> Geometry {
             ]
         };
 
-        let a = g.vertex(corner(-1.0, -1.0), normal);
-        let b = g.vertex(corner(1.0, -1.0), normal);
-        let c = g.vertex(corner(1.0, 1.0), normal);
-        let d = g.vertex(corner(-1.0, 1.0), normal);
+        let a = g.vertex(corner(-1.0, -1.0), normal, [0.0, 0.0]);
+        let b = g.vertex(corner(1.0, -1.0), normal, [1.0, 0.0]);
+        let c = g.vertex(corner(1.0, 1.0), normal, [1.0, 1.0]);
+        let d = g.vertex(corner(-1.0, 1.0), normal, [0.0, 1.0]);
         g.triangle(a, b, c);
         g.triangle(a, c, d);
     }
@@ -122,7 +126,12 @@ fn sphere(resolution: u32) -> Geometry {
             let (sin_theta, cos_theta) = theta.sin_cos();
 
             let normal = [sin_phi * cos_theta, cos_phi, sin_phi * sin_theta];
-            g.vertex([normal[0] * 0.5, normal[1] * 0.5, normal[2] * 0.5], normal);
+            // v runs top to bottom, so flip it for images that read downward.
+            g.vertex(
+                [normal[0] * 0.5, normal[1] * 0.5, normal[2] * 0.5],
+                normal,
+                [u, 1.0 - v],
+            );
         }
     }
 
@@ -146,9 +155,9 @@ fn plane(subdivisions: u32) -> Geometry {
 
     for row in 0..=n {
         for col in 0..=n {
-            let x = col as f32 / n as f32 - 0.5;
-            let z = row as f32 / n as f32 - 0.5;
-            g.vertex([x, 0.0, z], [0.0, 1.0, 0.0]);
+            let u = col as f32 / n as f32;
+            let v = row as f32 / n as f32;
+            g.vertex([u - 0.5, 0.0, v - 0.5], [0.0, 1.0, 0.0], [u, v]);
         }
     }
 
@@ -173,9 +182,10 @@ fn cylinder(segments: u32) -> Geometry {
     for i in 0..=segments {
         let t = i as f32 / segments as f32 * std::f32::consts::TAU;
         let (sin, cos) = t.sin_cos();
+        let u = i as f32 / segments as f32;
         let normal = [cos, 0.0, sin];
-        g.vertex([cos * 0.5, -0.5, sin * 0.5], normal);
-        g.vertex([cos * 0.5, 0.5, sin * 0.5], normal);
+        g.vertex([cos * 0.5, -0.5, sin * 0.5], normal, [u, 1.0]);
+        g.vertex([cos * 0.5, 0.5, sin * 0.5], normal, [u, 0.0]);
     }
 
     for i in 0..segments {
@@ -186,13 +196,17 @@ fn cylinder(segments: u32) -> Geometry {
 
     // Caps, with their own vertices so the rim stays sharp.
     for (y, normal) in [(0.5f32, [0.0, 1.0, 0.0]), (-0.5, [0.0, -1.0, 0.0])] {
-        let centre = g.vertex([0.0, y, 0.0], normal);
-        let first = g.vertices.len() / 6;
+        let centre = g.vertex([0.0, y, 0.0], normal, [0.5, 0.5]);
+        let first = g.vertices.len() / VERTEX_FLOATS;
 
         for i in 0..=segments {
             let t = i as f32 / segments as f32 * std::f32::consts::TAU;
             let (sin, cos) = t.sin_cos();
-            g.vertex([cos * 0.5, y, sin * 0.5], normal);
+            g.vertex(
+                [cos * 0.5, y, sin * 0.5],
+                normal,
+                [cos * 0.5 + 0.5, sin * 0.5 + 0.5],
+            );
         }
 
         for i in 0..segments {
@@ -222,20 +236,34 @@ fn cone(segments: u32) -> Geometry {
         let mid = ((t0 + t1) / 2.0).sin_cos();
         let normal = normalise([mid.1, 0.5, mid.0]);
 
-        let apex = g.vertex([0.0, 0.5, 0.0], normal);
-        let a = g.vertex([c0 * 0.5, -0.5, s0 * 0.5], normalise([c0, 0.5, s0]));
-        let b = g.vertex([c1 * 0.5, -0.5, s1 * 0.5], normalise([c1, 0.5, s1]));
+        let u0 = i as f32 / segments as f32;
+        let u1 = (i + 1) as f32 / segments as f32;
+        let apex = g.vertex([0.0, 0.5, 0.0], normal, [(u0 + u1) / 2.0, 0.0]);
+        let a = g.vertex(
+            [c0 * 0.5, -0.5, s0 * 0.5],
+            normalise([c0, 0.5, s0]),
+            [u0, 1.0],
+        );
+        let b = g.vertex(
+            [c1 * 0.5, -0.5, s1 * 0.5],
+            normalise([c1, 0.5, s1]),
+            [u1, 1.0],
+        );
         g.triangle(apex, a, b);
     }
 
     // Base.
     let down = [0.0, -1.0, 0.0];
-    let centre = g.vertex([0.0, -0.5, 0.0], down);
-    let first = (g.vertices.len() / 6) as u32;
+    let centre = g.vertex([0.0, -0.5, 0.0], down, [0.5, 0.5]);
+    let first = (g.vertices.len() / VERTEX_FLOATS) as u32;
     for i in 0..=segments {
         let t = i as f32 / segments as f32 * std::f32::consts::TAU;
         let (sin, cos) = t.sin_cos();
-        g.vertex([cos * 0.5, -0.5, sin * 0.5], down);
+        g.vertex(
+            [cos * 0.5, -0.5, sin * 0.5],
+            down,
+            [cos * 0.5 + 0.5, sin * 0.5 + 0.5],
+        );
     }
     for i in 0..segments {
         g.triangle(centre, first + i + 1, first + i);
@@ -269,6 +297,7 @@ fn torus(segments: u32, tube_segments: u32, tube_ratio: f32) -> Geometry {
                     (ring_radius + tube_radius * cos_v) * sin_u,
                 ],
                 normal,
+                [i as f32 / segments as f32, j as f32 / tube_segments as f32],
             );
         }
     }
@@ -290,10 +319,10 @@ fn torus(segments: u32, tube_segments: u32, tube_ratio: f32) -> Geometry {
 fn quad() -> Geometry {
     let mut g = Geometry::default();
     let n = [0.0, 0.0, 1.0];
-    let a = g.vertex([-0.5, -0.5, 0.0], n);
-    let b = g.vertex([0.5, -0.5, 0.0], n);
-    let c = g.vertex([0.5, 0.5, 0.0], n);
-    let d = g.vertex([-0.5, 0.5, 0.0], n);
+    let a = g.vertex([-0.5, -0.5, 0.0], n, [0.0, 1.0]);
+    let b = g.vertex([0.5, -0.5, 0.0], n, [1.0, 1.0]);
+    let c = g.vertex([0.5, 0.5, 0.0], n, [1.0, 0.0]);
+    let d = g.vertex([-0.5, 0.5, 0.0], n, [0.0, 0.0]);
     g.triangle(a, b, c);
     g.triangle(a, c, d);
     g
@@ -320,7 +349,10 @@ fn custom(mesh: &MeshData) -> Geometry {
 
         for (slot, point) in tri.iter().zip(p.iter()) {
             let normal = mesh.normals.get(*slot as usize).copied().unwrap_or(face);
-            let index = g.vertex(*point, normal);
+            // A mesh without texture coordinates samples the texture's origin,
+            // which is a flat colour rather than a crash.
+            let uv = mesh.uvs.get(*slot as usize).copied().unwrap_or([0.0, 0.0]);
+            let index = g.vertex(*point, normal, uv);
             g.indices.push(index);
         }
     }

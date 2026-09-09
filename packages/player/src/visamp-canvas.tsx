@@ -17,6 +17,7 @@ import type {
   EngineModule,
   LogEntry,
   PropertyView,
+  ResolvedAsset,
   VisampCanvasHandle,
 } from "./types";
 
@@ -43,6 +44,16 @@ let mountedOnce = false;
 export interface VisampCanvasProps {
   /** DSL source to run. */
   source: string;
+  /**
+   * Assets the host has fetched and decoded for the current viewer, keyed by
+   * the ids the source cites with `asset::`.
+   *
+   * References with nothing supplied for them render as untextured shapes and
+   * absent geometry rather than failing the frame — which is what an asset
+   * still loading, withdrawn, or not readable by this viewer looks like from
+   * in here.
+   */
+  assets?: ResolvedAsset[];
   /**
    * The engine boots the first time this is true, and the WASM module is not
    * fetched before then. This is what makes the landing and cold-link play
@@ -87,6 +98,7 @@ export interface VisampCanvasProps {
  */
 export function VisampCanvas({
   source,
+  assets,
   active,
   analyser,
   onCompileResult,
@@ -146,6 +158,38 @@ export function VisampCanvas({
       onReadyRef.current?.();
     });
   }, [active]);
+
+  // Hands the engine whatever the host has resolved, replacing the previous
+  // set wholesale. Clearing first matters: an asset the last viewer could read
+  // must not stay resident for the next one, and a withdrawn asset must stop
+  // drawing rather than linger from a previous upload.
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!ready || !engine) return;
+
+    engine.clear_assets();
+    for (const asset of assets ?? []) {
+      try {
+        if (asset.kind === "texture") {
+          engine.set_asset_texture(asset.id, asset.width, asset.height, asset.rgba);
+        } else {
+          engine.set_asset_mesh(
+            asset.id,
+            asset.vertices,
+            asset.indices,
+            asset.normals,
+            asset.uvs,
+          );
+        }
+      } catch (error) {
+        // One malformed asset must not take the whole visual down.
+        onLogRef.current?.({
+          level: "warn",
+          message: `Could not load asset ${asset.id}: ${String(error)}`,
+        });
+      }
+    }
+  }, [ready, assets]);
 
   // Applies the source once the engine exists, and on every later change.
   // `main_web()` mounts no canvas and draws nothing until this runs, so the

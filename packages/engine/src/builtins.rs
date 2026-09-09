@@ -64,6 +64,9 @@ pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
     "shading",
     "wireframe",
     "opacity",
+    // An `asset::bitmap` or `asset::vector` reference. Modulates the shape's
+    // colour rather than replacing it, so tint and opacity still apply.
+    "texture",
     "rot_x",
     "rot_y",
     "rot_z",
@@ -174,6 +177,10 @@ pub const BUILTINS: &[Builtin] = &[
         &["vertices", "indices", "normals", "uvs"],
         &["vertices"],
     ),
+    // Geometry from a stored model asset, as opposed to `draw::mesh`, which
+    // takes its vertices inline. Separate rather than an extra argument on
+    // `mesh` so that call keeps its "vertices are required" guarantee.
+    d3("model", &["asset"], &["asset"]),
     // ── camera:: ──────────────────────────────────────────────────────────
     ns3(
         "camera",

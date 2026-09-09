@@ -7,8 +7,11 @@
 
 use std::collections::HashMap;
 
-use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer, WebGlProgram, WebGlVertexArrayObject};
+use web_sys::{
+    WebGl2RenderingContext as GL, WebGlBuffer, WebGlProgram, WebGlTexture, WebGlVertexArrayObject,
+};
 
+use crate::assets::AssetStore;
 use crate::geometry;
 use crate::scene::{Batch, BlendMode, CullMode, Primitive, Scene, Shading};
 
@@ -18,6 +21,7 @@ const A_POSITION: u32 = 0;
 const A_NORMAL: u32 = 1;
 const A_MODEL: u32 = 2;
 const A_COLOR: u32 = 6;
+const A_UV: u32 = 7;
 
 /// Floats per instance: a 4x4 model matrix plus an RGBA colour.
 const INSTANCE_FLOATS: usize = 20;
@@ -25,6 +29,7 @@ const INSTANCE_FLOATS: usize = 20;
 const VERTEX_SHADER: &str = r#"#version 300 es
 in vec3 a_position;
 in vec3 a_normal;
+in vec2 a_uv;
 in mat4 a_model;
 in vec4 a_color;
 
@@ -38,6 +43,7 @@ uniform vec3 u_camera_up;
 out vec3 v_normal;
 out vec3 v_world;
 out vec4 v_color;
+out vec2 v_uv;
 
 void main() {
     vec4 world;
@@ -65,6 +71,7 @@ void main() {
 
     v_world = world.xyz;
     v_color = a_color;
+    v_uv = a_uv;
 
     gl_Position = u_view_projection * world;
 }
@@ -76,6 +83,12 @@ precision highp float;
 in vec3 v_normal;
 in vec3 v_world;
 in vec4 v_color;
+in vec2 v_uv;
+
+// Sampled only when u_textured is set; an unbound sampler is undefined
+// behaviour in GLSL, so the branch has to gate the read, not the result.
+uniform int u_textured;
+uniform sampler2D u_texture;
 
 uniform int u_lit;
 uniform vec3 u_ambient;
@@ -92,8 +105,15 @@ uniform float u_point_range[16];
 out vec4 frag_color;
 
 void main() {
+    vec4 base = v_color;
+    if (u_textured == 1) {
+        // Modulate rather than replace, so tint, opacity and gradients still
+        // apply to a textured shape the way they do to an untextured one.
+        base *= texture(u_texture, v_uv);
+    }
+
     if (u_lit == 0) {
-        frag_color = v_color;
+        frag_color = base;
         return;
     }
 
@@ -118,7 +138,7 @@ void main() {
             * attenuation * attenuation;
     }
 
-    frag_color = vec4(v_color.rgb * light, v_color.a);
+    frag_color = vec4(base.rgb * light, base.a);
 }
 "#;
 
@@ -139,6 +159,9 @@ pub struct Renderer {
     instances: WebGlBuffer,
     meshes: HashMap<Primitive, Mesh>,
     scratch: Vec<f32>,
+    /// Uploaded textures by asset id, with the store version they were made
+    /// from so replaced pixels are re-uploaded rather than served stale.
+    textures: HashMap<String, (u32, WebGlTexture)>,
 }
 
 impl Renderer {
@@ -154,10 +177,18 @@ impl Renderer {
             instances,
             meshes: HashMap::new(),
             scratch: Vec::new(),
+            textures: HashMap::new(),
         })
     }
 
-    pub fn render(&mut self, scene: &Scene, width: u32, height: u32) -> Result<(), String> {
+    pub fn render(
+        &mut self,
+        scene: &Scene,
+        assets: &AssetStore,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
+        self.sync_textures(scene, assets);
         let gl = self.gl.clone();
         gl.viewport(0, 0, width as i32, height as i32);
 
@@ -201,6 +232,63 @@ impl Renderer {
             .retain(|primitive, _| !matches!(primitive, Primitive::Mesh { .. }));
 
         Ok(())
+    }
+
+    /// Uploads any referenced pixels the GPU does not already hold, and drops
+    /// textures this frame no longer references so an asset that has been
+    /// withdrawn cannot keep drawing from GPU memory.
+    fn sync_textures(&mut self, scene: &Scene, assets: &AssetStore) {
+        let gl = self.gl.clone();
+
+        for id in &scene.textures {
+            let Some(pixels) = assets.texture(id) else {
+                continue;
+            };
+            if self.textures.get(id).is_some_and(|(v, _)| *v == pixels.version) {
+                continue;
+            }
+
+            let Some(texture) = gl.create_texture() else {
+                continue;
+            };
+            gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+            let uploaded = gl
+                .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+                    GL::TEXTURE_2D,
+                    0,
+                    GL::RGBA as i32,
+                    pixels.width as i32,
+                    pixels.height as i32,
+                    0,
+                    GL::RGBA,
+                    GL::UNSIGNED_BYTE,
+                    Some(&pixels.rgba),
+                );
+            if uploaded.is_err() {
+                gl.delete_texture(Some(&texture));
+                continue;
+            }
+
+            // Clamped rather than repeated: a texture is a picture here, not a
+            // tiling pattern, and repeating would show a seam on any shape
+            // whose coordinates touch the edge.
+            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE as i32);
+            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
+            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR as i32);
+            gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR as i32);
+
+            if let Some((_, old)) = self.textures.insert(id.clone(), (pixels.version, texture)) {
+                gl.delete_texture(Some(&old));
+            }
+        }
+
+        self.textures.retain(|id, (_, texture)| {
+            let referenced = scene.textures.iter().any(|used| used == id);
+            if !referenced {
+                gl.delete_texture(Some(texture));
+            }
+            referenced
+        });
     }
 
     fn draw(&mut self, scene: &Scene, batch: &Batch) -> Result<(), String> {
@@ -258,6 +346,24 @@ impl Renderer {
         // `flat` is treated as `lambert` for now: distinguishing them needs a
         // second program compiled with a flat-interpolated normal, and getting
         // it wrong silently would be worse than shading a little too smoothly.
+        // A reference the host has not resolved — not yet loaded, withdrawn,
+        // or one this viewer may not read — simply draws untextured.
+        let texture = batch
+            .key
+            .texture
+            .and_then(|slot| scene.textures.get(slot as usize))
+            .and_then(|id| self.textures.get(id))
+            .map(|(_, texture)| texture.clone());
+        match &texture {
+            Some(texture) => {
+                gl.active_texture(GL::TEXTURE0);
+                gl.bind_texture(GL::TEXTURE_2D, Some(texture));
+                self.set_int("u_texture", 0);
+                self.set_int("u_textured", 1);
+            }
+            None => self.set_int("u_textured", 0),
+        }
+
         let lit = i32::from(batch.key.shading != Shading::Unlit);
         self.set_int("u_lit", lit);
         self.set_int(
@@ -327,11 +433,13 @@ impl Renderer {
             gl.buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &view, GL::STATIC_DRAW);
         }
 
-        let stride = 6 * 4;
+        let stride = (geometry::VERTEX_FLOATS * 4) as i32;
         gl.enable_vertex_attrib_array(A_POSITION);
         gl.vertex_attrib_pointer_with_i32(A_POSITION, 3, GL::FLOAT, false, stride, 0);
         gl.enable_vertex_attrib_array(A_NORMAL);
         gl.vertex_attrib_pointer_with_i32(A_NORMAL, 3, GL::FLOAT, false, stride, 3 * 4);
+        gl.enable_vertex_attrib_array(A_UV);
+        gl.vertex_attrib_pointer_with_i32(A_UV, 2, GL::FLOAT, false, stride, 6 * 4);
 
         // Triangle indices, and a second buffer of edges for wireframe.
         let triangles = gl.create_buffer().ok_or("could not create index buffer")?;
@@ -476,6 +584,7 @@ fn link(gl: &GL, vertex: &str, fragment: &str) -> Result<WebGlProgram, String> {
     // whatever the driver happened to assign.
     gl.bind_attrib_location(&program, A_POSITION, "a_position");
     gl.bind_attrib_location(&program, A_NORMAL, "a_normal");
+    gl.bind_attrib_location(&program, A_UV, "a_uv");
     gl.bind_attrib_location(&program, A_MODEL, "a_model");
     gl.bind_attrib_location(&program, A_COLOR, "a_color");
 

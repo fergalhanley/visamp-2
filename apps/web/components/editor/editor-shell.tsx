@@ -48,6 +48,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAnalyser } from "@/hooks/use-analyser";
+import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import type { AiModelKey, GenerationEvent } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/client";
@@ -140,6 +141,9 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
   // E6.10 — a pinned thumb is the author's explicit choice and survives saves.
   const analyser = useAnalyser();
+  // Re-resolves only when the set of referenced ids changes, so typing around
+  // an asset reference does not re-download it.
+  const { assets } = useVisualisationAssets(liveSource);
   const { user } = useAuth();
   // Shares its state with the transport's button through the fullscreen API,
   // so the two never disagree about whether the preview is expanded.
@@ -766,6 +770,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             <VisampCanvas
               ref={canvasHandle}
               source={liveSource}
+              assets={assets}
               active
               analyser={analyser}
               onCompileResult={onCompileResult}

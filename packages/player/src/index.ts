@@ -13,5 +13,6 @@ export type {
   LogEntry,
   LogLevel,
   PropertyView,
+  ResolvedAsset,
   VisampCanvasHandle,
 } from "./types";

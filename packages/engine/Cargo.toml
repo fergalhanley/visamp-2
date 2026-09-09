@@ -50,6 +50,7 @@ features = [
   "WebGlShader",
   "WebGlBuffer",
   "WebGlVertexArrayObject",
+  "WebGlTexture",
   "WebGlUniformLocation",
 ]
 

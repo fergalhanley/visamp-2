@@ -757,6 +757,26 @@ fn record_draw(
             let id = scene.borrow_mut().add_mesh(mesh)?;
             Primitive::Mesh { id }
         }
+        "model" => {
+            let handle = args
+                .asset("asset")?
+                .ok_or_else(|| "draw::model: 'asset' is required".to_string())?;
+            if handle.kind != AssetKind::Model {
+                return Err(format!(
+                    "draw::model: 'asset' needs a model asset, got a {} asset",
+                    handle.kind.as_str()
+                ));
+            }
+            // A model the host has not resolved — still loading, withdrawn, or
+            // not readable by this viewer — draws nothing. VIS-55 owns telling
+            // the author about it; the frame carries on either way.
+            let Some(mesh) = crate::assets::with_store(|store| store.mesh(&handle.id).cloned())
+            else {
+                return Ok(());
+            };
+            let id = scene.borrow_mut().add_mesh(mesh)?;
+            Primitive::Mesh { id }
+        }
         // The 2D primitives are promoted to world space. Recording them is the
         // renderer's remaining work; the resolver already accepts them here.
         other => return Err(format!("draw::{other} is not rendered in 3d mode yet")),
@@ -818,6 +838,21 @@ fn record_draw(
     let opacity = args.number("opacity")?.unwrap_or(1.0).clamp(0.0, 1.0);
     let wireframe = args.boolean("wireframe")?.unwrap_or(false);
 
+    // Read before the scene is borrowed, because interning the id needs it
+    // mutably. A model asset here is a mistake worth naming: it would otherwise
+    // silently draw nothing.
+    let texture_handle = match args.asset("texture")? {
+        Some(handle) if handle.kind.is_texture() => Some(handle),
+        Some(handle) => {
+            return Err(format!(
+                "draw::{}: 'texture' needs a bitmap or vector asset, got a {} asset",
+                call.function,
+                handle.kind.as_str()
+            ))
+        }
+        None => None,
+    };
+
     let mut scene = scene.borrow_mut();
     let shading = match args.text("shading")?.as_deref() {
         Some("unlit") => Shading::Unlit,
@@ -827,9 +862,18 @@ fn record_draw(
         _ => scene.default_shading(),
     };
 
+    // A texture reference becomes a binding slot on the batch key; the host
+    // supplies the pixels separately, and a reference it has not resolved draws
+    // untextured rather than failing the frame.
+    let texture = match texture_handle {
+        Some(handle) => Some(scene.add_texture(&handle.id)),
+        None => None,
+    };
+
     let model = scene.top().mul(&local);
     let key = BatchKey {
         primitive,
+        texture,
         shading,
         wireframe,
         blend: scene.gfx.blend,
@@ -914,6 +958,19 @@ impl<'a> ArgReader<'a> {
             Some(Value::String(s)) => Ok(Some(s)),
             Some(other) => Err(format!(
                 "{}::{}: '{name}' needs a string, got {}",
+                self.call.namespace,
+                self.call.function,
+                other.type_tag()
+            )),
+            None => Ok(None),
+        }
+    }
+
+    fn asset(&mut self, name: &str) -> InterpResult<Option<AssetHandle>> {
+        match self.raw(name)? {
+            Some(Value::Asset(handle)) => Ok(Some(handle)),
+            Some(other) => Err(format!(
+                "{}::{}: '{name}' needs an asset reference such as asset::bitmap(\"…\"), got {}",
                 self.call.namespace,
                 self.call.function,
                 other.type_tag()
@@ -1382,6 +1439,12 @@ fn evaluate_expression_inner(
             .ok_or_else(|| format!("Undefined identifier: {}", name)),
 
         Expression::SystemValue(name) => map_value_runtime(name, runtime),
+
+        // Resolving the reference is the host's job; the engine only carries it.
+        Expression::AssetRef { kind, id } => Ok(Value::Asset(AssetHandle {
+            id: id.clone(),
+            kind: *kind,
+        })),
 
         Expression::Array(elements) => {
             let mut vals = Vec::new();
@@ -1985,5 +2048,6 @@ fn type_name(value: &Value) -> &'static str {
         Value::SystemValue(_) => "a system value",
         Value::Color(_) => "a color",
         Value::Gradient(_) => "a gradient",
+        Value::Asset(_) => "an asset reference",
     }
 }
