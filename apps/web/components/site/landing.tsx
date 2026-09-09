@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { ArrowDown, ArrowUpRight, Eye, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BrandLockup } from "@/components/brand/logo";
+import { VisampCanvas } from "@visamp/player";
 import { SiteFooter, SiteHeader } from "@/components/site/site-header";
+import { LANDING_HERO_SOURCE } from "@/lib/dsl/landing-hero";
 import type { GalleryPage } from "@/lib/gallery";
 export function Landing({
   initial,
@@ -76,17 +77,26 @@ export function Landing({
       <SiteHeader visible={scrolled} />
       <main>
         <section className="landing-hero" aria-labelledby="landing-title">
+          {/* The engine drawing the mark, rather than a picture of it. No
+              controls and no analyser: it is scenery, not the player. Safe to
+              mount here because CanvasLayer only runs on player routes, and
+              every link off this page is a full document navigation — the WASM
+              module is a singleton bound to one stage element. */}
+          <VisampCanvas
+            source={LANDING_HERO_SOURCE}
+            active
+            analyser={null}
+            className="hero-canvas"
+          />
           <div className="hero-orbit orbit-one" aria-hidden="true" />
           <div className="hero-orbit orbit-two" aria-hidden="true" />
           <div className="hero-grid" aria-hidden="true" />
           <div className="hero-content">
-            <p className="site-eyebrow">SOUND. VISION. YOU.</p>
-            <h1 id="landing-title">
-              <BrandLockup className="hero-logo" />
-              <span className="sr-only">Music for your eyes.</span>
+            <h1 id="landing-title" className="sr-only">
+              A VISION OF MUSIC
             </h1>
             <p className="hero-tagline" aria-hidden="true">
-              Music for your eyes.
+              A VISION OF MUSIC
             </p>
             <p className="hero-description">
               Turn up the sound. Get lost in the visuals.
@@ -100,17 +110,7 @@ export function Landing({
                 Discover <ArrowDown size={16} />
               </a>
             </div>
-            <a className="hero-warning" href="/site/epilepsy-warning">
-              Contains flashing lights and moving patterns
-            </a>
           </div>
-          <a className="hero-scroll" href="#discover">
-            <span>Explore the community</span>
-            <ArrowDown size={18} />
-          </a>
-          <span className="hero-side-note" aria-hidden="true">
-            AN OPEN CANVAS FOR SOUND
-          </span>
         </section>
         <section
           id="discover"

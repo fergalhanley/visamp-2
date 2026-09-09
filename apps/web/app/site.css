@@ -88,26 +88,28 @@
   background:
     radial-gradient(ellipse at 50% 48%, #21342c55, transparent 58%), #090b0b;
 }
+/* Behind the hero's own decoration and text, filling the panel. The engine
+   sizes its canvas to this element, so it is the thing that decides how large
+   the hero render is. */
+.hero-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
 .hero-content {
   z-index: 2;
   text-align: center;
   padding: 60px 24px 100px;
 }
-.hero-logo {
-  width: min(540px, 78vw);
-  height: auto;
-  margin: 28px auto;
-}
 .hero-tagline {
-  font-size: clamp(28px, 4vw, 52px);
-  letter-spacing: -0.045em;
+  font-size: clamp(18px, 2vw, 21px);
   font-weight: 400;
   margin-top: 32px;
 }
 .hero-description {
   font-size: 14px;
-  color: #929c96;
   line-height: 1.9;
+  color: #bfdf9b;
   margin: 18px auto 30px;
 }
 .hero-actions {
