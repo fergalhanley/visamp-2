@@ -202,6 +202,139 @@ begin
 end;
 $$;
 
+-- ── Objects are frozen once the server claims them ──────────────────────────
+
+-- The storage policies are exercised directly against storage.objects, which is
+-- the same table and the same policies the storage API writes through.
+
+select pg_temp.act_as_service();
+insert into public.assets (
+  id, owner_id, kind, mime_type, file_name, object_key, bytes, sha256, status
+) values (
+  '11111111-0000-4000-8000-000000000004',
+  'aaaaaaaa-0000-4000-8000-000000000001',
+  'bitmap', 'image/png', 'fresh.png',
+  'aaaaaaaa-0000-4000-8000-000000000001/11111111-0000-4000-8000-000000000004.png',
+  256, repeat('d', 64), 'uploading'
+);
+
+select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+insert into storage.objects (bucket_id, name, owner_id)
+values (
+  'assets',
+  'aaaaaaaa-0000-4000-8000-000000000001/11111111-0000-4000-8000-000000000004.png',
+  'aaaaaaaa-0000-4000-8000-000000000001'
+);
+select pg_temp.check(true, 'the owner can upload while the asset awaits validation');
+
+-- The server claims the asset before it reads a byte of it.
+select pg_temp.act_as_service();
+update public.assets set status = 'validating'
+where id = '11111111-0000-4000-8000-000000000004';
+
+-- A policy that no longer matches makes the write affect nothing rather than
+-- raise, so these are counted rather than caught.
+select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+with attempted as (
+  update storage.objects set metadata = '{}'::jsonb
+  where bucket_id = 'assets'
+    and name = 'aaaaaaaa-0000-4000-8000-000000000001/11111111-0000-4000-8000-000000000004.png'
+  returning 1
+)
+select pg_temp.check(
+  (select count(*) from attempted) = 0,
+  'bytes cannot be replaced once the server has claimed them for validation'
+);
+
+select pg_temp.act_as_service();
+update public.assets set status = 'ready'
+where id = '11111111-0000-4000-8000-000000000004';
+
+select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+with attempted as (
+  update storage.objects set metadata = '{}'::jsonb
+  where bucket_id = 'assets'
+    and name = 'aaaaaaaa-0000-4000-8000-000000000001/11111111-0000-4000-8000-000000000004.png'
+  returning 1
+)
+select pg_temp.check(
+  (select count(*) from attempted) = 0,
+  'validated bytes stay frozen, so what was checked is what is published'
+);
+
+-- Delete-and-re-upload is covered by the same `status = 'uploading'` condition
+-- on the delete policy. It cannot be asserted here: Supabase blocks direct
+-- deletes from storage.objects outright, so that route is closed twice over.
+
+-- ── Frozen bytes and owner deletion ─────────────────────────────────────────
+
+-- A never-published asset the owner may still remove.
+select pg_temp.act_as_service();
+insert into public.assets (
+  id, owner_id, kind, mime_type, file_name, object_key, bytes, sha256, status
+) values (
+  '11111111-0000-4000-8000-000000000003',
+  'aaaaaaaa-0000-4000-8000-000000000001',
+  'bitmap', 'image/png', 'scratch.png',
+  'aaaaaaaa-0000-4000-8000-000000000001/11111111-0000-4000-8000-000000000003.png',
+  512, repeat('c', 64), 'ready'
+);
+
+select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+
+-- Deleting the row directly would strand the object, so the grant is gone.
+do $$
+begin
+  begin
+    delete from public.assets where id = '11111111-0000-4000-8000-000000000003';
+    raise exception 'FAILED: a row delete must not bypass the cleanup outbox';
+  exception when insufficient_privilege then
+    raise notice 'ok — assets cannot be deleted directly through PostgREST';
+  end;
+end;
+$$;
+
+select public.delete_own_asset('11111111-0000-4000-8000-000000000003');
+
+select pg_temp.act_as_service();
+select pg_temp.check(
+  (select count(*) from public.assets
+   where id = '11111111-0000-4000-8000-000000000003') = 0,
+  'delete_own_asset removes the row'
+);
+select pg_temp.check(
+  (select count(*) from public.asset_deletions
+   where object_key = 'aaaaaaaa-0000-4000-8000-000000000001/11111111-0000-4000-8000-000000000003.png'
+     and reason = 'owner_deleted' and completed_at is null) = 1,
+  'delete_own_asset enqueues the object, and the job outlives the row'
+);
+
+-- A published asset is not deletable at all; it has to be withdrawn.
+select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+do $$
+begin
+  begin
+    perform public.delete_own_asset('11111111-0000-4000-8000-000000000001');
+    raise exception 'FAILED: an asset that has been public must not be deletable';
+  exception when insufficient_privilege then
+    raise notice 'ok — an asset that has been public cannot be deleted, only withdrawn';
+  end;
+end;
+$$;
+
+-- Another user cannot delete someone else's asset.
+select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002');
+do $$
+begin
+  begin
+    perform public.delete_own_asset('11111111-0000-4000-8000-000000000002');
+    raise exception 'FAILED: delete_own_asset must not accept another user';
+  exception when insufficient_privilege then
+    raise notice 'ok — delete_own_asset refuses an asset the caller does not own';
+  end;
+end;
+$$;
+
 -- ── Withdrawal ──────────────────────────────────────────────────────────────
 
 select pg_temp.act_as_service();

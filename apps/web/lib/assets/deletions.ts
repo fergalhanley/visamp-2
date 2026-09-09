@@ -28,6 +28,9 @@ export async function processAssetDeletions(options?: {
     .from("asset_deletions")
     .select("id, object_key, attempts")
     .is("completed_at", null)
+    // A job that keeps failing must not block the ones behind it. Ten attempts
+    // is enough to ride out a storage outage; past that it needs a person.
+    .lt("attempts", 10)
     .order("created_at", { ascending: true })
     .limit(options?.limit ?? 50);
   if (options?.assetId) query = query.eq("asset_id", options.assetId);

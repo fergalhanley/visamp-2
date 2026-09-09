@@ -116,9 +116,34 @@ export async function completeAssetUpload(assetId: string, userId: string) {
     throw new AdminAuthorizationError(403, "This asset is not yours.");
   if (asset.status === "ready") return { id: assetId, status: "ready" as const };
 
+  // Claim the asset before reading a single byte. The storage policies only
+  // permit writes while the status is `uploading`, so this freezes the object
+  // for the whole of the inspection — otherwise the bytes could be swapped
+  // between the download and the verdict, and what gets published is not what
+  // was checked. The status guard makes the claim atomic against a second call.
+  const claim = await admin
+    .from("assets")
+    .update({ status: "validating" })
+    .eq("id", assetId)
+    .eq("status", "uploading")
+    .select("id")
+    .maybeSingle();
+  if (claim.error) throw new Error(claim.error.message);
+  if (!claim.data)
+    throw new AssetRejected(
+      asset.status === "failed"
+        ? "This upload was already rejected. Start a new one."
+        : "This upload is already being checked.",
+    );
+
   const download = await admin.storage.from(ASSET_BUCKET).download(asset.object_key);
-  if (download.error || !download.data)
+  if (download.error || !download.data) {
+    await admin
+      .from("assets")
+      .update({ status: "failed", error: "The uploaded file could not be read back." })
+      .eq("id", assetId);
     throw new AssetRejected("The uploaded file could not be read back.");
+  }
 
   const bytes = new Uint8Array(await download.data.arrayBuffer());
   const digest = createHash("sha256").update(bytes).digest("hex");
