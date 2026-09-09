@@ -71,6 +71,12 @@ export function SiteHeader({ visible = true }: { visible?: boolean }) {
               >
                 Upload music
               </DropdownMenuItem>
+              <DropdownMenuItem
+                nativeButton={false}
+                render={<a href="/assets" />}
+              >
+                Your assets
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <AccountMenu />

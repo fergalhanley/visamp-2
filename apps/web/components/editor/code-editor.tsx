@@ -133,6 +133,8 @@ function toCodeMirrorDiagnostics(
 export interface CodeEditorHandle {
   goToLine: (line: number) => void;
   replaceDocument: (source: string) => void;
+  /** Drops text in at the cursor, replacing any selection. */
+  insertAtCursor: (text: string) => void;
 }
 
 interface CodeEditorProps {
@@ -212,6 +214,16 @@ export function CodeEditor({
             selection: { anchor: 0 },
             scrollIntoView: true,
             userEvent: "input.ai",
+          });
+          view.focus();
+        },
+        insertAtCursor(text: string) {
+          const { from, to } = view.state.selection.main;
+          view.dispatch({
+            changes: { from, to, insert: text },
+            selection: { anchor: from + text.length },
+            scrollIntoView: true,
+            userEvent: "input.paste",
           });
           view.focus();
         },

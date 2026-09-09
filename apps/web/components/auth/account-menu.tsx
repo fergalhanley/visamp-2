@@ -114,6 +114,9 @@ export function AccountMenu() {
           <DropdownMenuItem nativeButton={false} render={<a href="/upload" />}>
             Upload music
           </DropdownMenuItem>
+          <DropdownMenuItem nativeButton={false} render={<a href="/assets" />}>
+            Your assets
+          </DropdownMenuItem>
           <AdminMenuItem key={user.id} />
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => void signOut()}>

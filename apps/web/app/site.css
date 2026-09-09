@@ -607,3 +607,66 @@
     transition: none !important;
   }
 }
+
+/* ── Asset library (VIS-52) ───────────────────────────────────────────────── */
+
+.asset-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  margin: 1rem 0 2rem;
+}
+
+.asset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+}
+
+.asset-card h3 {
+  font-size: 0.95rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-card .site-button {
+  width: 100%;
+}
+
+/* A checkerboard reads transparency honestly, which matters for cut-out PNGs
+   and SVGs that would otherwise look like they have a white background. */
+.asset-preview {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #1a1a1a;
+  background-image:
+    linear-gradient(45deg, #222 25%, transparent 25%),
+    linear-gradient(-45deg, #222 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #222 75%),
+    linear-gradient(-45deg, transparent 75%, #222 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+/* Fills the tile rather than sitting at natural size: a 16px icon in a 165px
+   box is not a preview of anything. `contain` keeps the aspect ratio, so a
+   wide image letterboxes onto the checkerboard instead of being cropped. */
+.asset-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.asset-meta {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  margin: 0;
+}
