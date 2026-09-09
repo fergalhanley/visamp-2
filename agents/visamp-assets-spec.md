@@ -59,7 +59,7 @@ asset_deletions       id, asset_id, bucket, object_key,
 - **`object_key` is bound to the asset id, not the owner.** A `CHECK` naming `owner_id` would fail on the very `UPDATE` that clears it during account deletion. The owner prefix is enforced instead by the storage insert policy.
 - **The reference index is trigger-maintained.** `visualisations.source` is free text written straight to PostgREST by the editor, so no client-side save path can be trusted to keep the index honest. `sync_visualisation_assets` rebuilds it and enforces the publish rule in one trigger, so their order cannot drift.
 - **`asset_id` is `ON DELETE RESTRICT`.** Assets go out of service by withdrawal, which preserves the reference so VIS-55 can find and warn the affected visuals.
-- **No count or state column is client-writable.** Insert grants name only what an uploader may assert; the sole updatable column is `visibility`. In particular `object_key` and `bytes` are not updatable, so the bytes behind a public asset cannot be swapped after the fact.
+- **No count or state column is client-writable.** Insert grants name only what an uploader may assert — including `id`, because `object_key` is `<owner>/<asset id>.<ext>` and is written by the same statement, so the uploader has to name the id rather than read back a default. The sole updatable column is `visibility`. In particular `object_key` and `bytes` are not updatable, so the bytes behind a public asset cannot be swapped after the fact.
 
 ---
 
@@ -124,3 +124,19 @@ asset::model(id: "<uuid>")
 Withdrawal stamps `withdrawn_at`, drops the asset from discovery, records an optional replacement (which must be a readable public asset of the same kind), and enqueues the object for deletion. The read policy stops matching immediately, so every visual referencing the asset loses access on next load — this is what "removal applies everywhere" means in practice. The reference index is preserved so VIS-55 can identify and warn the affected visuals.
 
 Object deletion is an outbox (`asset_deletions`, drained by `processAssetDeletions`) for the same reason as the audio pipeline: storage deletes cannot join the transaction that decided them.
+
+**Caveat, measured against the live project:** a viewer who had already downloaded the object while it was public can continue to be served a cached copy by the storage CDN after withdrawal, even though the read policy now refuses them. A viewer who never fetched it is refused immediately, and so is a signed-out visitor. Withdrawal therefore stops access, not distribution — the same reason publication is treated as one-way. Draining the deletion outbox promptly is what actually removes the object.
+
+---
+
+## 7. Verifying it
+
+`apps/web/scripts/verify-asset-access.mjs` runs the acceptance checks against a real project with real user sessions, which is the only way to exercise RLS, the column grants and the storage policies as production does:
+
+```
+cd apps/web && node --env-file=.env.local scripts/verify-asset-access.mjs --confirm
+```
+
+It creates three throwaway users, an asset, an object and a visualisation, and removes them all again. `supabase/tests/assets_access.sql` covers the same ground for a local stack via psql.
+
+Two things this caught that unit tests could not: the insert grant on `assets` omitted `id`, which broke the entire upload path (fixed in `20260909030000_asset_insert_id_grant.sql`), and the CDN behaviour described above.
