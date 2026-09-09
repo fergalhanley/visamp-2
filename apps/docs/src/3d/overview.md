@@ -174,7 +174,7 @@ It is a separate call rather than an argument on `draw::mesh` so that one keeps
 its "vertices are required" guarantee. See [Assets](./assets.md).
 
 ```
-draw::model(asset: asset::model("a1b2c3d4-…"))
+draw::model(asset: asset::model(id: "a1b2c3d4-…"))
 ```
 
 ## `draw::` — the 2D primitives in 3D

@@ -763,7 +763,7 @@ pub struct FunctionCall {
 #[derive(Debug, Clone)]
 pub enum Expression {
     Literal(Literal),
-    /// `asset::bitmap("<uuid>")`. Carries the literal id so the source stays
+    /// `asset::bitmap(id: "<uuid>")`. Carries the literal id so the source stays
     /// the single source of truth for which assets a visual references.
     AssetRef {
         kind: AssetKind,

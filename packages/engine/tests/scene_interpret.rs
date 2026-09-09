@@ -283,7 +283,7 @@ const ASSET_B: &str = "66666666-7777-8888-9999-aaaaaaaaaaaa";
 #[test]
 fn a_texture_reference_is_interned_and_bound_to_the_batch() {
     let scene = run(&format!(
-        "context 3d\nrender {{\n  draw::cube(texture: asset::bitmap(\"{ASSET_A}\"))\n}}\n"
+        "context 3d\nrender {{\n  draw::cube(texture: asset::bitmap(id: \"{ASSET_A}\"))\n}}\n"
     ));
 
     assert_eq!(scene.textures, vec![ASSET_A.to_string()]);
@@ -293,11 +293,16 @@ fn a_texture_reference_is_interned_and_bound_to_the_batch() {
 }
 
 #[test]
-fn the_id_spelling_with_an_explicit_label_parses_the_same_way() {
-    let scene = run(&format!(
-        "context 3d\nrender {{\n  draw::cube(texture: asset::bitmap(id: \"{ASSET_A}\"))\n}}\n"
-    ));
-    assert_eq!(scene.textures, vec![ASSET_A.to_string()]);
+fn a_reference_without_the_id_label_is_not_valid() {
+    // A bare string would be the only positional argument in the language, and
+    // the reference index has to match exactly one spelling to be reliable.
+    let source = format!(
+        "context 3d\nrender {{\n  draw::cube(texture: asset::bitmap(\"{ASSET_A}\"))\n}}\n"
+    );
+    assert!(
+        visamp_2::parser::build_ast(&source).is_err(),
+        "a positional asset reference should not parse"
+    );
 }
 
 #[test]
@@ -305,7 +310,7 @@ fn repeating_one_texture_still_batches_into_a_single_draw() {
     // The case worth protecting: a loop drawing the same textured shape must
     // not become one draw call per iteration.
     let scene = run(&format!(
-        "context 3d\nrender {{\n  for i in 0..64 {{\n    draw::cube(texture: asset::bitmap(\"{ASSET_A}\"))\n  }}\n}}\n"
+        "context 3d\nrender {{\n  for i in 0..64 {{\n    draw::cube(texture: asset::bitmap(id: \"{ASSET_A}\"))\n  }}\n}}\n"
     ));
 
     assert_eq!(scene.textures.len(), 1);
@@ -317,7 +322,7 @@ fn repeating_one_texture_still_batches_into_a_single_draw() {
 #[test]
 fn different_textures_do_not_share_a_batch() {
     let scene = run(&format!(
-        "context 3d\nrender {{\n  draw::cube(texture: asset::bitmap(\"{ASSET_A}\"))\n  draw::cube(texture: asset::bitmap(\"{ASSET_B}\"))\n}}\n"
+        "context 3d\nrender {{\n  draw::cube(texture: asset::bitmap(id: \"{ASSET_A}\"))\n  draw::cube(texture: asset::bitmap(id: \"{ASSET_B}\"))\n}}\n"
     ));
 
     assert_eq!(scene.textures.len(), 2);
@@ -334,7 +339,7 @@ fn an_untextured_draw_carries_no_texture_slot() {
 #[test]
 fn a_model_asset_is_not_accepted_where_a_texture_belongs() {
     let source = format!(
-        "context 3d\nrender {{\n  draw::cube(texture: asset::model(\"{ASSET_A}\"))\n}}\n"
+        "context 3d\nrender {{\n  draw::cube(texture: asset::model(id: \"{ASSET_A}\"))\n}}\n"
     );
     let error = run_err(&source);
     assert!(
@@ -348,7 +353,7 @@ fn an_unresolved_model_draws_nothing_rather_than_failing_the_frame() {
     // Nothing has been supplied through set_asset_mesh, which is what a
     // withdrawn asset or one this viewer cannot read looks like from here.
     let scene = run(&format!(
-        "context 3d\nrender {{\n  draw::model(asset: asset::model(\"{ASSET_A}\"))\n  draw::cube()\n}}\n"
+        "context 3d\nrender {{\n  draw::model(asset: asset::model(id: \"{ASSET_A}\"))\n  draw::cube()\n}}\n"
     ));
 
     // The cube still drew.

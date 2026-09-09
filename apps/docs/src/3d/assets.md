@@ -7,7 +7,7 @@ a bitmap or SVG as a texture on any primitive, a model as geometry.
 context 3d
 
 render {
-  draw::cube(texture: asset::bitmap("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"))
+  draw::cube(texture: asset::bitmap(id: "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"))
 }
 ```
 
@@ -15,19 +15,18 @@ render {
 
 | Call | What it names |
 |---|---|
-| `asset::bitmap("<id>")` | A PNG, JPEG or WebP upload |
-| `asset::vector("<id>")` | An SVG upload |
-| `asset::model("<id>")` | A GLB (binary glTF) upload |
+| `asset::bitmap(id: "<id>")` | A PNG, JPEG or WebP upload |
+| `asset::vector(id: "<id>")` | An SVG upload |
+| `asset::model(id: "<id>")` | A GLB (binary glTF) upload |
 
-The id is the asset's identifier from your library. Both spellings are accepted
-and mean the same thing:
+The id is the asset's identifier from your library, and **the `id:` label is
+required** — every argument in the language is named, and a bare string here
+would be the sole exception. `asset::bitmap("a1b2c3d4-…")` does not parse.
 
-```
-asset::bitmap("a1b2c3d4-…")
-asset::bitmap(id: "a1b2c3d4-…")
-```
+The library's **Insert** button and **Copy reference** both write the correct
+form, so there is rarely a need to type one out.
 
-**The id must be a literal string.** `asset::bitmap(my_variable)` is not valid,
+**The id must be a literal string.** `asset::bitmap(id: my_variable)` is not valid,
 and this is deliberate rather than an oversight. Visamp works out which visuals
 use which asset by reading your source, and that is what makes it possible to
 tell you when an asset you rely on has gone away. A computed id could not be
@@ -46,7 +45,7 @@ context 3d
 
 render {
   light::ambient(color: color::rgb(r: 0.6, g: 0.6, b: 0.6))
-  draw::sphere(radius: 1.5, texture: asset::bitmap("a1b2c3d4-…"))
+  draw::sphere(radius: 1.5, texture: asset::bitmap(id: "a1b2c3d4-…"))
 }
 ```
 
@@ -56,7 +55,7 @@ everything else still works the way you would expect:
 ```
 // Tinted red, half transparent, still textured.
 draw::cube(
-  texture: asset::bitmap("a1b2c3d4-…"),
+  texture: asset::bitmap(id: "a1b2c3d4-…"),
   color: color::rgb(r: 1.0, g: 0.2, b: 0.2),
   opacity: 0.5
 )
@@ -94,7 +93,7 @@ context 3d
 
 render {
   transform::rotate_y(deg: $TIME_SEC * 30.0)
-  draw::model(asset: asset::model("f0e1d2c3-…"))
+  draw::model(asset: asset::model(id: "f0e1d2c3-…"))
 }
 ```
 

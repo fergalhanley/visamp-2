@@ -84,7 +84,12 @@ export async function deleteAsset(id: string) {
   if (!response.ok) throw new AssetRejected(result.error ?? "Could not delete this asset.");
 }
 
-/** The exact DSL an author pastes to use an asset. */
+/**
+ * The exact DSL an author pastes to use an asset.
+ *
+ * The `id:` label is required by the grammar and by the reference index, so
+ * this is the one spelling that both parses and gets indexed.
+ */
 export function assetReference(kind: "bitmap" | "vector" | "model", id: string) {
-  return `asset::${kind}("${id}")`;
+  return `asset::${kind}(id: "${id}")`;
 }

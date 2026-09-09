@@ -116,7 +116,7 @@ or (status = 'ready' and published_at is not null and withdrawn_at is null)
 The citation form the index recognises, in both spellings the grammar allows:
 
 ```
-asset::bitmap("<uuid>")
+asset::bitmap(id: "<uuid>")
 asset::model(id: "<uuid>")
 ```
 
@@ -127,8 +127,8 @@ The id is a **string literal, not an expression**. That is the constraint the wh
 Using them:
 
 ```
-draw::cube(texture: asset::bitmap("<uuid>"))
-draw::model(asset: asset::model("<uuid>"))
+draw::cube(texture: asset::bitmap(id: "<uuid>"))
+draw::model(asset: asset::model(id: "<uuid>"))
 ```
 
 A texture modulates the shape's colour rather than replacing it, so tint, opacity and lighting still apply. Passing a model asset where a texture belongs is a compile-time-shaped error rather than a silent no-op.
