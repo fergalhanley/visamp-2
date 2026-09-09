@@ -126,8 +126,8 @@ api.maxConnections = config.poolSize + config.maxQueue + 4;
 
 await pool.start();
 assets.listen(4319, "127.0.0.1");
-api.listen(config.port, "127.0.0.1", () =>
-  console.log(`VisAmp validator listening on http://127.0.0.1:${config.port}`),
+api.listen(config.port, "0.0.0.0", () =>
+  console.log(`VisAmp validator listening on http://0.0.0.0:${config.port}`),
 );
 
 async function shutdown() {
