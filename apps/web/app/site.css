@@ -387,25 +387,6 @@
 .gallery-more .site-button {
   margin-top: 20px;
 }
-.landing-create {
-  margin: 30px auto 0;
-  text-align: center;
-  padding: 100px 25px;
-  background: radial-gradient(ellipse at bottom, #20321b80, transparent 65%);
-  border-top: 1px solid #ffffff0e;
-  border-bottom: 1px solid #ffffff0e;
-}
-.landing-create h2 {
-  font-size: clamp(36px, 5vw, 62px);
-  line-height: 1.12;
-  font-weight: 450;
-  letter-spacing: -0.04em;
-}
-.landing-create p:not(.site-eyebrow) {
-  color: #9ba496;
-  margin: 24px;
-  font-size: 14px;
-}
 .site-footer {
   padding: 55px 25px;
   display: flex;

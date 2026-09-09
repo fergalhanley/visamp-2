@@ -51,6 +51,7 @@ export function SiteHeader({ visible = true }: { visible?: boolean }) {
         <nav aria-label="Main navigation" className="site-nav">
           <a href="/player">Player</a>
           <a href="/artists">Artists</a>
+          <a href="/upload">Upload Your Music</a>
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center gap-1">
               Site links <ChevronDown size={13} />
@@ -65,12 +66,6 @@ export function SiteHeader({ visible = true }: { visible?: boolean }) {
                   {page.title}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuItem
-                nativeButton={false}
-                render={<a href="/upload" />}
-              >
-                Upload music
-              </DropdownMenuItem>
               <DropdownMenuItem
                 nativeButton={false}
                 render={<a href="/assets" />}

@@ -210,17 +210,6 @@ export function Landing({
             )}
           </div>
         </section>
-        <section className="landing-create">
-          <p className="site-eyebrow">MADE TO BE MADE YOURS</p>
-          <h2>
-            Your sound.
-            <br />A whole new dimension.
-          </h2>
-          <p>Bring your music to the community.</p>
-          <a href="/upload" className="site-button primary">
-            Upload your music <ArrowUpRight size={17} />
-          </a>
-        </section>
       </main>
       <SiteFooter />
     </div>

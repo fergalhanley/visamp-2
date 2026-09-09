@@ -14,7 +14,6 @@ import {
   FilePlus,
   FolderOpen,
   GitFork,
-  ImagePlus,
   Loader2,
   Pin,
   Trash2,
@@ -593,15 +592,6 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           Open
         </button>
 
-        <button
-          type="button"
-          onClick={() => setEditorTab("assets")}
-          title="Upload, manage and insert images, vectors and models"
-          className={fileAction}
-        >
-          <ImagePlus className="h-3.5 w-3.5" />
-          Assets
-        </button>
 
         {/* Deliberately outside the `canEdit` branch — forking someone else's
             work is the point — but there is nothing to fork with nothing open. */}
