@@ -12,6 +12,10 @@ import { processAssetDeletions } from "@/lib/assets/deletions";
  * and any withdrawal whose delete errored are only ever cleared here — without
  * a scheduled call they sit pending forever and the bytes are paid for
  * indefinitely. Mirrors /api/admin/audio-deletions.
+ *
+ * Scheduled from vercel.json. Vercel invokes cron paths with GET and, when
+ * CRON_SECRET is set, sends it as a bearer token — so GET is the scheduled
+ * entry point and POST stays for invoking it by hand.
  */
 async function authorize(request: Request): Promise<void> {
   const cronSecret = process.env.CRON_SECRET;
@@ -23,7 +27,7 @@ async function authorize(request: Request): Promise<void> {
   await requireAdmin();
 }
 
-export async function POST(request: Request) {
+async function drain(request: Request) {
   try {
     await authorize(request);
     const result = await processAssetDeletions({ limit: 100 });
@@ -43,4 +47,12 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+export async function GET(request: Request) {
+  return drain(request);
+}
+
+export async function POST(request: Request) {
+  return drain(request);
 }

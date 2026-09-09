@@ -140,7 +140,17 @@ An asset that has been public is not deletable at all. Those go out of service b
 
 Object deletion is an outbox (`asset_deletions`, drained by `processAssetDeletions`) for the same reason as the audio pipeline: storage deletes cannot join the transaction that decided them.
 
-Withdrawal drains its own object opportunistically, but that is not enough on its own: failed uploads, owner deletions, and any withdrawal whose delete errored are only ever cleared by draining the whole outbox. `POST /api/admin/asset-deletions` does that, authorised by `CRON_SECRET` or an admin session, mirroring `/api/admin/audio-deletions`. **It needs to be scheduled** — without a periodic call those jobs sit pending forever and the bytes are paid for indefinitely. Jobs that have failed ten times are skipped so one bad object cannot block the queue behind it.
+Withdrawal drains its own object opportunistically, but that is not enough on its own: failed uploads, owner deletions, and any withdrawal whose delete errored are only ever cleared by draining the whole outbox. `/api/admin/asset-deletions` does that, authorised by `CRON_SECRET` or an admin session, mirroring `/api/admin/audio-deletions`. Jobs that have failed ten times are skipped so one bad object cannot block the queue behind it.
+
+It is scheduled from `apps/web/vercel.json`:
+
+```json
+{ "crons": [{ "path": "/api/admin/asset-deletions", "schedule": "0 4 * * *" }] }
+```
+
+Two things that are easy to get wrong here. **Vercel invokes cron paths with `GET`**, not POST, so the route exports both — GET is the scheduled entry point and POST remains for running it by hand. And **`CRON_SECRET` must be set in the Vercel project**: Vercel sends it as a bearer token, and without it the scheduled request falls through to the admin check and is refused.
+
+The schedule is daily rather than hourly because Vercel's Hobby plan permits only one run per day and rejects a more frequent schedule at deploy time. On Pro it can be tightened to `0 * * * *`. Daily is not a correctness problem: an object awaiting cleanup is already unreadable through every policy, so the cost of the delay is storage, not exposure.
 
 **Caveat, measured against the live project:** a viewer who had already downloaded the object while it was public can continue to be served a cached copy by the storage CDN after withdrawal, even though the read policy now refuses them. A viewer who never fetched it is refused immediately, and so is a signed-out visitor. Withdrawal therefore stops access, not distribution — the same reason publication is treated as one-way. Draining the deletion outbox promptly is what actually removes the object.
 
