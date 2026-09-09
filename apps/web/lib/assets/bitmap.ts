@@ -51,21 +51,56 @@ function view(bytes: Uint8Array): DataView {
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
+/**
+ * The whole chunk sequence is walked, not just the header. A file carrying a
+ * valid IHDR and nothing else has dimensions and no picture: it would be
+ * admitted, marked ready, and then fail to render for everyone who opened it.
+ */
 function readPng(bytes: Uint8Array): BitmapInfo | null {
   if (bytes.byteLength < 24) return null;
   if (PNG_SIGNATURE.some((byte, index) => bytes[index] !== byte)) return null;
-  // IHDR must be the first chunk, so width and height sit at fixed offsets.
-  if (String.fromCharCode(...bytes.subarray(12, 16)) !== "IHDR") return null;
-  return {
-    mimeType: "image/png",
-    width: view(bytes).getUint32(16, false),
-    height: view(bytes).getUint32(20, false),
-  };
+
+  const data = view(bytes);
+  let offset = 8;
+  let header: BitmapInfo | null = null;
+  let pixels = false;
+  let end = false;
+
+  while (offset + 12 <= bytes.byteLength) {
+    const length = data.getUint32(offset, false);
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+    // 4 length + 4 type + data + 4 CRC.
+    const next = offset + 12 + length;
+    if (length > bytes.byteLength || next > bytes.byteLength) return null;
+
+    if (offset === 8) {
+      if (type !== "IHDR" || length !== 13) return null;
+      header = {
+        mimeType: "image/png",
+        width: data.getUint32(offset + 8, false),
+        height: data.getUint32(offset + 12, false),
+      };
+    }
+    if (type === "IDAT") pixels = true;
+    if (type === "IEND") {
+      end = true;
+      // IEND is the last chunk; anything after it is not part of the image.
+      if (next !== bytes.byteLength) return null;
+      break;
+    }
+
+    offset = next;
+  }
+
+  return header && pixels && end ? header : null;
 }
 
 function readJpeg(bytes: Uint8Array): BitmapInfo | null {
   if (bytes.byteLength < 4) return null;
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return null;
+  // A frame header without an end-of-image marker is a truncated download.
+  if (bytes[bytes.byteLength - 2] !== 0xff || bytes[bytes.byteLength - 1] !== 0xd9)
+    return null;
 
   const data = view(bytes);
   let offset = 2;
@@ -105,7 +140,10 @@ function readWebp(bytes: Uint8Array): BitmapInfo | null {
   const tag = (start: number) => String.fromCharCode(...bytes.subarray(start, start + 4));
   if (tag(0) !== "RIFF" || tag(8) !== "WEBP") return null;
 
+  // The RIFF header declares the rest of the file; if it disagrees, the file is
+  // truncated or padded with something we would never render.
   const data = view(bytes);
+  if (data.getUint32(4, true) !== bytes.byteLength - 8) return null;
   const format = tag(12);
 
   if (format === "VP8X") {

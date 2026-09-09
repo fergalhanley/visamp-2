@@ -882,6 +882,10 @@ export type Database = {
         Returns: boolean
       }
       username_available: { Args: { candidate: string }; Returns: boolean }
+      delete_own_asset: {
+        Args: { p_asset_id: string }
+        Returns: undefined
+      }
       withdraw_asset: {
         Args: { p_asset_id: string; p_actor_id: string; p_replacement_asset_id?: string | null }
         Returns: undefined

@@ -72,10 +72,13 @@ POST /api/assets            metadata only — extension, size, checksum
    → row created (status = uploading), object key returned
 client uploads to Supabase Storage under the storage insert policy
 POST /api/assets/:id/complete
-   → server downloads the object, verifies it, marks it ready
+   → claims the asset (uploading → validating), which freezes the object
+   → downloads it, verifies it, marks it ready or failed
 ```
 
 Nothing reads an asset that is not `ready`, and nothing may be published that is not `ready`, so an uninspected object is never visible to anyone but its owner.
+
+**The object is frozen before it is read, not after it is approved.** Storage writes are permitted only while the status is `uploading`, and the claim to `validating` is a conditional update, so it is atomic against a second caller. An earlier version allowed writes for as long as the asset had never been public, which let an uploader pass validation, overwrite the object and then publish bytes nothing had ever inspected. Once an asset is `ready` its bytes never change again.
 
 | Kind | Extensions | Size limit | Content checks |
 |---|---|---|---|
@@ -84,6 +87,10 @@ Nothing reads an asset that is not `ready`, and nothing may be published that is
 | model | glb | 60 MB | glTF 2.0 container, declared length matches the object, chunks aligned and in bounds; every `buffers[]`/`images[]` URI absent or `data:` |
 
 SVG is **rejected, not sanitised**: we store the original bytes, and a sanitiser that silently alters artwork is both harder to trust and harder to explain to the person who uploaded it.
+
+It is also an **allowlist over a tokenizer, not a search for bad substrings**. Pattern matching over raw text let several things through: `<s:script>` is not `<script`, `&#104;ttps://…` is not `https://`, `../x.png` is not `scheme://x`, and `url(//host/x)` has no scheme at all. The parser walks elements and attributes, compares local names with the namespace prefix stripped, decodes character and entity references before judging any URL, and refuses anything it does not positively recognise — so an unfamiliar construct is a rejected file rather than an admitted one. Animation elements are refused outright because they can rewrite an attribute after load, which would defeat every other check.
+
+Bitmap admission walks the whole container rather than the header: a PNG needs IHDR, at least one IDAT and a closing IEND with nothing after it; a JPEG needs its end-of-image marker; a WebP's RIFF length must match the file. A header alone has dimensions but no picture, and would otherwise be admitted, marked ready, and then fail to render for everyone who opened it.
 
 Quotas are 300 assets and 1 GB per account, enforced by an advisory-locked trigger because PostgREST will happily accept concurrent inserts that each pass a naive count check.
 
@@ -123,7 +130,17 @@ asset::model(id: "<uuid>")
 
 Withdrawal stamps `withdrawn_at`, drops the asset from discovery, records an optional replacement (which must be a readable public asset of the same kind), and enqueues the object for deletion. The read policy stops matching immediately, so every visual referencing the asset loses access on next load — this is what "removal applies everywhere" means in practice. The reference index is preserved so VIS-55 can identify and warn the affected visuals.
 
+## 6a. Deleting an asset you own
+
+An asset that has never been public can be deleted by its owner, through `delete_own_asset` and only through it — the direct `DELETE` grant is revoked. Deleting the row on its own would strand the bytes: the row is the only record of what to clean up, and the storage-delete policy authorises against it, so once it is gone nothing can authorise the removal. The function enqueues the object and deletes the row in one transaction. `asset_deletions.asset_id` is nullable and `ON DELETE SET NULL` precisely so the cleanup job outlives the row it came from; `bucket` and `object_key` are all the worker needs.
+
+An asset that has been public is not deletable at all. Those go out of service by withdrawal, which keeps the reference rows VIS-55 depends on.
+
+## 6b. Draining the outbox
+
 Object deletion is an outbox (`asset_deletions`, drained by `processAssetDeletions`) for the same reason as the audio pipeline: storage deletes cannot join the transaction that decided them.
+
+Withdrawal drains its own object opportunistically, but that is not enough on its own: failed uploads, owner deletions, and any withdrawal whose delete errored are only ever cleared by draining the whole outbox. `POST /api/admin/asset-deletions` does that, authorised by `CRON_SECRET` or an admin session, mirroring `/api/admin/audio-deletions`. **It needs to be scheduled** — without a periodic call those jobs sit pending forever and the bytes are paid for indefinitely. Jobs that have failed ten times are skipped so one bad object cannot block the queue behind it.
 
 **Caveat, measured against the live project:** a viewer who had already downloaded the object while it was public can continue to be served a cached copy by the storage CDN after withdrawal, even though the read policy now refuses them. A viewer who never fetched it is refused immediately, and so is a signed-out visitor. Withdrawal therefore stops access, not distribution — the same reason publication is treated as one-way. Draining the deletion outbox promptly is what actually removes the object.
 

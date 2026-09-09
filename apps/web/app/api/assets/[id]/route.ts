@@ -41,33 +41,23 @@ export async function PATCH(
   }
 }
 
-/** Only ever permitted for an asset that was never public; RLS is the enforcer. */
+/** Only ever permitted for an asset that was never public and unreferenced. */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     sameOrigin(request);
-    const { userId, db } = await assetIdentity();
+    const { db } = await assetIdentity();
     const { id } = await params;
-    const { data, error } = await db
-      .from("assets")
-      .delete()
-      .eq("id", id)
-      .eq("owner_id", userId)
-      .select("id")
-      .maybeSingle();
+    // Deleting the row directly would strand the object: the row is the only
+    // record of what to clean up, and the storage policy authorises against it.
+    // delete_own_asset enqueues the object and removes the row together.
+    const { error } = await db.rpc("delete_own_asset", { p_asset_id: id });
     if (error) {
-      // A reference from visualisation_assets is ON DELETE RESTRICT.
-      if (error.code === "23503")
-        throw new AssetRejected("This asset is still used by a visual.");
+      if (error.code === "42501") throw new AssetRejected(error.message);
       throw new Error(error.message);
     }
-    if (!data)
-      return Response.json(
-        { error: "This asset cannot be deleted once it has been public." },
-        { status: 409 },
-      );
     return Response.json({ deleted: true });
   } catch (error) {
     return assetError(error);

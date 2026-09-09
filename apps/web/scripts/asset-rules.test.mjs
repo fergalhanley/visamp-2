@@ -138,8 +138,90 @@ test("executable or externally-dependent SVGs are refused", () => {
       ),
     /entities/,
   );
-  rejects(() => inspectSvg(new TextEncoder().encode("<html><body/></html>")), /<svg>/);
+  rejects(
+    () => inspectSvg(new TextEncoder().encode("<html><body/></html>")),
+    /not an allowed drawing element/,
+  );
   rejects(() => inspectSvg(Uint8Array.from([0xff, 0xfe, 0xff])), /UTF-8/);
+});
+
+test("a realistic SVG with namespaces, comments and paths is accepted", () => {
+  inspectSvg(
+    new TextEncoder().encode(
+      `<?xml version="1.0" encoding="UTF-8"?>
+       <!-- Generator: some drawing application -->
+       <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+            viewBox="0 0 24 24">
+         <title>Mark</title>
+         <g fill="none" stroke="#333">
+           <path d="M2,2 L22,22 M4,8 C6,10 8,12 10,14"/>
+           <textPath path="M0,0 L10,10">along</textPath>
+         </g>
+       </svg>`,
+    ),
+  );
+});
+
+test("namespace prefixes do not smuggle a banned element past the check", () => {
+  for (const inner of [
+    "<s:script>alert(1)</s:script>",
+    "<svg:script>alert(1)</svg:script>",
+    "<x:foreignObject/>",
+  ]) {
+    rejects(() => inspectSvg(svg(inner)), /not an allowed drawing element/);
+  }
+});
+
+test("character-encoded URLs are decoded before they are judged", () => {
+  const hostile = [
+    '<image href="&#104;ttps://example.com/tracker.png"/>',
+    '<image href="&#x68;ttps://example.com/tracker.png"/>',
+    '<rect style="fill:url(&#104;ttps://example.com/x)"/>',
+  ];
+  for (const inner of hostile) rejects(() => inspectSvg(svg(inner)), /rejected because/);
+});
+
+test("relative and protocol-relative references are external too", () => {
+  const hostile = [
+    '<image href="../secret.png"/>',
+    '<image href="tracker.png"/>',
+    '<image href="/tracker.png"/>',
+    '<rect style="fill:url(//example.com/x)"/>',
+    '<style>.a{fill:url(//example.com/x)}</style>',
+  ];
+  for (const inner of hostile)
+    rejects(() => inspectSvg(svg(inner)), /external file|external stylesheet/);
+});
+
+test("only raster data: URLs may be inlined", () => {
+  inspectSvg(svg('<image href="data:image/png;base64,AAAA"/>'));
+  // A nested SVG is a document this parser never inspected.
+  rejects(
+    () => inspectSvg(svg('<image href="data:image/svg+xml;base64,AAAA"/>')),
+    /not a raster image/,
+  );
+  rejects(
+    () => inspectSvg(svg('<image href="data:text/html;base64,AAAA"/>')),
+    /not a raster image/,
+  );
+});
+
+test("animation elements are refused, since they can rewrite attributes", () => {
+  for (const inner of [
+    '<set attributeName="href" to="https://example.com/x"/>',
+    '<animate attributeName="href" values="https://example.com/x"/>',
+    "<animateTransform/>",
+  ]) {
+    rejects(() => inspectSvg(svg(inner)), /not an allowed drawing element/);
+  }
+});
+
+test("truncated or malformed SVG markup is refused", () => {
+  const encode = (text) => new TextEncoder().encode(text);
+  rejects(() => inspectSvg(encode('<svg xmlns="http://www.w3.org/2000/svg"><g>')), /truncated/);
+  rejects(() => inspectSvg(encode('<svg xmlns="http://www.w3.org/2000/svg"><g></rect></svg>')), /well-formed/);
+  rejects(() => inspectSvg(encode("<svg")), /unterminated tag/);
+  rejects(() => inspectSvg(encode("<!-- unfinished")), /unterminated comment/);
 });
 
 // ── GLB ─────────────────────────────────────────────────────────────────────
@@ -207,13 +289,29 @@ test("malformed GLB containers are refused", () => {
 
 // ── Bitmaps ─────────────────────────────────────────────────────────────────
 
+// A complete PNG: signature, IHDR, at least one IDAT and a closing IEND. CRCs
+// are left zero because admission checks structure, not integrity.
 function png(width, height) {
-  const out = Buffer.alloc(24);
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(out, 0);
-  out.write("IHDR", 12, "ascii");
-  out.writeUInt32BE(width, 16);
-  out.writeUInt32BE(height, 20);
-  return new Uint8Array(out);
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(25);
+  ihdr.writeUInt32BE(13, 0);
+  ihdr.write("IHDR", 4, "ascii");
+  ihdr.writeUInt32BE(width, 8);
+  ihdr.writeUInt32BE(height, 12);
+  ihdr.writeUInt8(8, 16); // bit depth
+  ihdr.writeUInt8(6, 17); // colour type
+  const idat = Buffer.alloc(20);
+  idat.writeUInt32BE(8, 0);
+  idat.write("IDAT", 4, "ascii");
+  const iend = Buffer.alloc(12);
+  iend.writeUInt32BE(0, 0);
+  iend.write("IEND", 4, "ascii");
+  return new Uint8Array(Buffer.concat([signature, ihdr, idat, iend]));
+}
+
+/** Header only — dimensions but no picture. */
+function truncatedPng(width, height) {
+  return png(width, height).slice(0, 33);
 }
 
 function jpeg(width, height) {
@@ -226,13 +324,15 @@ function jpeg(width, height) {
   out.writeUInt8(8, 12);
   out.writeUInt16BE(height, 13);
   out.writeUInt16BE(width, 15);
+  out.writeUInt8(0xff, 18);
+  out.writeUInt8(0xd9, 19); // end of image
   return new Uint8Array(out);
 }
 
 function webp(width, height) {
   const out = Buffer.alloc(30);
   out.write("RIFF", 0, "ascii");
-  out.writeUInt32LE(22, 4);
+  out.writeUInt32LE(out.length - 8, 4);
   out.write("WEBP", 8, "ascii");
   out.write("VP8X", 12, "ascii");
   out.writeUInt32LE(10, 16);
@@ -270,6 +370,20 @@ test("decompression bombs are refused on declared size", () => {
   rejects(() => inspectBitmap(png(40000, 40000), "image/png"), /larger than the/);
   assert.ok(inspectBitmap(png(8192, 8192), "image/png"));
   rejects(() => inspectBitmap(png(0, 10), "image/png"), /no dimensions/);
+});
+
+test("a file with a header but no picture is not an image", () => {
+  // Dimensions alone would otherwise be admitted, marked ready, and then fail
+  // to render for everyone who opened it.
+  rejects(() => inspectBitmap(truncatedPng(10, 10), "image/png"), /not a readable/);
+  // Trailing data after IEND is not part of the image either.
+  const padded = new Uint8Array([...png(10, 10), 0, 0, 0, 0]);
+  rejects(() => inspectBitmap(padded, "image/png"), /not a readable/);
+  // A JPEG cut off before its end-of-image marker.
+  rejects(() => inspectBitmap(jpeg(10, 10).slice(0, 18), "image/jpeg"), /not a readable/);
+  // A WebP whose RIFF header disagrees with the file length.
+  const webpShort = webp(10, 10).slice(0, 28);
+  rejects(() => inspectBitmap(webpShort, "image/webp"), /not a readable/);
 });
 
 // ── The gate as a whole ─────────────────────────────────────────────────────

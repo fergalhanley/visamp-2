@@ -127,6 +127,17 @@ try {
   // The server marks it ready only after inspecting the stored bytes.
   await svc.from("assets").update({ status: "ready" }).eq("id", assetId);
 
+  // ── Validated bytes are frozen ────────────────────────────────────────────
+
+  // The upload window is open only while the asset is `uploading`; the server
+  // claims it before reading it. Without this an uploader could pass validation,
+  // overwrite the object, and publish bytes nothing ever inspected.
+  const swapped = await users.owner.client.storage
+    .from("assets")
+    .update(key, png(1, 1), { contentType: "image/png" });
+  ok("validated bytes cannot be replaced", !!swapped.error,
+     swapped.error ? "refused" : "REPLACE SUCCEEDED");
+
   // ── Private access ────────────────────────────────────────────────────────
   const otherRead = await users.other.client.from("assets").select("id").eq("id", assetId);
   ok("another user cannot read a private asset",
@@ -214,6 +225,34 @@ try {
   ok("a public visual cannot reference a private asset", !!leak.error,
      leak.error ? leak.error.message.slice(0, 70) : "UPDATE SUCCEEDED");
 
+  // ── Owner deletion takes the bytes with it ────────────────────────────────
+
+  const scratchId = randomUUID();
+  const scratchKey = `${users.owner.id}/${scratchId}.png`;
+  made.assets.push(scratchId);
+  await svc.from("assets").insert({
+    id: scratchId, owner_id: users.owner.id, kind: "bitmap", mime_type: "image/png",
+    file_name: "scratch.png", object_key: scratchKey, bytes: 24,
+    sha256: createHash("sha256").update(png(1, 1)).digest("hex"), status: "ready",
+  });
+
+  const directDelete = await users.owner.client
+    .from("assets").delete().eq("id", scratchId).select("id");
+  ok("a row delete cannot bypass the cleanup outbox",
+     !!directDelete.error || (directDelete.data ?? []).length === 0,
+     directDelete.error ? "refused" : `rows=${directDelete.data?.length}`);
+
+  const owned = await users.owner.client.rpc("delete_own_asset", { p_asset_id: scratchId });
+  ok("the owner can delete an asset that was never public", !owned.error, owned.error?.message);
+
+  const goneRow = await svc.from("assets").select("id").eq("id", scratchId);
+  ok("deletion removes the row", (goneRow.data ?? []).length === 0);
+  const queued = await svc.from("asset_deletions")
+    .select("id,reason").eq("object_key", scratchKey).is("completed_at", null);
+  ok("deletion enqueues the object, and the job outlives the row",
+     (queued.data ?? []).length === 1 && queued.data[0].reason === "owner_deleted",
+     JSON.stringify(queued.data));
+
   // ── Withdrawal ────────────────────────────────────────────────────────────
   const byUser = await users.other.client.rpc("withdraw_asset", {
     p_asset_id: assetId, p_actor_id: users.other.id, p_replacement_asset_id: null,
@@ -273,6 +312,7 @@ try {
   // Order matters: visualisations cascade the index rows, the outbox references
   // assets, and assets are ON DELETE RESTRICT from the index.
   for (const id of made.vis) await svc.from("visualisations").delete().eq("id", id);
+  await svc.from("asset_deletions").delete().is("asset_id", null);
   for (const id of made.assets) {
     await svc.from("asset_deletions").delete().eq("asset_id", id);
     await svc.from("visualisation_assets").delete().eq("asset_id", id);
