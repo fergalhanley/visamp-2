@@ -67,3 +67,19 @@ impl AssetStore {
         self.len() == 0
     }
 }
+
+thread_local! {
+    /// Asset data the page has resolved for the current viewer. It outlives a
+    /// frame — the pixels are fetched once and reused until the visual or the
+    /// viewer changes — so it lives here rather than in the scene.
+    static STORE: std::cell::RefCell<AssetStore> =
+        std::cell::RefCell::new(AssetStore::default());
+}
+
+pub fn with_store<R>(f: impl FnOnce(&AssetStore) -> R) -> R {
+    STORE.with(|store| f(&store.borrow()))
+}
+
+pub fn with_store_mut<R>(f: impl FnOnce(&mut AssetStore) -> R) -> R {
+    STORE.with(|store| f(&mut store.borrow_mut()))
+}

@@ -11,6 +11,7 @@ import { inspectSvg } from "../lib/assets/svg.ts";
 import { inspectGlb } from "../lib/assets/glb.ts";
 import { inspectBitmap } from "../lib/assets/bitmap.ts";
 import { inspectAssetBytes } from "../lib/assets/content.ts";
+import { parseGlbMesh } from "../lib/assets/gltf.ts";
 
 const SHA = "a".repeat(64);
 const OWNER = "11111111-2222-3333-4444-555555555555";
@@ -402,4 +403,159 @@ test("stored bytes must match what the uploader declared", () => {
     /declared size/,
   );
   rejects(() => inspectAssetBytes(bytes, upload, "b".repeat(64)), /checksum/);
+});
+
+// ── GLB geometry extraction ─────────────────────────────────────────────────
+
+/** Builds a GLB whose BIN chunk holds the supplied little-endian buffer. */
+function buildGlbWithBin(gltf, bin) {
+  const json = Buffer.from(JSON.stringify(gltf), "utf8");
+  const jsonPad = (4 - (json.length % 4)) % 4;
+  const jsonChunk = Buffer.concat([json, Buffer.alloc(jsonPad, 0x20)]);
+  const binPad = (4 - (bin.length % 4)) % 4;
+  const binChunk = Buffer.concat([bin, Buffer.alloc(binPad, 0)]);
+
+  const total = 12 + 8 + jsonChunk.length + 8 + binChunk.length;
+  const out = Buffer.alloc(total);
+  out.writeUInt32LE(0x46546c67, 0);
+  out.writeUInt32LE(2, 4);
+  out.writeUInt32LE(total, 8);
+  out.writeUInt32LE(jsonChunk.length, 12);
+  out.writeUInt32LE(0x4e4f534a, 16);
+  jsonChunk.copy(out, 20);
+  const at = 20 + jsonChunk.length;
+  out.writeUInt32LE(binChunk.length, at);
+  out.writeUInt32LE(0x004e4942, at + 4);
+  binChunk.copy(out, at + 8);
+  return new Uint8Array(out);
+}
+
+/** One triangle: three positions, three normals, three UVs, three indices. */
+function triangleGlb({ node = {}, withNormals = true } = {}) {
+  const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+  const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+  const uvs = new Float32Array([0, 0, 1, 0, 0, 1]);
+  const indices = new Uint16Array([0, 1, 2]);
+
+  const parts = [
+    Buffer.from(positions.buffer),
+    Buffer.from(normals.buffer),
+    Buffer.from(uvs.buffer),
+    Buffer.from(indices.buffer),
+  ];
+  const offsets = [];
+  let cursor = 0;
+  for (const part of parts) {
+    offsets.push(cursor);
+    cursor += part.length;
+  }
+  const bin = Buffer.concat(parts);
+
+  const attributes = { POSITION: 0, TEXCOORD_0: 2 };
+  if (withNormals) attributes.NORMAL = 1;
+
+  return buildGlbWithBin(
+    {
+      asset: { version: "2.0" },
+      scene: 0,
+      scenes: [{ nodes: [0] }],
+      nodes: [{ mesh: 0, ...node }],
+      meshes: [{ primitives: [{ attributes, indices: 3, mode: 4 }] }],
+      accessors: [
+        { bufferView: 0, componentType: 5126, count: 3, type: "VEC3" },
+        { bufferView: 1, componentType: 5126, count: 3, type: "VEC3" },
+        { bufferView: 2, componentType: 5126, count: 3, type: "VEC2" },
+        { bufferView: 3, componentType: 5123, count: 3, type: "SCALAR" },
+      ],
+      bufferViews: [
+        { buffer: 0, byteOffset: offsets[0], byteLength: parts[0].length },
+        { buffer: 0, byteOffset: offsets[1], byteLength: parts[1].length },
+        { buffer: 0, byteOffset: offsets[2], byteLength: parts[2].length },
+        { buffer: 0, byteOffset: offsets[3], byteLength: parts[3].length },
+      ],
+      buffers: [{ byteLength: bin.length }],
+    },
+    bin,
+  );
+}
+
+test("a GLB triangle becomes the arrays the engine expects", () => {
+  const mesh = parseGlbMesh(triangleGlb());
+  assert.deepEqual([...mesh.vertices], [0, 0, 0, 1, 0, 0, 0, 1, 0]);
+  assert.deepEqual([...mesh.indices], [0, 1, 2]);
+  assert.deepEqual([...mesh.normals], [0, 0, 1, 0, 0, 1, 0, 0, 1]);
+  assert.deepEqual([...mesh.uvs], [0, 0, 1, 0, 0, 1]);
+});
+
+test("a node's transform is applied to the geometry under it", () => {
+  // Ignoring it would stack every part of a model at the origin.
+  const mesh = parseGlbMesh(triangleGlb({ node: { translation: [10, 0, 0] } }));
+  assert.deepEqual([...mesh.vertices], [10, 0, 0, 11, 0, 0, 10, 1, 0]);
+
+  const scaled = parseGlbMesh(triangleGlb({ node: { scale: [2, 2, 2] } }));
+  assert.deepEqual([...scaled.vertices], [0, 0, 0, 2, 0, 0, 0, 2, 0]);
+});
+
+test("a rotating node keeps its normals unit length", () => {
+  // A quarter turn about Y: +Z becomes +X.
+  const mesh = parseGlbMesh(
+    triangleGlb({ node: { rotation: [0, Math.SQRT1_2, 0, Math.SQRT1_2] } }),
+  );
+  for (let i = 0; i < mesh.normals.length; i += 3) {
+    const length = Math.hypot(mesh.normals[i], mesh.normals[i + 1], mesh.normals[i + 2]);
+    assert.ok(Math.abs(length - 1) < 1e-5, `normal ${i / 3} has length ${length}`);
+  }
+  assert.ok(Math.abs(mesh.normals[0] - 1) < 1e-5, "normal should now point along +X");
+});
+
+test("a model without normals leaves them to the engine", () => {
+  const mesh = parseGlbMesh(triangleGlb({ withNormals: false }));
+  assert.equal(mesh.normals.length, 0);
+  assert.equal(mesh.vertices.length, 9);
+});
+
+test("geometry that runs past its buffer is refused", () => {
+  const gltf = {
+    asset: { version: "2.0" },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ mesh: 0 }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+    // Claims 100 vertices from a buffer holding 3.
+    accessors: [{ bufferView: 0, componentType: 5126, count: 100, type: "VEC3" }],
+    bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 36 }],
+    buffers: [{ byteLength: 36 }],
+  };
+  const bin = Buffer.from(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]).buffer);
+  rejects(() => parseGlbMesh(buildGlbWithBin(gltf, bin)), /past the end of its buffer/);
+});
+
+test("a model with no triangles is refused rather than rendered empty", () => {
+  const gltf = {
+    asset: { version: "2.0" },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{}],
+    buffers: [{ byteLength: 4 }],
+  };
+  rejects(
+    () => parseGlbMesh(buildGlbWithBin(gltf, Buffer.alloc(4))),
+    /no triangle geometry/,
+  );
+});
+
+test("GLB extraction still runs the security validator first", () => {
+  // An external buffer reference must be refused here too, not just at upload.
+  const gltf = {
+    asset: { version: "2.0" },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ mesh: 0 }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: "VEC3" }],
+    bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 36 }],
+    buffers: [{ uri: "https://example.com/scene.bin", byteLength: 36 }],
+  };
+  const bin = Buffer.from(new Float32Array(9).buffer);
+  rejects(() => parseGlbMesh(buildGlbWithBin(gltf, bin)), /external files/);
 });

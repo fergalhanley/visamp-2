@@ -64,7 +64,42 @@ export interface EngineModule {
   clear_audio_frame(): void;
   /** JSON array of `PropertyView`; see `startPropertiesBridge`. */
   get_properties(): string;
+  set_asset_texture(id: string, width: number, height: number, rgba: Uint8Array): boolean;
+  set_asset_mesh(
+    id: string,
+    vertices: Float32Array,
+    indices: Uint32Array,
+    normals: Float32Array,
+    uvs: Float32Array,
+  ): boolean;
+  clear_assets(): void;
 }
+
+/**
+ * An asset the host has already fetched and decoded.
+ *
+ * Decoding happens outside the player because fetching does: whether the
+ * current viewer may read an asset is decided by the storage policies, and the
+ * player has no session to decide it with. By the time one of these arrives,
+ * that question has been answered.
+ */
+export type ResolvedAsset =
+  | {
+      id: string;
+      kind: "texture";
+      width: number;
+      height: number;
+      /** `width * height * 4` bytes, RGBA. */
+      rgba: Uint8Array;
+    }
+  | {
+      id: string;
+      kind: "mesh";
+      vertices: Float32Array;
+      indices: Uint32Array;
+      normals: Float32Array;
+      uvs: Float32Array;
+    };
 
 export interface VisampCanvasHandle {
   /**

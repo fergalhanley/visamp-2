@@ -225,6 +225,43 @@ try {
   ok("a public visual cannot reference a private asset", !!leak.error,
      leak.error ? leak.error.message.slice(0, 70) : "UPDATE SUCCEEDED");
 
+  // ── Forks respect asset access ────────────────────────────────────────────
+
+  const forked = await users.other.client.from("visualisations").insert({
+    owner_id: users.other.id,
+    title: "VIS-53 fork",
+    source: `render { draw::cube(texture: asset::bitmap("${assetId}")) }`,
+    forked_from_id: visId,
+  }).select("id").maybeSingle();
+  ok("another user can fork a visual that cites a public asset", !forked.error,
+     forked.error?.message);
+  if (forked.data) made.vis.push(forked.data.id);
+
+  const forkIndex = await svc.from("visualisation_assets")
+    .select("asset_id").eq("visualisation_id", forked.data?.id ?? "");
+  ok("a fork carries the reference into the index too",
+     (forkIndex.data ?? []).length === 1 && forkIndex.data[0].asset_id === assetId);
+
+  const forkedAsset = await users.other.client.from("assets").select("id").eq("id", assetId);
+  ok("the forker can read the public asset the fork references",
+     (forkedAsset.data ?? []).length === 1);
+
+  // Citing someone else's private asset must not become a way to read it.
+  const leakRead = await users.other.client.from("assets").select("id").eq("id", privateId);
+  ok("citing a private asset does not make it readable",
+     (leakRead.data ?? []).length === 0);
+
+  const leakPublish = await users.other.client.from("visualisations").insert({
+    owner_id: users.other.id,
+    title: "VIS-53 leak attempt",
+    source: `render { draw::cube(texture: asset::bitmap("${privateId}")) }`,
+    visibility: "public",
+  }).select("id").maybeSingle();
+  ok("a public visual cannot be created around another user's private asset",
+     !!leakPublish.error,
+     leakPublish.error ? "refused" : "INSERT SUCCEEDED");
+  if (leakPublish.data) made.vis.push(leakPublish.data.id);
+
   // ── Owner deletion takes the bytes with it ────────────────────────────────
 
   const scratchId = randomUUID();
@@ -303,8 +340,12 @@ try {
 
   const preserved = await svc.from("visualisation_assets").select("visualisation_id")
     .eq("asset_id", assetId);
-  ok("withdrawal preserves the reference so affected visuals can be found",
-     (preserved.data ?? []).length === 1);
+  const affected = (preserved.data ?? []).map((row) => row.visualisation_id);
+  // Both the original and the fork of it, which is the point: a withdrawal has
+  // to name every visual that used the asset, not just the first.
+  ok("withdrawal preserves the references so every affected visual can be found",
+     affected.includes(visId) && affected.length >= 2,
+     `affected=${affected.length}`);
 } catch (error) {
   failed++;
   console.log(`FAIL — threw :: ${error.message}`);
