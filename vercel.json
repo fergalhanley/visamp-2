@@ -1,10 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
+    }
+  },
   "crons": [
     {
       "path": "/api/admin/asset-deletions",
       "schedule": "0 4 * * *"
     }
-  ],
-  "buildCommand": "bash ../../scripts/vercel-build-web.sh"
+  ]
 }
