@@ -155,7 +155,7 @@ with saved as (
   values (
     'aaaaaaaa-0000-4000-8000-000000000001',
     'Uses one asset',
-    'render { draw::image(asset::bitmap("11111111-0000-4000-8000-000000000001")) }'
+    'render { draw::image(asset::bitmap(id: "11111111-0000-4000-8000-000000000001")) }'
   )
   returning id
 )
@@ -193,7 +193,7 @@ do $$
 begin
   begin
     update public.visualisations
-    set source = 'render { draw::image(asset::bitmap("11111111-0000-4000-8000-000000000002")) }'
+    set source = 'render { draw::image(asset::bitmap(id: "11111111-0000-4000-8000-000000000002")) }'
     where id = (select id from pg_temp.saved_visualisation);
     raise exception 'FAILED: a public visual must not be able to reference a private asset';
   exception when insufficient_privilege then

@@ -167,11 +167,14 @@ math_func = @{
 math_args = { math_arg ~ ("," ~ math_arg)* ~ ","? }
 math_arg = { identifier ~ ":" ~ expression }
 
-// `asset::bitmap("<uuid>")`, with `id:` optional so both spellings the
-// reference index recognises also parse. The id is a literal string rather than
-// an expression: the index that answers "which visuals use this asset" is built
-// by reading the source, and it cannot read a computed value.
-asset_expr = { "asset::" ~ asset_kind ~ "(" ~ ("id" ~ ":")? ~ string ~ ")" }
+// `asset::bitmap(id: "<uuid>")`. The label is required, like every other
+// argument in the language — a bare string would be the one positional
+// argument in the whole grammar.
+//
+// The id is a literal string rather than an expression: the index that answers
+// "which visuals use this asset" is built by reading the source, and it cannot
+// read a computed value.
+asset_expr = { "asset::" ~ asset_kind ~ "(" ~ "id" ~ ":" ~ string ~ ")" }
 asset_kind = { "bitmap" | "vector" | "model" }
 
 color_expr = { "color::" ~ color_kind ~ "(" ~ color_args? ~ ")" }

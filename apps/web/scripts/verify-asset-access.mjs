@@ -192,7 +192,7 @@ try {
   const visInsert = await users.owner.client.from("visualisations").insert({
     owner_id: users.owner.id,
     title: "VIS-51 verification",
-    source: `render { draw::image(asset::bitmap("${assetId}")) }`,
+    source: `render { draw::image(asset::bitmap(id: "${assetId}")) }`,
   }).select("id").maybeSingle();
   ok("owner can save a visual citing an asset", !visInsert.error, visInsert.error?.message);
   const visId = visInsert.data?.id;
@@ -220,7 +220,7 @@ try {
     sha256: createHash("sha256").update(png(1, 1)).digest("hex"), status: "ready",
   });
   const leak = await users.owner.client.from("visualisations")
-    .update({ source: `render { draw::image(asset::bitmap("${privateId}")) }` })
+    .update({ source: `render { draw::image(asset::bitmap(id: "${privateId}")) }` })
     .eq("id", visId);
   ok("a public visual cannot reference a private asset", !!leak.error,
      leak.error ? leak.error.message.slice(0, 70) : "UPDATE SUCCEEDED");
@@ -230,7 +230,7 @@ try {
   const forked = await users.other.client.from("visualisations").insert({
     owner_id: users.other.id,
     title: "VIS-53 fork",
-    source: `render { draw::cube(texture: asset::bitmap("${assetId}")) }`,
+    source: `render { draw::cube(texture: asset::bitmap(id: "${assetId}")) }`,
     forked_from_id: visId,
   }).select("id").maybeSingle();
   ok("another user can fork a visual that cites a public asset", !forked.error,
@@ -254,7 +254,7 @@ try {
   const leakPublish = await users.other.client.from("visualisations").insert({
     owner_id: users.other.id,
     title: "VIS-53 leak attempt",
-    source: `render { draw::cube(texture: asset::bitmap("${privateId}")) }`,
+    source: `render { draw::cube(texture: asset::bitmap(id: "${privateId}")) }`,
     visibility: "public",
   }).select("id").maybeSingle();
   ok("a public visual cannot be created around another user's private asset",
