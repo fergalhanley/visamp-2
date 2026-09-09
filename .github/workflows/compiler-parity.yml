@@ -45,6 +45,12 @@ jobs:
       - name: Test artist upload rules
         run: pnpm --filter @visamp/web test:uploads
       - name: Build web application
+        # Placeholders only. NEXT_PUBLIC_* values are inlined at build time, and
+        # the browser Supabase client is constructed while prerendering, so the
+        # build fails without them. Nothing here contacts Supabase.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
         run: pnpm --filter @visamp/web exec next build --webpack
       - name: Test validator metrics
         run: pnpm --filter @visamp/validator test
