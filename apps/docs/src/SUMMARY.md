@@ -19,6 +19,7 @@
 # 3D
 
 - [3D Mode](./3d/overview.md)
+- [Assets](./3d/assets.md)
 
 # Drawing
 

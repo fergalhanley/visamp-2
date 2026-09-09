@@ -3,10 +3,12 @@
 Adding `context 3d` switches the coordinate model from flat pixels to world
 space, and unlocks a camera, a transform stack, lights and solid primitives.
 
-> **Not renderable yet.** Everything on this page parses and is checked at
-> compile time. The renderer behind it is still being built, so a `context 3d`
-> script reports that rather than drawing. This page describes the language as
-> it stands; expect the pictures to arrive, not the syntax to change.
+> **Partly renderable.** The solid primitives below — `cube`, `sphere`, `plane`,
+> `cylinder`, `cone`, `torus`, `sprite`, `mesh` and `model` — render through the
+> WebGL2 renderer, with lights, the transform stack and textures. The 2D
+> primitives promoted into 3D (`rect`, `circle`, `line`, `polygon`, `text`)
+> still parse and type-check but report `is not rendered in 3d mode yet` at run
+> time. Expect those pictures to arrive, not the syntax to change.
 
 ```
 context 3d
@@ -151,6 +153,7 @@ All unit-sized at the origin, so a bare call renders something.
 | `draw::torus` | `radius`, `tube`, `segments`, `tube_segments` | 0.5, 0.15, 32, 16 |
 | `draw::sprite` | `size`, or `w`, `h` — always camera-facing | 1 |
 | `draw::mesh` | `vertices` **(required)**, `indices`, `normals`, `uvs` | — |
+| `draw::model` | `asset` **(required)** — an `asset::model` reference | — |
 
 `draw::plane` lies in the XZ plane facing `+Y` — a floor.
 
@@ -164,6 +167,14 @@ vertices per call.
 draw::mesh(
   vertices: [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
 )
+```
+
+`draw::model` draws geometry from an uploaded model instead of an inline array.
+It is a separate call rather than an argument on `draw::mesh` so that one keeps
+its "vertices are required" guarantee. See [Assets](./assets.md).
+
+```
+draw::model(asset: asset::model("a1b2c3d4-…"))
 ```
 
 ## `draw::` — the 2D primitives in 3D
@@ -182,6 +193,10 @@ render {
 }
 ```
 
+None of these are rendered yet — they compile, and then report
+`is not rendered in 3d mode yet` at run time. The rest of this section describes
+the intended behaviour.
+
 **`draw::line` is the one call whose argument changes meaning between modes.**
 It gains `z1` and `z2`, and its `stroke_weight` is read as **screen pixels in
 2d and world units in 3d**, so lines recede correctly with perspective.
@@ -195,6 +210,7 @@ It gains `z1` and `z2`, and its `stroke_weight` is read as **screen pixels in
 | `shading` | `"unlit"`, `"flat"` or `"lambert"` | see `light::` above |
 | `wireframe` | boolean | `false` |
 | `opacity` | 0.0–1.0 | 1.0 |
+| `texture` | An `asset::bitmap` or `asset::vector` reference — see [Assets](./assets.md) | none |
 
 The 3D primitives are additionally positioned with `x`, `y`, `z`, applied before
 the transform stack. The 2D primitives keep their own positioning arguments and
@@ -278,7 +294,11 @@ commands and warns in the log.
 
 ## Not yet
 
-Textures and materials beyond flat colour, shadows, post-processing (bloom is
-the obvious first want for additive work), spot lights and camera paths are all
-out of scope for now. `draw::mesh(uvs:)` is accepted so the vertex format is
-ready for the first of those.
+Materials beyond a colour and a single texture, shadows, post-processing (bloom
+is the obvious first want for additive work), spot lights and camera paths are
+all out of scope for now. So are the 2D primitives under `context 3d`, which
+compile but do not draw.
+
+Textures have arrived: every primitive carries texture coordinates and
+`draw::mesh(uvs:)` is now used rather than merely accepted. See
+[Assets](./assets.md).
