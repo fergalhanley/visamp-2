@@ -20,7 +20,6 @@ pub mod utils;
 use interpreter::*;
 use model::*;
 use parser::build_ast;
-use assets::AssetStore;
 use renderer::Renderer;
 use scene::MeshData;
 use scene::Scene;
@@ -84,10 +83,6 @@ const HOST_ID: &str = "visamp-stage";
 thread_local! {
     static STATE: RefCell<Option<Rc<AppState>>> = RefCell::new(None);
     static INITIALIZED: RefCell<bool> = RefCell::new(false);
-    /// Asset data the page has resolved for the current viewer. Held here
-    /// rather than inside the scene because it outlives a frame: the pixels are
-    /// fetched once and reused until the visual or the viewer changes.
-    static ASSETS: RefCell<AssetStore> = RefCell::new(AssetStore::default());
 }
 
 /// Hands the engine decoded pixels for an asset the page has already fetched.
@@ -101,11 +96,7 @@ pub fn set_asset_texture(id: &str, width: u32, height: u32, rgba: &[u8]) -> bool
     if id.is_empty() || width == 0 || height == 0 || rgba.len() != expected {
         return false;
     }
-    ASSETS.with(|assets| {
-        assets
-            .borrow_mut()
-            .set_texture(id, width, height, rgba.to_vec());
-    });
+    assets::with_store_mut(|store| store.set_texture(id, width, height, rgba.to_vec()));
     true
 }
 
@@ -130,7 +121,7 @@ pub fn set_asset_mesh(
         normals: normals.chunks_exact(3).map(|n| [n[0], n[1], n[2]]).collect(),
         uvs: uvs.chunks_exact(2).map(|t| [t[0], t[1]]).collect(),
     };
-    ASSETS.with(|assets| assets.borrow_mut().set_mesh(id, mesh));
+    assets::with_store_mut(|store| store.set_mesh(id, mesh));
     true
 }
 
@@ -138,7 +129,7 @@ pub fn set_asset_mesh(
 /// so nothing one viewer could read stays resident for the next.
 #[wasm_bindgen]
 pub fn clear_assets() {
-    ASSETS.with(|assets| assets.borrow_mut().clear());
+    assets::with_store_mut(|store| store.clear());
 }
 
 #[wasm_bindgen(start)]
@@ -377,9 +368,8 @@ fn init_app() -> Result<(), String> {
                     Some(canvas) => (canvas.width(), canvas.height()),
                     None => (0, 0),
                 };
-                let rendered = ASSETS.with(|assets| {
-                    renderer.render(&scene, &assets.borrow(), width, height)
-                });
+                let rendered =
+                    assets::with_store(|store| renderer.render(&scene, store, width, height));
                 if let Err(e) = rendered {
                     failure = Some(e);
                 }

@@ -177,6 +177,10 @@ pub const BUILTINS: &[Builtin] = &[
         &["vertices", "indices", "normals", "uvs"],
         &["vertices"],
     ),
+    // Geometry from a stored model asset, as opposed to `draw::mesh`, which
+    // takes its vertices inline. Separate rather than an extra argument on
+    // `mesh` so that call keeps its "vertices are required" guarantee.
+    d3("model", &["asset"], &["asset"]),
     // ── camera:: ──────────────────────────────────────────────────────────
     ns3(
         "camera",

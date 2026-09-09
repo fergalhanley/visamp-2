@@ -120,7 +120,42 @@ asset::bitmap("<uuid>")
 asset::model(id: "<uuid>")
 ```
 
-`public.visualisation_asset_references(source)` is authoritative. `lib/assets/references.ts` is a deliberate duplicate so the editor can show dependencies without a round trip; the two are held to the same cases by `scripts/asset-rules.test.mjs`. **The engine-side builtins do not exist yet — they belong to VIS-53.** Until then the index will simply find no citations in real sources.
+`public.visualisation_asset_references(source)` is authoritative. `lib/assets/references.ts` is a deliberate duplicate so the editor can show dependencies without a round trip; the two are held to the same cases by `scripts/asset-rules.test.mjs`.
+
+The id is a **string literal, not an expression**. That is the constraint the whole reference index rests on: the index is built by reading source text, and it cannot read a computed value. A grammar that allowed `asset::bitmap(some_variable)` would make "which visuals use this asset" unanswerable, and with it every withdrawal guarantee.
+
+Using them:
+
+```
+draw::cube(texture: asset::bitmap("<uuid>"))
+draw::model(asset: asset::model("<uuid>"))
+```
+
+A texture modulates the shape's colour rather than replacing it, so tint, opacity and lighting still apply. Passing a model asset where a texture belongs is a compile-time-shaped error rather than a silent no-op.
+
+## 5a. How an asset reaches the renderer (VIS-53)
+
+The engine fetches nothing, and has no way to. The page resolves ids with the viewer's own session — `resolveSourceAssets` in `lib/assets/client.ts` — and hands the decoded result over the WASM boundary:
+
+```
+useVisualisationAssets(source)     extracts ids, selects the rows RLS allows,
+   ↓                              downloads objects, decodes them
+<VisampCanvas assets={…}>          clear_assets(), then set_asset_texture /
+   ↓                              set_asset_mesh per asset
+engine                            interns the id, binds it per batch
+```
+
+That shape is the access control. The select and the storage download both pass through the VIS-51 policies, so an asset this viewer may not read never becomes pixels — there is no engine-side path that could fetch it anyway.
+
+Decoding by kind: bitmaps through `createImageBitmap`; SVG rasterised through an `<img>` and a canvas, because `createImageBitmap` does not accept SVG everywhere; GLB parsed by `lib/assets/gltf.ts` into the vertex arrays `set_asset_mesh` takes, with node transforms applied so the parts of a model land where the model says. Textures above 2048px are downscaled — an 8192² upload costs 256 MB of VRAM.
+
+**An unresolved reference is not an error.** Not yet loaded, withdrawn, or not readable by this viewer all look identical from inside the engine, and all draw the shape untextured (or, for a model, draw nothing) while the rest of the frame carries on. VIS-55 owns telling the author about it.
+
+Forks need no special handling and get none: a fork copies `source`, the trigger indexes its references like any other save, and resolution runs under the forker's session. So a fork of a visual using a public asset works, and a fork can never reach a private one. Verified rather than assumed — see the fork checks in `scripts/verify-asset-access.mjs`.
+
+### Textures and batching
+
+`BatchKey` carries the texture slot, because two draws with different textures cannot share an instanced call. Ids are interned per frame, so a loop drawing the same textured shape is still one draw call — the property the batching design exists to protect. Textures the current frame no longer references are deleted from GPU memory, so a withdrawn asset stops drawing rather than lingering in VRAM.
 
 ---
 

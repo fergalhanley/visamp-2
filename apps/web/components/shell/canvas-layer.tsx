@@ -4,6 +4,7 @@ import { VisampCanvas } from "@visamp/player";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { useChromeStore } from "@/lib/store/chrome";
 import { useSessionStore } from "@/lib/store/session";
@@ -15,6 +16,7 @@ import { useSessionStore } from "@/lib/store/session";
  */
 export function CanvasLayer() {
   const source = useSessionStore((s) => s.current.source);
+  const { assets } = useVisualisationAssets(source);
   const { toggle: toggleFullscreen } = useFullscreen();
   const analyser = useAnalyser();
 
@@ -39,6 +41,7 @@ export function CanvasLayer() {
     >
       <VisampCanvas
         source={source}
+        assets={assets}
         // Always on: there is no gate in front of the player any more, so the
         // engine boots with the page.
         active

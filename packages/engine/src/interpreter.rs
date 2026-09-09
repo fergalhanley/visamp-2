@@ -757,6 +757,26 @@ fn record_draw(
             let id = scene.borrow_mut().add_mesh(mesh)?;
             Primitive::Mesh { id }
         }
+        "model" => {
+            let handle = args
+                .asset("asset")?
+                .ok_or_else(|| "draw::model: 'asset' is required".to_string())?;
+            if handle.kind != AssetKind::Model {
+                return Err(format!(
+                    "draw::model: 'asset' needs a model asset, got a {} asset",
+                    handle.kind.as_str()
+                ));
+            }
+            // A model the host has not resolved — still loading, withdrawn, or
+            // not readable by this viewer — draws nothing. VIS-55 owns telling
+            // the author about it; the frame carries on either way.
+            let Some(mesh) = crate::assets::with_store(|store| store.mesh(&handle.id).cloned())
+            else {
+                return Ok(());
+            };
+            let id = scene.borrow_mut().add_mesh(mesh)?;
+            Primitive::Mesh { id }
+        }
         // The 2D primitives are promoted to world space. Recording them is the
         // renderer's remaining work; the resolver already accepts them here.
         other => return Err(format!("draw::{other} is not rendered in 3d mode yet")),
