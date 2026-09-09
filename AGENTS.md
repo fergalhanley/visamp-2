@@ -10,8 +10,9 @@ this repository must follow this protocol.
 - **GitHub** is the source of truth for code, branches, commits, pull requests,
   reviews, and permanent technical documentation.
 - **Slack** is the progress feed for concise agent updates, blockers, questions,
-  and handoffs. Do not rely on Slack as the permanent record of requirements or
-  decisions.
+  and handoffs, and the destination for operational error/outage alerts.
+  **Discord** is for community and beta user support.
+  Do not rely on Slack as the permanent record of requirements or decisions.
 - If these sources disagree, stop and ask for clarification. Do not silently
   choose one interpretation.
 
@@ -94,6 +95,18 @@ When the implementation is ready:
 4. Leave the issue open until its acceptance criteria have been verified.
 5. Do not merge or mark the issue **Done** unless authorised by the project
    owner or the task instructions explicitly grant that authority.
+
+## Deployment and future branch flow
+
+- MVP pull requests target `main`. Once Vercel deployment is configured,
+  merging to `main` automatically deploys production; no separate manual
+  deployment action is required.
+- Automatic deployment does not grant authority to merge. Follow the existing
+  project-owner authorisation rule above.
+- A separate staging stack and Gitflow are post-MVP work: `develop` will
+  automatically deploy staging and `main` will continue to deploy production.
+- Keep MVP PRs targeting `main` until that workflow is implemented. Define the
+  release/hotfix process and update PR-target guidance as part of the transition.
 
 ## Blockers and ambiguity
 
