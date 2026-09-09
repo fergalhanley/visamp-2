@@ -54,7 +54,7 @@ type InterpResult<T> = Result<T, String>;
 /// interpreter callers still receive a fresh scope for an individual block.
 /// Counting both statements and expression nodes means nested loops cannot
 /// multiply individually legal limits into unbounded work.
-const MAX_EXECUTION_STEPS: u32 = 50_000;
+const MAX_EXECUTION_STEPS: u32 = 250_000;
 const MAX_FUNCTION_CALL_DEPTH: u16 = 64;
 
 struct ExecutionBudget {

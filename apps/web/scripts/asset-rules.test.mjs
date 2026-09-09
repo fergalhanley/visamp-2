@@ -12,6 +12,7 @@ import { inspectGlb } from "../lib/assets/glb.ts";
 import { inspectBitmap } from "../lib/assets/bitmap.ts";
 import { inspectAssetBytes } from "../lib/assets/content.ts";
 import { parseGlbMesh } from "../lib/assets/gltf.ts";
+import { assetReference, describeUpload } from "../lib/assets/upload.ts";
 
 const SHA = "a".repeat(64);
 const OWNER = "11111111-2222-3333-4444-555555555555";
@@ -558,4 +559,31 @@ test("GLB extraction still runs the security validator first", () => {
   };
   const bin = Buffer.from(new Float32Array(9).buffer);
   rejects(() => parseGlbMesh(buildGlbWithBin(gltf, bin)), /external files/);
+});
+
+// ── Library and editor helpers ──────────────────────────────────────────────
+
+test("the reference offered to authors is the DSL the engine parses", () => {
+  // Held to the same pattern the reference index matches, so anything the
+  // library hands out is guaranteed to be indexed when the visual is saved.
+  for (const [kind, id] of [
+    ["bitmap", ASSET],
+    ["vector", OWNER],
+    ["model", ASSET],
+  ]) {
+    const reference = assetReference(kind, id);
+    assert.equal(reference, `asset::${kind}("${id}")`);
+    assert.deepEqual(extractAssetReferences(reference), [id]);
+  }
+});
+
+test("a file is judged before any bytes move", () => {
+  const file = (name, size) => ({ name, size });
+  assert.equal(describeUpload(file("logo.png", 2048)).kind, "bitmap");
+  assert.equal(describeUpload(file("mark.svg", 2048)).kind, "vector");
+  assert.equal(describeUpload(file("ship.glb", 2048)).kind, "model");
+
+  rejects(() => describeUpload(file("clip.mp4", 2048)), /Unsupported/);
+  rejects(() => describeUpload(file("huge.svg", 3 * 1024 * 1024)), /between 1 byte/);
+  rejects(() => describeUpload(file("empty.png", 0)), /between 1 byte/);
 });
