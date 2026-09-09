@@ -148,7 +148,7 @@ unary_operator = { "!" | "-" | "+" }
 postfix_expr = { primary_expr ~ index* }
 index = { "[" ~ expression ~ "]" }
 
-primary_expr = _{ math_expr | color_expr | call_expr | value | "(" ~ expression ~ ")" }
+primary_expr = _{ math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
 
 math_expr = { "math::" ~ math_func ~ "(" ~ math_args? ~ ")" }
 // Longest-first, and atomic with a trailing guard. Ordered alternation means a
@@ -166,6 +166,13 @@ math_func = @{
 }
 math_args = { math_arg ~ ("," ~ math_arg)* ~ ","? }
 math_arg = { identifier ~ ":" ~ expression }
+
+// `asset::bitmap("<uuid>")`, with `id:` optional so both spellings the
+// reference index recognises also parse. The id is a literal string rather than
+// an expression: the index that answers "which visuals use this asset" is built
+// by reading the source, and it cannot read a computed value.
+asset_expr = { "asset::" ~ asset_kind ~ "(" ~ ("id" ~ ":")? ~ string ~ ")" }
+asset_kind = { "bitmap" | "vector" | "model" }
 
 color_expr = { "color::" ~ color_kind ~ "(" ~ color_args? ~ ")" }
 color_kind = { "rgb" | "hsl" | "linear_gradient" }

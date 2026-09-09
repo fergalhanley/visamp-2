@@ -322,6 +322,41 @@ pub enum Value {
     /// a draw call that reads the argument back should not pay for a second
     /// copy of it.
     Gradient(std::rc::Rc<LinearGradient>),
+    /// A reference to a stored asset, produced by `asset::bitmap`,
+    /// `asset::vector` or `asset::model`. The engine never fetches anything
+    /// itself: the host resolves the id against what the viewer may read and
+    /// supplies the pixels or the mesh, so access control stays where VIS-51
+    /// put it.
+    Asset(AssetHandle),
+}
+
+/// Which of the three asset kinds a reference names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssetKind {
+    Bitmap,
+    Vector,
+    Model,
+}
+
+impl AssetKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AssetKind::Bitmap => "bitmap",
+            AssetKind::Vector => "vector",
+            AssetKind::Model => "model",
+        }
+    }
+
+    /// Bitmaps and vectors both end up as pixels; only models become geometry.
+    pub fn is_texture(self) -> bool {
+        matches!(self, AssetKind::Bitmap | AssetKind::Vector)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetHandle {
+    pub id: String,
+    pub kind: AssetKind,
 }
 
 impl Value {
@@ -338,6 +373,7 @@ impl Value {
             Value::SystemValue(_) => "system",
             Value::Color(_) => "color",
             Value::Gradient(_) => "gradient",
+            Value::Asset(_) => "asset",
         }
     }
 
@@ -353,6 +389,7 @@ impl Value {
             Value::Float(f) => format_float(*f),
             Value::String(s) => format!("\"{}\"", s),
             Value::Identifier(name) => name.clone(),
+            Value::Asset(handle) => format!("asset::{}(\"{}\")", handle.kind.as_str(), handle.id),
             Value::SystemValue(name) => format!("${}", name),
             Value::Color(c) => format!(
                 "rgba({}, {}, {}, {})",
@@ -726,6 +763,12 @@ pub struct FunctionCall {
 #[derive(Debug, Clone)]
 pub enum Expression {
     Literal(Literal),
+    /// `asset::bitmap("<uuid>")`. Carries the literal id so the source stays
+    /// the single source of truth for which assets a visual references.
+    AssetRef {
+        kind: AssetKind,
+        id: String,
+    },
     Identifier(String),
     SystemValue(String),
     Array(Vec<Expression>),

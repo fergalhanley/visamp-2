@@ -64,6 +64,9 @@ pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
     "shading",
     "wireframe",
     "opacity",
+    // An `asset::bitmap` or `asset::vector` reference. Modulates the shape's
+    // colour rather than replacing it, so tint and opacity still apply.
+    "texture",
     "rot_x",
     "rot_y",
     "rot_z",

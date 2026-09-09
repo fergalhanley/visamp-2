@@ -271,6 +271,9 @@ impl MeshData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BatchKey {
     pub primitive: Primitive,
+    /// Index into [`Scene::textures`]. Part of the key because two draws with
+    /// different textures cannot share one instanced call.
+    pub texture: Option<u32>,
     pub shading: Shading,
     pub wireframe: bool,
     pub blend: BlendMode,
@@ -303,6 +306,10 @@ pub struct Scene {
     pub stack: Vec<Mat4>,
     pub commands: Vec<DrawCommand>,
     pub meshes: Vec<MeshData>,
+    /// Asset ids referenced by this frame's draws, in binding order. The
+    /// renderer resolves them against the pixels the host has supplied; a
+    /// reference the host has not resolved simply draws untextured.
+    pub textures: Vec<String>,
     pub warnings: Vec<String>,
     triangles: u64,
     dropped: bool,
@@ -317,6 +324,7 @@ impl Default for Scene {
             stack: vec![Mat4::IDENTITY],
             commands: Vec::new(),
             meshes: Vec::new(),
+            textures: Vec::new(),
             warnings: Vec::new(),
             triangles: 0,
             dropped: false,
@@ -424,6 +432,16 @@ impl Scene {
         if !self.warnings.iter().any(|w| w == message) {
             self.warnings.push(message.to_string());
         }
+    }
+
+    /// Interns an asset id and returns its binding slot. Repeating a reference
+    /// costs nothing, so a loop drawing the same textured shape still batches.
+    pub fn add_texture(&mut self, asset_id: &str) -> u32 {
+        if let Some(index) = self.textures.iter().position(|id| id == asset_id) {
+            return index as u32;
+        }
+        self.textures.push(asset_id.to_string());
+        self.textures.len() as u32 - 1
     }
 
     pub fn add_mesh(&mut self, mesh: MeshData) -> Result<u32, String> {

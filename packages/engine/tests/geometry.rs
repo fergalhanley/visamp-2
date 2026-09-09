@@ -1,19 +1,80 @@
-use visamp_2::geometry::{build, Geometry};
+use visamp_2::geometry::{build, Geometry, VERTEX_FLOATS};
 use visamp_2::scene::{MeshData, Primitive};
 
 /// Every vertex position, as triples.
 fn positions(g: &Geometry) -> Vec<[f32; 3]> {
     g.vertices
-        .chunks_exact(6)
+        .chunks_exact(VERTEX_FLOATS)
         .map(|v| [v[0], v[1], v[2]])
         .collect()
 }
 
 fn normals(g: &Geometry) -> Vec<[f32; 3]> {
     g.vertices
-        .chunks_exact(6)
+        .chunks_exact(VERTEX_FLOATS)
         .map(|v| [v[3], v[4], v[5]])
         .collect()
+}
+
+/// Every texture coordinate, as pairs.
+fn uvs(g: &Geometry) -> Vec<[f32; 2]> {
+    g.vertices
+        .chunks_exact(VERTEX_FLOATS)
+        .map(|v| [v[6], v[7]])
+        .collect()
+}
+
+#[test]
+fn every_primitive_carries_texture_coordinates_in_range() {
+    let primitives = [
+        Primitive::Cube,
+        Primitive::Sphere { resolution: 8 },
+        Primitive::Plane { subdivisions: 4 },
+        Primitive::Cylinder { segments: 12 },
+        Primitive::Cone { segments: 12 },
+        Primitive::Torus {
+            segments: 12,
+            tube_segments: 8,
+            tube_ratio: 250,
+        },
+        Primitive::Sprite,
+    ];
+
+    for primitive in primitives {
+        let g = build(primitive, &[]);
+        let coords = uvs(&g);
+        assert_eq!(coords.len(), g.vertex_count(), "{primitive:?}");
+        for [u, v] in coords {
+            assert!(
+                (0.0..=1.0).contains(&u) && (0.0..=1.0).contains(&v),
+                "{primitive:?} has a texture coordinate outside 0..1: {u}, {v}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_mesh_without_texture_coordinates_samples_the_origin() {
+    let mesh = MeshData {
+        vertices: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        indices: vec![],
+        normals: vec![],
+        uvs: vec![],
+    };
+    let g = build(Primitive::Mesh { id: 0 }, &[mesh]);
+    assert_eq!(uvs(&g), vec![[0.0, 0.0]; 3]);
+}
+
+#[test]
+fn a_mesh_keeps_the_texture_coordinates_it_was_given() {
+    let mesh = MeshData {
+        vertices: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        indices: vec![],
+        normals: vec![],
+        uvs: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+    };
+    let g = build(Primitive::Mesh { id: 0 }, &[mesh]);
+    assert_eq!(uvs(&g), vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
 }
 
 fn extent(g: &Geometry) -> ([f32; 3], [f32; 3]) {

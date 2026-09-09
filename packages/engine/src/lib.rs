@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::CanvasRenderingContext2d;
 
+pub mod assets;
 pub mod builtins;
 pub mod geometry;
 pub mod interpreter;
@@ -19,7 +20,9 @@ pub mod utils;
 use interpreter::*;
 use model::*;
 use parser::build_ast;
+use assets::AssetStore;
 use renderer::Renderer;
+use scene::MeshData;
 use scene::Scene;
 
 /// The compiler identity persisted with generated and saved scripts.
@@ -81,6 +84,61 @@ const HOST_ID: &str = "visamp-stage";
 thread_local! {
     static STATE: RefCell<Option<Rc<AppState>>> = RefCell::new(None);
     static INITIALIZED: RefCell<bool> = RefCell::new(false);
+    /// Asset data the page has resolved for the current viewer. Held here
+    /// rather than inside the scene because it outlives a frame: the pixels are
+    /// fetched once and reused until the visual or the viewer changes.
+    static ASSETS: RefCell<AssetStore> = RefCell::new(AssetStore::default());
+}
+
+/// Hands the engine decoded pixels for an asset the page has already fetched.
+///
+/// `rgba` must be `width * height * 4` bytes. The engine does no fetching of
+/// its own: whether this viewer may read the asset was settled before the
+/// bytes got here, which is what keeps access control in one place.
+#[wasm_bindgen]
+pub fn set_asset_texture(id: &str, width: u32, height: u32, rgba: &[u8]) -> bool {
+    let expected = (width as usize) * (height as usize) * 4;
+    if id.is_empty() || width == 0 || height == 0 || rgba.len() != expected {
+        return false;
+    }
+    ASSETS.with(|assets| {
+        assets
+            .borrow_mut()
+            .set_texture(id, width, height, rgba.to_vec());
+    });
+    true
+}
+
+/// Hands the engine geometry decoded from a model asset.
+///
+/// Normals and texture coordinates may be empty; the geometry builder falls
+/// back to per-face normals and the texture origin respectively.
+#[wasm_bindgen]
+pub fn set_asset_mesh(
+    id: &str,
+    vertices: &[f32],
+    indices: &[u32],
+    normals: &[f32],
+    uvs: &[f32],
+) -> bool {
+    if id.is_empty() || vertices.is_empty() || vertices.len() % 3 != 0 {
+        return false;
+    }
+    let mesh = MeshData {
+        vertices: vertices.chunks_exact(3).map(|v| [v[0], v[1], v[2]]).collect(),
+        indices: indices.to_vec(),
+        normals: normals.chunks_exact(3).map(|n| [n[0], n[1], n[2]]).collect(),
+        uvs: uvs.chunks_exact(2).map(|t| [t[0], t[1]]).collect(),
+    };
+    ASSETS.with(|assets| assets.borrow_mut().set_mesh(id, mesh));
+    true
+}
+
+/// Drops every resolved asset. Called when the visual or the viewer changes,
+/// so nothing one viewer could read stays resident for the next.
+#[wasm_bindgen]
+pub fn clear_assets() {
+    ASSETS.with(|assets| assets.borrow_mut().clear());
 }
 
 #[wasm_bindgen(start)]
@@ -319,7 +377,10 @@ fn init_app() -> Result<(), String> {
                     Some(canvas) => (canvas.width(), canvas.height()),
                     None => (0, 0),
                 };
-                if let Err(e) = renderer.render(&scene, width, height) {
+                let rendered = ASSETS.with(|assets| {
+                    renderer.render(&scene, &assets.borrow(), width, height)
+                });
+                if let Err(e) = rendered {
                     failure = Some(e);
                 }
 
