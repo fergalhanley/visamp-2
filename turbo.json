@@ -3,27 +3,87 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "pkg/**", "book/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "pkg/**",
+        "book/**"
+      ]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^transit"]
+      "dependsOn": [
+        "^transit"
+      ]
     },
     "check-types": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "test": {
-      "dependsOn": ["build"]
+      "dependsOn": [
+        "build"
+      ]
     },
     "clean": {
       "cache": false
     },
     "transit": {
-      "dependsOn": ["^transit"]
+      "dependsOn": [
+        "^transit"
+      ]
+    },
+    "@visamp/web#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "pkg/**",
+        "book/**"
+      ],
+      "env": [
+        "NEXT_PUBLIC_*",
+        "AI_*",
+        "SOUNDCLOUD_CLIENT_ID",
+        "SOUNDCLOUD_CLIENT_SECRET",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_WORKSPACE_ID",
+        "OPENAI_API_KEY",
+        "DASHSCOPE_API_KEY",
+        "ALIBABA_BASE_URL",
+        "SUPABASE_AUTH_CAPTCHA_SECRET",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "API_RATE_LIMIT_HMAC_KEY",
+        "AUDIO_LISTENER_HMAC_KEY",
+        "VIEW_LISTENER_HMAC_KEY",
+        "CRON_SECRET",
+        "R2_ACCOUNT_ID",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_MEDIA_BUCKET",
+        "R2_MASTERS_BUCKET",
+        "HOSTED_AUDIO_TEST_TRACK_ID",
+        "HOSTED_AUDIO_TEST_BASE_URL"
+      ]
     }
-  }
+  },
+  "globalPassThroughEnv": [
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "RUSTUP_TOOLCHAIN"
+  ],
+  "globalDependencies": [
+    "scripts/vercel-build-web.sh"
+  ]
 }
