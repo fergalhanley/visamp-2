@@ -137,6 +137,18 @@ Object deletion is an outbox (`asset_deletions`, drained by `processAssetDeletio
 cd apps/web && node --env-file=.env.local scripts/verify-asset-access.mjs --confirm
 ```
 
-It creates three throwaway users, an asset, an object and a visualisation, and removes them all again. `supabase/tests/assets_access.sql` covers the same ground for a local stack via psql.
+It creates three throwaway users, an asset, an object and a visualisation, and removes them all again. All 27 checks pass.
+
+`supabase/tests/assets_access.sql` covers the access rules against a local stack, where role switching can be done directly rather than through real sessions:
+
+```
+supabase db start
+docker exec -i supabase_db_visamp-2 psql -U postgres -d postgres \
+  -v ON_ERROR_STOP=1 -q < supabase/tests/assets_access.sql
+```
+
+All 15 assertions pass, inside a transaction that is rolled back. Note that `supabase db query -f` cannot run it — it sends the file as one prepared statement and rejects multiple commands.
 
 Two things this caught that unit tests could not: the insert grant on `assets` omitted `id`, which broke the entire upload path (fixed in `20260909030000_asset_insert_id_grant.sql`), and the CDN behaviour described above.
+
+`supabase db advisors --linked --type security` reports no findings against any object added here: every `SECURITY DEFINER` function in this migration is revoked from `anon` and `authenticated`, and the only function exposed to them, `visualisation_asset_references`, is `SECURITY INVOKER` over text the caller supplied.

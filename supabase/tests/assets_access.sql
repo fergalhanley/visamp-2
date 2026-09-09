@@ -1,7 +1,14 @@
 -- VIS-51 acceptance checks for asset access control.
 --
 -- Run against a local stack with the migrations applied:
---   supabase db reset && psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/assets_access.sql
+--
+--   supabase db start
+--   docker exec -i supabase_db_visamp-2 psql -U postgres -d postgres \
+--     -v ON_ERROR_STOP=1 -q < supabase/tests/assets_access.sql
+--
+-- `supabase db query -f` cannot run this: it sends the file as a single
+-- prepared statement and rejects multiple commands. Every assertion prints a
+-- NOTICE; a failure raises and aborts, so a run with no ERROR line passed.
 --
 -- Everything happens inside one transaction that is rolled back at the end, so
 -- the script leaves no rows behind. Any failed assertion aborts with an error.
@@ -35,6 +42,11 @@ begin
   set local request.jwt.claims = '';
 end;
 $$;
+
+-- Holds the generated visualisation id. Granted to public because the script
+-- reads it back while acting as a signed-in user, not as postgres.
+create temp table saved_visualisation (id uuid);
+grant all on saved_visualisation to public;
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -136,26 +148,31 @@ $$;
 
 -- ── The reference index and the publish rule ────────────────────────────────
 
-insert into public.visualisations (id, owner_id, title, source)
-values (
-  '22222222-0000-4000-8000-000000000001',
-  'aaaaaaaa-0000-4000-8000-000000000001',
-  'Uses one asset',
-  'render { draw::image(asset::bitmap("11111111-0000-4000-8000-000000000001")) }'
-);
+-- `id` is absent from the visualisations insert grant, so the id is read back
+-- rather than chosen — the same way the editor saves.
+with saved as (
+  insert into public.visualisations (owner_id, title, source)
+  values (
+    'aaaaaaaa-0000-4000-8000-000000000001',
+    'Uses one asset',
+    'render { draw::image(asset::bitmap("11111111-0000-4000-8000-000000000001")) }'
+  )
+  returning id
+)
+insert into pg_temp.saved_visualisation select id from saved;
 
 select pg_temp.check(
   (select count(*) from public.visualisation_assets
-   where visualisation_id = '22222222-0000-4000-8000-000000000001'
+   where visualisation_id = (select id from pg_temp.saved_visualisation)
      and asset_id = '11111111-0000-4000-8000-000000000001') = 1,
   'saving a visual indexes the assets its source cites'
 );
 
 update public.visualisations set visibility = 'public'
-where id = '22222222-0000-4000-8000-000000000001';
+where id = (select id from pg_temp.saved_visualisation);
 select pg_temp.check(
   (select visibility from public.visualisations
-   where id = '22222222-0000-4000-8000-000000000001') = 'public',
+   where id = (select id from pg_temp.saved_visualisation)) = 'public',
   'a visual referencing a public asset can be published'
 );
 
@@ -177,7 +194,7 @@ begin
   begin
     update public.visualisations
     set source = 'render { draw::image(asset::bitmap("11111111-0000-4000-8000-000000000002")) }'
-    where id = '22222222-0000-4000-8000-000000000001';
+    where id = (select id from pg_temp.saved_visualisation);
     raise exception 'FAILED: a public visual must not be able to reference a private asset';
   exception when insufficient_privilege then
     raise notice 'ok — a public visual cannot reference a private asset';
