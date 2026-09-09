@@ -14,6 +14,7 @@ import {
   FilePlus,
   FolderOpen,
   GitFork,
+  ImagePlus,
   Loader2,
   Pin,
   Trash2,
@@ -35,6 +36,7 @@ import { AiPrompt } from "@/components/editor/ai-prompt";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
 import { OpenVisDialog } from "@/components/editor/open-vis-dialog";
+import { AssetPickerDialog } from "@/components/editor/asset-picker-dialog";
 import { EditorTransport } from "@/components/editor/editor-transport";
 import { PropertiesInspector } from "@/components/editor/properties-inspector";
 import {
@@ -154,6 +156,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [signInOpen, setSignInOpen] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [openPickerShown, setOpenPickerShown] = useState(false);
+  const [assetPickerShown, setAssetPickerShown] = useState(false);
   const [deleteShown, setDeleteShown] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -590,6 +593,16 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           Open
         </button>
 
+        <button
+          type="button"
+          onClick={() => setAssetPickerShown(true)}
+          title="Insert a reference to an image, vector or model"
+          className={fileAction}
+        >
+          <ImagePlus className="h-3.5 w-3.5" />
+          Asset
+        </button>
+
         {/* Deliberately outside the `canEdit` branch — forking someone else's
             work is the point — but there is nothing to fork with nothing open. */}
         <button
@@ -850,6 +863,12 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         open={openPickerShown}
         onOpenChange={setOpenPickerShown}
         currentId={visualisation?.id}
+      />
+
+      <AssetPickerDialog
+        open={assetPickerShown}
+        onOpenChange={setAssetPickerShown}
+        onPick={(reference) => editorHandle.current?.insertAtCursor(reference)}
       />
 
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
