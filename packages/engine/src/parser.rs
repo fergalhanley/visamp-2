@@ -329,7 +329,8 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 "model" => AssetKind::Model,
                 other => unreachable!("Unknown asset kind: {other}"),
             };
-            // The grammar guarantees a string literal here; strip its quotes.
+            // The grammar guarantees the `id:` label and then a string literal
+            // here; the label is a bare token so it is not a captured pair.
             let raw = inner.next().unwrap().as_str();
             let id = raw.trim_matches('"').to_string();
             Expression::AssetRef { kind, id }

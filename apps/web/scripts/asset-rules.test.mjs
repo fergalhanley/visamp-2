@@ -81,12 +81,12 @@ test("object keys match the shape the database constraint accepts", () => {
 
 // ── Reference extraction ────────────────────────────────────────────────────
 
-test("asset citations are extracted in both spellings, deduplicated", () => {
+test("asset citations are extracted whatever the spacing, deduplicated", () => {
   const source = `
     render {
-      draw::image(asset::bitmap("${ASSET}"))
-      draw::image(asset::bitmap("${ASSET}"))
-      draw::mesh(asset::model(id: "${OWNER}"))
+      draw::image(asset::bitmap(id: "${ASSET}"))
+      draw::image(asset::bitmap(id:"${ASSET}"))
+      draw::mesh(asset::model( id : "${OWNER}" ))
       draw::rect(x: 1.0)
     }
   `;
@@ -98,12 +98,14 @@ test("asset citations are extracted in both spellings, deduplicated", () => {
 
 test("only real citations count", () => {
   assert.deepEqual(extractAssetReferences(""), []);
-  assert.deepEqual(extractAssetReferences(`draw::text("${ASSET}")`), []);
-  assert.deepEqual(extractAssetReferences('asset::bitmap("not-a-uuid")'), []);
-  assert.deepEqual(extractAssetReferences(`asset::sound("${ASSET}")`), []);
+  assert.deepEqual(extractAssetReferences(`draw::text(id: "${ASSET}")`), []);
+  assert.deepEqual(extractAssetReferences('asset::bitmap(id: "not-a-uuid")'), []);
+  assert.deepEqual(extractAssetReferences(`asset::sound(id: "${ASSET}")`), []);
+  // The label is required: a bare string does not parse and must not index.
+  assert.deepEqual(extractAssetReferences(`asset::bitmap("${ASSET}")`), []);
   // Upper-case ids normalise, so the index cannot hold the same asset twice.
   assert.deepEqual(
-    extractAssetReferences(`asset::vector("${ASSET.toUpperCase()}")`),
+    extractAssetReferences(`asset::vector(id: "${ASSET.toUpperCase()}")`),
     [ASSET],
   );
 });
@@ -572,7 +574,7 @@ test("the reference offered to authors is the DSL the engine parses", () => {
     ["model", ASSET],
   ]) {
     const reference = assetReference(kind, id);
-    assert.equal(reference, `asset::${kind}("${id}")`);
+    assert.equal(reference, `asset::${kind}(id: "${id}")`);
     assert.deepEqual(extractAssetReferences(reference), [id]);
   }
 });

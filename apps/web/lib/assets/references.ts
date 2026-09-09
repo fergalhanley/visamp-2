@@ -1,5 +1,6 @@
 /**
- * VIS-51: the citation form that ties a visualisation to an asset.
+ * VIS-51: the citation form that ties a visualisation to an asset,
+ * `asset::bitmap(id: "<uuid>")`.
  *
  * The authoritative extractor is `public.visualisation_asset_references` in
  * `supabase/migrations/20260909020000_visual_assets.sql`, because clients write
@@ -9,7 +10,7 @@
  */
 
 const REFERENCE =
-  /asset::(?:bitmap|vector|model)\s*\(\s*(?:id\s*:\s*)?"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/gi;
+  /asset::(?:bitmap|vector|model)\s*\(\s*id\s*:\s*"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/gi;
 
 /** Every distinct asset id cited by a piece of DSL source, lowercased. */
 export function extractAssetReferences(source: string): string[] {
