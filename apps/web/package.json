@@ -11,6 +11,7 @@
     "ingest": "node --env-file=.env.local scripts/ingest-hosted-audio.mjs",
     "audio:process": "node --env-file=.env.local scripts/process-audio-uploads.mjs",
     "test:uploads": "node --experimental-strip-types --test scripts/upload-rules.test.mjs",
+    "test:assets": "node --experimental-strip-types --test scripts/asset-rules.test.mjs",
     "audio:cleanup": "node --env-file=.env.local scripts/cleanup-hosted-audio.mjs",
     "clean": "rm -rf .next"
   },

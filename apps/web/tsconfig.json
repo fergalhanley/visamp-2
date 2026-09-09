@@ -1,6 +1,9 @@
 {
   "extends": "@visamp/typescript-config/nextjs.json",
   "compilerOptions": {
+    // The asset modules under lib/assets are imported directly by the Node
+    // test runner, which needs explicit specifiers.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./*"]
     }
