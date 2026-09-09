@@ -814,7 +814,21 @@ fn multiple_blocks_can_share_one_execution_budget() {
     use visamp_2::interpreter::{execution_scope, interpret_event_block, Runtime};
     use visamp_2::model::{BlockType, Model};
 
-    let source = "prop total = 0\non_frame {\n  for x in 0..8000 {\n    total = total + x\n  }\n}\non_frame {\n  for y in 0..8000 {\n    total = total + y\n  }\n}\nrender {\n  draw::clear()\n}\n";
+    // Sized from the budget rather than hard-coded, so raising
+    // MAX_EXECUTION_STEPS cannot quietly turn this into a test that passes
+    // without ever exhausting anything — which is exactly what happened when
+    // it went from 50,000 to 250,000.
+    //
+    // Nested because a single range is separately capped at 10,000 iterations,
+    // which is far short of the budget on its own. A fifth of the budget in
+    // iterations, at several steps each, puts one block comfortably under it
+    // and two blocks comfortably over.
+    const INNER: u32 = 1000;
+    let outer = (visamp_2::interpreter::MAX_EXECUTION_STEPS / 5 / INNER).max(2);
+    let source = format!(
+        "prop total = 0\non_frame {{\n  for a in 0..{outer} {{\n    for x in 0..{INNER} {{\n      total = total + x\n    }}\n  }}\n}}\non_frame {{\n  for b in 0..{outer} {{\n    for y in 0..{INNER} {{\n      total = total + y\n    }}\n  }}\n}}\nrender {{\n  draw::clear()\n}}\n"
+    );
+    let source = source.as_str();
     let script = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
     let mut model = Model::from_script(&script);
     let runtime = Runtime::new();
