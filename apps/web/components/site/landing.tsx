@@ -5,14 +5,17 @@ import { ArrowDown, ArrowUpRight, Eye, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VisampCanvas } from "@visamp/player";
 import { SiteFooter, SiteHeader } from "@/components/site/site-header";
-import { LANDING_HERO_SOURCE } from "@/lib/dsl/landing-hero";
+
 import type { GalleryPage } from "@/lib/gallery";
 export function Landing({
   initial,
   initialError,
+  heroSource,
 }: {
   initial: GalleryPage;
   initialError: string | null;
+  /** The hero script, fetched per request. Null when it could not be loaded. */
+  heroSource: string | null;
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [page, setPage] = useState(initial);
@@ -82,12 +85,14 @@ export function Landing({
               mount here because CanvasLayer only runs on player routes, and
               every link off this page is a full document navigation — the WASM
               module is a singleton bound to one stage element. */}
-          <VisampCanvas
-            source={LANDING_HERO_SOURCE}
-            active
-            analyser={null}
-            className="hero-canvas"
-          />
+          {heroSource && (
+            <VisampCanvas
+              source={heroSource}
+              active
+              analyser={null}
+              className="hero-canvas"
+            />
+          )}
           <div className="hero-orbit orbit-one" aria-hidden="true" />
           <div className="hero-orbit orbit-two" aria-hidden="true" />
           <div className="hero-grid" aria-hidden="true" />
