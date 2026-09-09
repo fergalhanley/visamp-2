@@ -3,17 +3,24 @@
 This file applies to the entire Visamp monorepo. All coding agents working in
 this repository must follow this protocol.
 
+For Linear connection setup, eligible task selection, claim coordination and handoff,
+read [the Linear agent workflow](agents/linear-workflow.md). That guide supplements
+this protocol; it does not replace its prerequisite, progress or review requirements.
+
 ## Sources of truth
 
 - **Linear** is the source of truth for planned work, scope, priority,
   dependencies, ownership, status, and acceptance criteria.
 - **GitHub** is the source of truth for code, branches, commits, pull requests,
   reviews, and permanent technical documentation.
-- **Slack** is the progress feed for concise agent updates, blockers, questions,
-  and handoffs, and the destination for operational error/outage alerts.
-  **Discord** is for community and beta user support.
-  Do not rely on Slack as the permanent record of requirements or decisions.
-- If these sources disagree, stop and ask for clarification. Do not silently
+- **Slack #progress** is the progress feed for concise agent updates, blockers,
+  questions, and handoffs in the Visamp workspace. Resolve the channel through the
+  connected Slack tools before posting. Do not rely on Slack as the permanent
+  record of requirements or decisions.
+- **Slack #progress** is the progress feed for concise agent updates, blockers,
+  questions, and handoffs in the Visamp workspace. Resolve the channel through the
+  connected Slack tools before posting. Do not rely on Slack as the permanent
+  record of requirements or decisions.
   choose one interpretation.
 
 ## Before starting work
