@@ -1,0 +1,13 @@
+-- VIS-51 follow-up: let an uploader name the asset id it is inserting.
+--
+-- The insert grant listed every column except `id`, and a column-level grant is
+-- refused for any column the statement names. That made the whole upload path
+-- fail with "permission denied for table assets", because the client cannot
+-- insert without the id: `object_key` is `<owner>/<asset id>.<ext>` and is
+-- written by the same statement, so the id has to be known up front rather than
+-- read back from a default.
+--
+-- Choosing the uuid grants nothing. The row still has to satisfy the insert
+-- policy (owner_id = auth.uid()), object_key is still CHECK-bound to the id,
+-- and a collision with an existing asset is a primary key violation.
+grant insert (id) on public.assets to authenticated;

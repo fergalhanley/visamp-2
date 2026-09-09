@@ -14,6 +14,46 @@ export type Database = {
   }
   public: {
     Tables: {
+      assets: {
+        Row: {
+  id: string; owner_id: string | null; kind: Database["public"]["Enums"]["asset_kind"];
+  mime_type: string; file_name: string; object_key: string; bytes: number; sha256: string;
+  status: string; error: string | null;
+  visibility: Database["public"]["Enums"]["visibility"]; published_at: string | null;
+  withdrawn_at: string | null; withdrawn_by: string | null; replacement_asset_id: string | null;
+  created_at: string; updated_at: string;
+}
+        Insert: {
+          id?: string; owner_id: string | null;
+          kind: Database["public"]["Enums"]["asset_kind"];
+          mime_type: string; file_name: string; object_key: string; bytes: number; sha256: string;
+        }
+        Update: {
+          visibility?: Database["public"]["Enums"]["visibility"];
+          status?: string; error?: string | null;
+        }
+        Relationships: []
+      }
+      visualisation_assets: {
+        Row: { visualisation_id: string; asset_id: string; created_at: string }
+        Insert: { visualisation_id: string; asset_id: string; created_at?: string }
+        Update: never
+        Relationships: []
+      }
+      asset_deletions: {
+        Row: {
+  id: number; asset_id: string; bucket: string; object_key: string; reason: string;
+  attempts: number; last_error: string | null; completed_at: string | null; created_at: string;
+}
+        Insert: {
+          asset_id: string; bucket: string; object_key: string; reason: string;
+          attempts?: number; last_error?: string | null; completed_at?: string | null;
+        }
+        Update: {
+          attempts?: number; last_error?: string | null; completed_at?: string | null;
+        }
+        Relationships: []
+      }
       audio_uploads: {
         Row: {
   id: string; user_id: string; music_artist_id: string; licence_id: string;
@@ -842,6 +882,18 @@ export type Database = {
         Returns: boolean
       }
       username_available: { Args: { candidate: string }; Returns: boolean }
+      delete_own_asset: {
+        Args: { p_asset_id: string }
+        Returns: undefined
+      }
+      withdraw_asset: {
+        Args: { p_asset_id: string; p_actor_id: string; p_replacement_asset_id?: string | null }
+        Returns: undefined
+      }
+      visualisation_asset_references: {
+        Args: { p_source: string }
+        Returns: string[]
+      }
       withdraw_hosted_track: {
         Args: { p_delete_master?: boolean; p_track_id: string }
         Returns: undefined
@@ -859,6 +911,7 @@ export type Database = {
         | "exhausted"
         | "error"
         | "aborted"
+      asset_kind: "bitmap" | "vector" | "model"
       licence_status: "pending" | "active" | "terminated"
       track_status: "ingesting" | "draft" | "live" | "withdrawn"
       visibility: "public" | "private"
@@ -1002,6 +1055,7 @@ export const Constants = {
         "error",
         "aborted",
       ],
+      asset_kind: ["bitmap", "vector", "model"],
       licence_status: ["pending", "active", "terminated"],
       track_status: ["ingesting", "draft", "live", "withdrawn"],
       visibility: ["public", "private"],
