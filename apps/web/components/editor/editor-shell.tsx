@@ -36,7 +36,7 @@ import { AiPrompt } from "@/components/editor/ai-prompt";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
 import { OpenVisDialog } from "@/components/editor/open-vis-dialog";
-import { AssetPickerDialog } from "@/components/editor/asset-picker-dialog";
+import { AssetPanel } from "@/components/editor/asset-panel";
 import { EditorTransport } from "@/components/editor/editor-transport";
 import { PropertiesInspector } from "@/components/editor/properties-inspector";
 import {
@@ -156,7 +156,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [signInOpen, setSignInOpen] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [openPickerShown, setOpenPickerShown] = useState(false);
-  const [assetPickerShown, setAssetPickerShown] = useState(false);
+  const [editorTab, setEditorTab] = useState<"script" | "assets">("script");
   const [deleteShown, setDeleteShown] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -595,12 +595,12 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
         <button
           type="button"
-          onClick={() => setAssetPickerShown(true)}
-          title="Insert a reference to an image, vector or model"
+          onClick={() => setEditorTab("assets")}
+          title="Upload, manage and insert images, vectors and models"
           className={fileAction}
         >
           <ImagePlus className="h-3.5 w-3.5" />
-          Asset
+          Assets
         </button>
 
         {/* Deliberately outside the `canEdit` branch — forking someone else's
@@ -720,13 +720,58 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             generating={generating}
             onSubmit={generate}
           />
-          <div className="min-h-0 flex-1">
-            <CodeEditor
-              initialValue={visualisation?.source ?? ""}
-              onChange={setSource}
-              diagnostics={compile?.diagnostics ?? []}
-              handleRef={editorHandle}
-            />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div
+              role="tablist"
+              aria-label="Editor panel"
+              className="flex shrink-0 border-b text-xs"
+            >
+              {(["script", "assets"] as const).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="tab"
+                  aria-selected={editorTab === name}
+                  onClick={() => setEditorTab(name)}
+                  className={cn(
+                    "cursor-pointer px-3 py-1.5 capitalize transition",
+                    editorTab === name
+                      ? "border-b-2 border-foreground text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+
+            {/* The editor stays mounted and is hidden with CSS rather than
+                unmounted. CodeMirror owns the document, so tearing it down
+                would discard the undo history and cursor, and remounting would
+                reinitialise from the now-stale `initialValue`. */}
+            <div
+              className={cn("min-h-0 flex-1", editorTab === "script" ? "" : "hidden")}
+            >
+              <CodeEditor
+                initialValue={visualisation?.source ?? ""}
+                onChange={setSource}
+                diagnostics={compile?.diagnostics ?? []}
+                handleRef={editorHandle}
+              />
+            </div>
+
+            {editorTab === "assets" && (
+              <div className="min-h-0 flex-1">
+                <AssetPanel
+                  onInsert={(reference) => {
+                    editorHandle.current?.insertAtCursor(reference);
+                    // Straight back to the script: the point of inserting is to
+                    // see where it landed.
+                    setEditorTab("script");
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Under the code rather than up in the menubar: it is a fact about
@@ -863,12 +908,6 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         open={openPickerShown}
         onOpenChange={setOpenPickerShown}
         currentId={visualisation?.id}
-      />
-
-      <AssetPickerDialog
-        open={assetPickerShown}
-        onOpenChange={setAssetPickerShown}
-        onPick={(reference) => editorHandle.current?.insertAtCursor(reference)}
       />
 
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
