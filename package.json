@@ -15,6 +15,7 @@
     "test": "turbo run test",
     "check-types": "turbo run check-types",
     "ingest": "pnpm --filter @visamp/web ingest",
+    "audio:process": "pnpm --filter @visamp/web audio:process",
     "audio:cleanup": "pnpm --filter @visamp/web audio:cleanup",
     "clean": "turbo run clean"
   },
