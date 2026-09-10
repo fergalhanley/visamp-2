@@ -1,6 +1,6 @@
 import { SessionSeed } from "@/components/shell/session-seed";
 import { createClient } from "@/lib/supabase/server";
-import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
 export const metadata = { title: "Player" };
 export default async function PlayerPage() {
   const db = await createClient();
@@ -16,7 +16,7 @@ export default async function PlayerPage() {
       <h1>VisAmp player</h1>
       {data && (
         <SessionSeed
-          vis={visualisationFromRow(data, artistFromProfile(data.profiles))}
+          vis={visualisationFromRow(data, creatorFromProfile(data.profiles))}
         />
       )}
     </main>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import type { Visualisation } from "@/lib/types";
-import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
 
 interface Loaded<T> {
   items: T[];
@@ -35,7 +35,7 @@ export function useBrowseVisualisations(): Loaded<Visualisation> & { loading: bo
 
         setState({
           items: (data ?? []).map((row) =>
-            visualisationFromRow(row, artistFromProfile(row.profiles)),
+            visualisationFromRow(row, creatorFromProfile(row.profiles)),
           ),
           error: error?.message ?? null,
         });

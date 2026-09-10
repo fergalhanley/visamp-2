@@ -1,18 +1,12 @@
-import type { Metadata } from "next";
-
-import { ArtistGallery } from "@/components/artists/artist-gallery";
-
-export const metadata: Metadata = {
-  title: "Artists",
-  description: "Everyone building visualisations on VisAmp, and what they made.",
-};
+import { permanentRedirect } from "next/navigation";
 
 /**
- * E3.7 — the artist gallery, replacing the V panel's Artists tab.
+ * `/artists` listed visualisation creators until VIS-6 gave "artist" back to
+ * music acts. Old links land here and go on to the creator gallery.
  *
- * A client page throughout: the columns filter, sort and select against each
- * other, and the preview is the live engine rather than a picture of one.
+ * VIS-84 replaces this with the music-artist directory; the creator gallery
+ * will be reachable only at `/creators` by then, which is the point.
  */
-export default function ArtistsPage() {
-  return <ArtistGallery />;
+export default function LegacyArtistsPage(): never {
+  permanentRedirect("/creators");
 }

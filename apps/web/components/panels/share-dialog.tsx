@@ -44,7 +44,7 @@ export function ShareDialog({ vis, open, onOpenChange }: ShareDialogProps) {
   const [copied, setCopied] = useState(false);
 
   const url = `${origin}/vis/${vis.id}`;
-  const text = `${vis.title} by ${vis.artist.username}`;
+  const text = `${vis.title} by ${vis.creator.username}`;
 
   const encodedUrl = encodeURIComponent(url);
   const encodedText = encodeURIComponent(text);

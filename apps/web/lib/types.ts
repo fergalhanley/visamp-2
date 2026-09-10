@@ -1,4 +1,4 @@
-export interface Artist {
+export interface Creator {
   username: string;
   avatarUrl?: string;
   bio?: string;
@@ -12,7 +12,7 @@ export interface Visualisation {
   description?: string;
   /** DSL source handed straight to the engine. */
   source: string;
-  artist: Artist;
+  creator: Creator;
   /** Present for database-backed rows; absent for the local fixtures. */
   ownerId?: string;
   /**
@@ -62,6 +62,7 @@ export interface Track {
   soundcloudId?: number;
   /** VisAmp-hosted tracks only — playback URLs are fetched on demand. */
   hostedTrackId?: string;
+  /** The music act, not the visualisation's creator — see VIS-6. */
   artist?: string;
   durationMs?: number;
 }

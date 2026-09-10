@@ -217,8 +217,8 @@ export function Landing({
               <h2 id="gallery-title">Find your frequency.</h2>
               <p>Original visualisations. Endless ways to see sound.</p>
             </div>
-            <a href="/artists">
-              Meet the artists <ArrowUpRight size={16} />
+            <a href="/creators">
+              Meet the creators <ArrowUpRight size={16} />
             </a>
           </div>
           <div className="gallery-grid">
@@ -256,7 +256,7 @@ export function Landing({
                     {item.username ? (
                       <a
                         className="gallery-artist"
-                        href={"/artists/" + item.username}
+                        href={"/creators/" + item.username}
                       >
                         @{item.username}
                       </a>

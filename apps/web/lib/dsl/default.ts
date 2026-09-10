@@ -22,7 +22,7 @@ export const DEFAULT_VISUALISATION: Visualisation = {
   title: "Visamp",
   description: "The default script, until you pick something else.",
   source: DEFAULT_SOURCE,
-  artist: {
+  creator: {
     username: "visamp",
     visCount: 0,
     totalViews: 0,

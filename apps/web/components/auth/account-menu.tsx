@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { profileAvatarUrl } from "@/lib/storage-urls";
-import { artistName } from "@/lib/visualisations";
+import { creatorName } from "@/lib/visualisations";
 
 /**
  * E3.1 — the panel header's login link, which becomes an account dropdown once
@@ -65,7 +65,7 @@ export function AccountMenu() {
 
   // Was the only surface that had this right; it now shares the rule with
   // everywhere else rather than restating it.
-  const name = artistName(profile, "Account");
+  const name = creatorName(profile, "Account");
   const initial = name.charAt(0).toUpperCase();
   const avatarUrl = profileAvatarUrl(profile);
 

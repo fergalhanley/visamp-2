@@ -32,7 +32,7 @@ interface VisTileProps {
   onChanged: () => void;
 }
 
-/** E3.6 — fixed height, 16:9 thumb, badge right-aligned to the artist name. */
+/** E3.6 — fixed height, 16:9 thumb, badge right-aligned to the creator name. */
 export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProps) {
   return (
     // A row rather than a button: the menu trigger is a sibling, because a
@@ -80,7 +80,7 @@ export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProp
                 {vis.visibility}
               </span>
             ) : (
-              vis.artist.username
+              vis.creator.username
             )}
           </p>
           {vis.usesAudio && (

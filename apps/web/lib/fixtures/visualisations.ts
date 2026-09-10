@@ -1,4 +1,4 @@
-import type { Artist, Visualisation } from "@/lib/types";
+import type { Creator, Visualisation } from "@/lib/types";
 
 /**
  * Stand-in data until Supabase lands. Every `source` below is real DSL that the
@@ -6,13 +6,13 @@ import type { Artist, Visualisation } from "@/lib/types";
  * not placeholder text.
  */
 
-const nova: Artist = {
+const nova: Creator = {
   username: "nova",
   visCount: 3,
   totalViews: 18420,
 };
 
-const kestrel: Artist = {
+const kestrel: Creator = {
   username: "kestrel",
   visCount: 2,
   totalViews: 7310,
@@ -23,7 +23,7 @@ export const VISUALISATIONS: Visualisation[] = [
     id: "rotating-trinity",
     title: "Rotating Trinity",
     description: "Three primitives sharing one angle.",
-    artist: nova,
+    creator: nova,
     usesAudio: false,
     likeCount: 214,
     commentCount: 12,
@@ -67,7 +67,7 @@ render {
     id: "comet-trails",
     title: "Comet Trails",
     description: "A drifting point over a barely-clearing canvas.",
-    artist: nova,
+    creator: nova,
     // Fixture data only — the badge needs a real signal, which waits on audio
     // bindings in the DSL. Set here so E3.6's badge is actually exercised.
     usesAudio: true,
@@ -108,7 +108,7 @@ render {
     id: "orbit-ring",
     title: "Orbit Ring",
     description: "Eight satellites on a shared clock.",
-    artist: kestrel,
+    creator: kestrel,
     usesAudio: false,
     likeCount: 96,
     commentCount: 4,
@@ -145,7 +145,7 @@ render {
     id: "breathing-bars",
     title: "Breathing Bars",
     description: "A row of columns easing out of phase.",
-    artist: kestrel,
+    creator: kestrel,
     usesAudio: true,
     likeCount: 143,
     commentCount: 7,
@@ -176,7 +176,7 @@ render {
     id: "cursor-bloom",
     title: "Cursor Bloom",
     description: "Follows the pointer. Move the mouse over the canvas.",
-    artist: nova,
+    creator: nova,
     usesAudio: false,
     likeCount: 327,
     commentCount: 22,
@@ -209,7 +209,7 @@ render {
   },
 ];
 
-export const ARTISTS: Artist[] = [nova, kestrel];
+export const ARTISTS: Creator[] = [nova, kestrel];
 
 export function findVisualisation(id: string): Visualisation | undefined {
   return VISUALISATIONS.find((v) => v.id === id);

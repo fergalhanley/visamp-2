@@ -235,7 +235,7 @@ function VisActions() {
         <button
           type="button"
           onClick={() => select(parent)}
-          title={`Forked from ${parent.title} by ${parent.artist.username}`}
+          title={`Forked from ${parent.title} by ${parent.creator.username}`}
           className="flex cursor-pointer items-center gap-1 transition hover:text-foreground"
         >
           <CornerUpLeft className="h-3.5 w-3.5" />
@@ -343,10 +343,10 @@ export function Transport() {
             {/* The gallery owns its own canvas, so enter it with a fresh
                 document and preselect this artist from the URL. */}
             <a
-              href={`/artists/${current.artist.username}`}
+              href={`/creators/${current.creator.username}`}
               className="text-muted-foreground hover:underline"
             >
-              {current.artist.username}
+              {current.creator.username}
             </a>
           </p>
 

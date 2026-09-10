@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import { profileAvatarUrl } from "@/lib/storage-urls";
-import type { Artist, Visualisation } from "@/lib/types";
+import type { Creator, Visualisation } from "@/lib/types";
 import { visualisationFromRow } from "@/lib/visualisations";
 
 interface Fetched {
@@ -47,9 +47,9 @@ export function useMyVisualisations(): {
       .then(({ data, error }) => {
         if (!active) return;
 
-        // The artist is the viewer themselves; the counters on it are only used
-        // by artist tiles, which this list never renders.
-        const artist: Artist = {
+        // The creator is the viewer themselves; the counters on it are only used
+        // by creator tiles, which this list never renders.
+        const creator: Creator = {
           username: profile?.username ?? "you",
           avatarUrl: profileAvatarUrl(profile),
           visCount: profile?.vis_count ?? 0,
@@ -58,7 +58,7 @@ export function useMyVisualisations(): {
 
         setFetched({
           userId,
-          items: (data ?? []).map((row) => visualisationFromRow(row, artist)),
+          items: (data ?? []).map((row) => visualisationFromRow(row, creator)),
           error: error?.message ?? null,
         });
       });

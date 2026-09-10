@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { VisSync } from "@/components/shell/vis-sync";
 import { createClient } from "@/lib/supabase/server";
-import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
 
 /**
  * RLS decides what is visible: public to anyone, private only to
@@ -19,7 +19,7 @@ async function loadVisualisation(id: string) {
     .eq("id", id)
     .maybeSingle();
 
-  return data ? visualisationFromRow(data, artistFromProfile(data.profiles)) : null;
+  return data ? visualisationFromRow(data, creatorFromProfile(data.profiles)) : null;
 }
 
 /** E7.4 — shared links unfurl with the visualisation's own title and artwork. */
@@ -30,7 +30,7 @@ export async function generateMetadata({
   const vis = await loadVisualisation(id);
   if (!vis) return { title: "Not found" };
 
-  const title = `${vis.title} by ${vis.artist.username}`;
+  const title = `${vis.title} by ${vis.creator.username}`;
 
   return {
     title: vis.title,
@@ -52,7 +52,7 @@ export async function generateMetadata({
 
 /**
  * E7.3 — the cold path. Arriving here from outside server-renders the title,
- * artist and description, then hands the visualisation to the live session; the
+ * creator and description, then hands the visualisation to the live session; the
  * shell's boot gate turns the viewer's click into the gesture that starts
  * rendering and audio (E2.9).
  *
@@ -73,8 +73,8 @@ export default async function VisPage({ params }: PageProps<"/vis/[id]">) {
           <h1>{vis.title}</h1>
           <p>
             by{" "}
-            <Link href={`/artists/${vis.artist.username}`}>
-              {vis.artist.username}
+            <Link href={`/creators/${vis.creator.username}`}>
+              {vis.creator.username}
             </Link>
           </p>
           {vis.description && <p>{vis.description}</p>}

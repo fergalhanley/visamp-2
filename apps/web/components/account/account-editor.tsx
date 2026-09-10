@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { profileAvatarUrl } from "@/lib/storage-urls";
 import { createClient } from "@/lib/supabase/client";
-import { artistName } from "@/lib/visualisations";
+import { creatorName } from "@/lib/visualisations";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -111,7 +111,7 @@ export function AccountEditor() {
     );
   }
 
-  const name = artistName(profile, "Account");
+  const name = creatorName(profile, "Account");
   const avatarUrl = previewUrl ?? profileAvatarUrl(profile);
   const bio = bioDraft ?? profile.bio ?? "";
 

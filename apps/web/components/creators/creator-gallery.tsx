@@ -10,7 +10,7 @@ import { CommentsThread } from "@/components/panels/comments-thread";
 import { formatCount, posterStyle } from "@/components/panels/tiles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAnalyser } from "@/hooks/use-analyser";
-import { useArtistGallery, useArtistWork, type ArtistStats } from "@/hooks/use-artist-gallery";
+import { useCreatorGallery, useCreatorWork, type CreatorStats } from "@/hooks/use-creator-gallery";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import { DEFAULT_SOURCE } from "@/lib/dsl/default";
 import type { Visualisation } from "@/lib/types";
@@ -25,12 +25,12 @@ const SORT_LABELS: Record<Sort, string> = {
   vis: "Visualisations",
 };
 
-function sortArtists(items: ArtistStats[], by: Sort): ArtistStats[] {
+function sortCreators(items: CreatorStats[], by: Sort): CreatorStats[] {
   const sorted = [...items];
   sorted.sort((a, b) => {
     switch (by) {
       case "name":
-        return a.artist.username.localeCompare(b.artist.username);
+        return a.creator.username.localeCompare(b.creator.username);
       case "views":
         return b.views - a.views;
       case "likes":
@@ -43,7 +43,7 @@ function sortArtists(items: ArtistStats[], by: Sort): ArtistStats[] {
 }
 
 /**
- * E3.7 — the artist gallery.
+ * E3.7 — the creator gallery.
  *
  * A page rather than a panel tab: three columns of increasing specificity —
  * who, what they made, and the thing itself playing — which is more than the
@@ -54,15 +54,15 @@ function sortArtists(items: ArtistStats[], by: Sort): ArtistStats[] {
  * canvas cannot be mounted at the same time; `SessionShell` stands the player
  * down here, and getting in and out is a full page load.
  */
-export function ArtistGallery({ initialUsername = null }: { initialUsername?: string | null }) {
-  const { items, loading, error } = useArtistGallery();
+export function CreatorGallery({ initialUsername = null }: { initialUsername?: string | null }) {
+  const { items, loading, error } = useCreatorGallery();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("views");
 
   // Null means "no explicit pick yet", which resolves to the top of the list.
   // Derived rather than synced in an effect, so the page arrives populated
   // instead of empty-then-filled.
-  const [pickedArtist, setPickedArtist] = useState<string | null>(initialUsername);
+  const [pickedCreator, setPickedCreator] = useState<string | null>(initialUsername);
   const [pickedVis, setPickedVis] = useState<string | null>(null);
 
   const analyser = useAnalyser();
@@ -70,20 +70,20 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
   const { toggle: toggleFullscreen } = useFullscreen(previewRef);
 
   const needle = query.trim().toLowerCase();
-  const artists = useMemo(() => {
+  const creators = useMemo(() => {
     const filtered = needle
       ? items.filter(
           (row) =>
-            row.artist.username.toLowerCase().includes(needle),
+            row.creator.username.toLowerCase().includes(needle),
         )
       : items;
-    return sortArtists(filtered, sort);
+    return sortCreators(filtered, sort);
   }, [items, needle, sort]);
 
-  const activeArtist =
-    artists.find((row) => row.artist.username === pickedArtist) ?? artists[0] ?? null;
+  const activeCreator =
+    creators.find((row) => row.creator.username === pickedCreator) ?? creators[0] ?? null;
 
-  const { items: work, loading: workLoading } = useArtistWork(activeArtist?.id ?? null);
+  const { items: work, loading: workLoading } = useCreatorWork(activeCreator?.id ?? null);
   const activeVis: Visualisation | null =
     work.find((vis) => vis.id === pickedVis) ?? work[0] ?? null;
 
@@ -92,8 +92,8 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
       <TopBar position="static" />
 
       <div className="flex min-h-0 flex-1">
-        {/* Artists and their work share one accordion column. At 27rem this is
-            50% wider than the original 18rem artist list. */}
+        {/* Creators and their work share one accordion column. At 27rem this is
+            50% wider than the original 18rem creator list. */}
         <aside className="flex w-[27rem] shrink-0 flex-col border-r">
           <div className="shrink-0 space-y-2 border-b p-3">
             <div className="flex items-center gap-2 rounded-md border px-2 py-1.5">
@@ -101,8 +101,8 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filter artists"
-                aria-label="Filter artists"
+                placeholder="Filter creators"
+                aria-label="Filter creators"
                 className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
               />
             </div>
@@ -128,11 +128,11 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
               <p className="px-4 py-6 text-xs text-muted-foreground">Loading…</p>
             ) : error ? (
               <p className="px-4 py-6 text-xs text-destructive">{error}</p>
-            ) : artists.length === 0 ? (
+            ) : creators.length === 0 ? (
               <p className="px-4 py-6 text-xs text-muted-foreground">No matches.</p>
             ) : (
-              artists.map((row) => {
-                const expanded = row.id === activeArtist?.id;
+              creators.map((row) => {
+                const expanded = row.id === activeCreator?.id;
 
                 return (
                   <div key={row.id} className="border-b last:border-b-0">
@@ -140,14 +140,14 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
                       type="button"
                       aria-expanded={expanded}
                       onClick={() => {
-                        setPickedArtist(row.artist.username);
+                        setPickedCreator(row.creator.username);
                         window.history.pushState(
                           {},
                           "",
-                          `/artists/${encodeURIComponent(row.artist.username)}`,
+                          `/creators/${encodeURIComponent(row.creator.username)}`,
                         );
                         // Their work is a different list; keeping a selection
-                        // from the last artist would point at nothing.
+                        // from the last creator would point at nothing.
                         if (!expanded) setPickedVis(null);
                       }}
                       className={cn(
@@ -156,19 +156,19 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
                       )}
                     >
                       <Avatar className="h-10 w-10 shrink-0">
-                        {row.artist.avatarUrl && (
+                        {row.creator.avatarUrl && (
                           <AvatarImage
-                            src={row.artist.avatarUrl}
-                            alt={`${row.artist.username}'s avatar`}
+                            src={row.creator.avatarUrl}
+                            alt={`${row.creator.username}'s avatar`}
                           />
                         )}
-                        <AvatarFallback style={posterStyle(row.artist.username)}>
-                          <span className="sr-only">{row.artist.username}</span>
+                        <AvatarFallback style={posterStyle(row.creator.username)}>
+                          <span className="sr-only">{row.creator.username}</span>
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
-                          {row.artist.username}
+                          {row.creator.username}
                         </p>
                         <p className="truncate text-[11px] text-muted-foreground">
                           {formatCount(row.views)} views · {formatCount(row.likes)} likes ·{" "}
@@ -237,24 +237,24 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
               fullscreen matches both the editor and the player. */}
           <div className="flex shrink-0 items-stretch border-b">
             <aside className="w-56 shrink-0 p-4">
-              {activeArtist ? (
+              {activeCreator ? (
                 <div className="flex h-full flex-col items-center justify-center text-center">
                   <Avatar className="h-20 w-20">
-                    {activeArtist.artist.avatarUrl && (
+                    {activeCreator.creator.avatarUrl && (
                       <AvatarImage
-                        src={activeArtist.artist.avatarUrl}
-                        alt={`${activeArtist.artist.username}'s avatar`}
+                        src={activeCreator.creator.avatarUrl}
+                        alt={`${activeCreator.creator.username}'s avatar`}
                       />
                     )}
                     <AvatarFallback className="text-xl">
-                      {activeArtist.artist.username.charAt(0).toUpperCase()}
+                      {activeCreator.creator.username.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <h1 className="mt-3 text-sm font-medium">
-                    {activeArtist.artist.username}
+                    {activeCreator.creator.username}
                   </h1>
                   <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                    {activeArtist.artist.bio || "This artist has not added a bio yet."}
+                    {activeCreator.creator.bio || "This creator has not added a bio yet."}
                   </p>
                 </div>
               ) : null}

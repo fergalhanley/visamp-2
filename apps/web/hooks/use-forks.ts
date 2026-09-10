@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import type { Visualisation } from "@/lib/types";
-import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
 
 // Named FK, as everywhere else: `likes` is a junction table, so a bare
 // `profiles(...)` embed is ambiguous.
@@ -41,7 +41,7 @@ export function useForks(visId: string, active: boolean): Forks {
         if (!live) return;
         setState({
           items: (data ?? []).map((row) =>
-            visualisationFromRow(row, artistFromProfile(row.profiles)),
+            visualisationFromRow(row, creatorFromProfile(row.profiles)),
           ),
           error: error?.message ?? null,
         });
@@ -79,7 +79,7 @@ export function useParentVis(parentId: string | undefined): Visualisation | null
       .maybeSingle()
       .then(({ data }) => {
         if (!live || !data) return;
-        setParent(visualisationFromRow(data, artistFromProfile(data.profiles)));
+        setParent(visualisationFromRow(data, creatorFromProfile(data.profiles)));
       });
 
     return () => {

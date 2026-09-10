@@ -3,34 +3,34 @@
 import { useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
-import type { Artist, Visualisation } from "@/lib/types";
-import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import type { Creator, Visualisation } from "@/lib/types";
+import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
 
-/** An artist plus the numbers the gallery sorts on. */
-export interface ArtistStats {
+/** An creator plus the numbers the gallery sorts on. */
+export interface CreatorStats {
   /** The profile id, which is what their work is keyed by. */
   id: string;
-  artist: Artist;
+  creator: Creator;
   visCount: number;
   views: number;
   likes: number;
 }
 
 interface Gallery {
-  items: ArtistStats[];
+  items: CreatorStats[];
   loading: boolean;
   error: string | null;
 }
 
 /**
- * Every artist with public work, with their totals.
+ * Every creator with public work, with their totals.
  *
  * Views come off `profiles.total_views`, which a trigger maintains. Likes have
  * no such column, so they are summed here from the like counts of the public
  * work itself — one narrow query over two columns, rather than a migration for
  * a number only this page reads.
  */
-export function useArtistGallery(): Gallery {
+export function useCreatorGallery(): Gallery {
   const [state, setState] = useState<Gallery>({
     items: [],
     loading: true,
@@ -67,7 +67,7 @@ export function useArtistGallery(): Gallery {
       setState({
         items: (profiles.data ?? []).map((profile) => ({
           id: profile.id,
-          artist: artistFromProfile(profile),
+          creator: creatorFromProfile(profile),
           visCount: profile.vis_count,
           views: profile.total_views,
           likes: likesByOwner.get(profile.id) ?? 0,
@@ -86,10 +86,10 @@ export function useArtistGallery(): Gallery {
 }
 
 /**
- * One artist's public work, newest first. Loaded per selection rather than all
+ * One creator's public work, newest first. Loaded per selection rather than all
  * at once, because each row carries its whole script.
  */
-export function useArtistWork(ownerId: string | null): {
+export function useCreatorWork(ownerId: string | null): {
   items: Visualisation[];
   loading: boolean;
 } {
@@ -113,7 +113,7 @@ export function useArtistWork(ownerId: string | null): {
         setState({
           ownerId,
           items: (data ?? []).map((row) =>
-            visualisationFromRow(row, artistFromProfile(row.profiles)),
+            visualisationFromRow(row, creatorFromProfile(row.profiles)),
           ),
         });
       });
@@ -123,7 +123,7 @@ export function useArtistWork(ownerId: string | null): {
     };
   }, [ownerId]);
 
-  // Keyed on who it was fetched for, so switching artists never shows the
+  // Keyed on who it was fetched for, so switching creators never shows the
   // previous one's work while the next query is in flight.
   const fresh = state?.ownerId === ownerId;
   return { items: fresh ? state.items : [], loading: Boolean(ownerId) && !fresh };

@@ -29,7 +29,7 @@ export const sitePages = [
  */
 export const navLinks: { href: string; label: string; compact: boolean }[] = [
   { href: "/player", label: "Player", compact: true },
-  { href: "/artists", label: "Artists", compact: true },
+  { href: "/creators", label: "Creators", compact: true },
   { href: "/upload", label: "Upload Your Music", compact: false },
   { href: "/site/news", label: "News", compact: false },
   { href: "/site/about", label: "About", compact: false },

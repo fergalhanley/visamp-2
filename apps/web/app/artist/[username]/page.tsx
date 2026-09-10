@@ -5,5 +5,5 @@ export default async function ArtistPage({
   params,
 }: PageProps<"/artist/[username]">) {
   const { username } = await params;
-  redirect(`/artists/${encodeURIComponent(username)}`);
+  redirect(`/creators/${encodeURIComponent(username)}`);
 }

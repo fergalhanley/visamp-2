@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { Visualisation } from "@/lib/types";
-import { artistFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
 
 interface Fetched {
   userId: string;
@@ -45,7 +45,7 @@ export function useFavouriteVisualisations(): {
           items: (data ?? []).flatMap((like) => {
             const vis = like.visualisations;
             return vis
-              ? [visualisationFromRow(vis, artistFromProfile(vis.profiles))]
+              ? [visualisationFromRow(vis, creatorFromProfile(vis.profiles))]
               : [];
           }),
           error: error?.message ?? null,

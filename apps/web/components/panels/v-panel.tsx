@@ -76,7 +76,7 @@ export function VPanel() {
     return favourites.filter(
       (vis) =>
         vis.title.toLowerCase().includes(needle) ||
-        vis.artist.username.toLowerCase().includes(needle),
+        vis.creator.username.toLowerCase().includes(needle),
     );
   }, [favourites, needle]);
 
@@ -86,7 +86,7 @@ export function VPanel() {
         ? publicVis.filter(
             (v) =>
               v.title.toLowerCase().includes(needle) ||
-              v.artist.username.toLowerCase().includes(needle),
+              v.creator.username.toLowerCase().includes(needle),
           )
         : publicVis,
     [publicVis, needle],
