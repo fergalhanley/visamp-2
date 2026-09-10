@@ -97,7 +97,7 @@ try {
     .eq("id", licenceId)
     .maybeSingle();
   if (licenceError) throw licenceError;
-  if (!licence || !licenceIsUsable(licence, artist.id)) {
+  if (!licence || !licenceGrantsIngest(licence, artist.id)) {
     throw new Error(
       "Licence is not currently valid for this artist and all required grants",
     );
@@ -594,11 +594,24 @@ function renderArtwork(source, output, size) {
   ]);
 }
 
-function licenceIsUsable(licence, artistId) {
+/**
+ * Ingest-grade, deliberately silent about `licences.status`.
+ *
+ * VIS-86 moved the licence gate from upload to publication: an artist accepts
+ * the agreement, which creates a pending licence, and an admin activating it is
+ * what releases the music. Processing sits between those two — it has to run
+ * before an admin has anything to listen to — and it only ever takes a track as
+ * far as `draft`. `enforce_hosted_track_state` still refuses to promote a track
+ * to `live` without an active licence, so this staying quiet about status costs
+ * nothing and demanding it stranded every self-serve upload.
+ *
+ * Mirrors uploadLicenceGrantsIngest in lib/hosted-audio/upload-rules.ts. This
+ * script is plain .mjs and cannot import it; keep the two in step.
+ */
+function licenceGrantsIngest(licence, artistId) {
   const today = new Date().toISOString().slice(0, 10);
   return (
     licence.music_artist_id === artistId &&
-    licence.status === "active" &&
     licence.signed_at &&
     licence.effective_from &&
     licence.effective_from <= today &&

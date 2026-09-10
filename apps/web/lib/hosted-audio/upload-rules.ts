@@ -9,6 +9,10 @@ type Licence = Database["public"]["Tables"]["licences"]["Row"];
  * goes out is a separate decision, and `enforce_hosted_track_state` still
  * refuses to promote a track to `live` without an *active* licence. Moving the
  * gate here is the whole point: it used to stop people uploading at all.
+ *
+ * `scripts/ingest-hosted-audio.mjs` carries the same rule as
+ * `licenceGrantsIngest`, because the worker runs as plain .mjs and cannot
+ * import this. Change one, change the other.
  */
 export function uploadLicenceGrantsIngest(
   licence: Licence,
