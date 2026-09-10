@@ -91,6 +91,7 @@ uniform int u_textured;
 uniform sampler2D u_texture;
 
 uniform int u_lit;
+uniform int u_premultiply;
 uniform vec3 u_ambient;
 
 uniform int u_dir_count;
@@ -113,7 +114,7 @@ void main() {
     }
 
     if (u_lit == 0) {
-        frag_color = base;
+        frag_color = u_premultiply == 1 ? vec4(base.rgb * base.a, base.a) : base;
         return;
     }
 
@@ -138,7 +139,7 @@ void main() {
             * attenuation * attenuation;
     }
 
-    frag_color = vec4(base.rgb * light, base.a);
+    frag_color = vec4(base.rgb * light * (u_premultiply == 1 ? base.a : 1.0), base.a);
 }
 "#;
 
@@ -162,6 +163,7 @@ pub struct Renderer {
     /// Uploaded textures by asset id, with the store version they were made
     /// from so replaced pixels are re-uploaded rather than served stale.
     textures: HashMap<String, (u32, WebGlTexture)>,
+    premultiplied: bool,
 }
 
 impl Renderer {
@@ -178,6 +180,7 @@ impl Renderer {
             meshes: HashMap::new(),
             scratch: Vec::new(),
             textures: HashMap::new(),
+            premultiplied: false,
         })
     }
 
@@ -187,15 +190,26 @@ impl Renderer {
         assets: &AssetStore,
         width: u32,
         height: u32,
+        premultiplied: bool,
     ) -> Result<(), String> {
+        self.premultiplied = premultiplied;
         self.sync_textures(scene, assets);
         let gl = self.gl.clone();
         gl.viewport(0, 0, width as i32, height as i32);
 
         match scene.gfx.clear {
-            Some(c) => gl.clear_color(c.r as f32, c.g as f32, c.b as f32, c.a as f32),
+            Some(c) => {
+                let a = if premultiplied { c.a } else { 1.0 };
+                gl.clear_color(
+                    (c.r * a) as f32,
+                    (c.g * a) as f32,
+                    (c.b * a) as f32,
+                    c.a as f32,
+                );
+            }
             None => gl.clear_color(0.0, 0.0, 0.0, 0.0),
         }
+        gl.depth_mask(true);
         gl.clear_depth(1.0);
         gl.depth_func(GL::LEQUAL);
         gl.clear(GL::COLOR_BUFFER_BIT | GL::DEPTH_BUFFER_BIT);
@@ -211,6 +225,7 @@ impl Renderer {
             .mul(&scene.camera.view());
 
         gl.use_program(Some(&self.program));
+        self.set_int("u_premultiply", i32::from(premultiplied));
         self.set_view_projection(view_projection.as_slice());
         self.set_lights(scene);
 
@@ -244,7 +259,11 @@ impl Renderer {
             let Some(pixels) = assets.texture(id) else {
                 continue;
             };
-            if self.textures.get(id).is_some_and(|(v, _)| *v == pixels.version) {
+            if self
+                .textures
+                .get(id)
+                .is_some_and(|(v, _)| *v == pixels.version)
+            {
                 continue;
             }
 
@@ -331,11 +350,22 @@ impl Renderer {
             BlendMode::None => gl.disable(GL::BLEND),
             BlendMode::Alpha => {
                 gl.enable(GL::BLEND);
-                gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
+                if self.premultiplied {
+                    gl.blend_func(GL::ONE, GL::ONE_MINUS_SRC_ALPHA);
+                } else {
+                    gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
+                }
             }
             BlendMode::Additive => {
                 gl.enable(GL::BLEND);
-                gl.blend_func(GL::SRC_ALPHA, GL::ONE);
+                gl.blend_func(
+                    if self.premultiplied {
+                        GL::ONE
+                    } else {
+                        GL::SRC_ALPHA
+                    },
+                    GL::ONE,
+                );
             }
             BlendMode::Multiply => {
                 gl.enable(GL::BLEND);
@@ -572,7 +602,7 @@ impl Renderer {
     }
 }
 
-fn link(gl: &GL, vertex: &str, fragment: &str) -> Result<WebGlProgram, String> {
+pub(crate) fn link(gl: &GL, vertex: &str, fragment: &str) -> Result<WebGlProgram, String> {
     let vs = compile(gl, GL::VERTEX_SHADER, vertex)?;
     let fs = compile(gl, GL::FRAGMENT_SHADER, fragment)?;
 
@@ -589,6 +619,8 @@ fn link(gl: &GL, vertex: &str, fragment: &str) -> Result<WebGlProgram, String> {
     gl.bind_attrib_location(&program, A_COLOR, "a_color");
 
     gl.link_program(&program);
+    gl.delete_shader(Some(&vs));
+    gl.delete_shader(Some(&fs));
 
     if gl
         .get_program_parameter(&program, GL::LINK_STATUS)

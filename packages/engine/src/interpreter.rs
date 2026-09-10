@@ -290,6 +290,7 @@ pub struct Target<'a> {
     pub scene: Option<&'a RefCell<Scene>>,
     /// CSS post-processing accumulated for the completed canvas frame.
     pub filter: Option<&'a RefCell<String>>,
+    pub scramble: Option<&'a RefCell<Option<crate::scramble::Scramble>>>,
 }
 
 impl<'a> Target<'a> {
@@ -298,6 +299,7 @@ impl<'a> Target<'a> {
             ctx: Some(ctx),
             scene: None,
             filter: Some(filter),
+            scramble: None,
         }
     }
 
@@ -306,6 +308,7 @@ impl<'a> Target<'a> {
             ctx: None,
             scene: Some(scene),
             filter: Some(filter),
+            scramble: None,
         }
     }
 
@@ -1061,6 +1064,19 @@ fn interpret_statement_function_call(
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
+    if function_call.namespace == "effect" && function_call.function == "scramble" {
+        let mut args = ArgReader::new(function_call, decels, runtime, functions);
+        let kind = match args.raw("type")? {
+            None => 1,
+            Some(Value::Integer(n)) if (1..=crate::scramble::MAX_TYPE).contains(&n) => n as u8,
+            _ => return Err("effect::scramble: 'type' must be an integer from 1 to 40".into()),
+        };
+        let refresh = args.color("refresh_color")?.unwrap_or(BLACK);
+        if let Some(effect) = target.scramble {
+            *effect.borrow_mut() = Some(crate::scramble::Scramble { kind, refresh });
+        }
+        return Ok(());
+    }
     // Full-frame post-processing is handed to the JS player as CSS. Avoiding
     // CanvasRenderingContext2D.filter here keeps every primitive on the fast
     // drawing path and gives WebGL the same effects for free.

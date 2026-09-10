@@ -30,6 +30,7 @@
 # Effects
 
 - [Canvas Filters](./effects/filters.md)
+- [Scramble](./effects/scramble.md)
 
 # Programming
 

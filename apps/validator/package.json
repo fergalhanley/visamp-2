@@ -8,7 +8,8 @@
     "start": "node src/server.mjs",
     "test": "node --test src/*.test.mjs",
     "test:site": "node --test src/site-pages.test.mjs src/site-authenticated.test.mjs",
-    "test:hosted-audio": "node --test src/hosted-audio.test.mjs"
+    "test:hosted-audio": "node --test src/hosted-audio.test.mjs",
+    "verify:scramble": "node scripts/verify-scramble.mjs"
   },
   "dependencies": {
     "playwright": "^1.55.0",

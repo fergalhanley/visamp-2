@@ -1,3 +1,6 @@
 # Project-scoped Linear MCP connection. Authenticate locally; never add tokens here.
 [mcp_servers.linear]
 url = "https://mcp.linear.app/mcp"
+
+[mcp_servers.linear.tools.save_issue]
+approval_mode = "approve"

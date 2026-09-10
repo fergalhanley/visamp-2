@@ -11,6 +11,9 @@ compiled to WebAssembly with `wasm-pack`.
 | `src/model.rs`      | AST / runtime value model                      |
 | `src/interpreter.rs`| Evaluates a script and drives the canvas       |
 | `src/lib.rs`        | `wasm-bindgen` boundary exposed to JavaScript  |
+| `src/scramble.rs`   | Scramble presets, timing and backend selection |
+| `src/feedback.rs`   | Shared 2D/3D GPU feedback and resource ownership |
+| `src/scramble.frag` | Composition, byte-addressed scramble and presentation |
 | `visamp_dsl.pest`   | Grammar                                        |
 | `pkg/`              | Build output (gitignored)                      |
 
@@ -47,3 +50,15 @@ import init, { load_script } from "@visamp/engine";
 - Rust toolchain with the `wasm32-unknown-unknown` target
 - [`wasm-pack`](https://rustwasm.github.io/wasm-pack/)
 - Optional: [Binaryen](https://github.com/WebAssembly/binaryen) for `wasm-opt`
+
+## Scramble verification
+
+See [the implementation and verification notes](SCRAMBLE.md) and the
+[DSL reference](../../apps/docs/src/effects/scramble.md).
+
+```bash
+pnpm --filter @visamp/engine build:validator
+pnpm --filter @visamp/validator verify:scramble
+# Interactive local review (default port 4171):
+pnpm --filter @visamp/validator verify:scramble --serve
+```

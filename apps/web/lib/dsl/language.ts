@@ -11,7 +11,7 @@ import { tags as t } from "@lezer/highlight";
 const COMMENT = /^\/\/.*/;
 const KEYWORDS = /^(prop|fn|let|if|else|for|in|while|return|context|step)\b/;
 const NAMESPACES =
-  /^(draw|math|color|camera|transform|light|gfx|effect::filter)::[A-Za-z0-9_]+/;
+  /^(draw|math|color|camera|transform|light|gfx|effect::filter|effect)::[A-Za-z0-9_]+/;
 /**
  * The author's choice is the coordinate model; which backend 3d runs on is the
  * engine's business. The retired backend names are still matched so they get

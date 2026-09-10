@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
@@ -7,6 +7,7 @@ use web_sys::CanvasRenderingContext2d;
 
 pub mod assets;
 pub mod builtins;
+mod feedback;
 pub mod geometry;
 pub mod interpreter;
 pub mod math3;
@@ -15,6 +16,7 @@ pub mod parser;
 pub mod renderer;
 pub mod resolver;
 pub mod scene;
+pub mod scramble;
 pub mod utils;
 
 use interpreter::*;
@@ -50,8 +52,8 @@ pub fn compiler_version() -> String {
 /// this cannot be chosen at startup — the script decides, and the script is not
 /// loaded yet. It is acquired on the first `load_script` and fixed from then on.
 enum Backend {
-    TwoD(CanvasRenderingContext2d),
-    ThreeD(Renderer),
+    TwoD(CanvasRenderingContext2d, Option<feedback::Feedback>),
+    ThreeD(Renderer, Option<feedback::Feedback>),
 }
 
 struct AppState {
@@ -75,6 +77,10 @@ struct AppState {
     /// CSS filter composed while interpreting the most recent frame.
     canvas_filter: RefCell<String>,
     last_error: RefCell<Option<String>>,
+    scramble_capable: Cell<bool>,
+    context_lost: Cell<bool>,
+    recreate_context: Cell<bool>,
+    last_frame_ms: Cell<Option<f64>>,
 }
 
 /// The element the page gives the engine to draw inside.
@@ -220,7 +226,35 @@ fn init_app() -> Result<(), String> {
         scene: RefCell::new(Scene::default()),
         canvas_filter: RefCell::new(String::new()),
         last_error: RefCell::new(None),
+        scramble_capable: Cell::new(false),
+        context_lost: Cell::new(false),
+        recreate_context: Cell::new(false),
+        last_frame_ms: Cell::new(None),
     });
+
+    // Capture non-bubbling context events on the stable host. These handlers
+    // survive canvas replacement without retaining any discarded GL context.
+    for name in ["webglcontextlost", "webglcontextrestored"] {
+        let weak = Rc::downgrade(&state);
+        let closure = Closure::<dyn FnMut(web_sys::Event)>::new(move |event: web_sys::Event| {
+            if let Some(state) = weak.upgrade() {
+                if event.type_() == "webglcontextlost" {
+                    event.prevent_default();
+                    state.context_lost.set(true);
+                } else {
+                    state.context_lost.set(false);
+                    state.recreate_context.set(true);
+                }
+            }
+        });
+        host.add_event_listener_with_callback_and_bool(
+            name,
+            closure.as_ref().unchecked_ref(),
+            true,
+        )
+        .map_err(|_| "could not listen for graphics context changes")?;
+        closure.forget();
+    }
 
     // Mouse tracking hangs off the host, not the canvas, so it survives the
     // canvas being replaced on a context switch.
@@ -272,6 +306,29 @@ fn init_app() -> Result<(), String> {
         // Schedule next frame first to keep animation running
         request_animation_frame(f.borrow().as_ref().unwrap());
 
+        if state_ref.context_lost.get() {
+            return;
+        }
+        if state_ref.recreate_context.replace(false) {
+            let kind = *state_ref.kind.borrow();
+            if let Some(kind) = kind {
+                if let Err(error) = mount_canvas(&state_ref, kind, state_ref.scramble_capable.get())
+                {
+                    *state_ref.last_error.borrow_mut() = Some(error);
+                    return;
+                }
+            }
+        }
+        let now = web_sys::window()
+            .and_then(|w| w.performance())
+            .map(|p| p.now())
+            .unwrap_or(0.0);
+        let seconds = state_ref
+            .last_frame_ms
+            .replace(Some(now))
+            .map(|last| ((now - last) / 1000.0).max(0.0))
+            .unwrap_or(1.0 / 60.0);
+
         // Skipping a frame is invisible; panicking here is not. A capture or a
         // property read holding the state briefly should cost one frame, not
         // abort mid-borrow and leave every later frame unable to run.
@@ -315,22 +372,47 @@ fn init_app() -> Result<(), String> {
         };
 
         let frame_filter = RefCell::new(String::new());
+        let frame_scramble = RefCell::new(None);
         match backend {
-            Backend::TwoD(ctx) => {
+            Backend::TwoD(ctx, feedback) => {
+                if feedback.is_some() {
+                    let source = ctx.canvas().unwrap();
+                    let width = runtime.canvas_width as u32;
+                    let height = runtime.canvas_height as u32;
+                    if source.width() != width {
+                        source.set_width(width);
+                    }
+                    if source.height() != height {
+                        source.set_height(height);
+                    }
+                    ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
+                }
                 for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
                     if let Err(e) = interpret_render_block(
                         block,
                         decels,
-                        Target::canvas(ctx, &frame_filter),
+                        Target {
+                            scramble: Some(&frame_scramble),
+                            ..Target::canvas(ctx, &frame_filter)
+                        },
                         &*runtime,
                         functions,
                     ) {
                         *state_ref.last_error.borrow_mut() = Some(e);
                     }
                 }
+                if let Some(feedback) = feedback {
+                    let result = feedback
+                        .prepare(runtime.canvas_width as u32, runtime.canvas_height as u32)
+                        .and_then(|()| feedback.upload_canvas(&ctx.canvas().unwrap()))
+                        .and_then(|()| feedback.finish(*frame_scramble.borrow(), seconds));
+                    if let Err(error) = result {
+                        *state_ref.last_error.borrow_mut() = Some(error);
+                    }
+                }
             }
 
-            Backend::ThreeD(renderer) => {
+            Backend::ThreeD(renderer, feedback) => {
                 // §9.1 — every frame starts from the default scene, so nothing
                 // leaks between frames and live editing stays predictable.
                 state_ref.scene.borrow_mut().reset();
@@ -340,7 +422,10 @@ fn init_app() -> Result<(), String> {
                     if let Err(e) = interpret_render_block(
                         block,
                         decels,
-                        Target::scene(&state_ref.scene, &frame_filter),
+                        Target {
+                            scramble: Some(&frame_scramble),
+                            ..Target::scene(&state_ref.scene, &frame_filter)
+                        },
                         &*runtime,
                         functions,
                     ) {
@@ -368,8 +453,19 @@ fn init_app() -> Result<(), String> {
                     Some(canvas) => (canvas.width(), canvas.height()),
                     None => (0, 0),
                 };
-                let rendered =
-                    assets::with_store(|store| renderer.render(&scene, store, width, height));
+                let rendered = (|| {
+                    if let Some(feedback) = feedback.as_mut() {
+                        feedback.prepare(width, height)?;
+                        feedback.bind_scene();
+                    }
+                    assets::with_store(|store| {
+                        renderer.render(&scene, store, width, height, feedback.is_some())
+                    })?;
+                    if let Some(feedback) = feedback.as_mut() {
+                        feedback.finish(*frame_scramble.borrow(), seconds)?;
+                    }
+                    Ok::<(), String>(())
+                })();
                 if let Err(e) = rendered {
                     failure = Some(e);
                 }
@@ -427,11 +523,30 @@ pub fn load_script(code: &str) -> String {
                     return Err("Engine is not initialised".to_string());
                 };
 
-                if *state.kind.borrow() == Some(model.context) {
+                let capable = scramble::uses_scramble(&ast);
+                if *state.kind.borrow() == Some(model.context)
+                    && state.scramble_capable.get() == capable
+                    && !state.context_lost.get()
+                    && !state.recreate_context.get()
+                {
+                    match state.backend.borrow_mut().as_mut() {
+                        Some(Backend::TwoD(ctx, Some(feedback))) => {
+                            ctx.clear_rect(
+                                0.0,
+                                0.0,
+                                ctx.canvas().unwrap().width() as f64,
+                                ctx.canvas().unwrap().height() as f64,
+                            );
+                            feedback.reset();
+                        }
+                        Some(Backend::ThreeD(_, Some(feedback))) => feedback.reset(),
+                        _ => {}
+                    }
+                    state.last_frame_ms.set(None);
                     return Ok(());
                 }
 
-                mount_canvas(state, model.context)
+                mount_canvas(state, model.context, capable)
             });
 
             if let Err(message) = claimed {
@@ -782,6 +897,13 @@ fn resize_canvas(state: &AppState) {
     if !resized {
         return;
     }
+    state.last_frame_ms.set(None);
+    match state.backend.borrow_mut().as_mut() {
+        Some(Backend::TwoD(_, Some(feedback))) | Some(Backend::ThreeD(_, Some(feedback))) => {
+            feedback.reset()
+        }
+        _ => {}
+    }
 
     // Runs after the runtime above already reflects the new size, so `$WIDTH`
     // / `$HEIGHT` inside the hook read the size that triggered it.
@@ -811,7 +933,7 @@ fn resize_canvas(state: &AppState) {
 /// on a canvas that has already handed out a WebGL context returns null, and
 /// vice versa. The old canvas and its GPU resources are collected once it
 /// leaves the document.
-fn mount_canvas(state: &AppState, kind: ContextKind) -> Result<(), String> {
+fn mount_canvas(state: &AppState, kind: ContextKind, capable: bool) -> Result<(), String> {
     let document = web_sys::window()
         .ok_or("No window object")?
         .document()
@@ -835,25 +957,46 @@ fn mount_canvas(state: &AppState, kind: ContextKind) -> Result<(), String> {
 
     // Build the backend before touching the document, so a failure leaves the
     // previous canvas rendering rather than emptying the host.
-    let backend = match kind {
-        ContextKind::TwoD => {
-            let ctx = canvas
-                .get_context("2d")
-                .map_err(|_| "Failed to get a 2d context".to_string())?
-                .ok_or("2d context is null")?
-                .dyn_into::<CanvasRenderingContext2d>()
-                .map_err(|_| "Failed to cast the 2d context".to_string())?;
-            Backend::TwoD(ctx)
-        }
-        ContextKind::ThreeD => {
-            let gl = canvas
+    let gpu = if kind == ContextKind::ThreeD || capable {
+        Some(
+            canvas
                 .get_context("webgl2")
-                .map_err(|_| "Failed to get a webgl2 context".to_string())?
+                .map_err(|_| "Failed to get a webgl2 context")?
                 .ok_or("this browser has no WebGL2")?
                 .dyn_into::<web_sys::WebGl2RenderingContext>()
-                .map_err(|_| "Failed to cast the webgl2 context".to_string())?;
-            Backend::ThreeD(Renderer::new(gl)?)
+                .map_err(|_| "Failed to cast webgl2 context")?,
+        )
+    } else {
+        None
+    };
+    let post = if capable {
+        Some(feedback::Feedback::new(gpu.clone().unwrap())?)
+    } else {
+        None
+    };
+    let backend = match kind {
+        ContextKind::TwoD => {
+            let source = if capable {
+                let source = document
+                    .create_element("canvas")
+                    .map_err(|_| "could not create 2D scene")?
+                    .dyn_into::<web_sys::HtmlCanvasElement>()
+                    .map_err(|_| "could not cast 2D scene")?;
+                source.set_width(width);
+                source.set_height(height);
+                source
+            } else {
+                canvas.clone()
+            };
+            let ctx = source
+                .get_context("2d")
+                .map_err(|_| "Failed to get a 2d context")?
+                .ok_or("2d context is null")?
+                .dyn_into::<CanvasRenderingContext2d>()
+                .map_err(|_| "Failed to cast the 2d context")?;
+            Backend::TwoD(ctx, post)
         }
+        ContextKind::ThreeD => Backend::ThreeD(Renderer::new(gpu.unwrap())?, post),
     };
 
     if let Some(previous) = state.canvas.borrow().as_ref() {
@@ -873,6 +1016,10 @@ fn mount_canvas(state: &AppState, kind: ContextKind) -> Result<(), String> {
     *state.canvas.borrow_mut() = Some(canvas);
     *state.backend.borrow_mut() = Some(backend);
     *state.kind.borrow_mut() = Some(kind);
+    state.scramble_capable.set(capable);
+    state.context_lost.set(false);
+    state.recreate_context.set(false);
+    state.last_frame_ms.set(None);
     state.scene.borrow_mut().reset();
 
     Ok(())

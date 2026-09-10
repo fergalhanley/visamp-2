@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>Scramble verification</title>
+  <style>
+    body {
+      margin: 24px;
+      background: #18191c;
+      color: #eee;
+      font: 15px system-ui;
+    }
+    button,
+    select {
+      font: inherit;
+      margin: 0 8px 16px 0;
+    }
+    #visamp-stage {
+      width: 640px;
+      height: 360px;
+      background: #000;
+    }
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(4, 256px);
+      gap: 12px;
+    }
+    #gallery canvas {
+      width: 128px;
+      height: 80px;
+      image-rendering: pixelated;
+    }
+    #gallery p {
+      margin: 4px 0;
+    }
+  </style>
+  <h1>Scramble verification</h1>
+  <p id="status">Loading engine…</p>
+  <select id="context">
+    <option>2d</option>
+    <option>3d</option>
+  </select>
+  <select id="preset"></select>
+  <select id="refresh">
+    <option value="color::rgb(transparent: 0.93)">Fading black</option>
+    <option value="color::rgb(b: 0.2, transparent: 0.93)">Fading blue</option>
+    <option value="$COLOR_BLACK">Opaque black</option>
+    <option value="color::rgb(transparent: 1.0)">No fading</option>
+  </select>
+  <button id="play">Run example</button>
+  <div id="visamp-stage"></div>
+  <div id="gallery"></div>
+  <script type="module" src="/scramble-harness.mjs"></script>
+</html>

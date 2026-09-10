@@ -237,6 +237,7 @@ pub const BUILTINS: &[Builtin] = &[
     ns3("gfx", "cull", &["mode"], &[]),
     ns3("gfx", "clear", &["color"], &[]),
     ns3("gfx", "overlay", &["enabled"], &[]),
+    ns("effect", "scramble", &["type", "refresh_color"]),
     // ── effect::filter:: CSS post-processing (2D and 3D) ──────────────────────
     ns("effect::filter", "blur", &["radius"]),
     ns("effect::filter", "brightness", &["amount"]),
@@ -368,6 +369,7 @@ pub const KNOWN_NAMESPACES: &[&str] = &[
     "light",
     "gfx",
     "effect::filter",
+    "effect",
 ];
 
 pub fn lookup(namespace: &str, name: &str) -> Option<&'static Builtin> {
