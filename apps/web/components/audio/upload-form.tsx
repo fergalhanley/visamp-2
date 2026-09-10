@@ -203,13 +203,7 @@ function UserUploads() {
   return (
     <>
       {!data.artists.length ? (
-        <div className="site-form">
-          <h2>Your artist profile needs to be linked.</h2>
-          <p>
-            A site admin must link your account to a music artist and approve a
-            licence before you can upload tracks.
-          </p>
-        </div>
+        <ClaimArtistForm onClaimed={refresh} />
       ) : (
         <form ref={formRef} onSubmit={submit} className="site-form">
           <label>
@@ -352,5 +346,76 @@ function UserUploads() {
         )}
       </section>
     </>
+  );
+}
+
+/**
+ * VIS-83 — the way in. This used to say an admin had to link your account
+ * before you could do anything, which was a dead end reached by everybody who
+ * had just signed up to upload music.
+ *
+ * Claiming is unverified on purpose. It grants the ability to upload, not a
+ * public page: nothing an artist uploads is reachable by anyone else until an
+ * admin activates their licence, and the artist's own page stays private until
+ * a track goes live with it.
+ */
+function ClaimArtistForm({ onClaimed }: { onClaimed: () => Promise<void> }) {
+  const [name, setName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (pending) return;
+
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/uploads/artist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      // Straight into the upload form, which the refreshed artist list unlocks.
+      await onClaimed();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not create your artist.",
+      );
+      setPending(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="site-form">
+      <h2>What do you release under?</h2>
+      <p>
+        Your artist name is what listeners see beside your tracks. You can start
+        uploading straight away — a track only becomes public once we have
+        approved your licence.
+      </p>
+      <label>
+        Artist name
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={120}
+          required
+          disabled={pending}
+          placeholder="e.g. Deep Fixation"
+          autoComplete="off"
+        />
+      </label>
+      {error && <p role="alert">{error}</p>}
+      <button
+        className="site-button primary"
+        type="submit"
+        disabled={pending || !name.trim()}
+      >
+        {pending ? "Creating…" : "Create artist profile"}
+      </button>
+    </form>
   );
 }

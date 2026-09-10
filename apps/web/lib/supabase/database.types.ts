@@ -820,6 +820,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Tables"]["audio_uploads"]["Row"][]
       }
+      claim_music_artist: {
+        Args: { p_user_id: string; p_name: string }
+        Returns: Database["public"]["Tables"]["music_artists"]["Row"]
+      }
       begin_ai_generation: {
         Args: {
           p_concurrent_limit: number
