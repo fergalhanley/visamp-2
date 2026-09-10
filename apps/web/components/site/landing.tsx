@@ -62,6 +62,72 @@ export function Landing({
   }, [page.next]);
   useEffect(() => () => controller.current?.abort(), []);
 
+  /**
+   * Scrolls the gallery into view, and keeps the document itself pinned.
+   *
+   * `globals.css` sets `html, body { overflow: hidden }` — the visualisation is
+   * the page, and `.site-page` is what actually scrolls. Anchor navigation
+   * ignores that: following `#discover` scrolls the *document* by exactly the
+   * 130px `scroll-padding-top` while leaving the container where it was. The
+   * document cannot then be scrolled back, because it is `overflow: hidden`,
+   * so the page is left permanently shifted with its top cut off.
+   *
+   * The assignment is deliberately synchronous and instant. `scroll-behavior:
+   * smooth` on the container turns every `scrollTop` write into an animation,
+   * so writing once per frame restarts it every frame and nothing moves at all.
+   */
+  const scrollToDiscover = useCallback(() => {
+    const root = scrollRoot.current;
+    const target = document.getElementById("discover");
+    if (!root || !target) return;
+
+    const top =
+      target.getBoundingClientRect().top -
+      root.getBoundingClientRect().top +
+      root.scrollTop;
+
+    // "auto", not "smooth": the write has to take effect immediately, because
+    // the inline style is restored on the very next line. Asking for smooth
+    // here schedules an animation that is then cancelled before it starts,
+    // which is precisely nothing happening.
+    const previous = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    root.scrollTop = top;
+    root.style.scrollBehavior = previous;
+  }, []);
+
+  /**
+   * The document must never hold a scroll offset. Anchor navigation is not the
+   * only way it can get one — arriving on `/#discover` does it before any of
+   * this mounts, and so does a restored scroll position — and once it has one,
+   * nothing the viewer can do will clear it.
+   */
+  useEffect(() => {
+    const pin = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+    };
+
+    // The browser performs its own anchor scroll after load, which lands after
+    // this effect has run and does not reliably emit a scroll event to catch.
+    // Checking again on the next frame, and once more after layout settles,
+    // covers arriving on /#discover directly.
+    pin();
+    const frame = requestAnimationFrame(pin);
+    // Honour the hash once layout has settled: measuring the gallery's offset
+    // any earlier reads zero, and the scroll goes nowhere.
+    const settled = window.setTimeout(() => {
+      pin();
+      if (window.location.hash === "#discover") scrollToDiscover();
+    }, 250);
+    window.addEventListener("scroll", pin, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", pin);
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settled);
+    };
+  }, [scrollToDiscover]);
+
   useEffect(() => {
     if (!page.next || error || loading) return;
     const observer = new IntersectionObserver(
@@ -120,7 +186,20 @@ export function Landing({
               <a className="site-button primary" href="/player">
                 <Play size={16} fill="currentColor" /> Play Now
               </a>
-              <a className="site-button secondary" href="#discover">
+              <a
+                className="site-button secondary"
+                href="#discover"
+                onClick={(event) => {
+                  event.preventDefault();
+                  // A real click focuses the link, and the browser keeps a
+                  // focused element in view — which scrolls the container
+                  // straight back to the hero the moment we leave it. A
+                  // scripted click never focuses, which is why this only shows
+                  // up when a person clicks it.
+                  event.currentTarget.blur();
+                  scrollToDiscover();
+                }}
+              >
                 Discover <ArrowDown size={16} />
               </a>
             </div>
