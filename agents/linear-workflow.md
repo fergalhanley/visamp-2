@@ -85,16 +85,19 @@ If access is missing, stop with the actual connection or permission error.
 
 ## Other delivery prerequisites
 
-- Confirm GitHub access for this repository before code work: fetch/push through
-  the existing Git authentication and create PRs through an available authenticated
-  GitHub tool or GitHub CLI. Linear authentication does not grant GitHub access.
+- Confirm GitHub access for this repository before code work: fetch and push
+  `develop` through the existing Git authentication. Linear authentication does not
+  grant GitHub access. Ordinary work needs no pull request; a release pull request
+  from `develop` to `main` is opened only when the project owner asks for one, and
+  needs an authenticated GitHub tool or the GitHub CLI.
 - Send the progress messages required by AGENTS.md to **#progress** in Fergal's
   Visamp Slack workspace. Fergal created and selected this channel. Resolve that
   channel in the connected workspace before posting; confirm the local client's
   Slack access and posting authorisation. Linear OAuth does not connect Slack.
   Do not claim a post was sent unless the Slack tool confirms it.
-- Use an isolated branch/worktree for each active task. Do not share a working tree
-  with another running agent.
+- Use a separate worktree for each active task, all on `develop`. Do not share a
+  working tree with another running agent. AGENTS.md allows two long-lived branches
+  and no others, so there is no per-issue branch to isolate.
 
 ## Select eligible work
 
@@ -130,16 +133,17 @@ For a user-authorised pickup:
    Stop if another session has claimed it or the issue is no longer eligible.
 2. Move it to **In Progress**, preserving the assignee.
 3. Record a claim in the issue with agent client, a unique session identifier,
-   intended branch and checkout/worktree. Do not include credentials.
+   working branch and checkout/worktree. Do not include credentials.
 4. Read it back to confirm the status and claim, then follow AGENTS.md's STARTING
    and branch requirements.
 
-Use a branch such as `vis-13-repair-auth-navigation`; use the actual issue ID.
-A claim record can be:
+The branch is `develop`. Name a short-lived branch in the claim only in the exception
+AGENTS.md describes — a change risky or far-reaching enough that someone asked to see
+it first — and merge it into `develop`, never into `main`. A claim record can be:
 
 ```text
 CLAIM — client=Codex CLI; session=<unique session ID>
-Branch: <issue-id>-<short-description>
+Branch: develop
 Worktree: <local worktree>
 Scope: <one-sentence accepted task>
 ```
@@ -157,11 +161,13 @@ Follow all applicable AGENTS.md instructions and the issue's acceptance criteria
 - Keep scope, dependencies and decisions in Linear, and technical changes in GitHub.
 - Record actionable blockers and validation outcomes. Do not silently replace open
   choices with implementation assumptions.
-- Open a PR against `main` with the issue link, changes, validation and limitations.
-- Link the PR in Linear and move the issue to **In Review** when ready for review.
+- Run the relevant checks, then commit to `develop` and push. There is no pull
+  request for ordinary work; what is committed has to stand on its own.
+- Move the issue to **In Review** and record the commit, the validation performed and
+  any limitations.
 - Complete the required progress/handoff updates using the authorised destination.
-- Stop at review. Merging and marking Done still require the existing authorisation.
-  Connecting MCP does not change approval settings or provide merge authorisation.
+- Stop at review. Releasing to `main` and marking Done still require the existing
+  authorisation. Connecting MCP does not change approval settings or grant it.
 
 ## Pickup prompts
 
@@ -170,9 +176,10 @@ For one agent at a time:
 > Read AGENTS.md and agents/linear-workflow.md. Pick the highest-priority eligible,
 > unassigned Todo issue in the Visamp team. Check all blockers and recent claims,
 > record your claim and move it to In Progress. Preserve human ownership, implement
-> only the agreed scope, validate it and open a PR against main. Link the PR and
-> move the issue to In Review. Do not merge or mark Done. Stop if required inputs
-> or delivery integrations are unavailable.
+> only the agreed scope, validate it, then commit to develop and push. Record the
+> commit in Linear and move the issue to In Review. Do not open a release pull
+> request or mark Done. Stop if required inputs or delivery integrations are
+> unavailable.
 
 For multiple agents, send each a distinct issue:
 
