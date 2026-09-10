@@ -61,6 +61,7 @@ export function Landing({
     }
   }, [page.next]);
   useEffect(() => () => controller.current?.abort(), []);
+
   useEffect(() => {
     if (!page.next || error || loading) return;
     const observer = new IntersectionObserver(
@@ -102,7 +103,7 @@ export function Landing({
               <img
                   src="/visamp-title.svg"
                   alt="VisAmp"
-                  // className={cn("h-6 w-auto mix-blend-screen", "hero-title-image")}
+                  className={cn("h-5 w-auto mix-blend-screen", "hero-title-image")}
               />
             </div>
             <h1 id="landing-title" className="sr-only">
