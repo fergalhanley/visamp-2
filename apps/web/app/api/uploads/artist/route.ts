@@ -3,6 +3,7 @@ import {
   uploadError,
   uploadIdentity,
 } from "@/lib/hosted-audio/uploads";
+import { readableRpcError } from "@/lib/hosted-audio/rpc-errors";
 
 /** Matches the column bound; the RPC re-checks, this only saves a round trip. */
 const MAX_NAME = 120;
@@ -43,10 +44,15 @@ export async function POST(request: Request) {
     });
 
     // The function raises with wording meant for the person reading it — an
-    // existing claim, a name that yields no usable web address. Passing it
-    // through beats a generic failure that leaves them guessing.
-    if (error)
-      return Response.json({ error: error.message }, { status: 409 });
+    // existing claim, a name that yields no usable web address. Passing that
+    // through beats a generic failure that leaves them guessing; anything the
+    // function did not raise on purpose is infrastructure, and is not theirs
+    // to read.
+    if (error) {
+      const readable = readableRpcError(error);
+      if (!readable) throw error;
+      return Response.json({ error: readable }, { status: 409 });
+    }
 
     return Response.json(
       { artist: { id: data.id, name: data.name, slug: data.slug } },

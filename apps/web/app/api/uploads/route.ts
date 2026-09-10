@@ -8,6 +8,7 @@ import {
   uploadLicenceGrantsIngest,
 } from "@/lib/hosted-audio/uploads";
 import { CURRENT_AGREEMENT_VERSION } from "@/lib/hosted-audio/agreement";
+import { readableRpcError } from "@/lib/hosted-audio/rpc-errors";
 
 export async function GET() {
   try {
@@ -139,8 +140,13 @@ export async function POST(request: Request) {
       p_version: CURRENT_AGREEMENT_VERSION,
       p_user_agent: request.headers.get("user-agent") ?? "",
     });
-    if (accepted.error)
-      return Response.json({ error: accepted.error.message }, { status: 403 });
+    if (accepted.error) {
+      const readable = readableRpcError(accepted.error);
+      // Anything else is ours to fix, not theirs to read: rethrow so it is
+      // logged and answered generically.
+      if (!readable) throw accepted.error;
+      return Response.json({ error: readable }, { status: 403 });
+    }
 
     const licence = accepted.data;
     if (!licence || !uploadLicenceGrantsIngest(licence))
