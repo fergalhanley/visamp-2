@@ -158,13 +158,43 @@ Track assignment is distinct from this suggested starting visual.
 Confirmed: users can contribute visualisations, music or both. Music artists may exist
 without a registered user account.
 
-Proposed terminology, pending final confirmation: "creator" for visualisation attribution,
-"artist" for music attribution. These describe context rather than mutually exclusive accounts.
+Agreed terminology: "creator" for visualisation attribution, "artist" for music attribution.
+These describe context rather than mutually exclusive accounts — one person is a creator beside
+their visualisation and an artist beside their track.
 
-Current schema: auth users/profiles own visuals; music_artists has optional claimed_by linking
-an artist to a user. Preserve support for unclaimed artists. Profile presentation, artist
-claiming and administrative permissions require definition. Existing /artists lists visual creators.
-One public user profile shows Visualisations and Music tabs when both content types apply.
+Agreed routes: creators and artists take separate namespaces. `profiles.username`
+(`[A-Za-z0-9_]{3,30}`, case-insensitively unique) and `music_artists.slug` (lowercase, hyphenated)
+overlap without matching, so a shared namespace would need a permanent collision rule.
+
+| Route | Entity | Public when |
+| --- | --- | --- |
+| `/creators` | profiles | index of creators with public work |
+| `/creators/<username>` | profiles | the person has public visualisations, or a public artist |
+| `/artists` | music_artists | index of artists with at least one live track |
+| `/artists/<slug>` | music_artists | the artist has at least one live track |
+
+The existing `/artists` lists visual creators and becomes `/creators`. Legacy `/artists/<handle>`
+links resolve as an artist slug first, then fall back to `profiles.username` and redirect
+permanently to `/creators/<handle>`; `/artist/<username>` already redirects and repoints likewise.
+A future artist slug can therefore shadow a legacy creator link, which is acceptable once those
+links have been redirecting for some time.
+
+Agreed claiming and ownership: a signed-in user creates an artist record, claims it themselves
+immediately and may upload straight away. `music_artists` stays revoked from `authenticated`, so
+the claim goes through a security-definer RPC beside the existing `begin_audio_upload` and
+`claim_audio_upload`. `claimed_by` remains the only link between a user and an artist; no join
+table is added. Unclaimed artists keep full pages, and `on delete set null` already returns an
+artist to unclaimed when its claimant's account goes.
+
+An admin activates an artist's licence once; tracks then publish automatically as described under
+music-artist onboarding, with no per-track review. Until an artist has a live track its page is
+visible only to its claimant, so an immediate self-serve claim grants an upload capability rather
+than a public identity — which is what makes claiming safe without verifying the claimant.
+
+Agreed both-content presentation: the creator profile is the person's one public profile and
+carries Visualisations and Music tabs when both apply. The artist page describes the act rather
+than the person, which is what keeps artists without accounts whole. The two cross-link once
+claimed.
 
 ## Accounts and community
 
@@ -180,6 +210,8 @@ One public user profile shows Visualisations and Music tabs when both content ty
 ## Music-artist onboarding and publication
 
 - Fergal primarily recruits/ingests artists; artists must also be able to upload their music.
+- A signed-in user may create and claim their own artist record and upload immediately, without
+  waiting for an admin. Licence activation stays the admin's one-time step per artist.
 - Artist self-uploads accept the non-exclusive agreement online.
 - For Fergal-managed uploads, his intended process is to email the agreement and record
   the confirmation reply. Store the agreement and evidence together; this records a product
