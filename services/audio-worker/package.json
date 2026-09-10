@@ -1,0 +1,16 @@
+{
+  "name": "@visamp/audio-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Scheduled batch that transcodes uploaded masters. Runs where FFmpeg is, never in a web request.",
+  "scripts": {
+    "process": "node --env-file-if-exists=../../apps/web/.env.local scripts/process-audio-uploads.mjs",
+    "ingest": "node --env-file-if-exists=../../apps/web/.env.local scripts/ingest-hosted-audio.mjs",
+    "cleanup": "node --env-file-if-exists=../../apps/web/.env.local scripts/cleanup-hosted-audio.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
+    "@supabase/supabase-js": "^2.112.3"
+  }
+}

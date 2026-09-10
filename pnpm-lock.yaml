@@ -164,6 +164,15 @@ importers:
 
   packages/typescript-config: {}
 
+  services/audio-worker:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1127.0
+        version: 3.1127.0
+      '@supabase/supabase-js':
+        specifier: ^2.112.3
+        version: 2.112.3
+
 packages:
 
   '@alloc/quick-lru@5.2.0':

@@ -42,6 +42,19 @@ for (const binary of ["ffmpeg", "ffprobe"]) {
   if (checked.status !== 0)
     throw new Error(binary + " must be installed before processing uploads.");
 }
+/**
+ * A rejected track is not a broken worker.
+ *
+ * On a schedule the exit code is the only signal anyone watches, so a single
+ * unusable master must not turn the run red — do that and every run is red,
+ * and the alert stops meaning anything. A job that fails is recorded against
+ * its own row, where an admin can see it. Only the worker itself failing —
+ * missing ffmpeg, bad credentials, a database that will not answer — is worth
+ * waking someone for, and those throw out of this loop.
+ */
+let processed = 0;
+let rejected = 0;
+
 // No reclaim timer: a crashed processing job needs operator review before retry,
 // so a second worker cannot race the first and create duplicate tracks.
 for (let index = 0; index < 10; index++) {
@@ -169,6 +182,7 @@ for (let index = 0; index < 10; index++) {
       );
     }
     console.log("Ready for review:", job.id);
+    processed += 1;
   } catch (error) {
     console.error("Upload failed:", job.id, error?.message ?? error);
     const failed = await db
@@ -181,8 +195,13 @@ for (let index = 0; index < 10; index++) {
       .eq("id", job.id)
       .eq("status", "processing");
     if (failed.error) throw failed.error;
-    process.exitCode = 1;
+    rejected += 1;
   } finally {
     await rm(work, { recursive: true, force: true });
   }
 }
+
+console.log(
+  `Batch finished: ${processed} processed, ${rejected} rejected.` +
+    (rejected ? " Rejected uploads carry their reason on the row." : ""),
+);

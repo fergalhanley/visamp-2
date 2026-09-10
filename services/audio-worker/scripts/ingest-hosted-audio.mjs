@@ -10,6 +10,34 @@ import { spawnSync } from "node:child_process";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createClient } from "@supabase/supabase-js";
 
+/**
+ * What a decoded rendition may measure, in dBTP.
+ *
+ * This used to be -0.8, a mastering-grade figure, applied to lossy output. Two
+ * things make that unreachable rather than strict. A master at -13.5 LUFS
+ * peaking at 0 dBTP — an ordinary modern master — needs half a decibel of gain
+ * to reach -14 LUFS, so its peaks stay at the top whatever we do. And ffmpeg's
+ * native AAC encoder overshoots its input by 1.7 to 2.6 dB regardless of level:
+ * measured on a real upload at 0, -3, -6 and -12 dB of gain, the overshoot
+ * barely moved. No limiter setting or encoder choice tested brought that
+ * combination under -0.8.
+ *
+ * So the check now catches renditions that are grossly wrong rather than
+ * enforcing a spec our own transcoder cannot meet. The integrated loudness
+ * check above is the one that protects the listening experience, and it is
+ * unchanged.
+ *
+ * An alimiter after loudnorm was tried and rejected. `linear=true` does skip
+ * loudnorm's own limiter, so the TP target really is unenforced — but measured
+ * against two real uploads the limiter did not reliably help: on one it left
+ * AAC at 1.40 where it had been 1.41, and pushed Opus from 0.26 up to 0.61.
+ * It alters the artist's dynamics for no dependable gain, which is a bad trade.
+ *
+ * Worth revisiting alongside the AAC encoder: aac_at measured +0.60 where the
+ * native encoder measured +1.41 on the same input.
+ */
+const RENDITION_PEAK_CEILING_DBTP = 2.0;
+
 const args = parseArgs(process.argv.slice(2));
 const input = resolve(requiredArg(args, "input"));
 const inputFormat = extname(input).toLowerCase() === ".flac" ? "flac"
@@ -609,33 +637,6 @@ function renderArtwork(source, output, size) {
  * Mirrors uploadLicenceGrantsIngest in lib/hosted-audio/upload-rules.ts. This
  * script is plain .mjs and cannot import it; keep the two in step.
  */
-/**
- * What a decoded rendition may measure, in dBTP.
- *
- * This used to be -0.8, a mastering-grade figure, applied to lossy output. Two
- * things make that unreachable rather than strict. A master at -13.5 LUFS
- * peaking at 0 dBTP — an ordinary modern master — needs half a decibel of gain
- * to reach -14 LUFS, so its peaks stay at the top whatever we do. And ffmpeg's
- * native AAC encoder overshoots its input by 1.7 to 2.6 dB regardless of level:
- * measured on a real upload at 0, -3, -6 and -12 dB of gain, the overshoot
- * barely moved. No limiter setting or encoder choice tested brought that
- * combination under -0.8.
- *
- * So the check now catches renditions that are grossly wrong rather than
- * enforcing a spec our own transcoder cannot meet. The integrated loudness
- * check above is the one that protects the listening experience, and it is
- * unchanged.
- *
- * An alimiter after loudnorm was tried and rejected. `linear=true` does skip
- * loudnorm's own limiter, so the TP target really is unenforced — but measured
- * against two real uploads the limiter did not reliably help: on one it left
- * AAC at 1.40 where it had been 1.41, and pushed Opus from 0.26 up to 0.61.
- * It alters the artist's dynamics for no dependable gain, which is a bad trade.
- *
- * Worth revisiting alongside the AAC encoder: aac_at measured +0.60 where the
- * native encoder measured +1.41 on the same input.
- */
-const RENDITION_PEAK_CEILING_DBTP = 2.0;
 
 function licenceGrantsIngest(licence, artistId) {
   const today = new Date().toISOString().slice(0, 10);

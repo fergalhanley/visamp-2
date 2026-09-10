@@ -14,9 +14,9 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "check-types": "turbo run check-types",
-    "ingest": "pnpm --filter @visamp/web ingest",
-    "audio:process": "pnpm --filter @visamp/web audio:process",
-    "audio:cleanup": "pnpm --filter @visamp/web audio:cleanup",
+    "ingest": "pnpm --filter @visamp/audio-worker ingest",
+    "audio:process": "pnpm --filter @visamp/audio-worker process",
+    "audio:cleanup": "pnpm --filter @visamp/audio-worker cleanup",
     "clean": "turbo run clean"
   },
   "devDependencies": {
