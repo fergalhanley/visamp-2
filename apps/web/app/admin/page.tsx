@@ -1,4 +1,4 @@
-import { SiteHeader } from "@/components/site/site-header";
+import { TopBar } from "@/components/chrome/top-bar";
 import { Dashboard } from "@/components/admin/dashboard";
 export const metadata = {
   title: "Admin",
@@ -7,7 +7,7 @@ export const metadata = {
 export default function AdminPage() {
   return (
     <div className="site-page">
-      <SiteHeader />
+      <TopBar />
       <main className="site-content">
         <p className="site-eyebrow">SITE ADMINISTRATION</p>
         <h1>The control room.</h1>

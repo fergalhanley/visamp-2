@@ -31,6 +31,9 @@ interface PanelProps {
  */
 export function Panel({ side, label, children }: PanelProps) {
   const open = useChromeStore((s) => (side === "v" ? s.vOpen : s.aOpen));
+  // The top bar shares the chrome's visibility, so the panel starts below it
+  // whenever it is on screen and reclaims the full height once it fades.
+  const chromeVisible = useChromeStore((s) => s.visible);
   const closePanel = useChromeStore((s) => s.closePanel);
   const setPinned = useChromeStore((s) => s.setPinned);
   const compact = useCompactChrome();
@@ -123,8 +126,13 @@ export function Panel({ side, label, children }: PanelProps) {
       onFocusCapture={onFocusCapture}
       onBlurCapture={onBlurCapture}
       className={cn(
-        "visamp-surface fixed top-0 z-40 flex h-full w-[22rem] flex-col",
-        "transition-transform duration-300 ease-out",
+        "visamp-surface fixed z-40 flex w-[22rem] flex-col",
+        // `translate` rather than `transform`: the slide utilities set the
+        // standalone property, which an explicit list has to name itself —
+        // `transition-transform` covered it, an arbitrary list does not.
+        "transition-[translate,top,height] duration-300 ease-out",
+        // Clear of the top bar, matching TOP_BAR_HEIGHT.
+        chromeVisible ? "top-14 h-[calc(100%-3.5rem)]" : "top-0 h-full",
         side === "v" ? "left-0 border-r" : "right-0 border-l",
         open
           ? "translate-x-0"

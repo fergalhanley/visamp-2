@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
+import { barButton, barButtonGreen, barLabel } from "@/components/chrome/bar-button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,16 +56,11 @@ export function CreateVisButton({ className }: { className?: string }) {
         <button
           type="submit"
           onClick={onClick}
-          className={cn(
-            "flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-medium",
-            "bg-emerald-500 text-black",
-            "transition hover:bg-emerald-400",
-            "focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:outline-none",
-            className,
-          )}
+          title="Start a new visualisation"
+          className={cn(barButton, barButtonGreen, className)}
         >
           <Plus className="h-4 w-4" />
-          Create Vis
+          <span className={barLabel}>Create Vis</span>
         </button>
       </form>
 

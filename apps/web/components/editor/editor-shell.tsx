@@ -30,7 +30,9 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
-import { BrandLockup } from "@/components/brand/logo";
+import { barButton, barButtonBlue, barLabel } from "@/components/chrome/bar-button";
+import { CreateVisButton } from "@/components/chrome/create-vis-button";
+import { TopBar } from "@/components/chrome/top-bar";
 import { AiPrompt } from "@/components/editor/ai-prompt";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
@@ -533,136 +535,52 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
   const fileAction = cn(
     "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
-    "transition hover:bg-foreground/5 disabled:opacity-50",
+    "whitespace-nowrap transition hover:bg-foreground/5 disabled:opacity-50",
   );
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
-      {/* E6.1 — thin menubar with the mark and room for more. */}
-      <header className="flex h-12 shrink-0 items-center gap-4 border-b bg-black px-4">
-        {/* Hard navigation on purpose: leaving the editor must tear down the
-            document so the player's canvas can claim the WASM singleton. */}
-        <a href="/player" className="shrink-0" aria-label="Back to the player">
-          <BrandLockup className="h-5" />
-        </a>
-
-        <nav className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-          <a href="/player" className="transition hover:text-foreground">
-            Player
-          </a>
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a href="/artists" className="transition hover:text-foreground">
-            Artists
-          </a>
-        </nav>
-
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          disabled={!canEdit || empty}
-          aria-label="Title"
-          className={cn(
-            "min-w-0 flex-1 rounded-md px-2 py-1 text-sm transition",
-            // Given a surface of its own: sitting flush on the menubar it read
-            // as a heading, and nobody thinks to click a heading.
-            "bg-foreground/[0.06] hover:bg-foreground/10",
-            "outline-none placeholder:text-muted-foreground",
-            "focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-ring",
-            "disabled:bg-transparent disabled:opacity-60",
-          )}
-          placeholder="Untitled"
-        />
-
-        {/* POST rather than a link: /edit creates a row, and a GET target can
-            be speculatively prefetched into stray drafts. */}
-        <form method="POST" action="/edit" className="flex shrink-0">
-          <button type="submit" title="Start a new visualisation" className={fileAction}>
-            <FilePlus className="h-3.5 w-3.5" />
-            New
-          </button>
-        </form>
-
-        <button
-          type="button"
-          onClick={() => setOpenPickerShown(true)}
-          title="Open one of your visualisations"
-          className={fileAction}
-        >
-          <FolderOpen className="h-3.5 w-3.5" />
-          Open
-        </button>
-
-
-        {/* Deliberately outside the `canEdit` branch — forking someone else's
-            work is the point — but there is nothing to fork with nothing open. */}
-        <button
-          type="button"
-          onClick={() => void fork()}
-          disabled={forking}
-          hidden={empty}
-          title="Save and fork into a copy you own"
-          className={fileAction}
-        >
-          {forking ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <GitFork className="h-3.5 w-3.5" />
-          )}
-          Fork
-        </button>
-
-        {empty ? null : canEdit ? (
+      {/* E6.1 — the site's menubar, carrying only what acts on the site:
+          start something new, fork what is open, open something else. What
+          acts on *this* visualisation moved down onto the preview's own
+          toolbar, next to the thing it changes. */}
+      <TopBar
+        position="static"
+        actions={
           <>
+            <CreateVisButton />
+
+            {/* Deliberately outside the `canEdit` branch — forking someone
+                else's work is the point — but there is nothing to fork with
+                nothing open. */}
             <button
               type="button"
-              onClick={() => void captureThumbnail()}
-              disabled={capturing}
-              title={
-                thumbPinned
-                  ? "Thumbnail pinned to a captured frame"
-                  : "Pin the current frame as the thumbnail"
-              }
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition",
-                "hover:bg-foreground/5 disabled:opacity-50 cursor-pointer", 
-                thumbPinned && "border-foreground/30 bg-foreground/10",
-              )}
+              onClick={() => void fork()}
+              disabled={forking}
+              hidden={empty}
+              title="Save and fork into a copy you own"
+              className={cn(barButton, barButtonBlue)}
             >
-              {capturing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : thumbPinned ? (
-                <Pin className="h-3.5 w-3.5" />
+              {forking ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Camera className="h-3.5 w-3.5" />
+                <GitFork className="h-4 w-4" />
               )}
-              Capture frame
+              <span className={barLabel}>Fork Vis</span>
             </button>
 
-            <select
-              value={visibility}
-              onChange={(event) => setVisibility(event.target.value as Visibility)}
-              aria-label="Visibility"
-              className="rounded-md border bg-transparent px-2 py-1 text-xs cursor-pointer"
-            >
-              <option value="private">Private</option>
-              <option value="public">Public</option>
-            </select>
-
             <button
               type="button"
-              onClick={() => setDeleteShown(true)}
-              title="Delete this visualisation"
-              aria-label="Delete this visualisation"
-              className={fileAction}
+              onClick={() => setOpenPickerShown(true)}
+              title="Open one of your visualisations"
+              className={cn(barButton, barButtonBlue)}
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
+              <FolderOpen className="h-4 w-4" />
+              <span className={barLabel}>Open Vis</span>
             </button>
           </>
-        ) : (
-          <span className="text-xs text-muted-foreground">Read-only</span>
-        )}
-      </header>
+        }
+      />
 
       {empty ? (
         /* Nothing open. The shape of the editor is kept — a black stage with
@@ -806,6 +724,76 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* Everything that acts on this visualisation, on the same parent as
+              the preview it acts on: the name of the thing, then capturing a
+              frame of it, who can see it, and getting rid of it. */}
+          <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              disabled={!canEdit}
+              aria-label="Title"
+              className={cn(
+                "min-w-0 flex-1 rounded-md px-2 py-1 text-sm transition",
+                // Given a surface of its own: sitting flush on the toolbar it
+                // read as a heading, and nobody thinks to click a heading.
+                "bg-foreground/[0.06] hover:bg-foreground/10",
+                "outline-none placeholder:text-muted-foreground",
+                "focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-ring",
+                "disabled:bg-transparent disabled:opacity-60",
+              )}
+              placeholder="Untitled"
+            />
+
+            {canEdit ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void captureThumbnail()}
+                  disabled={capturing}
+                  title={
+                    thumbPinned
+                      ? "Thumbnail pinned to a captured frame"
+                      : "Pin the current frame as the thumbnail"
+                  }
+                  className={cn(fileAction, thumbPinned && "border-foreground/30 bg-foreground/10")}
+                >
+                  {capturing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : thumbPinned ? (
+                    <Pin className="h-3.5 w-3.5" />
+                  ) : (
+                    <Camera className="h-3.5 w-3.5" />
+                  )}
+                  Capture frame
+                </button>
+
+                <select
+                  value={visibility}
+                  onChange={(event) => setVisibility(event.target.value as Visibility)}
+                  aria-label="Visibility"
+                  className="shrink-0 cursor-pointer rounded-md border bg-transparent px-2 py-1 text-xs"
+                >
+                  <option value="private">Private</option>
+                  <option value="public">Public</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => setDeleteShown(true)}
+                  title="Delete this visualisation"
+                  aria-label="Delete this visualisation"
+                  className={fileAction}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              </>
+            ) : (
+              <span className="shrink-0 text-xs text-muted-foreground">Read-only</span>
+            )}
+          </div>
+
           {/* E6.3 — 16:9 sized to the column; the log takes what's left. */}
           {/* Fullscreen expands just this box, so the visualisation fills the
               screen without dragging the code panel along with it. */}

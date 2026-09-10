@@ -1,4 +1,5 @@
-import { SiteFooter, SiteHeader } from "@/components/site/site-header";
+import { TopBar } from "@/components/chrome/top-bar";
+import { SiteFooter } from "@/components/site/site-footer";
 import { AssetLibrary } from "@/components/assets/asset-library";
 
 export const metadata = { title: "Assets" };
@@ -6,7 +7,7 @@ export const metadata = { title: "Assets" };
 export default function AssetsPage() {
   return (
     <div className="site-page">
-      <SiteHeader />
+      <TopBar />
       <main className="site-content max-w-3xl">
         <p className="site-eyebrow">FOR THE VISUAL MAKERS</p>
         <h1>Your images, vectors and models.</h1>

@@ -4,7 +4,8 @@ import Image from "next/image";
 import { ArrowDown, ArrowUpRight, Eye, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VisampCanvas } from "@visamp/player";
-import { SiteFooter, SiteHeader } from "@/components/site/site-header";
+import { TopBar } from "@/components/chrome/top-bar";
+import { SiteFooter } from "@/components/site/site-footer";
 
 import type { GalleryPage } from "@/lib/gallery";
 import {cn} from "@/lib/utils.ts";
@@ -145,7 +146,7 @@ export function Landing({
       ref={scrollRoot}
       onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 24)}
     >
-      <SiteHeader visible={scrolled} />
+      <TopBar visible={scrolled} />
       <main>
         <section className="landing-hero" aria-labelledby="landing-title">
           {/* The engine drawing the mark, rather than a picture of it. No

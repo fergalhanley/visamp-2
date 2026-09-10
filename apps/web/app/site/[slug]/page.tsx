@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { SiteFooter, SiteHeader } from "@/components/site/site-header";
+import { TopBar } from "@/components/chrome/top-bar";
+import { SiteFooter } from "@/components/site/site-footer";
 import { sitePages } from "@/lib/site";
 export async function generateMetadata({
   params,
@@ -23,7 +24,7 @@ export default async function SitePage({
   if (!page) notFound();
   return (
     <div className="site-page">
-      <SiteHeader />
+      <TopBar />
       <main className="site-content prose-page">
         <p className="site-eyebrow">VISAMP</p>
         <h1>{page.title}</h1>
@@ -40,6 +41,34 @@ export default async function SitePage({
             <a className="site-button primary" href="/player">
               Open the player
             </a>
+          </>
+        ) : slug === "news" ? (
+          <>
+            <span className="site-badge">Nothing to report yet</span>
+            <p>
+              Releases, community highlights and what we are building next will
+              be posted here.
+            </p>
+            <p>
+              Until the first entry lands, the visualisations themselves are the
+              news — new work appears on the home page as it is published.
+            </p>
+            <Link className="site-button primary" href="/">
+              See what&apos;s new
+            </Link>
+          </>
+        ) : slug === "contact" ? (
+          <>
+            <span className="site-badge">Channels coming soon</span>
+            <p>
+              Questions about licensing, a track you have uploaded, or something
+              that looks broken — this is where to find us.
+            </p>
+            <p>
+              The official email address and social accounts have not been set
+              up yet. They will be listed here, and in the footer, as soon as
+              they are.
+            </p>
           </>
         ) : slug === "epilepsy-warning" ? (
           <>

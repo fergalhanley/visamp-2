@@ -3,9 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { AccountMenu } from "@/components/auth/account-menu";
 import { useAuth } from "@/components/auth/auth-provider";
-import { BrandLockup } from "@/components/brand/logo";
 import { Panel } from "@/components/panels/panel";
 import { VisTile } from "@/components/panels/tiles";
 import { VirtualList } from "@/components/panels/virtual-list";
@@ -96,23 +94,9 @@ export function VPanel() {
 
   return (
     <Panel side="v" label="Browse">
-      {/* E3.1 */}
-      <header className="flex shrink-0 items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- reset the engine when leaving the player */}
-          <a href="/" aria-label="VisAmp home"><BrandLockup className="h-6" /></a>
-          {/* The gallery owns a canvas, so it needs a fresh document rather
-              than client-side navigation away from the player. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a
-            href="/artists"
-            className="text-xs text-muted-foreground transition hover:text-foreground"
-          >
-            Artists
-          </a>
-        </div>
-        <AccountMenu />
-      </header>
+      {/* E3.1 — the mark, the Artists link and the account control used to
+          head this panel. They are site navigation rather than anything to do
+          with browsing, and now live on the top bar with the rest of it. */}
 
       {/* E3.4 */}
       <div className="shrink-0 border-b px-4 py-3">

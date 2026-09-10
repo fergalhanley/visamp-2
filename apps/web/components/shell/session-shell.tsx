@@ -5,7 +5,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { EdgeGlyphs } from "@/components/chrome/edge-glyphs";
-import { CreateVisCorner } from "@/components/chrome/create-vis-corner";
+import { TopBar } from "@/components/chrome/top-bar";
 import { Transport } from "@/components/chrome/transport";
 import { APanel } from "@/components/panels/a-panel";
 import { PanelHotZone } from "@/components/panels/panel";
@@ -65,7 +65,8 @@ function PlayerSession({ children }: { children: ReactNode }) {
       <PanelHotZone side="a" />
       <VPanel />
       <APanel />
-      <CreateVisCorner />
+      {/* Earned the same way the transport is: the cursor has to move. */}
+      <TopBar visible={chromeVisible} />
       <Transport />
     </>
   );

@@ -18,7 +18,7 @@ const IDLE_MS = 3000;
  */
 export function useIdleChrome(idleMs: number = IDLE_MS): void {
   const visible = useChromeStore((s) => s.visible);
-  const transportHovered = useChromeStore((s) => s.transportHovered);
+  const controlsHovered = useChromeStore((s) => s.controlsHovered);
 
   useEffect(() => {
     let timer: number | undefined;
@@ -26,9 +26,9 @@ export function useIdleChrome(idleMs: number = IDLE_MS): void {
     const schedule = () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        const { vOpen, aOpen, transportHovered, setVisible } =
+        const { vOpen, aOpen, controlsHovered, setVisible } =
           useChromeStore.getState();
-        if (!vOpen && !aOpen && !transportHovered) setVisible(false);
+        if (!vOpen && !aOpen && !controlsHovered) setVisible(false);
       }, idleMs);
     };
 
@@ -50,5 +50,5 @@ export function useIdleChrome(idleMs: number = IDLE_MS): void {
       window.removeEventListener("pointermove", wake);
       window.removeEventListener("keydown", wake);
     };
-  }, [idleMs, visible, transportHovered]);
+  }, [idleMs, visible, controlsHovered]);
 }

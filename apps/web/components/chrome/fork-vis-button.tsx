@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
+import { barButton, barButtonBlue, barLabel } from "@/components/chrome/bar-button";
 import { createClient } from "@/lib/supabase/client";
 import { useSessionStore } from "@/lib/store/session";
 import { cn } from "@/lib/utils";
@@ -110,20 +111,14 @@ export function ForkVisButton({ className }: { className?: string }) {
         onClick={onClick}
         disabled={busy}
         title={error ?? `Fork ${current.title} into a copy you own`}
-        className={cn(
-          "flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-medium",
-          "bg-sky-500 text-black",
-          "transition hover:bg-sky-400 disabled:opacity-70",
-          "focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:outline-none",
-          className,
-        )}
+        className={cn(barButton, barButtonBlue, className)}
       >
         {busy ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <GitFork className="h-4 w-4" />
         )}
-        Fork Vis
+        <span className={barLabel}>Fork Vis</span>
       </button>
 
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next="/" />

@@ -4,8 +4,7 @@ import { VisampCanvas } from "@visamp/player";
 import { ChevronDown, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import { AccountMenu } from "@/components/auth/account-menu";
-import { BrandLockup } from "@/components/brand/logo";
+import { TopBar } from "@/components/chrome/top-bar";
 import { EditorTransport } from "@/components/editor/editor-transport";
 import { CommentsThread } from "@/components/panels/comments-thread";
 import { formatCount, posterStyle } from "@/components/panels/tiles";
@@ -90,20 +89,7 @@ export function ArtistGallery({ initialUsername = null }: { initialUsername?: st
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <header className="flex shrink-0 items-center justify-between border-b px-4 py-2">
-        <div className="flex items-center gap-4">
-          <BrandLockup className="h-6" />
-          {/* Hard navigation on purpose, as in the editor: the player needs a
-              fresh document to claim the WASM singleton back off this page. */}
-          <a
-            href="/player"
-            className="text-xs text-muted-foreground transition hover:text-foreground"
-          >
-            Player
-          </a>
-        </div>
-        <AccountMenu />
-      </header>
+      <TopBar position="static" />
 
       <div className="flex min-h-0 flex-1">
         {/* Artists and their work share one accordion column. At 27rem this is

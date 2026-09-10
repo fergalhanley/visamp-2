@@ -279,12 +279,12 @@ export function Transport() {
   const visible = useChromeStore((s) => s.visible);
   const vOpen = useChromeStore((s) => s.vOpen);
   const aOpen = useChromeStore((s) => s.aOpen);
-  const setTransportHovered = useChromeStore((s) => s.setTransportHovered);
+  const setControlsHovered = useChromeStore((s) => s.setControlsHovered);
   const compact = useCompactChrome();
 
   useEffect(
-    () => () => setTransportHovered(false),
-    [setTransportHovered],
+    () => () => setControlsHovered(false),
+    [setControlsHovered],
   );
 
   // A bottom sheet occupies the transport's 10vh perch, so on compact layouts
@@ -323,8 +323,8 @@ export function Transport() {
 
   return (
     <div
-      onPointerEnter={() => setTransportHovered(true)}
-      onPointerLeave={() => setTransportHovered(false)}
+      onPointerEnter={() => setControlsHovered(true)}
+      onPointerLeave={() => setControlsHovered(false)}
       className={cn(
         "fixed bottom-[10vh] left-1/2 z-40 w-[min(42rem,calc(100vw-3rem))] -translate-x-1/2",
         "transition-opacity duration-500",
