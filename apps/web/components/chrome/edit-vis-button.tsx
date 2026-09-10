@@ -30,7 +30,7 @@ export function EditVisButton({ className }: { className?: string }) {
       className={cn(barButton, barButtonBlue, className)}
     >
       <Pencil className="h-4 w-4" />
-      <span className={barLabel}>Edit Vis</span>
+      <span className={barLabel}>Edit</span>
     </a>
   );
 }

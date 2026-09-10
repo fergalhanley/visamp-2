@@ -60,7 +60,7 @@ export function CreateVisButton({ className }: { className?: string }) {
           className={cn(barButton, barButtonGreen, className)}
         >
           <Plus className="h-4 w-4" />
-          <span className={barLabel}>Create Vis</span>
+          <span className={barLabel}>Create</span>
         </button>
       </form>
 

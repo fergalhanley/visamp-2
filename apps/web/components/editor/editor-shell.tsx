@@ -566,7 +566,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
               ) : (
                 <GitFork className="h-4 w-4" />
               )}
-              <span className={barLabel}>Fork Vis</span>
+              <span className={barLabel}>Fork</span>
             </button>
 
             <button
@@ -576,7 +576,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
               className={cn(barButton, barButtonBlue)}
             >
               <FolderOpen className="h-4 w-4" />
-              <span className={barLabel}>Open Vis</span>
+              <span className={barLabel}>Open</span>
             </button>
           </>
         }

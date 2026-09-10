@@ -118,7 +118,7 @@ export function ForkVisButton({ className }: { className?: string }) {
         ) : (
           <GitFork className="h-4 w-4" />
         )}
-        <span className={barLabel}>Fork Vis</span>
+        <span className={barLabel}>Fork</span>
       </button>
 
       <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next="/" />
