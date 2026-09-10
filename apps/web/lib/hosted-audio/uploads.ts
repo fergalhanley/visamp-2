@@ -2,7 +2,11 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminAuthorizationError } from "./admin";
-export { readUploadDetails, uploadLicenceValid } from "./upload-rules";
+export {
+  readUploadDetails,
+  uploadLicenceGrantsIngest,
+  uploadLicenceValid,
+} from "./upload-rules";
 
 export async function uploadIdentity() {
   const session = await createClient();
@@ -26,6 +30,13 @@ export function sameOrigin(request: Request) {
 export function uploadError(error: unknown) {
   if (error instanceof AdminAuthorizationError)
     return Response.json({ error: error.message }, { status: error.status });
+
+  // The viewer gets a generic message on purpose, but swallowing the cause
+  // entirely left a 503 in the log with nothing to chase — a missing table
+  // reads exactly like a misconfigured bucket. Say what happened, in the
+  // server log only.
+  console.error("[uploads] request failed:", error);
+
   return Response.json(
     { error: "Uploads are unavailable. Please try again later." },
     { status: 503 },

@@ -5,8 +5,9 @@ import {
   sameOrigin,
   uploadError,
   uploadIdentity,
-  uploadLicenceValid,
+  uploadLicenceGrantsIngest,
 } from "@/lib/hosted-audio/uploads";
+import { CURRENT_AGREEMENT_VERSION } from "@/lib/hosted-audio/agreement";
 
 export async function GET() {
   try {
@@ -20,6 +21,9 @@ export async function GET() {
     const artists = await artistsQuery;
     if (artists.error) throw artists.error;
     const ids = (artists.data ?? []).map((artist) => artist.id);
+    // VIS-86 — there is no licence to choose any more. What the form still
+    // wants to know is whether this artist's music has been approved yet, so it
+    // can say so rather than leaving people wondering where their track went.
     const licences = ids.length
       ? await db
           .from("licences")
@@ -39,13 +43,10 @@ export async function GET() {
     return Response.json(
       {
         artists: artists.data,
-        licences: (licences.data ?? [])
-          .filter((licence) => uploadLicenceValid(licence))
-          .map((licence) => ({
-            id: licence.id,
-            artistId: licence.music_artist_id,
-            signedAt: licence.signed_at,
-          })),
+        approvedArtistIds: (licences.data ?? [])
+          .filter((licence) => licence.status === "active")
+          .map((licence) => licence.music_artist_id),
+        agreementVersion: CURRENT_AGREEMENT_VERSION,
         uploads: uploads.data,
         admin,
       },
@@ -79,15 +80,8 @@ export async function POST(request: Request) {
         { error: "Invalid upload details." },
         { status: 400 },
       );
-    const {
-      title,
-      fileName,
-      bytes,
-      sha256,
-      artistId,
-      licenceId,
-      rightsConfirmed,
-    } = body as Record<string, unknown>;
+    const { title, fileName, bytes, sha256, artistId, rightsConfirmed } =
+      body as Record<string, unknown>;
     const uuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const extension =
@@ -116,8 +110,6 @@ export async function POST(request: Request) {
       !/^[0-9a-f]{64}$/.test(sha256) ||
       typeof artistId !== "string" ||
       !uuid.test(artistId) ||
-      typeof licenceId !== "string" ||
-      !uuid.test(licenceId) ||
       rightsConfirmed !== true
     )
       return Response.json(
@@ -138,18 +130,25 @@ export async function POST(request: Request) {
         { error: "This artist is not linked to your account." },
         { status: 403 },
       );
-    const licence = await db
-      .from("licences")
-      .select("*")
-      .eq("id", licenceId)
-      .eq("music_artist_id", artistId)
-      .maybeSingle();
-    if (licence.error) throw licence.error;
-    if (!licence.data || !uploadLicenceValid(licence.data))
+    // `rightsConfirmed` is the checkbox, and this is what it means: accepting
+    // the agreement is what creates the licence. Idempotent, so a batch of ten
+    // files produces one licence, not ten.
+    const accepted = await db.rpc("accept_self_upload_agreement", {
+      p_user_id: userId,
+      p_artist_id: artistId,
+      p_version: CURRENT_AGREEMENT_VERSION,
+      p_user_agent: request.headers.get("user-agent") ?? "",
+    });
+    if (accepted.error)
+      return Response.json({ error: accepted.error.message }, { status: 403 });
+
+    const licence = accepted.data;
+    if (!licence || !uploadLicenceGrantsIngest(licence))
       return Response.json(
-        { error: "An approved, current licence is required." },
+        { error: "The upload agreement could not be recorded." },
         { status: 403 },
       );
+    const licenceId = licence.id;
     const id = randomUUID();
     const key = `incoming/${userId}/${id}/original.${extension}`;
     const admission = await db.rpc("begin_audio_upload", {

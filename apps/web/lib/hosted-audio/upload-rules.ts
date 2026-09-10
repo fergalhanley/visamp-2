@@ -1,6 +1,34 @@
 import type { Database } from "@/lib/supabase/database.types";
 
 type Licence = Database["public"]["Tables"]["licences"]["Row"];
+/**
+ * VIS-86 — what a licence must say before we will accept the audio.
+ *
+ * Deliberately silent about `status`. The artist warrants the rights when they
+ * accept the agreement, which is enough to take the file; whether the music
+ * goes out is a separate decision, and `enforce_hosted_track_state` still
+ * refuses to promote a track to `live` without an *active* licence. Moving the
+ * gate here is the whole point: it used to stop people uploading at all.
+ */
+export function uploadLicenceGrantsIngest(
+  licence: Licence,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  return (
+    !!licence.signed_at &&
+    !!licence.effective_from &&
+    licence.effective_from <= today &&
+    (!licence.effective_until || licence.effective_until >= today) &&
+    licence.grants_hosting &&
+    licence.grants_streaming &&
+    licence.grants_transcoding &&
+    licence.grants_sync &&
+    licence.warrants_master &&
+    licence.warrants_publishing
+  );
+}
+
+/** Ingest-worthy *and* currently active — what publication needs. */
 export function uploadLicenceValid(
   licence: Licence,
   today = new Date().toISOString().slice(0, 10),

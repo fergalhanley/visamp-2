@@ -242,6 +242,10 @@ export type Database = {
       }
       licences: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          accepted_user_agent: string | null
+          agreement_version: string | null
           created_at: string
           document_key: string | null
           effective_from: string | null
@@ -262,6 +266,10 @@ export type Database = {
           warrants_publishing: boolean
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_user_agent?: string | null
+          agreement_version?: string | null
           created_at?: string
           document_key?: string | null
           effective_from?: string | null
@@ -282,6 +290,10 @@ export type Database = {
           warrants_publishing?: boolean
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_user_agent?: string | null
+          agreement_version?: string | null
           created_at?: string
           document_key?: string | null
           effective_from?: string | null
@@ -823,6 +835,15 @@ export type Database = {
       claim_music_artist: {
         Args: { p_user_id: string; p_name: string }
         Returns: Database["public"]["Tables"]["music_artists"]["Row"]
+      }
+      accept_self_upload_agreement: {
+        Args: {
+          p_user_id: string
+          p_artist_id: string
+          p_version: string
+          p_user_agent: string
+        }
+        Returns: Database["public"]["Tables"]["licences"]["Row"]
       }
       begin_ai_generation: {
         Args: {

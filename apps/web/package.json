@@ -12,6 +12,7 @@
     "audio:process": "node --env-file=.env.local scripts/process-audio-uploads.mjs",
     "test:uploads": "node --experimental-strip-types --test scripts/upload-rules.test.mjs",
     "test:assets": "node --experimental-strip-types --test scripts/asset-rules.test.mjs",
+    "test:tags": "node --experimental-strip-types --test lib/hosted-audio/read-tags.test.mts",
     "verify:assets": "node --env-file=.env.local scripts/verify-asset-access.mjs",
     "audio:cleanup": "node --env-file=.env.local scripts/cleanup-hosted-audio.mjs",
     "clean": "rm -rf .next"

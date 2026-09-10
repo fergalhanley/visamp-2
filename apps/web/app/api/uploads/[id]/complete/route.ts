@@ -3,7 +3,7 @@ import {
   sameOrigin,
   uploadError,
   uploadIdentity,
-  uploadLicenceValid,
+  uploadLicenceGrantsIngest,
 } from "@/lib/hosted-audio/uploads";
 export async function POST(
   request: Request,
@@ -39,7 +39,10 @@ export async function POST(
     if (
       (!admin && artist.data?.claimed_by !== userId) ||
       !licence.data ||
-      !uploadLicenceValid(licence.data)
+      // VIS-86 — ingest-grade, not publication-grade. The licence this upload
+      // began under may still be pending an admin's approval; refusing here
+      // would strand a file that has already been transferred.
+      !uploadLicenceGrantsIngest(licence.data)
     )
       return Response.json(
         { error: "Artist access or licence is no longer valid." },
