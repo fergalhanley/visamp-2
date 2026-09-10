@@ -99,7 +99,7 @@
 .hero-content {
   z-index: 2;
   text-align: center;
-  padding: 60px 24px 100px;
+  padding: 450px 24px 100px;
 }
 .hero-tagline {
   font-size: clamp(18px, 2vw, 21px);
@@ -109,7 +109,7 @@
 .hero-description {
   font-size: 14px;
   line-height: 1.9;
-  color: #bfdf9b;
+  color: #ffffff;
   margin: 18px auto 30px;
 }
 .hero-actions {
@@ -135,12 +135,12 @@
   transform: translateY(-2px);
 }
 .site-button.primary {
-  background: #d3fb90;
+  background: #ffffff;
   color: #172113;
-  border: 1px solid #d3fb90;
+  border: 1px solid #ffffff;
 }
 .site-button.primary:hover {
-  background: #e2ffb6;
+  background: #e4e4e4;
 }
 .site-button.secondary {
   border: 1px solid #ffffff30;
@@ -169,7 +169,7 @@
   align-items: center;
   flex-direction: column;
   gap: 14px;
-  color: #92a090;
+  color: #ffffff;
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -183,7 +183,7 @@
     9px ui-monospace,
     monospace;
   letter-spacing: 0.2em;
-  color: #758677;
+  color: #ffffff;
 }
 .hero-grid {
   position: absolute;
@@ -234,7 +234,7 @@
   letter-spacing: -0.04em;
 }
 .gallery-heading p:not(.site-eyebrow) {
-  color: #8f9992;
+  color: #ffffff;
   font-size: 13px;
   margin-top: 12px;
 }
@@ -273,7 +273,7 @@
   background: repeating-radial-gradient(
     ellipse at center,
     transparent 0 12px,
-    #b5eb8c99 13px 14px,
+    rgb(255 255 255 / 0.6) 13px 14px,
     transparent 15px 25px
   );
   transform: rotate(-30deg) scaleY(0.6);

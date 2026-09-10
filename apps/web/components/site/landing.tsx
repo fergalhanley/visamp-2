@@ -7,6 +7,7 @@ import { VisampCanvas } from "@visamp/player";
 import { SiteFooter, SiteHeader } from "@/components/site/site-header";
 
 import type { GalleryPage } from "@/lib/gallery";
+import {cn} from "@/lib/utils.ts";
 export function Landing({
   initial,
   initialError,
@@ -97,6 +98,13 @@ export function Landing({
           <div className="hero-orbit orbit-two" aria-hidden="true" />
           <div className="hero-grid" aria-hidden="true" />
           <div className="hero-content">
+            <div className="hero-title">
+              <img
+                  src="/visamp-title.svg"
+                  alt="VisAmp"
+                  // className={cn("h-6 w-auto mix-blend-screen", "hero-title-image")}
+              />
+            </div>
             <h1 id="landing-title" className="sr-only">
               A VISION OF MUSIC
             </h1>
