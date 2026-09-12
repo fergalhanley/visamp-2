@@ -17,6 +17,9 @@
     "ingest": "pnpm --filter @visamp/audio-worker ingest",
     "audio:process": "pnpm --filter @visamp/audio-worker process",
     "audio:cleanup": "pnpm --filter @visamp/audio-worker cleanup",
+    "engine:build": "pnpm --filter @visamp/engine build",
+    "engine:dev": "pnpm --filter @visamp/engine dev",
+    "engine:test": "pnpm --filter @visamp/engine test",
     "clean": "turbo run clean"
   },
   "devDependencies": {
