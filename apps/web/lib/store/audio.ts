@@ -126,7 +126,7 @@ interface AudioState {
  * changing this default reaches everyone who has not overridden it.
  */
 export const DEFAULT_SOUNDCLOUD_PLAYLIST =
-  "https://soundcloud.com/fergalhanley/sets/vizamp-io";
+  "https://soundcloud.com/visamp_io/sets/vizamp-io";
 
 /**
  * The browser's "no user gesture yet" refusal.
