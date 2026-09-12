@@ -53,15 +53,20 @@ if ! rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown
   exit 1
 fi
 
-# rust-lld loads libLLVM.dylib from a path beside itself, and some rustup
-# layouts leave it only in the toolchain's lib/ directory. The link then dies
-# with SIGABRT and a dyld message that says nothing about rustup, so name it
-# here instead of letting it be rediscovered.
+# rust-lld loads libLLVM.dylib through an @rpath that resolves to the directory
+# beside its own, while the toolchain ships the library one level up in lib/.
+# The link then dies with SIGABRT and a dyld message that mentions neither Rust
+# nor rustup.
+#
+# This is how the toolchain arrives, not damage: a clean uninstall/reinstall of
+# stable 1.98.1 on aarch64-apple-darwin reproduces it exactly. Reinstalling is
+# therefore not the fix, and the symlink is — it will need re-applying after
+# each toolchain update until upstream ships the library where rust-lld looks.
 lld_dir="$(rustc --print sysroot 2>/dev/null)/lib/rustlib/$(rustc -vV 2>/dev/null | awk '/^host:/{print $2}')/bin"
 if [ -x "$lld_dir/rust-lld" ] && [ ! -e "$lld_dir/../lib/libLLVM.dylib" ] \
    && [ -e "$(rustc --print sysroot)/lib/libLLVM.dylib" ]; then
   echo "⚠ rust-lld cannot see libLLVM.dylib; the wasm link will fail." >&2
-  echo "  Reinstall the toolchain:  rustup toolchain uninstall stable && rustup toolchain install stable" >&2
-  echo "  Or symlink it:" >&2
+  echo "  The toolchain ships it one directory up from where rust-lld looks." >&2
+  echo "  Reinstalling does not help — link it:" >&2
   echo "    ln -s ../../../libLLVM.dylib '$lld_dir/../lib/libLLVM.dylib'" >&2
 fi
