@@ -556,6 +556,14 @@ impl Declarations {
             .map(|(_, value)| value)
     }
 
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut Value> {
+        self.slots
+            .iter_mut()
+            .rev()
+            .find(|(slot, _)| &**slot == name)
+            .map(|(_, value)| value)
+    }
+
     pub fn set(&mut self, name: &str, value: Value) {
         for (slot, existing) in self.slots.iter_mut().rev() {
             if &**slot == name {
@@ -682,6 +690,12 @@ pub enum StatementKind {
     /// than its return value.
     Call(Expression),
     Assignment(Assignment),
+    IndexedAssignment {
+        ident: String,
+        indices: Vec<Expression>,
+        op: Option<BinaryOperator>,
+        expression: Expression,
+    },
     If(IfStatement),
     For(ForLoop),
     While(WhileLoop),
@@ -808,6 +822,9 @@ pub enum Expression {
     },
     ColorConstruct {
         kind: ColorConstructKind,
+        args: Vec<(String, Expression)>,
+    },
+    ArrayFilled {
         args: Vec<(String, Expression)>,
     },
     MathCall {

@@ -44,6 +44,27 @@ export function verifyPoints(engine, step, load, canvas) {
   const expectedSize = Math.max(range[0], Math.min(range[1], canvas.height / 20));
   assert(Math.abs(litPixels - expectedSize) <= 1, `attenuated size: ${litPixels}, expected ${expectedSize}`);
 
+  const arrayScene = `context 3d
+prop bands = []
+on_init { bands = array::filled(count: 1, value: -1) }
+on_frame {
+ if $FREQUENCY_DATA[0] > 0 { bands[0] = $FREQUENCY_DATA[0] }
+}
+render {
+ camera::orthographic(height: 4.0)
+ draw::point_cloud(count: 1, size: 20.0, color: color::rgb(r: bands[$POINT_INDEX] / 255.0))
+}`;
+  load(arrayScene);
+  engine.set_audio_frame(new Uint8Array(), new Uint8Array([100]), false);
+  step();
+  near(pixel(), [100,0,0,255], 'array state reaches GPU');
+  engine.set_audio_frame(new Uint8Array(), new Uint8Array([0]), false);
+  step();
+  near(pixel(), [100,0,0,255], 'array state survives silence');
+  load(arrayScene);
+  step();
+  near(pixel(), [0,0,0,255], 'on_init resets array on reload');
+
   let draws = [], links = 0;
   const draw = gl.drawArrays.bind(gl), link = gl.linkProgram.bind(gl);
   gl.drawArrays = (mode, first, count) => { draws.push({mode, count}); draw(mode, first, count); };
@@ -61,7 +82,7 @@ export function verifyPoints(engine, step, load, canvas) {
     }
     assert(links === initialLinks, 'frame/audio changes recompiled the shader');
     assert(gl.getError() === gl.NO_ERROR, 'full-density WebGL error');
-    return {passed: true, pixelCases: 9, animatedFrames: 21, pointsPerDraw: 147456, shaderRecompiles: 0};
+    return {passed: true, pixelCases: 10, animatedFrames: 21, pointsPerDraw: 147456, shaderRecompiles: 0};
   } finally {
     gl.drawArrays = draw;
     gl.linkProgram = link;

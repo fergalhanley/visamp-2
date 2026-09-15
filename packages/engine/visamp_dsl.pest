@@ -44,7 +44,7 @@ param = { identifier ~ ":" ~ expression }
 // a drawing helper, which is what `fn` is mostly for, could not be called at
 // all. It sits after `function_call` so `draw::circle(...)` is still matched as
 // a builtin.
-statement = { function_call | call_expr | incr_decr | assignment | let_decl | if_statement | for_loop | while_loop | return_statement }
+statement = { function_call | call_expr | incr_decr | indexed_assignment | assignment | let_decl | if_statement | for_loop | while_loop | return_statement }
 
 // `x++` / `++x`. Both spellings are accepted and mean the same thing: as a
 // statement there is no surrounding expression for the pre/post distinction to
@@ -72,6 +72,7 @@ step_kw = @{ "step" ~ !(ASCII_ALPHANUMERIC | "_") }
 while_loop = { "while" ~ expression ~ "{" ~ statement* ~ "}" }
 
 argument = { identifier ~ ":" ~ expression }
+indexed_assignment = { identifier ~ index+ ~ assign_operator ~ expression }
 assignment = { identifier ~ assign_operator ~ expression }
 // Compound forms first so `+=` is not read as a bare `=` would-be failure, and
 // plain `=` guarded against `==` so a stray equality test is reported as such
@@ -82,7 +83,7 @@ value = _{ boolean | float | integer | array | string | system_value | identifie
 
 system_value = @{ "$" ~ identifier }
 
-array = { "[" ~ array_elements ~ "]" }
+array = { "[" ~ array_elements? ~ "]" }
 
 array_elements = _{ array_element ~ ("," ~ array_element)* ~ ","? }
 
@@ -148,7 +149,7 @@ unary_operator = { "!" | "-" | "+" }
 postfix_expr = { primary_expr ~ index* }
 index = { "[" ~ expression ~ "]" }
 
-primary_expr = _{ math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
+primary_expr = _{ array_expr | math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
 
 math_expr = { "math::" ~ math_func ~ "(" ~ math_args? ~ ")" }
 // Longest-first, and atomic with a trailing guard. Ordered alternation means a
@@ -185,3 +186,5 @@ color_arg = { identifier ~ ":" ~ expression }
 call_expr = { identifier ~ "(" ~ call_args? ~ ")" }
 call_args = { call_arg ~ ("," ~ call_arg)* ~ ","? }
 call_arg = { identifier ~ ":" ~ expression }
+
+array_expr = { "array::filled" ~ function_params }

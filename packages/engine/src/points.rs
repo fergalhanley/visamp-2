@@ -110,7 +110,8 @@ fn dependent(expr: &Expression, depth: usize) -> Result<bool, String> {
                 }
                 found
             }
-            Expression::Call { args, .. }
+            Expression::ArrayFilled { args }
+            | Expression::Call { args, .. }
             | Expression::MathCall { args, .. }
             | Expression::ColorConstruct { args, .. } => {
                 let mut found = false;

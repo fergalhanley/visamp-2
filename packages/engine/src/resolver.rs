@@ -81,6 +81,32 @@ impl Resolver {
                     self.walk(inner);
                 }
             }
+            Rule::array_expr => {
+                let args = pair
+                    .clone()
+                    .into_inner()
+                    .flat_map(|p| p.into_inner())
+                    .map(|p| {
+                        (
+                            p.clone().into_inner().next().unwrap().as_str().to_string(),
+                            p,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                self.check_args(&builtins::ARRAY_FILLED, &args, &pair);
+                let mut names = std::collections::HashSet::new();
+                for (name, arg) in &args {
+                    if !names.insert(name) {
+                        self.errors.push(located(
+                            arg,
+                            format!("array::filled: duplicate argument '{name}'"),
+                        ));
+                    }
+                }
+                for inner in pair.into_inner() {
+                    self.walk(inner);
+                }
+            }
             Rule::math_expr => {
                 self.check_fixed_args(&pair, "math", builtins::MATH_ARGS);
                 for inner in pair.into_inner() {

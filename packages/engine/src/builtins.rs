@@ -439,3 +439,14 @@ pub fn nearest<'a>(given: &str, candidates: &[&'a str]) -> Option<&'a str> {
         .min_by_key(|(d, c)| (*d, c.len()))
         .map(|(_, c)| c)
 }
+
+/// Expression-only constructor; deliberately absent from statement builtins.
+pub const ARRAY_FILLED: Builtin = Builtin {
+    namespace: "array",
+    name: "filled",
+    availability: Availability::Both,
+    args: &["count", "value"],
+    args_3d: &[],
+    required: &["count", "value"],
+    takes_common_3d: false,
+};

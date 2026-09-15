@@ -358,6 +358,20 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 .collect();
             Expression::ColorConstruct { kind, args }
         }
+        Rule::array_expr => {
+            let args = pair
+                .into_inner()
+                .flat_map(|p| p.into_inner())
+                .map(|arg| {
+                    let mut parts = arg.into_inner();
+                    (
+                        parts.next().unwrap().as_str().to_string(),
+                        build_expression(parts.next().unwrap()),
+                    )
+                })
+                .collect();
+            Expression::ArrayFilled { args }
+        }
         Rule::math_expr => {
             let mut inner = pair.into_inner();
             let func_pair = inner.next().unwrap();
@@ -432,6 +446,28 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
         .expect("Expected a specific statement type");
     let (line, column) = inner.as_span().start_pos().line_col();
     let kind = match inner.as_rule() {
+        Rule::indexed_assignment => {
+            let mut parts = inner.into_inner();
+            let ident = parts.next().unwrap().as_str().to_string();
+            let mut indices = Vec::new();
+            let mut operator = None;
+            let mut expression = None;
+            for part in parts {
+                match part.as_rule() {
+                    Rule::index => {
+                        indices.push(build_expression(part.into_inner().next().unwrap()))
+                    }
+                    Rule::assign_operator => operator = compound_operator(part.as_str()),
+                    _ => expression = Some(build_expression(part)),
+                }
+            }
+            StatementKind::IndexedAssignment {
+                ident,
+                indices,
+                op: operator,
+                expression: expression.unwrap(),
+            }
+        }
         Rule::assignment => build_assignment(inner),
         Rule::call_expr => StatementKind::Call(build_expression(inner)),
         Rule::incr_decr => build_incr_decr(inner),
@@ -446,6 +482,17 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
     Statement {
         location: SourceLocation { line, column },
         kind,
+    }
+}
+
+fn compound_operator(op: &str) -> Option<BinaryOperator> {
+    match op {
+        "+=" => Some(BinaryOperator::Add),
+        "-=" => Some(BinaryOperator::Subtract),
+        "*=" => Some(BinaryOperator::Multiply),
+        "/=" => Some(BinaryOperator::Divide),
+        "%=" => Some(BinaryOperator::Modulus),
+        _ => None,
     }
 }
 
@@ -464,14 +511,7 @@ fn build_assignment(pair: Pair<Rule>) -> StatementKind {
     let ident = ident_pair.as_str().to_string();
     let expression = build_expression(expression_pair);
 
-    let compound = match op_pair.as_str() {
-        "+=" => Some(BinaryOperator::Add),
-        "-=" => Some(BinaryOperator::Subtract),
-        "*=" => Some(BinaryOperator::Multiply),
-        "/=" => Some(BinaryOperator::Divide),
-        "%=" => Some(BinaryOperator::Modulus),
-        _ => None,
-    };
+    let compound = compound_operator(op_pair.as_str());
 
     let expression = match compound {
         Some(op) => Expression::Binary {
@@ -572,6 +612,41 @@ fn build_value(pair: pest::iterators::Pair<Rule>) -> Value {
         Rule::array => {
             let values: Vec<Value> = pair.into_inner().map(|p| build_value(p)).collect();
             Value::Array(values)
+        }
+        Rule::string => {
+            Value::String(pair.as_str()[1..pair.as_str().len() - 1].to_string())
+        }
+        Rule::logical_or_expr
+        | Rule::logical_and_expr
+        | Rule::bit_or_expr
+        | Rule::bit_xor_expr
+        | Rule::bit_and_expr
+        | Rule::equality_expr
+        | Rule::relational_expr
+        | Rule::add_expr
+        | Rule::mul_expr
+        | Rule::postfix_expr => {
+            let mut children = pair.clone().into_inner();
+            let first = children.next().unwrap();
+            if children.next().is_none() {
+                build_value(first)
+            } else {
+                Value::Identifier(pair.as_str().to_string())
+            }
+        }
+        Rule::unary_expr => {
+            let mut children: Vec<_> = pair.clone().into_inner().collect();
+            let mut value = build_value(children.pop().unwrap());
+            for operator in children.into_iter().rev() {
+                value = match (operator.as_str(), value) {
+                    ("-", Value::Integer(i)) => Value::Integer(-i),
+                    ("-", Value::Float(f)) => Value::Float(-f),
+                    ("+", value) => value,
+                    ("!", Value::Boolean(b)) => Value::Boolean(!b),
+                    _ => Value::Identifier(pair.as_str().to_string()),
+                };
+            }
+            value
         }
         Rule::identifier => Value::Identifier(pair.as_str().to_string()),
         _ => Value::Identifier(pair.as_str().to_string()),

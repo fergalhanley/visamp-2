@@ -248,3 +248,40 @@ meant. Parenthesise when you mix them:
 
 Assignment is a statement, not an operator, so it does not appear here. See
 [Variables & Assignment](./variables.md) for `=`, the compound forms and `++`.
+
+## Creating and updating arrays
+
+Engine 2.4.0 adds `array::filled(count:, value:)` and indexed assignment:
+
+```vdsl
+on_init {
+  let values = array::filled(count: 4, value: -1)
+  values[0] = 10
+  values[1] += 2
+
+  let rows = array::filled(count: 2, value: [0, 0])
+  rows[0][1] = 7
+}
+```
+
+Both constructor arguments are required. `count` must be a finite whole number
+from 0 to 65,536; `value` is evaluated once and copied into each element. Empty
+arrays (`[]`) are supported. Nested arrays are independent copies, so changing
+one row leaves the others unchanged. Assigning an array to another variable or
+passing it into a function also copies it; return the modified array to update
+the caller's value.
+
+Writes support `=`, `+=`, `-=`, `*=`, `/=` and `%=`. Each index is evaluated once,
+from left to right, followed by the right-hand expression. A write index must
+have integer type and be within the existing bounds. To convert a float use
+`value \ 1` (or `math::floor(value: value) \ 1` to round down). A failed bounds
+check or arithmetic operation leaves the target element unchanged and reports
+the statement's source location. Writes never grow arrays. Audio snapshots
+such as `$FREQUENCY_DATA` remain read-only; copy selected samples into an array
+created with `array::filled` or a literal.
+
+The constructor also limits the total copied value size to 1,000,000 units:
+array nodes and scalar values each count as one, and strings additionally count
+by UTF-8 bytes. Copying consumes the existing execution budget, including when
+constructors are nested or called repeatedly in a loop. Large nested values can
+therefore reach the budget before the element-count limit.

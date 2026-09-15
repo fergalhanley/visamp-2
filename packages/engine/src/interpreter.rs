@@ -428,6 +428,51 @@ fn interpret_statement_kind(
             decels.declare(let_decl.ident.clone(), evaluated);
             Ok(None)
         }
+        StatementKind::IndexedAssignment {
+            ident,
+            indices,
+            op,
+            expression,
+        } => {
+            let mut path = Vec::new();
+            for index in indices {
+                let value = evaluate_expression(index, decels, runtime, functions)?;
+                let position = match value {
+                    Value::Integer(i) if i >= 0 => usize::try_from(i).ok(),
+                    _ => None,
+                }
+                .ok_or_else(|| {
+                    "array write index must be a nonnegative integer; use \\ 1 to convert floats"
+                        .to_string()
+                })?;
+                path.push(position);
+            }
+            let mut slot = decels
+                .get(ident)
+                .ok_or_else(|| format!("Variable '{ident}' not declared"))?;
+            for &index in &path {
+                slot = array_element(slot, index)?;
+            }
+            let previous = if op.is_some() {
+                Some(slot.clone())
+            } else {
+                None
+            };
+            let rhs = evaluate_expression(expression, decels, runtime, functions)?;
+            let value = match op {
+                Some(op) => apply_binary(op, previous.unwrap(), rhs)?,
+                None => rhs,
+            };
+            let mut slot = decels.get_mut(ident).unwrap();
+            for index in path {
+                let Value::Array(values) = slot else {
+                    unreachable!("validated array path")
+                };
+                slot = &mut values[index];
+            }
+            *slot = value;
+            Ok(None)
+        }
         StatementKind::Assignment(assignment) => {
             let evaluated =
                 evaluate_expression(&assignment.expression, decels, runtime, functions)?;
@@ -1642,151 +1687,35 @@ fn evaluate_expression_inner(
 
             let l = evaluate_expression(left, decels, runtime, functions)?;
             let r = evaluate_expression(right, decels, runtime, functions)?;
-            match op {
-                // Whole numbers only: a bit pattern is not a meaningful notion
-                // for a float, and silently truncating one would hide the
-                // mistake rather than report it.
-                BinaryOperator::BitAnd | BinaryOperator::BitOr | BinaryOperator::BitXor => {
-                    let (Value::Integer(a), Value::Integer(b)) = (&l, &r) else {
-                        let symbol = match op {
-                            BinaryOperator::BitAnd => "&",
-                            BinaryOperator::BitOr => "|",
-                            _ => "^",
-                        };
-                        return Err(format!(
-                            "Type error: '{}' needs whole numbers, got {} and {}",
-                            symbol,
-                            l.type_tag(),
-                            r.type_tag()
-                        ));
-                    };
-                    Ok(Value::Integer(match op {
-                        BinaryOperator::BitAnd => a & b,
-                        BinaryOperator::BitOr => a | b,
-                        _ => a ^ b,
-                    }))
-                }
-                BinaryOperator::And | BinaryOperator::Or => {
-                    unreachable!("handled above, before the right side is evaluated")
-                }
-                BinaryOperator::Add => match (l, r) {
-                    (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a + b)),
-                    (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
-                    (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(a as f64 + b)),
-                    (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a + b as f64)),
-                    (Value::String(a), Value::String(b)) => Ok(Value::String(a + &b)),
-                    _ => Err("Type error: '+' on incompatible types".to_string()),
-                },
-                BinaryOperator::Subtract => match (l, r) {
-                    (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a - b)),
-                    (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a - b)),
-                    (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(a as f64 - b)),
-                    (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a - b as f64)),
-                    _ => Err("Type error: '-' on incompatible types".to_string()),
-                },
-                BinaryOperator::Multiply => match (l, r) {
-                    (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a * b)),
-                    (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a * b)),
-                    (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(a as f64 * b)),
-                    (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a * b as f64)),
-                    _ => Err("Type error: '*' on incompatible types".to_string()),
-                },
-                // `/` always produces a float, even for two integers.
-                //
-                // Truncating integer division is a trap in a language like this:
-                // $TIME_MS, $FRAME_COUNT and every value in $FREQUENCY_DATA are
-                // integers, so `$TIME_MS / 5000` would step 0, 1, 2… and
-                // `v / 255` would only ever be 0 or 1 — silently, with no type
-                // error to point at. Use math::floor for deliberate truncation.
-                BinaryOperator::Divide => match (l, r) {
-                    (Value::Integer(a), Value::Integer(b)) if b != 0 => {
-                        Ok(Value::Float(a as f64 / b as f64))
-                    }
-                    (Value::Float(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a / b)),
-                    (Value::Integer(a), Value::Float(b)) if b != 0.0 => {
-                        Ok(Value::Float(a as f64 / b))
-                    }
-                    (Value::Float(a), Value::Integer(b)) if b != 0 => {
-                        Ok(Value::Float(a / b as f64))
-                    }
-                    _ => Err("Division by zero or type error for '/'".to_string()),
-                },
-                // `\` — integer division. Accepts floats and truncates toward
-                // zero, because most of what you divide is a float ($WIDTH and
-                // friends) and rejecting those would make the operator useless
-                // for the grid maths it exists for. Use math::floor for floor
-                // semantics on negatives.
-                BinaryOperator::IntegerDivide => {
-                    let divisor = match &r {
-                        Value::Integer(b) => *b as f64,
-                        Value::Float(b) => *b,
-                        _ => return Err("Type error: '\\' needs numbers".to_string()),
-                    };
-                    let dividend = match &l {
-                        Value::Integer(a) => *a as f64,
-                        Value::Float(a) => *a,
-                        _ => return Err("Type error: '\\' needs numbers".to_string()),
-                    };
-
-                    if divisor == 0.0 {
-                        return Err("Division by zero for '\\'".to_string());
-                    }
-                    Ok(Value::Integer((dividend / divisor).trunc() as i64))
-                }
-                BinaryOperator::Modulus => match (l, r) {
-                    (Value::Integer(a), Value::Integer(b)) if b != 0 => Ok(Value::Integer(a % b)),
-                    (Value::Float(a), Value::Float(b)) if b != 0.0 => {
-                        Ok(Value::Float(a.rem_euclid(b)))
-                    }
-                    (Value::Integer(a), Value::Float(b)) if b != 0.0 => {
-                        Ok(Value::Float((a as f64).rem_euclid(b)))
-                    }
-                    (Value::Float(a), Value::Integer(b)) if b != 0 => {
-                        Ok(Value::Float(a.rem_euclid(b as f64)))
-                    }
-                    _ => Err("Type error or division by zero for '%'".to_string()),
-                },
-                BinaryOperator::Equal | BinaryOperator::NotEqual => {
-                    let eq = match (&l, &r) {
-                        (Value::Boolean(a), Value::Boolean(b)) => a == b,
-                        (Value::Integer(a), Value::Integer(b)) => a == b,
-                        (Value::Float(a), Value::Float(b)) => a == b,
-                        (Value::Integer(a), Value::Float(b)) => (*a as f64) == *b,
-                        (Value::Float(a), Value::Integer(b)) => *a == (*b as f64),
-                        (Value::String(a), Value::String(b)) => a == b,
-                        (Value::Array(a), Value::Array(b)) => a == b,
-                        _ => false,
-                    };
-                    let result = if *op == BinaryOperator::Equal {
-                        eq
-                    } else {
-                        !eq
-                    };
-                    Ok(Value::Boolean(result))
-                }
-                BinaryOperator::LessThan
-                | BinaryOperator::LessThanOrEqual
-                | BinaryOperator::GreaterThan
-                | BinaryOperator::GreaterThanOrEqual => {
-                    let (fa, fb) = match (l, r) {
-                        (Value::Integer(a), Value::Integer(b)) => (a as f64, b as f64),
-                        (Value::Float(a), Value::Float(b)) => (a, b),
-                        (Value::Integer(a), Value::Float(b)) => (a as f64, b),
-                        (Value::Float(a), Value::Integer(b)) => (a, b as f64),
-                        _ => return Err("Type error for relational operator".to_string()),
-                    };
-                    let cmp = match op {
-                        BinaryOperator::LessThan => fa < fb,
-                        BinaryOperator::LessThanOrEqual => fa <= fb,
-                        BinaryOperator::GreaterThan => fa > fb,
-                        BinaryOperator::GreaterThanOrEqual => fa >= fb,
-                        _ => unreachable!(),
-                    };
-                    Ok(Value::Boolean(cmp))
-                }
-            }
+            apply_binary(op, l, r)
         }
 
+        Expression::ArrayFilled { args } => {
+            let arg = |name| {
+                args.iter()
+                    .find(|(n, _)| n == name)
+                    .map(|(_, e)| e)
+                    .ok_or_else(|| format!("array::filled: missing {name}"))
+            };
+            let count =
+                evaluate_expression(arg("count")?, decels, runtime, functions)?.try_into_f64()?;
+            if !count.is_finite() || count.fract() != 0.0 || !(0.0..=65536.0).contains(&count) {
+                return Err("array::filled: count must be a whole number from 0 to 65536".into());
+            }
+            let value = evaluate_expression(arg("value")?, decels, runtime, functions)?;
+            let count = count as usize;
+            // Bound deep clones too: a small outer count can otherwise multiply
+            // nested arrays or long strings into an enormous allocation.
+            let cost = filled_value_cost(&value)?;
+            let work = count
+                .checked_mul(cost)
+                .filter(|n| *n <= 1_000_000)
+                .ok_or("array::filled: copied value budget exceeded (1000000 units)")?;
+            for _ in 0..work {
+                charge_execution_step()?;
+            }
+            Ok(Value::Array(vec![value; count]))
+        }
         Expression::MathCall { func, args } => {
             let get_arg = |name: &str| -> InterpResult<f64> {
                 for (n, expr) in args.iter() {
@@ -2110,4 +2039,180 @@ fn type_name(value: &Value) -> &'static str {
         Value::Gradient(_) => "a gradient",
         Value::Asset(_) => "an asset reference",
     }
+}
+
+fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> InterpResult<Value> {
+    match op {
+        // Whole numbers only: a bit pattern is not a meaningful notion
+        // for a float, and silently truncating one would hide the
+        // mistake rather than report it.
+        BinaryOperator::BitAnd | BinaryOperator::BitOr | BinaryOperator::BitXor => {
+            let (Value::Integer(a), Value::Integer(b)) = (&l, &r) else {
+                let symbol = match op {
+                    BinaryOperator::BitAnd => "&",
+                    BinaryOperator::BitOr => "|",
+                    _ => "^",
+                };
+                return Err(format!(
+                    "Type error: '{}' needs whole numbers, got {} and {}",
+                    symbol,
+                    l.type_tag(),
+                    r.type_tag()
+                ));
+            };
+            Ok(Value::Integer(match op {
+                BinaryOperator::BitAnd => a & b,
+                BinaryOperator::BitOr => a | b,
+                _ => a ^ b,
+            }))
+        }
+        BinaryOperator::And | BinaryOperator::Or => {
+            unreachable!("handled above, before the right side is evaluated")
+        }
+        BinaryOperator::Add => match (l, r) {
+            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a + b)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
+            (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(a as f64 + b)),
+            (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a + b as f64)),
+            (Value::String(a), Value::String(b)) => Ok(Value::String(a + &b)),
+            _ => Err("Type error: '+' on incompatible types".to_string()),
+        },
+        BinaryOperator::Subtract => match (l, r) {
+            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a - b)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a - b)),
+            (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(a as f64 - b)),
+            (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a - b as f64)),
+            _ => Err("Type error: '-' on incompatible types".to_string()),
+        },
+        BinaryOperator::Multiply => match (l, r) {
+            (Value::Integer(a), Value::Integer(b)) => Ok(Value::Integer(a * b)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(a * b)),
+            (Value::Integer(a), Value::Float(b)) => Ok(Value::Float(a as f64 * b)),
+            (Value::Float(a), Value::Integer(b)) => Ok(Value::Float(a * b as f64)),
+            _ => Err("Type error: '*' on incompatible types".to_string()),
+        },
+        // `/` always produces a float, even for two integers.
+        //
+        // Truncating integer division is a trap in a language like this:
+        // $TIME_MS, $FRAME_COUNT and every value in $FREQUENCY_DATA are
+        // integers, so `$TIME_MS / 5000` would step 0, 1, 2… and
+        // `v / 255` would only ever be 0 or 1 — silently, with no type
+        // error to point at. Use math::floor for deliberate truncation.
+        BinaryOperator::Divide => match (l, r) {
+            (Value::Integer(a), Value::Integer(b)) if b != 0 => {
+                Ok(Value::Float(a as f64 / b as f64))
+            }
+            (Value::Float(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a / b)),
+            (Value::Integer(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a as f64 / b)),
+            (Value::Float(a), Value::Integer(b)) if b != 0 => Ok(Value::Float(a / b as f64)),
+            _ => Err("Division by zero or type error for '/'".to_string()),
+        },
+        // `\` — integer division. Accepts floats and truncates toward
+        // zero, because most of what you divide is a float ($WIDTH and
+        // friends) and rejecting those would make the operator useless
+        // for the grid maths it exists for. Use math::floor for floor
+        // semantics on negatives.
+        BinaryOperator::IntegerDivide => {
+            let divisor = match &r {
+                Value::Integer(b) => *b as f64,
+                Value::Float(b) => *b,
+                _ => return Err("Type error: '\\' needs numbers".to_string()),
+            };
+            let dividend = match &l {
+                Value::Integer(a) => *a as f64,
+                Value::Float(a) => *a,
+                _ => return Err("Type error: '\\' needs numbers".to_string()),
+            };
+
+            if divisor == 0.0 {
+                return Err("Division by zero for '\\'".to_string());
+            }
+            Ok(Value::Integer((dividend / divisor).trunc() as i64))
+        }
+        BinaryOperator::Modulus => match (l, r) {
+            (Value::Integer(a), Value::Integer(b)) if b != 0 => Ok(Value::Integer(a % b)),
+            (Value::Float(a), Value::Float(b)) if b != 0.0 => Ok(Value::Float(a.rem_euclid(b))),
+            (Value::Integer(a), Value::Float(b)) if b != 0.0 => {
+                Ok(Value::Float((a as f64).rem_euclid(b)))
+            }
+            (Value::Float(a), Value::Integer(b)) if b != 0 => {
+                Ok(Value::Float(a.rem_euclid(b as f64)))
+            }
+            _ => Err("Type error or division by zero for '%'".to_string()),
+        },
+        BinaryOperator::Equal | BinaryOperator::NotEqual => {
+            let eq = match (&l, &r) {
+                (Value::Boolean(a), Value::Boolean(b)) => a == b,
+                (Value::Integer(a), Value::Integer(b)) => a == b,
+                (Value::Float(a), Value::Float(b)) => a == b,
+                (Value::Integer(a), Value::Float(b)) => (*a as f64) == *b,
+                (Value::Float(a), Value::Integer(b)) => *a == (*b as f64),
+                (Value::String(a), Value::String(b)) => a == b,
+                (Value::Array(a), Value::Array(b)) => a == b,
+                _ => false,
+            };
+            let result = if *op == BinaryOperator::Equal {
+                eq
+            } else {
+                !eq
+            };
+            Ok(Value::Boolean(result))
+        }
+        BinaryOperator::LessThan
+        | BinaryOperator::LessThanOrEqual
+        | BinaryOperator::GreaterThan
+        | BinaryOperator::GreaterThanOrEqual => {
+            let (fa, fb) = match (l, r) {
+                (Value::Integer(a), Value::Integer(b)) => (a as f64, b as f64),
+                (Value::Float(a), Value::Float(b)) => (a, b),
+                (Value::Integer(a), Value::Float(b)) => (a as f64, b),
+                (Value::Float(a), Value::Integer(b)) => (a, b as f64),
+                _ => return Err("Type error for relational operator".to_string()),
+            };
+            let cmp = match op {
+                BinaryOperator::LessThan => fa < fb,
+                BinaryOperator::LessThanOrEqual => fa <= fb,
+                BinaryOperator::GreaterThan => fa > fb,
+                BinaryOperator::GreaterThanOrEqual => fa >= fb,
+                _ => unreachable!(),
+            };
+            Ok(Value::Boolean(cmp))
+        }
+    }
+}
+
+fn array_element(value: &Value, index: usize) -> InterpResult<&Value> {
+    match value {
+        Value::Array(values) => values.get(index).ok_or_else(|| {
+            format!(
+                "array write index {index} out of bounds for length {}",
+                values.len()
+            )
+        }),
+        other => Err(format!(
+            "cannot write an array element of {}; expected a mutable array",
+            other.type_tag()
+        )),
+    }
+}
+
+fn filled_value_cost(value: &Value) -> InterpResult<usize> {
+    let mut pending = vec![value];
+    let mut cost = 0usize;
+    while let Some(value) = pending.pop() {
+        charge_execution_step()?;
+        cost += 1;
+        match value {
+            Value::Array(values) => pending.extend(values),
+            Value::String(text) | Value::Identifier(text) | Value::SystemValue(text) => {
+                cost = cost.saturating_add(text.len())
+            }
+            Value::Asset(asset) => cost = cost.saturating_add(asset.id.len()),
+            _ => (),
+        }
+        if cost > 1_000_000 || pending.len() > 1_000_000 {
+            return Err("array::filled: copied value budget exceeded (1000000 units)".into());
+        }
+    }
+    Ok(cost)
 }

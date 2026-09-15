@@ -41,3 +41,33 @@ render {
 ```
 
 Properties are the primary way to create animation. The `on_frame` block runs before each render, allowing you to update state that the `render` block then uses for drawing.
+
+## Array state
+
+As of engine 2.4.0, an array property can start empty and be initialized in
+`on_init`. Indexed writes then update existing elements across frames:
+
+```vdsl
+prop bands = []
+
+on_init {
+  bands = array::filled(count: 384, value: -1)
+}
+
+on_frame {
+  let audio = $FREQUENCY_DATA
+  for i in 0..384 {
+    if audio[i] > 0 {
+      bands[i] = audio[i]
+    }
+  }
+}
+```
+
+This keeps the last nonzero sample in each bin. `on_init` resets the array when
+a script is loaded; `on_frame` updates it before rendering. Point-cloud fields
+can read `bands[$POINT_INDEX % 384]` directly.
+
+Literal properties also support empty and nested arrays, for example
+`prop points = [[0.0, 1.0], [2.0, 3.0]]`.
+See [arrays](expressions.md#creating-and-updating-arrays) for limits and assignment rules.
