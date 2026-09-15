@@ -1,0 +1,21 @@
+{
+  "slug": "spotica-gamma",
+  "title": "Spotica Gamma",
+  "description": "Stare into the mystery of Spotica Gamma",
+  "collection": "Spotica",
+  "artist": {
+    "name": "Fergal Hanley",
+    "socialLinks": [
+      "https://twitter.com/fergtwit",
+      "https://fergalhanley.com",
+      "https://www.instagram.com/fergalhanley/"
+    ],
+    "ethWallet": "0xb3E61E9448b4AA777B9806dbf8513d9718107437",
+    "signature": ""
+  },
+  "featuredAudio": {
+    "artist": "Gereon",
+    "trackTitle": "Outlines",
+    "trackId": "ad980d4ad27991233e5100bab57dacbd025f32673fe524aa434412be1d7586f3"
+  }
+}

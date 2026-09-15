@@ -1,0 +1,36 @@
+{
+    "properties": [
+        {
+        "name": "custom_prop_clear_opacity",
+        "dataType": "f64",
+        "description": "The thickness ",
+        "defaultValue": 0.03,
+        "channel": "update",
+        "inputControls": [{
+          "type": "mouse",
+          "action": "scrolly",
+          "activationKey": {
+            "key": "c"
+          },
+          "function": "log-asc",
+          "cycle": false,
+          "min": 0,
+          "max": 0.01,
+          "step": 0.0001
+        }]
+      }
+    ],
+    "initProperties": {
+      "css_filters_saturate": 2.9,
+      "css_filters_contrast": 1.72
+    },
+    "context": "2d",
+    "lib": [],
+    "macros": [{
+        "type": "loop-updated",
+        "property": "css_filters_hue_rotate",
+        "exec": "return Math.floor(t / 100 % 360)"
+      }
+    ],
+    "assets": []
+}

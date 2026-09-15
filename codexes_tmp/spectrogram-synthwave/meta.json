@@ -1,0 +1,21 @@
+{
+  "slug": "spectrogram-synthwave",
+  "title": "Spectrogram Synthwave",
+  "description": "A synthwave style cascading flow of audio infused polygons",
+  "collection": "Spectrogram",
+  "artist": {
+    "name": "Fergal Hanley",
+    "socialLinks": [
+      "https://twitter.com/fergtwit",
+      "https://fergalhanley.com",
+      "https://www.instagram.com/fergalhanley/"
+    ],
+    "ethWallet": "0xb3E61E9448b4AA777B9806dbf8513d9718107437",
+    "signature": ""
+  },
+  "featuredAudio": {
+    "artist": "Gereon",
+    "trackTitle": "Sphinx",
+    "trackId": "3a5dcd19d9ccd3269c9024f006db53f3acbe8e78e584affd693071e472eea31d"
+  }
+}

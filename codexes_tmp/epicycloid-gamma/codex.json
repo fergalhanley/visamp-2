@@ -1,0 +1,64 @@
+{
+    "properties": [
+        {
+        "name": "custom_prop_points",
+        "dataType": "i32",
+        "description": "The base number of points for the epicycloid lines to be drawn between",
+        "defaultValue": 32,
+        "channel": "update",
+        "inputControls": [{
+          "type": "mouse",
+          "action": "scrolly",
+          "activationKey": {
+            "key": "p"
+          },
+          "function": "log-asc",
+          "cycle": false,
+          "min": 1,
+          "max": 512,
+          "step": 1
+        }]
+      },
+      {
+        "name": "custom_prop_outer_line_thickness",
+        "dataType": "i32",
+        "description": "The thickness ",
+        "defaultValue": 1,
+        "channel": "update",
+        "inputControls": [{
+          "type": "mouse",
+          "action": "scrolly",
+          "activationKey": {
+            "key": "l",
+            "inputModifier": {
+                "shiftKey": true
+            }
+          },
+          "function": "log-asc",
+          "cycle": false,
+          "min": 1,
+          "max": 512,
+          "step": 1
+        }]
+      }
+    ],
+    "initProperties": {
+      "context_2d_zoom": 0.48,
+      "css_filters_contrast": 5,
+      "audio_amplitude": 2.4,
+      "css_filter_invert": true
+    },
+    "context": "2d",
+    "lib": [],
+    "macros": [{
+      "type": "loop-updated",
+      "property": "css_filters_hue_rotate",
+      "exec": "return (t / 2000) % 25 > 1 ? value : value += 1"
+    },
+    {
+      "type": "loop-updated",
+      "property": "css_filters_contrast",
+      "exec": "return 3 + Math.sin(t/500)"
+    }],
+    "assets": []
+}

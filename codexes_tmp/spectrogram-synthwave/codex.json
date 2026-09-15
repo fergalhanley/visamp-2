@@ -1,0 +1,48 @@
+{
+  "properties": [],
+  "initProperties": {
+    "audio_waveformFactor": 4.7,
+    "audio_colorformFactor": 3.7,
+    "three_cameraX": -1500,
+    "three_cameraY": 1500,
+    "three_cameraZ": 3600,
+    "three_pitch_yaw": [
+      0.0,
+      4.5
+    ],
+    "three_fov": 132,
+    "css_filters_contrast": 1.2,
+    "css_filters_saturate": 0.8,
+    "css_filters_sepia": 0.3
+  },
+  "context": "webgl",
+  "lib": [],
+  "macros": [
+    {
+      "type": "loop-updated",
+      "property": "three_cameraX",
+      "exec": "return Math.sin(t/10000) * 4000"
+    },
+    {
+      "type": "loop-updated",
+      "property": "three_cameraZ",
+      "exec": "return Math.cos(t/10000) * 4000 + 1000"
+    },
+    {
+      "type": "loop-updated",
+      "property": "three_pitch_yaw",
+      "exec": "return [(t/20000 % Math.PI*2) - Math.PI/6, 4.523]"
+    },
+    {
+      "type": "loop-updated",
+      "property": "three_fov",
+      "exec": "return 80 + -Math.sin(t/10000) * 50"
+    },
+    { 
+      "type": "loop-updated",
+      "property": "css_filters_hue_rotate",
+      "exec": "return Math.floor(t / 100 % 360)"
+    }
+  ],
+  "assets": []
+}
