@@ -215,6 +215,9 @@ pub enum Primitive {
         tube_ratio: u32,
     },
     Sprite,
+    PointCloud {
+        id: u32,
+    },
     Mesh {
         id: u32,
     },
@@ -241,6 +244,7 @@ impl Primitive {
                 ..
             } => segments.max(3) as u64 * tube_segments.max(3) as u64 * 2,
             Primitive::Sprite => 2,
+            Primitive::PointCloud { .. } => 0,
             Primitive::Mesh { id } => meshes
                 .get(id as usize)
                 .map(|m| m.triangle_count())
@@ -306,6 +310,7 @@ pub struct Scene {
     pub stack: Vec<Mat4>,
     pub commands: Vec<DrawCommand>,
     pub meshes: Vec<MeshData>,
+    pub point_clouds: Vec<crate::points::PointCloud>,
     /// Asset ids referenced by this frame's draws, in binding order. The
     /// renderer resolves them against the pixels the host has supplied; a
     /// reference the host has not resolved simply draws untextured.
@@ -324,6 +329,7 @@ impl Default for Scene {
             stack: vec![Mat4::IDENTITY],
             commands: Vec::new(),
             meshes: Vec::new(),
+            point_clouds: Vec::new(),
             textures: Vec::new(),
             warnings: Vec::new(),
             triangles: 0,
@@ -442,6 +448,22 @@ impl Scene {
         }
         self.textures.push(asset_id.to_string());
         self.textures.len() as u32 - 1
+    }
+
+    pub fn add_point_cloud(&mut self, cloud: crate::points::PointCloud) -> Result<u32, String> {
+        if self.point_clouds.len() >= 64 {
+            return Err("point cloud limit exceeded (64 per frame)".into());
+        }
+        let points: u64 = self.point_clouds.iter().map(|c| c.count as u64).sum();
+        if points + cloud.count as u64 > crate::points::MAX_POINTS as u64 {
+            return Err("point budget exceeded (1000000 per frame)".into());
+        }
+        let data: usize = self.point_clouds.iter().map(|c| c.data.len()).sum();
+        if data + cloud.data.len() > 1_000_000 {
+            return Err("point data budget exceeded (1000000 numbers per frame)".into());
+        }
+        self.point_clouds.push(cloud);
+        Ok(self.point_clouds.len() as u32 - 1)
     }
 
     pub fn add_mesh(&mut self, mesh: MeshData) -> Result<u32, String> {

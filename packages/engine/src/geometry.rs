@@ -67,6 +67,7 @@ pub fn build(primitive: Primitive, meshes: &[MeshData]) -> Geometry {
         ),
         // A unit quad; the vertex shader rebuilds it in the camera's plane.
         Primitive::Sprite => quad(),
+        Primitive::PointCloud { .. } => Geometry::default(),
         Primitive::Mesh { id } => meshes.get(id as usize).map(custom).unwrap_or_default(),
     }
 }

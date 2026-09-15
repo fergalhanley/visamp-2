@@ -752,6 +752,29 @@ fn record_draw(
     args: &mut ArgReader<'_>,
     scene: &RefCell<Scene>,
 ) -> InterpResult<()> {
+    if call.function == "point_cloud" {
+        let cloud = crate::points::build(call, args.decels, args.runtime, args.functions)?;
+        let mut scene = scene.borrow_mut();
+        let id = scene.add_point_cloud(cloud)?;
+        let command = DrawCommand {
+            key: BatchKey {
+                primitive: Primitive::PointCloud { id },
+                texture: None,
+                shading: Shading::Unlit,
+                wireframe: false,
+                blend: scene.gfx.blend,
+                cull: scene.gfx.cull,
+                depth_enabled: scene.gfx.depth_enabled,
+                depth_write: scene.gfx.depth_write,
+                overlay: scene.gfx.overlay,
+            },
+            model: scene.top(),
+            color: WHITE,
+            opacity: 1.0,
+        };
+        scene.record(command);
+        return Ok(());
+    }
     let primitive = match call.function.as_str() {
         "cube" => Primitive::Cube,
         "sphere" => Primitive::Sphere {

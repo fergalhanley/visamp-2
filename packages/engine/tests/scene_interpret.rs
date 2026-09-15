@@ -360,3 +360,91 @@ fn an_unresolved_model_draws_nothing_rather_than_failing_the_frame() {
     assert_eq!(scene.batches().len(), 1);
     assert_eq!(scene.batches()[0].key.primitive, Primitive::Cube);
 }
+
+#[test]
+fn full_density_point_cloud_is_one_command_and_keeps_graphics_state() {
+    let scene = run(r#"context 3d
+render {
+  draw::cube()
+  transform::translate(x: 3.0)
+  gfx::depth(enabled: false, write: false)
+  gfx::blend(mode: "additive")
+  draw::point_cloud(count: 147456, x: $POINT_INDEX % 384, y: $FREQUENCY_DATA[$POINT_INDEX % 384] / 255.0, z: $POINT_INDEX \ 384, color: color::hsl(h: $POINT_INDEX / $POINT_COUNT, s: 1.0, l: 0.5))
+  draw::cube()
+}"#);
+    assert_eq!(scene.commands.len(), 3);
+    assert_eq!(scene.batches().len(), 3);
+    assert_eq!(scene.triangles(), 24);
+    let cloud = &scene.point_clouds[0];
+    assert_eq!(cloud.count, 147456);
+    assert!(cloud.body.contains("gl_VertexID"));
+    assert!(cloud.body.contains("array_at"));
+    assert!(cloud.body.contains("point_hsl"));
+    assert!(cloud.data.len() < 16);
+    let command = &scene.commands[1];
+    assert_eq!(command.model.as_slice()[12], 3.0);
+    assert!(!command.key.depth_enabled);
+    assert!(!command.key.depth_write);
+    assert_eq!(command.key.blend, BlendMode::Additive);
+    assert_eq!(command.key.shading, Shading::Unlit);
+}
+
+#[test]
+fn point_cloud_limits_and_invalid_fields_report_statement_locations() {
+    for (args, expected) in [
+        ("count: 1.5", "integer"),
+        ("count: -1", "integer"),
+        ("count: 1000001", "integer"),
+        ("count: 1, size: -1", "nonnegative"),
+        ("count: 1, size_attenuation: 1", "boolean"),
+        ("count: 1, x: 1.0 / 0.0", "zero"),
+        ("count: 1, x: $POINT_INDEX > 2", "arithmetic"),
+        ("count: 1, x: true", "number"),
+    ] {
+        let error = run_err(&format!("context 3d\nrender {{\n  draw::point_cloud({args})\n}}"));
+        assert!(error.contains(expected), "{error}");
+        assert!(error.contains("3:3"), "{error}");
+    }
+    assert!(run_err("context 3d\nrender {\n draw::point_cloud(count: 600000)\n draw::point_cloud(count: 600000)\n}").contains("point budget"));
+    assert!(run_err("context 3d\nrender {\n for i in 0..65 {\n draw::point_cloud(count: 0)\n }\n}").contains("cloud limit"));
+}
+
+#[test]
+fn point_shader_is_stable_when_frame_inputs_change() {
+    let make = |value| run(&format!("context 3d\nrender {{\n let samples = [{value}, 30]\n draw::point_cloud(count: 20, x: $POINT_INDEX + {value}, color: color::rgb(r: samples[$POINT_INDEX % 2] / 255.0))\n}}"));
+    let a = make(10);
+    let b = make(20);
+    assert_eq!(a.point_clouds[0].body, b.point_clouds[0].body);
+    assert_ne!(a.point_clouds[0].data, b.point_clouds[0].data);
+}
+
+#[test]
+fn point_cloud_signature_rejects_unsupported_common_arguments_and_2d() {
+    for source in [
+        "context 2d\nrender {\n draw::point_cloud(count: 1)\n}",
+        "context 3d\nrender {\n draw::point_cloud()\n}",
+        "context 3d\nrender {\n draw::point_cloud(count: 1, texture: 0)\n}",
+        "context 3d\nrender {\n draw::point_cloud(count: 1, shading: \"lambert\")\n}",
+    ] { assert!(build_ast(source).is_err(), "{source}"); }
+}
+
+#[test]
+fn point_cloud_rejects_excessive_audio_data_and_expression_complexity() {
+    let source = "context 3d\nrender {\n draw::point_cloud(count: 1, x: $FREQUENCY_DATA[$POINT_INDEX])\n}";
+    let script = build_ast(source).unwrap();
+    let mut model = Model::from_script(&script);
+    let mut runtime = Runtime::new();
+    runtime.frequency = std::rc::Rc::new(vec![1; 32769]);
+    let scene = RefCell::new(Scene::default());
+    let error = interpret_render_block(
+        &model.blocks[0], &mut model.decels,
+        Target::scene(&scene, &RefCell::new(String::new())),
+        &runtime, &model.functions,
+    ).unwrap_err();
+    assert!(error.contains("array is too large"), "{error}");
+    assert!(scene.borrow().commands.is_empty());
+
+    let values = vec!["1"; 513].join(",");
+    let error = run_err(&format!("context 3d\nrender {{\n draw::point_cloud(count: 1, x: [{values}][$POINT_INDEX])\n}}"));
+    assert!(error.contains("too complex"), "{error}");
+}

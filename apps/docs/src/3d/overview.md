@@ -302,3 +302,42 @@ compile but do not draw.
 Textures have arrived: every primitive carries texture coordinates and
 `draw::mesh(uvs:)` is now used rather than merely accepted. See
 [Assets](./assets.md).
+
+## Point clouds
+
+`draw::point_cloud` (engine 2.3.0) draws a dense set of square points in one GPU
+call. Use `$POINT_INDEX` and `$POINT_COUNT` directly in its position and colour
+expressions; other values, including audio arrays, are captured once per frame.
+
+```vdsl
+context 3d
+render {
+  draw::point_cloud(
+    count: 10000,
+    x: ($POINT_INDEX % 100) / 10.0 - 5.0,
+    y: math::sin(radians: $POINT_INDEX / 100.0 + $TIME_SEC),
+    z: math::floor(value: $POINT_INDEX / 100.0) / 10.0 - 5.0,
+    color: color::hsl(h: $POINT_INDEX / $POINT_COUNT, s: 1.0, l: 0.5),
+    size: 2.0
+  )
+}
+```
+
+`count` is required. Coordinates default to zero, colour to white, and `size`
+to 2 drawing-buffer pixels. `size_attenuation: true` scales size by
+`viewport_height / (2 * camera_depth)` in perspective; orthographic size stays
+in pixels. Device point-size limits apply. The current transform, camera,
+depth and blend settings apply; points are unlit and follow draw order.
+
+Per-point fields support arithmetic, `math::` functions and numeric array reads,
+using 32-bit floats. Array indices outside bounds or not whole numbers read zero.
+User functions and other DSL logic must run outside the fields. The per-point
+system values cannot be assigned to a `let` for later use. Colour supports RGB
+and HSL, including transparency. Mesh-only arguments such as textures and
+wireframe are not supported.
+
+Limits: 1,000,000 points and 64 clouds per frame, 32,768 input numbers per cloud,
+1,000,000 input numbers per frame, and expression limits of 512 nodes / 128 levels.
+Inputs must be finite; points with nonfinite computed positions/colours are
+culled. Use valid domains for maths. Clouds count as one draw command each and
+use no triangle budget.

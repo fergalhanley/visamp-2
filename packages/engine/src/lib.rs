@@ -8,6 +8,8 @@ use web_sys::CanvasRenderingContext2d;
 pub mod assets;
 pub mod builtins;
 mod feedback;
+pub mod points;
+mod point_renderer;
 pub mod geometry;
 pub mod interpreter;
 pub mod math3;

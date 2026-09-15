@@ -86,3 +86,5 @@ pnpm --filter @visamp/validator verify:scramble
 # Interactive local review (default port 4171):
 pnpm --filter @visamp/validator verify:scramble --serve
 ```
+
+See [procedural point clouds](POINT_CLOUDS.md) for dense GPU point fields (2.3.0).

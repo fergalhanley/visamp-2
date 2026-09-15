@@ -171,6 +171,12 @@ pub const BUILTINS: &[Builtin] = &[
         &["radius", "tube", "segments", "tube_segments"],
         &[],
     ),
+    ns3(
+        "draw",
+        "point_cloud",
+        &["count", "x", "y", "z", "color", "size", "size_attenuation"],
+        &["count"],
+    ),
     d3("sprite", &["size", "w", "h"], &[]),
     d3(
         "mesh",

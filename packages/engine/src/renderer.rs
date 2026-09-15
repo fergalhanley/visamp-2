@@ -164,6 +164,7 @@ pub struct Renderer {
     /// from so replaced pixels are re-uploaded rather than served stale.
     textures: HashMap<String, (u32, WebGlTexture)>,
     premultiplied: bool,
+    points: crate::point_renderer::PointRenderer,
 }
 
 impl Renderer {
@@ -173,7 +174,16 @@ impl Renderer {
             .create_buffer()
             .ok_or("could not create instance buffer")?;
 
+        let points = match crate::point_renderer::PointRenderer::new(&gl) {
+            Ok(points) => points,
+            Err(error) => {
+                gl.delete_program(Some(&program));
+                gl.delete_buffer(Some(&instances));
+                return Err(error);
+            }
+        };
         Ok(Renderer {
+            points,
             gl,
             program,
             instances,
@@ -236,8 +246,9 @@ impl Renderer {
         self.set_vec3("u_camera_right", [v[0], v[4], v[8]]);
         self.set_vec3("u_camera_up", [v[1], v[5], v[9]]);
 
+        self.points.retain(scene);
         for batch in scene.batches() {
-            self.draw(scene, &batch)?;
+            self.draw(scene, &batch, width, height)?;
         }
 
         // Meshes are rebuilt every frame: a `Primitive::Mesh` id is only
@@ -310,22 +321,14 @@ impl Renderer {
         });
     }
 
-    fn draw(&mut self, scene: &Scene, batch: &Batch) -> Result<(), String> {
+    fn draw(
+        &mut self,
+        scene: &Scene,
+        batch: &Batch,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
         let gl = self.gl.clone();
-        self.ensure_mesh(batch.key.primitive, scene)?;
-
-        let Some(mesh) = self.meshes.get(&batch.key.primitive) else {
-            return Ok(());
-        };
-        let triangle_count = mesh.triangle_count;
-        let edge_count = mesh.edge_count;
-        let vao = mesh.vao.clone();
-        let elements = if batch.key.wireframe {
-            mesh.edges.clone()
-        } else {
-            mesh.triangles.clone()
-        };
-
         // Render state for this batch.
         if batch.key.depth_enabled {
             gl.enable(GL::DEPTH_TEST);
@@ -372,6 +375,33 @@ impl Renderer {
                 gl.blend_func(GL::DST_COLOR, GL::ZERO);
             }
         }
+
+        if let Primitive::PointCloud { id } = batch.key.primitive {
+            let result = self.points.draw(
+                &scene.point_clouds[id as usize],
+                &batch.instances[0].model,
+                scene,
+                width,
+                height,
+                self.premultiplied,
+            );
+            gl.use_program(Some(&self.program));
+            return result;
+        }
+
+        self.ensure_mesh(batch.key.primitive, scene)?;
+
+        let Some(mesh) = self.meshes.get(&batch.key.primitive) else {
+            return Ok(());
+        };
+        let triangle_count = mesh.triangle_count;
+        let edge_count = mesh.edge_count;
+        let vao = mesh.vao.clone();
+        let elements = if batch.key.wireframe {
+            mesh.edges.clone()
+        } else {
+            mesh.triangles.clone()
+        };
 
         // `flat` is treated as `lambert` for now: distinguishing them needs a
         // second program compiled with a flat-interpolated normal, and getting
@@ -604,9 +634,19 @@ impl Renderer {
 
 pub(crate) fn link(gl: &GL, vertex: &str, fragment: &str) -> Result<WebGlProgram, String> {
     let vs = compile(gl, GL::VERTEX_SHADER, vertex)?;
-    let fs = compile(gl, GL::FRAGMENT_SHADER, fragment)?;
+    let fs = match compile(gl, GL::FRAGMENT_SHADER, fragment) {
+        Ok(shader) => shader,
+        Err(error) => {
+            gl.delete_shader(Some(&vs));
+            return Err(error);
+        }
+    };
 
-    let program = gl.create_program().ok_or("could not create program")?;
+    let Some(program) = gl.create_program() else {
+        gl.delete_shader(Some(&vs));
+        gl.delete_shader(Some(&fs));
+        return Err("could not create program".into());
+    };
     gl.attach_shader(&program, &vs);
     gl.attach_shader(&program, &fs);
 
@@ -629,9 +669,11 @@ pub(crate) fn link(gl: &GL, vertex: &str, fragment: &str) -> Result<WebGlProgram
     {
         Ok(program)
     } else {
-        Err(gl
+        let error = gl
             .get_program_info_log(&program)
-            .unwrap_or_else(|| "unknown link error".to_string()))
+            .unwrap_or_else(|| "unknown link error".to_string());
+        gl.delete_program(Some(&program));
+        Err(error)
     }
 }
 
@@ -647,8 +689,10 @@ fn compile(gl: &GL, kind: u32, source: &str) -> Result<web_sys::WebGlShader, Str
     {
         Ok(shader)
     } else {
-        Err(gl
+        let error = gl
             .get_shader_info_log(&shader)
-            .unwrap_or_else(|| "unknown shader error".to_string()))
+            .unwrap_or_else(|| "unknown shader error".to_string());
+        gl.delete_shader(Some(&shader));
+        Err(error)
     }
 }
