@@ -11,7 +11,7 @@ import { inspectSvg } from "../lib/assets/svg.ts";
 import { inspectGlb } from "../lib/assets/glb.ts";
 import { inspectBitmap } from "../lib/assets/bitmap.ts";
 import { inspectAssetBytes } from "../lib/assets/content.ts";
-import { parseGlbMesh } from "../lib/assets/gltf.ts";
+import { parseGlbMesh, parseGlbModel } from "../lib/assets/gltf.ts";
 import { assetReference, describeUpload } from "../lib/assets/upload.ts";
 
 const SHA = "a".repeat(64);
@@ -530,7 +530,7 @@ test("geometry that runs past its buffer is refused", () => {
     buffers: [{ byteLength: 36 }],
   };
   const bin = Buffer.from(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]).buffer);
-  rejects(() => parseGlbMesh(buildGlbWithBin(gltf, bin)), /past the end of its buffer/);
+  rejects(() => parseGlbMesh(buildGlbWithBin(gltf, bin)), /geometry buffer bounds/);
 });
 
 test("a model with no triangles is refused rather than rendered empty", () => {
@@ -543,7 +543,7 @@ test("a model with no triangles is refused rather than rendered empty", () => {
   };
   rejects(
     () => parseGlbMesh(buildGlbWithBin(gltf, Buffer.alloc(4))),
-    /no triangle geometry/,
+    /no supported point or triangle geometry/,
   );
 });
 
@@ -588,4 +588,67 @@ test("a file is judged before any bytes move", () => {
   rejects(() => describeUpload(file("clip.mp4", 2048)), /Unsupported/);
   rejects(() => describeUpload(file("huge.svg", 3 * 1024 * 1024)), /between 1 byte/);
   rejects(() => describeUpload(file("empty.png", 0)), /between 1 byte/);
+});
+
+
+function pointGlb(change = () => {}) {
+  const bin = Buffer.alloc(44);
+  new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9]).forEach((v, i) => bin.writeFloatLE(v, i * 4));
+  [2, 0, 1].forEach((v, i) => bin.writeUInt16LE(v, 36 + i * 2));
+  const gltf = {
+    asset: {version: "2.0"}, scene: 0, scenes: [{nodes: [0]}],
+    nodes: [{mesh: 0}], meshes: [{primitives: [{mode: 0, attributes: {POSITION: 0}}]}],
+    accessors: [
+      {bufferView: 0, componentType: 5126, type: "VEC3", count: 3},
+      {bufferView: 1, componentType: 5123, type: "SCALAR", count: 3},
+    ],
+    bufferViews: [{buffer: 0, byteOffset: 0, byteLength: 36}, {buffer: 0, byteOffset: 36, byteLength: 6}],
+    buffers: [{byteLength: bin.length}],
+  };
+  change(gltf, bin);
+  return buildGlbWithBin(gltf, bin);
+}
+
+test("POINTS preserve source order and indexed draw order with nested transforms", () => {
+  const plain = parseGlbModel(pointGlb());
+  assert.deepEqual([...plain.points], [1,2,3,4,5,6,7,8,9]);
+  assert.equal(plain.vertices.length, 0);
+  const indexed = parseGlbModel(pointGlb(g => {
+    g.meshes[0].primitives[0].indices = 1;
+    g.nodes = [{translation: [10,0,0], children: [1]}, {mesh: 0, scale: [2,2,2]}];
+  }));
+  assert.deepEqual([...indexed.points], [24,16,18,12,4,6,18,10,12]);
+  assert.deepEqual([...parseGlbModel(triangleGlb()).points], [0,0,0,1,0,0,0,1,0]);
+});
+
+test("upload admission accepts renderable point GLBs and rejects unusable geometry", () => {
+  const inspect = bytes => inspectAssetBytes(bytes, {kind: "model", mimeType: "model/gltf-binary", bytes: bytes.length, sha256: SHA}, SHA);
+  assert.deepEqual(inspect(pointGlb()), {width: null, height: null});
+  rejects(() => inspect(pointGlb(g => g.accessors[0].count = 1_000_001)), /bounds/);
+  rejects(() => inspect(pointGlb((g, b) => b.writeFloatLE(Infinity, 0))), /non-finite/);
+});
+
+test("malformed point accessors, indices and node graphs are bounded and rejected", () => {
+  for (const change of [
+    g => g.accessors[0].count = 1.5,
+    g => g.scene = 99,
+    g => g.meshes[0].primitives[0].indices = "1",
+    g => g.nodes = [null],
+    g => g.accessors[0].byteOffset = -4,
+    g => g.bufferViews[0].byteStride = 4,
+    g => g.bufferViews[0].byteLength = 12,
+    g => g.bufferViews[0].buffer = 1,
+    g => g.accessors[0].sparse = {},
+    g => g.nodes[0].children = [0],
+    g => g.nodes[0].scale = [1,2],
+    (g, b) => {g.meshes[0].primitives[0].indices = 1; b.writeUInt16LE(3, 36);},
+  ]) rejects(() => parseGlbModel(pointGlb(change)));
+});
+
+test("point geometry honours interleaved accessor stride", () => {
+  const bytes = pointGlb((g, b) => {
+    g.accessors[0].count = 2;
+    g.bufferViews[0].byteStride = 16;
+  });
+  assert.deepEqual([...parseGlbModel(bytes).points], [1,2,3,5,6,7]);
 });

@@ -74,6 +74,7 @@ Passing a `color` of white — the default — leaves the image untouched.
 | `cone` | Around the side; the base radially |
 | `torus` | `u` around the ring, `v` around the tube |
 | `sprite` | The whole image on the quad |
+| `point_cloud` | The whole image on each point |
 | `mesh`, `model` | Whatever the geometry's own coordinates say |
 
 A `draw::mesh` without `uvs` samples the image's top-left corner, which shows as
@@ -105,10 +106,31 @@ Only `.glb` is accepted. A `.gltf` file normally points at separate texture and
 buffer files sitting next to it, and Visamp has no way to store or keep track of
 those, so a model has to be exported as a single self-contained file.
 
+### Point models (engine 2.5.0)
+
+GLBs can contain `POINTS` geometry as well as triangles. Render these with
+`draw::point_cloud(model: asset::model(id: "…"))`. Point-only models have no
+surfaces for `draw::model` to draw. Triangle models can also be drawn as points,
+using each primitive's source positions without expanding its triangle indices.
+
+Point primitives preserve their draw order, including indexed points. Node
+transforms are applied once during loading, in scene order. The decoder does
+not sort, merge, centre or rescale vertices. This matters for animations that
+walk between neighbouring points. See [point fields](overview.md#model-positions-engine-250)
+for source-position access, per-point size and sprites.
+
+Upload admission uses the same geometry decoder as playback. Positions must be
+finite floating-point `VEC3` values in the embedded binary buffer. Sparse
+accessors and external buffers are unsupported. Models must contain renderable
+points or triangles, at most 1,000,000 point positions and 65,536 triangle
+vertices. Triangle indices are limited to 6,000,000. Bounds, transforms, attribute
+counts and node hierarchies are checked before an asset becomes ready.
+
 ## When an asset will not load
 
 A reference that cannot be resolved is **not an error, and does not stop the
-frame**. A textured shape draws untextured; a `draw::model` draws nothing; the
+frame**. A textured mesh draws untextured; a `draw::model` draws nothing.
+A point cloud awaiting its model or requested texture draws nothing; the
 rest of your script carries on.
 
 That covers all of:

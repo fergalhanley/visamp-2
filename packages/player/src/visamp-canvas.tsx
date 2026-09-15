@@ -1,5 +1,6 @@
 "use client";
 
+import { registerAsset } from "./assets";
 import {
   useCallback,
   useEffect,
@@ -170,17 +171,7 @@ export function VisampCanvas({
     engine.clear_assets();
     for (const asset of assets ?? []) {
       try {
-        if (asset.kind === "texture") {
-          engine.set_asset_texture(asset.id, asset.width, asset.height, asset.rgba);
-        } else {
-          engine.set_asset_mesh(
-            asset.id,
-            asset.vertices,
-            asset.indices,
-            asset.normals,
-            asset.uvs,
-          );
-        }
+        registerAsset(engine, asset);
       } catch (error) {
         // One malformed asset must not take the whole visual down.
         onLogRef.current?.({

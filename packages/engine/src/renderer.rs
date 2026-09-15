@@ -265,6 +265,7 @@ impl Renderer {
     /// withdrawn cannot keep drawing from GPU memory.
     fn sync_textures(&mut self, scene: &Scene, assets: &AssetStore) {
         let gl = self.gl.clone();
+        gl.active_texture(GL::TEXTURE0);
 
         for id in &scene.textures {
             let Some(pixels) = assets.texture(id) else {
@@ -377,6 +378,12 @@ impl Renderer {
         }
 
         if let Primitive::PointCloud { id } = batch.key.primitive {
+            let sprite = batch
+                .key
+                .texture
+                .and_then(|slot| scene.textures.get(slot as usize))
+                .and_then(|id| self.textures.get(id))
+                .map(|(_, texture)| texture);
             let result = self.points.draw(
                 &scene.point_clouds[id as usize],
                 &batch.instances[0].model,
@@ -384,6 +391,7 @@ impl Renderer {
                 width,
                 height,
                 self.premultiplied,
+                sprite,
             );
             gl.use_program(Some(&self.program));
             return result;

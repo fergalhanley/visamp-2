@@ -65,6 +65,50 @@ render {
   step();
   near(pixel(), [0,0,0,255], 'on_init resets array on reload');
 
+  engine.set_asset_points('model', new Float32Array([-1,0,0, 0,0,0, 1,0,0]));
+  const model = 'model: asset::model(id: "model")';
+  render(`draw::point_cloud(${model}, size: 20.0)`);
+  near(pixel(-1), [255,255,255,255], 'model default positions');
+  near(pixel(1), [255,255,255,255], 'model default count');
+  render(`draw::point_cloud(${model}, x: $MODEL_X[($POINT_INDEX+1)%$POINT_COUNT], y: $POINT_Y, z: $POINT_Z, size: $POINT_INDEX * 10.0, color: color::rgb(g: 1.0))`);
+  near(pixel(0), [0,0,0,255], 'zero per-point size culled');
+  near(pixel(1), [0,255,0,255], 'neighbour lookup and per-point size');
+  render(`draw::point_cloud(${model}, size: 1.0/($POINT_INDEX-$POINT_INDEX))`);
+  near(pixel(-1), [0,0,0,255], 'nonfinite per-point size culled');
+
+  // Transparent texels must leave depth untouched, so the later cube is visible.
+  engine.set_asset_texture('sprite', 1, 1, new Uint8Array([255,255,255,0]));
+  render(`draw::point_cloud(count: 1, texture: asset::bitmap(id: "sprite"), z: 1.0, size: 20.0)\n ${redCube}`);
+  near(pixel(), [255,0,0,255], 'transparent sprite does not write depth');
+  engine.set_asset_texture('sprite', 1, 1, new Uint8Array([255,255,255,128]));
+  render(`${redCube}\n draw::point_cloud(count: 1, texture: asset::bitmap(id: "sprite"), z: 1.0, size: 20.0, color: color::rgb(g: 1.0))`);
+  near(pixel(), [127,128,0], 'sprite alpha and tint');
+  render(`draw::point_cloud(count: 1, texture: asset::bitmap(id: "sprite"), alpha_test: 0.6, z: 1.0, size: 20.0)\n ${redCube}`);
+  near(pixel(), [255,0,0,255], 'alpha test does not write depth');
+
+  let modelUploads = 0, deletes = 0;
+  const upload = gl.texImage2D.bind(gl), remove = gl.deleteTexture.bind(gl);
+  gl.texImage2D = (...args) => { if (args[2] === gl.RGBA32F) modelUploads++; upload(...args); };
+  gl.deleteTexture = texture => { deletes++; remove(texture); };
+  try {
+    load(`context 3d\nrender { camera::orthographic(height: 4.0)\n gfx::clear(color: $COLOR_BLACK)\n draw::point_cloud(${model}, size: 20.0, y: math::sin(radians: $TIME_SEC)*0.01) }`);
+    for (let i=0; i<20; i++) step();
+    assert(modelUploads === 1, `model should upload once, got ${modelUploads}`);
+    engine.set_asset_points('model', new Float32Array([1,0,0]));
+    step();
+    near(pixel(-1), [0,0,0,255], 'replaced model removes old points');
+    near(pixel(1), [255,255,255,255], 'replacement model renders');
+    assert(modelUploads === 2 && deletes > 0, 'model replacement must replace GPU texture');
+    engine.clear_assets();
+    step();
+    near(pixel(1), [0,0,0,255], 'clear_assets removes points');
+    render(`draw::point_cloud(count: 1, texture: asset::bitmap(id: "sprite"), size: 20.0)`);
+    near(pixel(), [0,0,0,255], 'missing sprite skips draw');
+  } finally {
+    gl.texImage2D = upload;
+    gl.deleteTexture = remove;
+  }
+
   let draws = [], links = 0;
   const draw = gl.drawArrays.bind(gl), link = gl.linkProgram.bind(gl);
   gl.drawArrays = (mode, first, count) => { draws.push({mode, count}); draw(mode, first, count); };
@@ -82,7 +126,7 @@ render {
     }
     assert(links === initialLinks, 'frame/audio changes recompiled the shader');
     assert(gl.getError() === gl.NO_ERROR, 'full-density WebGL error');
-    return {passed: true, pixelCases: 10, animatedFrames: 21, pointsPerDraw: 147456, shaderRecompiles: 0};
+    return {passed: true, pixelCases: 21, animatedFrames: 21, pointsPerDraw: 147456, shaderRecompiles: 0, modelUploadsAcross20Frames: 1};
   } finally {
     gl.drawArrays = draw;
     gl.linkProgram = link;

@@ -7,6 +7,7 @@
 //! an asset the viewer has no access to.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::scene::MeshData;
 
@@ -24,6 +25,7 @@ pub struct TexturePixels {
 pub struct AssetStore {
     textures: HashMap<String, TexturePixels>,
     meshes: HashMap<String, MeshData>,
+    points: HashMap<String, Rc<Vec<[f32; 3]>>>,
 }
 
 impl AssetStore {
@@ -48,6 +50,22 @@ impl AssetStore {
         self.meshes.insert(id.to_string(), mesh);
     }
 
+    pub fn set_points(&mut self, id: &str, positions: Vec<[f32; 3]>) -> bool {
+        if id.is_empty()
+            || positions.is_empty()
+            || positions.len() > crate::points::MAX_POINTS as usize
+            || positions.iter().flatten().any(|v| !v.is_finite())
+        {
+            return false;
+        }
+        self.points.insert(id.to_string(), Rc::new(positions));
+        true
+    }
+
+    pub fn points(&self, id: &str) -> Option<Rc<Vec<[f32; 3]>>> {
+        self.points.get(id).cloned()
+    }
+
     pub fn mesh(&self, id: &str) -> Option<&MeshData> {
         self.meshes.get(id)
     }
@@ -57,10 +75,11 @@ impl AssetStore {
     pub fn clear(&mut self) {
         self.textures.clear();
         self.meshes.clear();
+        self.points.clear();
     }
 
     pub fn len(&self) -> usize {
-        self.textures.len() + self.meshes.len()
+        self.textures.len() + self.meshes.len() + self.points.len()
     }
 
     pub fn is_empty(&self) -> bool {

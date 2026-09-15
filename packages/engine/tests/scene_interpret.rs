@@ -423,9 +423,10 @@ fn point_cloud_signature_rejects_unsupported_common_arguments_and_2d() {
     for source in [
         "context 2d\nrender {\n draw::point_cloud(count: 1)\n}",
         "context 3d\nrender {\n draw::point_cloud()\n}",
-        "context 3d\nrender {\n draw::point_cloud(count: 1, texture: 0)\n}",
         "context 3d\nrender {\n draw::point_cloud(count: 1, shading: \"lambert\")\n}",
-    ] { assert!(build_ast(source).is_err(), "{source}"); }
+    ] {
+        assert!(build_ast(source).is_err(), "{source}");
+    }
 }
 
 #[test]
@@ -447,4 +448,87 @@ fn point_cloud_rejects_excessive_audio_data_and_expression_complexity() {
     let values = vec!["1"; 513].join(",");
     let error = run_err(&format!("context 3d\nrender {{\n draw::point_cloud(count: 1, x: [{values}][$POINT_INDEX])\n}}"));
     assert!(error.contains("too complex"), "{error}");
+}
+
+#[test]
+fn model_point_fields_reuse_source_and_default_to_its_count() {
+    use visamp_2::assets::{with_store, with_store_mut};
+    with_store_mut(|s| assert!(s.set_points("ordered-model", vec![[1.0, 2.0, 3.0]; 15_572])));
+    let scene = run(r#"context 3d
+render {
+ draw::point_cloud(model: asset::model(id: "ordered-model"),
+  x: $POINT_X, y: $MODEL_Y[($POINT_INDEX + 1) % $POINT_COUNT],
+  size: 5 + math::abs(value: $POINT_Z), texture: asset::bitmap(id: "sprite"), alpha_test: 0.1)
+}"#);
+    let cloud = &scene.point_clouds[0];
+    assert_eq!(cloud.count, 15_572);
+    assert!(
+        cloud.data.len() < 10,
+        "source positions must not enter the per-frame data buffer"
+    );
+    with_store(|s| {
+        assert!(std::rc::Rc::ptr_eq(
+            &s.points("ordered-model").unwrap(),
+            &cloud.model.as_ref().unwrap().1
+        ))
+    });
+    assert_eq!(cloud.texture.as_deref(), Some("sprite"));
+    assert_eq!(scene.textures, vec!["sprite"]);
+    assert!(cloud.body.contains("model_at"));
+    with_store_mut(|s| s.clear());
+    assert!(run(r#"context 3d
+render { draw::point_cloud(model: asset::model(id: "ordered-model")) }"#)
+    .commands
+    .is_empty());
+}
+
+#[test]
+fn model_points_validate_inputs_and_replace_immutable_sources() {
+    use visamp_2::assets::AssetStore;
+    let mut store = AssetStore::default();
+    assert!(!store.set_points("a", vec![]));
+    assert!(!store.set_points("a", vec![[f32::NAN, 0.0, 0.0]]));
+    assert!(!store.set_points("a", vec![[0.0; 3]; 1_000_001]));
+    assert!(store.set_points("a", vec![[1.0; 3]]));
+    let before = store.points("a").unwrap();
+    assert!(store.set_points("a", vec![[2.0; 3]]));
+    assert_eq!(before[0], [1.0; 3]);
+    assert_eq!(store.points("a").unwrap()[0], [2.0; 3]);
+    store.clear();
+    assert!(store.points("a").is_none());
+    for (args, message) in [
+        ("count: 1, x: $POINT_X", "requires a model"),
+        ("count: 1, y: $MODEL_Y[0]", "requires a model"),
+        ("count: 1, texture: 0", "texture needs"),
+        ("count: 1, model: 0", "model needs"),
+        ("count: 1, alpha_test: 2", "alpha_test must"),
+    ] {
+        let error = run_err(&format!(
+            "context 3d\nrender {{\n draw::point_cloud({args})\n}}"
+        ));
+        assert!(error.contains(message), "{error}");
+        assert!(error.contains("3:2"), "{error}");
+    }
+}
+
+#[test]
+fn model_source_budget_counts_shared_assets_once() {
+    use visamp_2::assets::with_store_mut;
+    with_store_mut(|s| {
+        s.set_points("large-a", vec![[0.0; 3]; 600_000]);
+        s.set_points("large-b", vec![[0.0; 3]; 600_000]);
+    });
+    let a = r#"draw::point_cloud(model: asset::model(id: "large-a"), count: 1)"#;
+    let b = r#"draw::point_cloud(model: asset::model(id: "large-b"), count: 1)"#;
+    assert_eq!(
+        run(&format!("context 3d\nrender {{\n {a}\n {a}\n}}"))
+            .point_clouds
+            .len(),
+        2
+    );
+    assert!(
+        run_err(&format!("context 3d\nrender {{\n {a}\n {b}\n}}")).contains("model point budget")
+    );
+    with_store_mut(|s| s.clear());
+    assert!(!visamp_2::set_asset_points("incomplete", &[0.0, 1.0]));
 }

@@ -317,6 +317,18 @@ impl Resolver {
             ));
         }
 
+        if builtin.namespace == "draw"
+            && builtin.name == "point_cloud"
+            && !args
+                .iter()
+                .any(|(name, _)| name == "count" || name == "model")
+        {
+            self.errors.push(located(
+                call,
+                "draw::point_cloud: count or model is required".into(),
+            ));
+        }
+
         // E3021 — required argument missing.
         for required in builtin.required {
             if !args.iter().any(|(name, _)| name == required) {

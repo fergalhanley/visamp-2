@@ -6,7 +6,7 @@
  */
 
 import { inspectBitmap } from "./bitmap.ts";
-import { inspectGlb } from "./glb.ts";
+import { parseGlbModel } from "./gltf.ts";
 import { inspectSvg } from "./svg.ts";
 import { AssetRejected, ASSET_BYTE_LIMITS, type AcceptedUpload } from "./rules.ts";
 
@@ -38,7 +38,7 @@ export function inspectAssetBytes(
       inspectSvg(bytes);
       return { width: null, height: null };
     case "model":
-      inspectGlb(bytes);
+      parseGlbModel(bytes);
       return { width: null, height: null };
   }
 }

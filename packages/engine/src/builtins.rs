@@ -174,8 +174,19 @@ pub const BUILTINS: &[Builtin] = &[
     ns3(
         "draw",
         "point_cloud",
-        &["count", "x", "y", "z", "color", "size", "size_attenuation"],
-        &["count"],
+        &[
+            "count",
+            "model",
+            "x",
+            "y",
+            "z",
+            "color",
+            "size",
+            "size_attenuation",
+            "texture",
+            "alpha_test",
+        ],
+        &[],
     ),
     d3("sprite", &["size", "w", "h"], &[]),
     d3(

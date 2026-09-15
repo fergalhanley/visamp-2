@@ -133,6 +133,23 @@ pub fn set_asset_mesh(
     true
 }
 
+/// Ordered positions from a resolved GLB model. Stored independently of triangles.
+#[wasm_bindgen]
+pub fn set_asset_points(id: &str, vertices: &[f32]) -> bool {
+    if vertices.len() % 3 != 0 || vertices.len() / 3 > points::MAX_POINTS as usize {
+        return false;
+    }
+    assets::with_store_mut(|store| {
+        store.set_points(
+            id,
+            vertices
+                .chunks_exact(3)
+                .map(|v| [v[0], v[1], v[2]])
+                .collect(),
+        )
+    })
+}
+
 /// Drops every resolved asset. Called when the visual or the viewer changes,
 /// so nothing one viewer could read stays resident for the next.
 #[wasm_bindgen]

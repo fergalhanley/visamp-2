@@ -1,11 +1,6 @@
-/**
- * VIS-53: GLB → the vertex arrays the engine's `set_asset_mesh` expects.
- *
- * Admission (`inspectGlb`) and extraction are separate on purpose. The
- * validator is the security boundary — it is what refuses external references
- * and malformed containers — and it stays untouched here. This runs only after
- * it has passed, so the chunk walk below can assume a well-formed container and
- * concern itself with geometry.
+/** GLB geometry shared by upload admission and browser asset resolution.
+ * POINTS preserve draw order; TRIANGLES also expose their source vertices for
+ * point-cloud rendering. Node transforms are baked once when resolving assets.
  */
 
 import { AssetRejected } from "./rules.ts";
@@ -39,6 +34,7 @@ const TYPE_COUNTS: Record<string, number> = {
 
 /** The subset of glTF this reader looks at. Anything else is ignored. */
 interface GltfAccessor {
+  sparse?: unknown;
   bufferView?: number;
   byteOffset?: number;
   componentType?: number;
@@ -48,6 +44,7 @@ interface GltfAccessor {
 }
 
 interface GltfBufferView {
+  buffer?: number;
   byteOffset?: number;
   byteLength?: number;
   byteStride?: number;
@@ -69,6 +66,8 @@ interface GltfNode {
 }
 
 interface Gltf {
+  asset?: { version?: string };
+  buffers?: { uri?: string; byteLength?: number }[];
   scene?: number;
   scenes?: { nodes?: number[] }[];
   nodes?: GltfNode[];
@@ -85,12 +84,43 @@ interface Primitive {
   indices: Uint32Array;
 }
 
+const MAX_POINTS = 1_000_000;
+const MAX_MESH_VERTICES = 65_536;
+const MAX_INDICES = 6_000_000;
+
+export interface ModelArrays extends MeshArrays {
+  points: Float32Array;
+}
+
+/** Compatibility entry point for callers requiring triangle geometry. */
 export function parseGlbMesh(bytes: Uint8Array): MeshArrays {
+  const model = parseGlbModel(bytes);
+  if (!model.vertices.length)
+    throw new AssetRejected("This model contains no triangle geometry.");
+  return model;
+}
+
+export function parseGlbModel(bytes: Uint8Array): ModelArrays {
+  try {
+    return decodeGlbModel(bytes);
+  } catch (error) {
+    if (error instanceof AssetRejected) throw error;
+    throw new AssetRejected("This model has a malformed geometry description.");
+  }
+}
+
+function decodeGlbModel(bytes: Uint8Array): ModelArrays {
   inspectGlb(bytes);
 
   const { json, bin } = readChunks(bytes);
   const gltf = json as Gltf;
+  const buffer = gltf.buffers?.[0];
+  if (gltf.asset?.version !== "2.0" || !buffer || buffer.uri !== undefined
+      || !Number.isSafeInteger(buffer.byteLength) || buffer.byteLength! < 0
+      || buffer.byteLength! > bin.byteLength || bin.byteLength - buffer.byteLength! > 3)
+    throw new AssetRejected("Model geometry must use a glTF 2.0 embedded binary buffer.");
 
+  const points: number[] = [];
   const vertices: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
@@ -99,23 +129,49 @@ export function parseGlbMesh(bytes: Uint8Array): MeshArrays {
   // Nodes carry the transform that places their mesh. Ignoring it would pile
   // every part of a model on top of the others at the origin.
   const scene = gltf.scenes?.[gltf.scene ?? 0];
-  const roots: number[] = scene?.nodes ?? gltf.nodes?.map((_, index) => index) ?? [];
-
+  if (gltf.scene !== undefined && (!Number.isInteger(gltf.scene) || !scene))
+    throw new AssetRejected("This model references a missing scene.");
+  const children = new Set(gltf.nodes?.flatMap((node) => node.children ?? []));
+  const roots = scene?.nodes ?? gltf.nodes?.map((_, i) => i).filter((i) => !children.has(i)) ?? [];
+  const visited = new Set<number>();
   const visit = (nodeIndex: number, parent: number[], depth: number) => {
-    // Cyclic or absurdly deep hierarchies are malformed; stop rather than spin.
-    if (depth > 64) return;
+    if (!Number.isInteger(nodeIndex) || depth > 64 || visited.has(nodeIndex) || visited.size >= 10_000)
+      throw new AssetRejected("This model has an invalid or excessive node hierarchy.");
     const node = gltf.nodes?.[nodeIndex];
-    if (!node) return;
+    if (!node) throw new AssetRejected("This model references a missing node.");
+    visited.add(nodeIndex);
 
     const world = multiply(parent, localMatrix(node));
 
-    if (typeof node.mesh === "number") {
-      for (const primitive of gltf.meshes?.[node.mesh]?.primitives ?? []) {
-        // Only triangles. mode defaults to 4 when absent.
-        if (primitive.mode !== undefined && primitive.mode !== 4) continue;
+    if (node.mesh !== undefined) {
+      const mesh = Number.isInteger(node.mesh) ? gltf.meshes?.[node.mesh] : undefined;
+      if (!mesh) throw new AssetRejected("This model references a missing mesh.");
+      for (const primitive of mesh.primitives ?? []) {
+        // Other primitive types do not have a renderer yet.
+        if (primitive.mode !== undefined && primitive.mode !== 4 && primitive.mode !== 0) continue;
         const part = readPrimitive(gltf, bin, primitive);
         if (!part) continue;
 
+        const isPoints = primitive.mode === 0;
+        const pointCount = isPoints ? part.indices.length : part.positions.length / 3;
+        if (points.length / 3 + pointCount > MAX_POINTS)
+          throw new AssetRejected("This model exceeds the 1,000,000 point limit.");
+        if (!isPoints && (vertices.length / 3 + pointCount > MAX_MESH_VERTICES || indices.length + part.indices.length > MAX_INDICES))
+          throw new AssetRejected("This model exceeds the triangle geometry limit.");
+        const transformed = new Float32Array(part.positions.length);
+        for (let i = 0; i < part.positions.length; i += 3) {
+          const p = transformPoint(world, [part.positions[i]!, part.positions[i + 1]!, part.positions[i + 2]!]);
+          transformed.set(p, i);
+        }
+        if (transformed.some((v) => !Number.isFinite(v)))
+          throw new AssetRejected("This model contains non-finite transformed positions.");
+        if (isPoints) {
+          for (const index of part.indices) {
+            points.push(transformed[index * 3]!, transformed[index * 3 + 1]!, transformed[index * 3 + 2]!);
+          }
+          continue;
+        }
+        for (const value of transformed) points.push(value);
         const base = vertices.length / 3;
         for (let i = 0; i < part.positions.length; i += 3) {
           const p = transformPoint(world, [
@@ -155,14 +211,15 @@ export function parseGlbMesh(bytes: Uint8Array): MeshArrays {
 
   for (const root of roots) visit(root, IDENTITY, 0);
 
-  if (vertices.length === 0)
-    throw new AssetRejected("This model contains no triangle geometry.");
+  if (points.length === 0)
+    throw new AssetRejected("This model contains no supported point or triangle geometry.");
 
   // The engine falls back to per-face normals when the array is empty, which is
   // better than shading every vertex from a zero normal.
   const hasNormals = normals.some((n) => n !== 0);
 
   return {
+    points: new Float32Array(points),
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
     normals: hasNormals ? new Float32Array(normals) : new Float32Array(0),
@@ -199,7 +256,10 @@ function readPrimitive(
   primitive: GltfPrimitive,
 ): Primitive | null {
   const positionIndex = primitive.attributes?.POSITION;
-  if (typeof positionIndex !== "number") return null;
+  if (typeof positionIndex !== "number")
+    throw new AssetRejected("This model has geometry without positions.");
+  if (gltf.accessors?.[positionIndex]?.componentType !== 5126)
+    throw new AssetRejected("Model positions must use floating-point VEC3 values.");
 
   const positions = readAccessor(gltf, bin, positionIndex, 3);
   if (!positions) return null;
@@ -208,8 +268,15 @@ function readPrimitive(
   const uvs = readAccessor(gltf, bin, primitive.attributes?.TEXCOORD_0, 2);
 
   const count = positions.length / 3;
+  if ((normals && normals.length !== positions.length) || (uvs && uvs.length !== count * 2))
+    throw new AssetRejected("This model has mismatched vertex attribute counts.");
   let indices: Uint32Array;
-  if (typeof primitive.indices === "number") {
+  if (primitive.indices !== undefined) {
+    if (!Number.isInteger(primitive.indices))
+      throw new AssetRejected("This model has an invalid index accessor reference.");
+    const accessor = gltf.accessors?.[primitive.indices];
+    if (!accessor || ![5121, 5123, 5125].includes(accessor.componentType ?? 0) || accessor.normalized)
+      throw new AssetRejected("Model indices must be unsigned integers.");
     const read = readAccessor(gltf, bin, primitive.indices, 1);
     if (!read) return null;
     indices = Uint32Array.from(read);
@@ -223,6 +290,8 @@ function readPrimitive(
     if (index >= count) throw new AssetRejected("This model has an out-of-range vertex index.");
   }
 
+  if (primitive.mode !== 0 && indices.length % 3 !== 0)
+    throw new AssetRejected("This model has an incomplete triangle.");
   return { positions, normals, uvs, indices };
 }
 
@@ -233,23 +302,32 @@ function readAccessor(
   index: unknown,
   expected: number,
 ): Float32Array | null {
-  if (typeof index !== "number") return null;
-  const accessor = gltf.accessors?.[index];
-  if (!accessor) return null;
+  if (index === undefined) return null;
+  const accessor = typeof index === "number" && Number.isInteger(index) ? gltf.accessors?.[index] : undefined;
+  if (!accessor || accessor.sparse)
+    throw new AssetRejected("This model has a missing or unsupported sparse accessor.");
 
   const components = TYPE_COUNTS[accessor.type ?? ""];
   const componentSize = COMPONENT_SIZES[accessor.componentType ?? -1];
-  if (!components || !componentSize || components !== expected) return null;
+  if (!components || !componentSize || components !== expected)
+    throw new AssetRejected("This model has an unsupported geometry accessor.");
 
-  const view = gltf.bufferViews?.[accessor.bufferView ?? -1];
-  if (!view) return null;
-
-  const base = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-  const stride: number = view.byteStride ?? components * componentSize;
-  const count: number = accessor.count ?? 0;
-  const end = base + (count - 1) * stride + components * componentSize;
-  if (count <= 0 || end > bin.byteLength)
-    throw new AssetRejected("This model's geometry runs past the end of its buffer.");
+  const view = Number.isInteger(accessor.bufferView) ? gltf.bufferViews?.[accessor.bufferView!] : undefined;
+  if (!view || (view.buffer ?? 0) !== 0)
+    throw new AssetRejected("Model geometry must use the embedded binary buffer.");
+  const viewOffset = view.byteOffset ?? 0;
+  const viewLength = view.byteLength ?? 0;
+  const accessorOffset = accessor.byteOffset ?? 0;
+  const stride = view.byteStride ?? components * componentSize;
+  const count = accessor.count ?? 0;
+  const base = viewOffset + accessorOffset;
+  const end = accessorOffset + (count - 1) * stride + components * componentSize;
+  if (![viewOffset, viewLength, accessorOffset, stride, count].every((v) => Number.isSafeInteger(v) && v >= 0)
+      || count === 0 || count > (expected === 1 ? MAX_INDICES : MAX_POINTS)
+      || stride < components * componentSize || stride % componentSize !== 0
+      || base % componentSize !== 0 || (view.byteStride !== undefined && stride > 252)
+      || viewOffset + viewLength > (gltf.buffers?.[0]?.byteLength ?? 0) || end > viewLength)
+    throw new AssetRejected("This model has invalid or excessive geometry buffer bounds.");
 
   const data = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
   const out = new Float32Array(count * components);
@@ -265,6 +343,8 @@ function readAccessor(
       );
     }
   }
+  if (out.some((value) => !Number.isFinite(value)))
+    throw new AssetRejected("This model contains non-finite geometry values.");
   return out;
 }
 
@@ -305,6 +385,10 @@ function readComponent(
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
 function localMatrix(node: GltfNode): number[] {
+  for (const [value, length] of [[node.matrix, 16], [node.translation, 3], [node.rotation, 4], [node.scale, 3]] as const) {
+    if (value !== undefined && (!Array.isArray(value) || value.length !== length || value.some((v) => !Number.isFinite(v))))
+      throw new AssetRejected("This model has an invalid node transform.");
+  }
   if (Array.isArray(node.matrix) && node.matrix.length === 16) return node.matrix;
 
   const [tx = 0, ty = 0, tz = 0] = node.translation ?? [];

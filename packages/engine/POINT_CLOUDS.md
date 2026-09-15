@@ -19,7 +19,7 @@ render {
 
 One call draws `count` square points in one native `GL_POINTS` draw, without
 constructing meshes or running the interpreter once per point. The renderer
-compiles position/colour expressions to a bounded vertex shader. It caches that
+compiles position/colour/size expressions to a bounded vertex shader. It caches that
 program while referenced; changing frame values uploads data without recompiling.
 No author-provided shader source is accepted.
 
@@ -27,17 +27,20 @@ No author-provided shader source is accepted.
 
 | Argument | Meaning | Default |
 | --- | --- | --- |
-| `count` | Whole number of points, 0–1,000,000 | Required |
-| `x`, `y`, `z` | Per-point coordinates inside the current transform | 0 |
+| `count` | Whole number of points, 0–1,000,000 | Model point count, otherwise required |
+| `model` | `asset::model` supplying ordered positions (2.5.0) | None |
+| `x`, `y`, `z` | Per-point coordinates inside the current transform | Source coordinates with model; otherwise 0 |
 | `color` | Constant colour or per-point `color::rgb` / `color::hsl` | White |
-| `size` | Nonnegative point size | 2 |
+| `size` | Point size; per-point expressions supported in 2.5.0 | 2 |
 | `size_attenuation` | Scale size with perspective distance | false |
+| `texture` | Bitmap/vector sprite (2.5.0) | None |
+| `alpha_test` | Discard fragments below this alpha, 0–1 (2.5.0) | 0 |
 
 `$POINT_INDEX` is zero-based; `$POINT_COUNT` is the cloud's count. They are only
-available directly inside `x`, `y`, `z` and `color` expressions. A `let` outside
+available directly inside `x`, `y`, `z`, `size` and `color` expressions. A `let` outside
 these expressions is a frame value, not a per-point formula.
 
-Subexpressions independent of these two values are evaluated once per cloud per
+Subexpressions independent of per-point system values are evaluated once per cloud per
 frame by the interpreter. This includes time, audio, properties, array bindings
 and user functions. Per-point expressions support numeric unary `+`/`-`,
 arithmetic `+ - * / \ %`, the existing `math::` functions, and indexed reads
@@ -59,15 +62,15 @@ clamps saturation/lightness to 0–1.
 
 Points use the current camera, transform stack, depth settings and blend mode.
 They are unlit and retain command order alongside meshes and sprites. They do
-not take mesh arguments such as texture, normals, wireframe, rotation or opacity;
+not take mesh arguments such as normals, wireframe, rotation or opacity;
 use the transform stack for placement and `color` transparency for alpha.
 Face culling has no effect on points.
 
 With attenuation disabled, size is in drawing-buffer pixels. With attenuation
 enabled under a perspective camera, pixel size is
 `size * viewport_height / (2 * distance_along_camera_forward)`; object scaling
-does not scale size. Orthographic cameras keep pixel sizing. Zero size draws
-nothing. Positive sizes are clamped to the device's supported
+does not scale size. Orthographic cameras keep pixel sizing. Nonpositive or nonfinite computed sizes draw
+nothing. Negative or nonfinite frame-constant sizes report an error. Positive sizes are clamped to the device's supported
 [`ALIASED_POINT_SIZE_RANGE`](https://registry.khronos.org/webgl/specs/latest/1.0/).
 
 Per frame: at most **1,000,000 points**, **64 clouds** and **1,000,000 uploaded
@@ -86,3 +89,36 @@ Build with `pnpm --filter @visamp/engine build:validator`, serve the
 `window.results`. These checks sample rendered pixels for mixed primitives,
 depth, alpha, HSL, array reads, transforms and invalid positions; they verify a
 147,456-point draw and shader reuse across audio/time updates.
+
+## Model-backed particles (2.5.0)
+
+The host resolves a GLB under the viewer's asset permissions and calls
+`set_asset_points(id, xyz)` once. Coordinates must be finite, nonempty XYZ
+triples, limited to 1,000,000 positions. Triangle assets can provide both mesh
+and point data. The engine does no fetching.
+
+`draw::point_cloud(model: asset::model(id: "…"))` uses that source's point count
+and positions by default. `$POINT_X/Y/Z` read the current source position;
+`$MODEL_X/Y/Z[index]` read a neighbour in the same immutable source. Both forms
+are available only in point fields with `model`. They are not ordinary DSL
+arrays. Invalid indices return zero; ring animations must wrap explicitly.
+Overriding `count` changes `$POINT_COUNT`, but does not resize the source.
+
+The asset store shares immutable positions with recorded scenes. The renderer
+caches an RGBA32F position texture by asset ID and source identity, separate from
+frame data. Replacing an asset, clearing assets or ceasing to reference it drops
+the old GPU texture. Distinct sources referenced per frame are limited to
+1,000,000 positions total; their coordinates do not consume the field-input
+budget. Models are uploaded once while referenced, not on each frame.
+
+Sprites multiply point colour by `texture(..., gl_PointCoord)`. Fully transparent
+fragments and fragments below `alpha_test` are discarded before writing depth.
+Remaining fragments use the current blend/depth settings and renderer alpha
+convention. A requested but unresolved model or texture skips its cloud until
+available. Point sprites remain subject to hardware point-size limits.
+
+The browser checks also cover model defaults, neighbour reads, per-point sizes,
+sprite tint/alpha, alpha-test depth, missing assets, replacement/clear and one
+model upload across 20 frames. Web asset tests cover POINTS draw order, nested
+node transforms, strided accessors, malformed inputs and admission. Player tests
+verify handing point-only and triangle assets to the appropriate engine APIs.

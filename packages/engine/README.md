@@ -87,4 +87,5 @@ pnpm --filter @visamp/validator verify:scramble
 pnpm --filter @visamp/validator verify:scramble --serve
 ```
 
-See [procedural point clouds](POINT_CLOUDS.md) for dense GPU point fields (2.3.0).
+See [procedural point clouds](POINT_CLOUDS.md) for dense GPU point fields (2.3.0)
+and model-backed textured particles (2.5.0).

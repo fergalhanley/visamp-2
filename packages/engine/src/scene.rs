@@ -462,6 +462,15 @@ impl Scene {
         if data + cloud.data.len() > 1_000_000 {
             return Err("point data budget exceeded (1000000 numbers per frame)".into());
         }
+        let mut sources = std::collections::HashMap::new();
+        for c in self.point_clouds.iter().chain(std::iter::once(&cloud)) {
+            if let Some((id, positions)) = &c.model {
+                sources.insert(id, positions.len());
+            }
+        }
+        if sources.values().sum::<usize>() > crate::points::MAX_POINTS as usize {
+            return Err("model point budget exceeded (1000000 source positions per frame)".into());
+        }
         self.point_clouds.push(cloud);
         Ok(self.point_clouds.len() as u32 - 1)
     }

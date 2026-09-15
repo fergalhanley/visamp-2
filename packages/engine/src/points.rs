@@ -1,5 +1,6 @@
 //! Bounded procedural point fields, lowered to GLSL rather than interpreted per point.
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::interpreter::{evaluate_expression, Runtime};
 use crate::model::*;
@@ -14,6 +15,9 @@ pub struct PointCloud {
     pub count: u32,
     pub size: f32,
     pub attenuation: bool,
+    pub model: Option<(String, Rc<Vec<[f32; 3]>>)>,
+    pub texture: Option<String>,
+    pub alpha_test: f32,
     /// Only expressions generated from the AST; no author-supplied shader text.
     pub body: String,
     pub data: Vec<f32>,
@@ -24,7 +28,7 @@ pub fn build(
     declarations: &Declarations,
     runtime: &Runtime,
     functions: &[FunctionDef],
-) -> Result<PointCloud, String> {
+) -> Result<Option<PointCloud>, String> {
     let arg = |name: &str| {
         call.args
             .iter()
@@ -32,15 +36,53 @@ pub fn build(
             .map(|a| &a.expression)
     };
     let eval = |expr: &Expression| evaluate_expression(expr, declarations, runtime, functions);
-    let count =
-        eval(arg("count").ok_or("draw::point_cloud: count is required")?)?.try_into_f64()?;
+    let model_id = match arg("model") {
+        Some(e) => match eval(e)? {
+            Value::Asset(a) if a.kind == AssetKind::Model => Some(a.id),
+            _ => return Err("draw::point_cloud: model needs a model asset reference".into()),
+        },
+        None => None,
+    };
+    let model = match model_id {
+        Some(id) => match crate::assets::with_store(|store| store.points(&id)) {
+            Some(points) => Some((id, points)),
+            None => return Ok(None),
+        },
+        None => None,
+    };
+    let count = match arg("count") {
+        Some(e) => eval(e)?.try_into_f64()?,
+        None => model
+            .as_ref()
+            .map(|(_, p)| p.len() as f64)
+            .ok_or("draw::point_cloud: count or model is required")?,
+    };
     if !count.is_finite() || count.fract() != 0.0 || count < 0.0 || count > MAX_POINTS as f64 {
         return Err(format!(
             "draw::point_cloud: count must be an integer from 0 to {MAX_POINTS}"
         ));
     }
-    let size = match arg("size") {
+    let texture = match arg("texture") {
+        Some(e) => match eval(e)? {
+            Value::Asset(a) if a.kind.is_texture() => Some(a.id),
+            _ => {
+                return Err(
+                    "draw::point_cloud: texture needs a bitmap or vector asset reference".into(),
+                )
+            }
+        },
+        None => None,
+    };
+    let alpha_test = match arg("alpha_test") {
         Some(e) => eval(e)?.try_into_f64()?,
+        None => 0.0,
+    };
+    if !alpha_test.is_finite() || !(0.0..=1.0).contains(&alpha_test) {
+        return Err("draw::point_cloud: alpha_test must be between 0 and 1".into());
+    }
+    let size = match arg("size") {
+        Some(e) if !dependent(e, 0)? => eval(e)?.try_into_f64()?,
+        Some(_) => 1.0,
         None => 2.0,
     };
     if !size.is_finite() || size < 0.0 || size > f32::MAX as f64 {
@@ -58,14 +100,16 @@ pub fn build(
         runtime,
         functions,
         count: count as u32,
+        has_model: model.is_some(),
         data: Vec::new(),
         bindings: HashMap::new(),
         nodes: 0,
     };
     let mut fields = Vec::new();
-    for name in ["x", "y", "z"] {
+    for (axis, name) in ["x", "y", "z"].iter().enumerate() {
         fields.push(match arg(name) {
             Some(e) => compiler.number(e, 0)?,
+            None if model.is_some() => format!("model_at(float(gl_VertexID), {axis})"),
             None => "0.0".into(),
         });
     }
@@ -73,16 +117,23 @@ pub fn build(
         Some(e) => compiler.color(e)?,
         None => "vec4(1.0)".into(),
     };
-    Ok(PointCloud {
+    let size_field = match arg("size") {
+        Some(e) if dependent(e, 0)? => compiler.number(e, 0)?,
+        _ => "u_size".into(),
+    };
+    Ok(Some(PointCloud {
         count: count as u32,
         size: size as f32,
         attenuation,
+        model,
+        texture,
+        alpha_test: alpha_test as f32,
         body: format!(
-            "vec3 point_position = vec3({}, {}, {});\nvec4 point_color = {};",
-            fields[0], fields[1], fields[2], color
+            "vec3 point_position = vec3({}, {}, {});\nvec4 point_color = {};\nfloat point_size = {};",
+            fields[0], fields[1], fields[2], color, size_field
         ),
         data: compiler.data,
-    })
+    }))
 }
 
 /// Per-point system values. Other expressions are evaluated once and
@@ -95,7 +146,17 @@ fn dependent(expr: &Expression, depth: usize) -> Result<bool, String> {
         }
         let next = depth + 1;
         Ok(match expr {
-            Expression::SystemValue(name) => name == "POINT_INDEX" || name == "POINT_COUNT",
+            Expression::SystemValue(name) => matches!(
+                name.as_str(),
+                "POINT_INDEX"
+                    | "POINT_COUNT"
+                    | "POINT_X"
+                    | "POINT_Y"
+                    | "POINT_Z"
+                    | "MODEL_X"
+                    | "MODEL_Y"
+                    | "MODEL_Z"
+            ),
             Expression::Grouping(e) | Expression::Unary { expr: e, .. } => walk(e, next, nodes)?,
             Expression::Binary { left, right, .. } => {
                 walk(left, next, nodes)? | walk(right, next, nodes)?
@@ -131,6 +192,7 @@ struct Fields<'a> {
     runtime: &'a Runtime,
     functions: &'a [FunctionDef],
     count: u32,
+    has_model: bool,
     data: Vec<f32>,
     bindings: HashMap<String, (usize, usize)>,
     nodes: usize,
@@ -170,6 +232,11 @@ impl Fields<'_> {
         }
         let d = depth + 1;
         Ok(match expr {
+            Expression::SystemValue(name) if matches!(name.as_str(), "POINT_X" | "POINT_Y" | "POINT_Z") => {
+                if !self.has_model { return Err(format!("${name} requires a model on draw::point_cloud")); }
+                let axis = match name.as_str() { "POINT_X" => 0, "POINT_Y" => 1, _ => 2 };
+                format!("model_at(float(gl_VertexID), {axis})")
+            }
             Expression::SystemValue(name) if name == "POINT_INDEX" => "float(gl_VertexID)".into(),
             Expression::SystemValue(name) if name == "POINT_COUNT" => {
                 let (offset, _) = self.store("$POINT_COUNT".into(), &[self.count as f32])?;
@@ -194,6 +261,13 @@ impl Fields<'_> {
                 }
             }
             Expression::Index { target, index } => {
+                if let Expression::SystemValue(name) = target.as_ref() {
+                    if matches!(name.as_str(), "MODEL_X" | "MODEL_Y" | "MODEL_Z") {
+                        if !self.has_model { return Err(format!("${name} requires a model on draw::point_cloud")); }
+                        let axis = match name.as_str() { "MODEL_X" => 0, "MODEL_Y" => 1, _ => 2 };
+                        return Ok(format!("model_at({}, {axis})", self.number(index, d)?));
+                    }
+                }
                 if dependent(target, 0)? { return Err("point field arrays must be frame values".into()); }
                 let key = format!("array:{target:?}");
                 let (offset, len) = if let Some(binding) = self.bindings.get(&key) { *binding } else {

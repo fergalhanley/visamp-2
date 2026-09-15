@@ -798,13 +798,17 @@ fn record_draw(
     scene: &RefCell<Scene>,
 ) -> InterpResult<()> {
     if call.function == "point_cloud" {
-        let cloud = crate::points::build(call, args.decels, args.runtime, args.functions)?;
+        let Some(cloud) = crate::points::build(call, args.decels, args.runtime, args.functions)?
+        else {
+            return Ok(());
+        };
         let mut scene = scene.borrow_mut();
+        let texture = cloud.texture.as_ref().map(|id| scene.add_texture(id));
         let id = scene.add_point_cloud(cloud)?;
         let command = DrawCommand {
             key: BatchKey {
                 primitive: Primitive::PointCloud { id },
-                texture: None,
+                texture,
                 shading: Shading::Unlit,
                 wireframe: false,
                 blend: scene.gfx.blend,

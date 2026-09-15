@@ -12,7 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 import { extractAssetReferences } from "./references.ts";
-import { parseGlbMesh } from "./gltf.ts";
+import { parseGlbModel } from "./gltf.ts";
 
 export const ASSET_BUCKET = "assets";
 
@@ -73,7 +73,7 @@ export async function resolveSourceAssets(
 }
 
 function toMesh(id: string, bytes: Uint8Array): ResolvedAsset {
-  const mesh = parseGlbMesh(bytes);
+  const mesh = parseGlbModel(bytes);
   return { id, kind: "mesh", ...mesh };
 }
 

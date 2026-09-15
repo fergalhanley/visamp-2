@@ -306,7 +306,7 @@ Textures have arrived: every primitive carries texture coordinates and
 ## Point clouds
 
 `draw::point_cloud` (engine 2.3.0) draws a dense set of square points in one GPU
-call. Use `$POINT_INDEX` and `$POINT_COUNT` directly in its position and colour
+call. Use `$POINT_INDEX` and `$POINT_COUNT` directly in its position, colour and size
 expressions; other values, including audio arrays, are captured once per frame.
 
 ```vdsl
@@ -323,7 +323,8 @@ render {
 }
 ```
 
-`count` is required. Coordinates default to zero, colour to white, and `size`
+`count` is required unless a `model` is supplied (engine 2.5.0). Coordinates
+default to zero, colour to white, and `size`
 to 2 drawing-buffer pixels. `size_attenuation: true` scales size by
 `viewport_height / (2 * camera_depth)` in perspective; orthographic size stays
 in pixels. Device point-size limits apply. The current transform, camera,
@@ -333,11 +334,39 @@ Per-point fields support arithmetic, `math::` functions and numeric array reads,
 using 32-bit floats. Array indices outside bounds or not whole numbers read zero.
 User functions and other DSL logic must run outside the fields. The per-point
 system values cannot be assigned to a `let` for later use. Colour supports RGB
-and HSL, including transparency. Mesh-only arguments such as textures and
-wireframe are not supported.
+and HSL, including transparency. `texture: asset::bitmap(id: "…")` or a vector
+reference applies the whole image to each point. `alpha_test` (0–1, default 0)
+discards fragments below that alpha; fully transparent fragments never write
+depth. Wireframe and shading are not supported.
 
 Limits: 1,000,000 points and 64 clouds per frame, 32,768 input numbers per cloud,
 1,000,000 input numbers per frame, and expression limits of 512 nodes / 128 levels.
 Inputs must be finite; points with nonfinite computed positions/colours are
-culled. Use valid domains for maths. Clouds count as one draw command each and
+culled; nonpositive or nonfinite per-point sizes are also culled. Use valid domains for maths. Clouds count as one draw command each and
 use no triangle budget.
+
+### Model positions (engine 2.5.0)
+
+```vdsl
+context 3d
+render {
+  draw::point_cloud(
+    model: asset::model(id: "your-model-id"),
+    y: $POINT_Y + math::sin(radians: $TIME_SEC + $POINT_INDEX / 100.0) * 0.1,
+    size: 2.0 + math::abs(value: $POINT_Y)
+  )
+}
+```
+
+With `model`, omitted `count` uses the model's point count and omitted `x`, `y`,
+`z` use its original coordinates. `$POINT_X`, `$POINT_Y`, `$POINT_Z` are the
+current source position. `$MODEL_X[index]`, `$MODEL_Y[index]`, `$MODEL_Z[index]`
+read any source position, allowing interpolation with neighbouring vertices.
+For a closed sequence, wrap explicitly with `($POINT_INDEX + 1) % $POINT_COUNT`.
+Invalid indices read zero. These values are only available inside point fields
+with a model; they are read-only and cannot be copied into ordinary DSL variables.
+If you override `count`, `$POINT_COUNT` is that draw count, not the source length.
+
+The model is decoded once and its positions are cached on the GPU. They do not
+consume the per-frame field-input limit. Distinct model sources used in one frame
+are limited to 1,000,000 positions in total, independently of the drawn-point limit.

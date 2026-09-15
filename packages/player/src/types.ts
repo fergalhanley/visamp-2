@@ -73,6 +73,7 @@ export interface EngineModule {
     normals: Float32Array,
     uvs: Float32Array,
   ): boolean;
+  set_asset_points(id: string, vertices: Float32Array): boolean;
   clear_assets(): void;
 }
 
@@ -96,6 +97,8 @@ export type ResolvedAsset =
   | {
       id: string;
       kind: "mesh";
+      /** Ordered point positions decoded from this model, including POINTS primitives. */
+      points?: Float32Array;
       vertices: Float32Array;
       indices: Uint32Array;
       normals: Float32Array;
