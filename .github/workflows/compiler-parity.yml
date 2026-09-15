@@ -46,6 +46,8 @@ jobs:
         run: pnpm --filter @visamp/player check-types && pnpm --filter @visamp/web check-types
       - name: Test player
         run: pnpm --filter @visamp/player test
+      - name: Test editor autosave
+        run: pnpm --filter @visamp/web test:editor
       - name: Test artist upload rules
         run: pnpm --filter @visamp/web test:uploads
       - name: Build web application

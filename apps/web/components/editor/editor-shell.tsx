@@ -50,6 +50,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useEditorAutosave, type EditorSnapshot } from "@/hooks/use-editor-autosave";
+import { saveDocument } from "@/lib/editor/save-document";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import { useFullscreen } from "@/hooks/use-fullscreen";
@@ -63,14 +65,6 @@ type Visibility = Database["public"]["Enums"]["visibility"];
 
 /** E6.5 — how long to wait after the last keystroke before recompiling. */
 const RECOMPILE_MS = 200;
-/**
- * E6.8 — how often edits are written back, at most.
- *
- * A throttle rather than a debounce: a debounce would keep pushing the save
- * further out for as long as someone kept typing, so a long editing session
- * would never persist anything.
- */
-const AUTOSAVE_MS = 8000;
 const RATIO_KEY = "visamp.editor.split";
 const DEFAULT_RATIO = 40;
 const MIN_RATIO = 20;
@@ -109,20 +103,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [logLines, setLogLines] = useState<LogLine[]>([]);
   const [properties, setProperties] = useState<PropertyView[]>([]);
   const [logCollapsed, setLogCollapsed] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  /**
-   * The last state successfully written.
-   *
-   * Compared against instead of the props: the props are the server's copy from
-   * page load and never change, so anything derived from them would report
-   * unsaved work forever once the first edit landed.
-   */
-  const [lastSaved, setLastSaved] = useState({
-    title: visualisation?.title ?? "",
-    source: visualisation?.source ?? "",
-    visibility: visualisation?.visibility ?? ("private" as Visibility),
-  });
+  const [compiledSource, setCompiledSource] = useState<string | null>(null);
 
   // localStorage is read through useSyncExternalStore so the server can render
   // the default without a hydration mismatch. `override` takes over on drag.
@@ -134,8 +115,6 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [override, setOverride] = useState<number | null>(null);
   const ratio = override ?? storedRatio;
 
-  /** When the last write completed, so the throttle can pace the next one. */
-  const lastSaveAt = useRef(0);
   const editorHandle = useRef<CodeEditorHandle | null>(null);
   const canvasHandle = useRef<VisampCanvasHandle>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -184,6 +163,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
    */
   const onCompileResult = useCallback((result: CompileResult) => {
     setCompile(result);
+    setCompiledSource(liveSource);
 
     const at = Date.now();
     const next = result.ok
@@ -204,7 +184,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
     // E6.6 — errors force the log open.
     if (!result.ok) setLogCollapsed(false);
-  }, []);
+  }, [liveSource]);
 
   const generate = useCallback(
     async (prompt: string, model: AiModelKey) => {
@@ -305,35 +285,83 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
-  const dirty =
-    source !== lastSaved.source ||
-    title !== lastSaved.title ||
-    visibility !== lastSaved.visibility;
-
-  // E6.8 — nothing is written from a script that does not compile.
-  const canSave = !empty && canEdit && dirty && compile?.ok === true && !saving;
-
   /**
    * Captures the current frame at a fixed 1280x720 and stores it under
    * <owner>/<vis>.png — a stable key, so re-capturing replaces rather than
    * accumulating. The returned URL carries a cache-buster because of that.
    */
-  const uploadThumbnail = useCallback(async (): Promise<string | null> => {
-    const handle = canvasHandle.current;
-    if (!handle || !visualisation) return null;
+  const uploadThumbnail = useCallback(
+    async (signal?: AbortSignal): Promise<string | null> => {
+      const handle = canvasHandle.current;
+      if (!handle || !visualisation) return null;
 
-    const blob = await handle.captureFrame();
-    const path = `${visualisation.owner_id}/${visualisation.id}.png`;
-    const supabase = createClient();
+      const blob = await handle.captureFrame();
+      signal?.throwIfAborted();
+      const path = `${visualisation.owner_id}/${visualisation.id}.png`;
+      const supabase = createClient();
 
-    const { error } = await supabase.storage
-      .from("thumbnails")
-      .upload(path, blob, { contentType: "image/png", upsert: true });
+      const { error } = await supabase.storage
+        .from("thumbnails")
+        .upload(path, blob, { contentType: "image/png", upsert: true });
 
-    if (error) throw new Error(error.message);
+      if (error) throw new Error(error.message);
+      signal?.throwIfAborted();
 
-    return path;
-  }, [visualisation]);
+      return path;
+    },
+    [visualisation],
+  );
+
+  const persist = useCallback(
+    async (snapshot: EditorSnapshot, signal: AbortSignal) => {
+      if (!visualisation) throw new Error("No visualisation open.");
+      const supabase = createClient();
+      await saveDocument(
+        snapshot,
+        signal,
+        async (document, signal) => {
+          const { error } = await supabase
+            .from("visualisations")
+            .update(document)
+            .eq("id", visualisation.id)
+            .select("id")
+            .abortSignal(signal)
+            .single();
+          if (error) throw new Error(error.message);
+        },
+        async (thumbnailSignal) => {
+          if (thumbPinned) return;
+          const thumbPath = await uploadThumbnail(thumbnailSignal);
+          if (!thumbPath) return;
+          const { error } = await supabase
+            .from("visualisations")
+            .update({ thumb_path: thumbPath })
+            .eq("id", visualisation.id)
+            .eq("thumb_pinned", false)
+            .abortSignal(thumbnailSignal);
+          if (error) throw new Error(error.message);
+        },
+        (message) => appendLog({ level: "warn", message }),
+      );
+    },
+    [visualisation, thumbPinned, uploadThumbnail, appendLog],
+  );
+
+  const onSaveError = useCallback(
+    (message: string) => {
+      appendLog({ level: "error", message: `Save failed: ${message}` });
+      setLogCollapsed(false);
+    },
+    [appendLog],
+  );
+  const { dirty, saving, saveError, setSaveError } = useEditorAutosave({
+    value: { title, source, visibility },
+    // A previous successful compile says nothing about newly typed source.
+    enabled:
+      !empty && canEdit && compile?.ok === true && compiledSource === source,
+    persist,
+    onError: onSaveError,
+  });
 
   const captureThumbnail = useCallback(async () => {
     if (!visualisation) return;
@@ -357,63 +385,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     }
 
     setCapturing(false);
-  }, [uploadThumbnail, visualisation]);
-
-  const save = useCallback(async () => {
-    if (!visualisation) return;
-
-    // Snapshotted before the first await. Whatever is typed while the write is
-    // in flight must stay dirty, or those keystrokes would be marked saved
-    // without ever having been sent.
-    const snapshot = { title, source, visibility };
-
-    setSaving(true);
-    setSaveError(null);
-
-    // E6.10 — an unpinned thumb is refreshed from the current frame on save.
-    // A thumbnail failure must never cost the author their work, so this is
-    // best-effort and the update goes ahead either way.
-    let thumbnail: { thumb_path: string } | undefined;
-    if (!thumbPinned) {
-      try {
-        const thumbPath = await uploadThumbnail();
-        if (thumbPath) thumbnail = { thumb_path: thumbPath };
-      } catch {
-        // Swallowed deliberately; the save below is what matters.
-      }
-    }
-
-    const { error } = await createClient()
-      .from("visualisations")
-      .update({ ...snapshot, ...thumbnail })
-      .eq("id", visualisation.id);
-
-    if (error) setSaveError(error.message);
-    else setLastSaved(snapshot);
-
-    lastSaveAt.current = Date.now();
-    setSaving(false);
-  }, [title, source, visibility, visualisation, thumbPinned, uploadThumbnail]);
-
-  // Read through a ref so the throttle below does not restart on every
-  // keystroke — depending on `save` directly would turn it into a debounce.
-  const saveRef = useRef(save);
-  useEffect(() => {
-    saveRef.current = save;
-  }, [save]);
-
-  useEffect(() => {
-    if (!canSave) return;
-
-    const since = Date.now() - lastSaveAt.current;
-    const wait = Math.max(0, AUTOSAVE_MS - since);
-    const timer = window.setTimeout(() => void saveRef.current(), wait);
-
-    return () => window.clearTimeout(timer);
-    // `saving` is deliberately absent: it flips during the write and would
-    // cancel and reschedule the very save in progress.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEdit, dirty, compile?.ok]);
+  }, [uploadThumbnail, visualisation, setSaveError]);
 
   /**
    * E6.11 — fork the current script into a copy you own.
@@ -480,6 +452,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     }
   }, [
     compile,
+    setSaveError,
     user,
     canEdit,
     dirty,
@@ -511,7 +484,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     // empty stage — no special "deleted" destination to invent.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = `/edit/${visualisation.id}`;
-  }, [visualisation]);
+  }, [visualisation, setSaveError]);
 
   /**
    * What the status line says, and why.

@@ -226,3 +226,29 @@ storage requests; they never use a real account or modify production data.
 Failed file transfers release their pending slot through an ownership-checked
 cancellation endpoint. Temporary completion failures can retry submission
 without transferring the file again; expired submissions allow a fresh upload.
+
+## Editor autosave
+
+`useEditorAutosave` keeps the last successfully written title/source/visibility
+snapshot. An edit can save only when the viewer can edit and the current source
+matches the source of a successful compile. The first eligible edit saves
+immediately; subsequent attempts wait eight seconds after the previous attempt
+finishes. Further typing updates the pending snapshot without moving that deadline.
+
+Completion always rechecks for unsaved edits, including edits made during a write
+and failed writes. Failures appear in the status strip and editor log and retry
+on the same throttle. A 20-second timeout aborts a stalled request. Unmounting
+cancels the timer and aborts an active request. Saving requires a returned row;
+a denied/zero-row update must not be reported as saved.
+
+The document write precedes optional thumbnail refresh. Thumbnail work has a
+five-second limit and reports a warning on failure, while the document remains
+saved. Pinned thumbnails are not automatically refreshed.
+
+Run `pnpm --filter @visamp/web test:editor` for React hook and persistence tests.
+For browser regression verification, delay a document PATCH, edit again while
+“Saving…” is visible, then allow the request to finish. Without further input,
+the latest text must be written after the throttle and survive reload. Also
+verify a failed PATCH retries, an invalid script stays blocked, and a stalled
+thumbnail upload leaves the document saved with a warning. Use a disposable
+draft/account for fault injection.

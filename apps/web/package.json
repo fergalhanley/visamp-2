@@ -14,7 +14,8 @@
     "test:rpc-errors": "node --experimental-strip-types --test lib/hosted-audio/rpc-errors.test.mts",
     "verify:assets": "node --env-file=.env.local scripts/verify-asset-access.mjs",
     "clean": "rm -rf .next",
-    "test:mp3": "node --experimental-strip-types --test lib/hosted-audio/inspect-mp3.test.mts lib/hosted-audio/upload-queue.test.mts"
+    "test:mp3": "node --experimental-strip-types --test lib/hosted-audio/inspect-mp3.test.mts lib/hosted-audio/upload-queue.test.mts",
+    "test:editor": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1127.0",
@@ -46,13 +47,17 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@visamp/typescript-config": "workspace:*",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
+    "jsdom": "^26.1.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }
