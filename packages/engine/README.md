@@ -36,6 +36,30 @@ same positioned diagnostic used by the browser compiler. Run
 `pnpm --filter @visamp/engine check:parity` to build both targets and verify
 their recorded versions match.
 
+## Runtime diagnostics
+
+Parsed statements retain their 1-based starting line and column. When execution
+fails, the interpreter attaches the innermost failing statement's location:
+
+```text
+Runtime error:  --> 60:5
+  |
+  = range end requires an integer, got float 240.0. Use integer division (\ 1) to convert.
+```
+
+The string API (`load_script` / `get_last_error`) stays unchanged. Both compile
+and runtime diagnostics use `--> line:column` and a `= reason` line, understood
+by `@visamp/player`. Runtime logs display those coordinates and include the line
+for editor navigation. Outer loops, conditionals and function calls preserve an
+already-located inner failure rather than replacing it with the caller's location.
+
+Locations identify the first token of the statement, including for multiline
+statements and runtime failures during init/resize. Host or renderer failures
+outside statement execution can remain unlocated. Native validation checks
+compilation only; it cannot rule out runtime errors. Exact failing expression
+spans and function call stacks are tracked separately in
+[VIS-94](https://linear.app/visamp/issue/VIS-94/highlight-exact-failing-dsl-expressions-and-show-function-call-stacks).
+
 This runs `build-wasm.sh`, which calls `wasm-pack build --target bundler --out-dir pkg`
 and then optimises the `.wasm` with `wasm-opt` if Binaryen is installed.
 

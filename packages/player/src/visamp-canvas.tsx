@@ -11,7 +11,7 @@ import {
 
 import { startAudioBridge } from "./audio-bridge";
 import { startPropertiesBridge } from "./properties-bridge";
-import { parseDiagnostics, toCompileResult } from "./diagnostics";
+import { toRuntimeLog, toCompileResult } from "./diagnostics";
 import type {
   CompileResult,
   EngineModule,
@@ -258,10 +258,7 @@ export function VisampCanvas({
 
       // Already surfaced through onCompileResult.
       if (error && error !== reportedErrorRef.current) {
-        onLogRef.current?.({
-          level: "error",
-          message: parseDiagnostics(error)[0]?.message ?? error,
-        });
+        onLogRef.current?.(toRuntimeLog(error));
       }
     }, ERROR_POLL_MS);
 

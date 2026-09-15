@@ -1,5 +1,5 @@
 //! Scramble's shared DSL contract and the original byte-addressed presets.
-use crate::model::{Color, Script, Statement, BLACK};
+use crate::model::{Color, Script, Statement, StatementKind, BLACK};
 
 pub const MAX_TYPE: i64 = 40;
 
@@ -79,11 +79,13 @@ pub fn narrow_source_map(width: u32, height: u32, kind: u8) -> Vec<i32> {
 /// calls inside user functions. Unused functions may opt in, but never execute.
 pub fn uses_scramble(script: &Script) -> bool {
     fn has(statements: &[Statement]) -> bool {
-        statements.iter().any(|s| match s {
-            Statement::FunctionCall(c) => c.namespace == "effect" && c.function == "scramble",
-            Statement::If(s) => has(&s.then_body) || s.else_body.as_ref().is_some_and(|b| has(b)),
-            Statement::For(s) => has(&s.body),
-            Statement::While(s) => has(&s.body),
+        statements.iter().any(|s| match &s.kind {
+            StatementKind::FunctionCall(c) => c.namespace == "effect" && c.function == "scramble",
+            StatementKind::If(s) => {
+                has(&s.then_body) || s.else_body.as_ref().is_some_and(|b| has(b))
+            }
+            StatementKind::For(s) => has(&s.body),
+            StatementKind::While(s) => has(&s.body),
             _ => false,
         })
     }

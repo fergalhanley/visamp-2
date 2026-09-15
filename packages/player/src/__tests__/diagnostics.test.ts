@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDiagnostics, toCompileResult } from "../diagnostics";
+import { parseDiagnostics, toCompileResult, toRuntimeLog } from "../diagnostics";
 
 describe("parseDiagnostics", () => {
   it("reads line and column out of a single report", () => {
@@ -55,5 +55,47 @@ describe("parseDiagnostics", () => {
 
   it("marks a compile with any diagnostic as failed", () => {
     expect(toCompileResult("Parse error:  --> 1:1\n  |\n  = nope").ok).toBe(false);
+  });
+});
+
+describe("runtime diagnostics", () => {
+  const raw =
+    "Runtime error:  --> 60:5\n  |\n  = range end requires an integer, got float 240.0. Use integer division (\\ 1) to convert.";
+
+  it("recovers the innermost statement location without losing the reason", () => {
+    expect(parseDiagnostics(raw)).toEqual([
+      {
+        severity: "error",
+        line: 60,
+        column: 5,
+        message:
+          "range end requires an integer, got float 240.0. Use integer division (\\ 1) to convert.",
+        raw,
+      },
+    ]);
+  });
+
+  it("includes locations in log text and provides the line for editor navigation", () => {
+    expect(toRuntimeLog(raw)).toEqual({
+      level: "error",
+      line: 60,
+      column: 5,
+      message:
+        "Line 60, column 5: range end requires an integer, got float 240.0. Use integer division (\\ 1) to convert.",
+    });
+  });
+
+  it("preserves unlocated host errors without inventing coordinates", () => {
+    expect(toRuntimeLog("Engine is not initialised")).toEqual({
+      level: "error",
+      message: "Engine is not initialised",
+    });
+  });
+
+  it("uses the same diagnostic format as compile results", () => {
+    expect(toCompileResult(raw)).toMatchObject({
+      ok: false,
+      diagnostics: [{ line: 60, column: 5 }],
+    });
   });
 });

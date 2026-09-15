@@ -11,7 +11,7 @@ export interface Diagnostic {
   message: string;
   /** The engine's full text, including pest's caret diagram. */
   raw: string;
-  /** 1-based. Recovered from pest's error text; see `parseDiagnostics`. */
+  /** 1-based. Recovered from the engine's location marker; see `parseDiagnostics`. */
   line?: number;
   /** 1-based. */
   column?: number;
@@ -50,6 +50,7 @@ export interface LogEntry {
   level: LogLevel;
   message: string;
   line?: number;
+  column?: number;
 }
 
 /** The shape wasm-pack generates for the current crate. */

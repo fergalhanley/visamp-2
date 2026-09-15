@@ -1,9 +1,9 @@
-import type { CompileResult, Diagnostic } from "./types";
+import type { CompileResult, Diagnostic, LogEntry } from "./types";
 
 /**
  * `build_ast` flattens pest's structured error into a display string, so the
- * only place line/column survives is the `--> line:col` marker inside that
- * text. Scrape it back out.
+ * location is carried by the `--> line:col` marker inside that text. Runtime
+ * errors use the same marker for the innermost failing statement.
  *
  * Locked by `parse_error_carries_line_and_column` in the engine's test suite —
  * if the engine ever returns structured diagnostics, delete this and read them
@@ -66,6 +66,20 @@ export function parseDiagnostics(raw: string): Diagnostic[] {
   if (!text) return [];
 
   return split(text).map(one);
+}
+
+/** Keep runtime locations visible in plain logs and available for navigation. */
+export function toRuntimeLog(raw: string): LogEntry {
+  const diagnostic = parseDiagnostics(raw)[0];
+  const message = diagnostic?.message ?? raw;
+  if (diagnostic?.line === undefined) return { level: "error", message };
+
+  return {
+    level: "error",
+    message: `Line ${diagnostic.line}, column ${diagnostic.column}: ${message}`,
+    line: diagnostic.line,
+    column: diagnostic.column,
+  };
 }
 
 export function toCompileResult(raw: string): CompileResult {

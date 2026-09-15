@@ -430,9 +430,10 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
         .into_inner()
         .next()
         .expect("Expected a specific statement type");
-    match inner.as_rule() {
+    let (line, column) = inner.as_span().start_pos().line_col();
+    let kind = match inner.as_rule() {
         Rule::assignment => build_assignment(inner),
-        Rule::call_expr => Statement::Call(build_expression(inner)),
+        Rule::call_expr => StatementKind::Call(build_expression(inner)),
         Rule::incr_decr => build_incr_decr(inner),
         Rule::function_call => build_function_call(inner),
         Rule::let_decl => build_let_decl(inner),
@@ -441,6 +442,10 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
         Rule::while_loop => build_while_loop(inner),
         Rule::return_statement => build_return_statement(inner),
         other => panic!("Unexpected statement type: {:?}", other),
+    };
+    Statement {
+        location: SourceLocation { line, column },
+        kind,
     }
 }
 
@@ -450,7 +455,7 @@ fn build_statement(pair: pest::iterators::Pair<Rule>) -> Statement {
 /// The interpreter then needs no new statement kind and the compound forms
 /// inherit the existing arithmetic exactly — including that `/` yields a float,
 /// so `x /= 2` makes `x` a float just as `x = x / 2` does.
-fn build_assignment(pair: Pair<Rule>) -> Statement {
+fn build_assignment(pair: Pair<Rule>) -> StatementKind {
     let mut inner = pair.into_inner();
     let ident_pair = inner.next().expect("Expected an identifier in assignment");
     let op_pair = inner.next().expect("Expected an assignment operator");
@@ -477,11 +482,11 @@ fn build_assignment(pair: Pair<Rule>) -> Statement {
         None => expression,
     };
 
-    Statement::Assignment(Assignment { ident, expression })
+    StatementKind::Assignment(Assignment { ident, expression })
 }
 
 /// `x++` and `x--`, in either spelling, as `x = x + 1` / `x = x - 1`.
-fn build_incr_decr(pair: Pair<Rule>) -> Statement {
+fn build_incr_decr(pair: Pair<Rule>) -> StatementKind {
     let mut ident = String::new();
     let mut op = BinaryOperator::Add;
 
@@ -497,7 +502,7 @@ fn build_incr_decr(pair: Pair<Rule>) -> Statement {
         }
     }
 
-    Statement::Assignment(Assignment {
+    StatementKind::Assignment(Assignment {
         expression: Expression::Binary {
             left: Box::new(Expression::Identifier(ident.clone())),
             op,
@@ -507,7 +512,7 @@ fn build_incr_decr(pair: Pair<Rule>) -> Statement {
     })
 }
 
-fn build_function_call(pair: Pair<Rule>) -> Statement {
+fn build_function_call(pair: Pair<Rule>) -> StatementKind {
     let mut inner = pair.into_inner();
     let path_pair = inner.next().expect("Expected function path");
     let mut path: Vec<String> = path_pair
@@ -520,7 +525,7 @@ fn build_function_call(pair: Pair<Rule>) -> Statement {
         .next()
         .expect("Expected function parameters in function call");
     let args = build_function_params(params_pair);
-    Statement::FunctionCall(FunctionCall {
+    StatementKind::FunctionCall(FunctionCall {
         namespace,
         function,
         args,
@@ -543,7 +548,7 @@ fn build_argument(pair: Pair<Rule>) -> Argument {
     Argument { name, expression }
 }
 
-fn build_let_decl(pair: Pair<Rule>) -> Statement {
+fn build_let_decl(pair: Pair<Rule>) -> StatementKind {
     let mut inner = pair.into_inner();
     let ident_pair = inner
         .next()
@@ -551,7 +556,7 @@ fn build_let_decl(pair: Pair<Rule>) -> Statement {
     let expression_pair = inner.next().expect("Expected value in let declaration");
     let ident = ident_pair.as_str().to_string();
     let expression = build_expression(expression_pair);
-    Statement::LetDecl(LetDecl { ident, expression })
+    StatementKind::LetDecl(LetDecl { ident, expression })
 }
 
 fn build_value(pair: pest::iterators::Pair<Rule>) -> Value {
@@ -573,7 +578,7 @@ fn build_value(pair: pest::iterators::Pair<Rule>) -> Value {
     }
 }
 
-fn build_if_statement(pair: Pair<Rule>) -> Statement {
+fn build_if_statement(pair: Pair<Rule>) -> StatementKind {
     let mut inner = pair.into_inner();
     let condition = build_expression(inner.next().unwrap());
 
@@ -592,14 +597,14 @@ fn build_if_statement(pair: Pair<Rule>) -> Statement {
         }
     }
 
-    Statement::If(IfStatement {
+    StatementKind::If(IfStatement {
         condition,
         then_body,
         else_body,
     })
 }
 
-fn build_for_loop(pair: Pair<Rule>) -> Statement {
+fn build_for_loop(pair: Pair<Rule>) -> StatementKind {
     let mut inner = pair.into_inner();
     let variable = inner.next().unwrap().as_str().to_string();
 
@@ -612,7 +617,7 @@ fn build_for_loop(pair: Pair<Rule>) -> Statement {
 
     let body: Vec<Statement> = inner.map(|s| build_statement(s)).collect();
 
-    Statement::For(ForLoop {
+    StatementKind::For(ForLoop {
         variable,
         iterable,
         body,
@@ -643,20 +648,20 @@ fn build_range(pair: Pair<Rule>) -> ForIterable {
     }
 }
 
-fn build_while_loop(pair: Pair<Rule>) -> Statement {
+fn build_while_loop(pair: Pair<Rule>) -> StatementKind {
     let mut inner = pair.into_inner();
     let condition = build_expression(inner.next().unwrap());
     let body: Vec<Statement> = inner.map(|s| build_statement(s)).collect();
 
-    Statement::While(WhileLoop { condition, body })
+    StatementKind::While(WhileLoop { condition, body })
 }
 
-fn build_return_statement(pair: Pair<Rule>) -> Statement {
+fn build_return_statement(pair: Pair<Rule>) -> StatementKind {
     let inner = pair
         .into_inner()
         .next()
         .expect("return must have an expression");
-    Statement::Return(ReturnStatement {
+    StatementKind::Return(ReturnStatement {
         expression: build_expression(inner),
     })
 }

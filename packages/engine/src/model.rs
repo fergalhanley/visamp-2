@@ -662,7 +662,20 @@ pub enum BlockType {
 }
 
 #[derive(Debug, Clone)]
-pub enum Statement {
+pub struct Statement {
+    pub location: SourceLocation,
+    pub kind: StatementKind,
+}
+
+/// One-based coordinates of the first token of a statement in the original DSL.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceLocation {
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Debug, Clone)]
+pub enum StatementKind {
     LetDecl(LetDecl),
     FunctionCall(FunctionCall),
     /// A user-defined function called as a statement, for its drawing rather

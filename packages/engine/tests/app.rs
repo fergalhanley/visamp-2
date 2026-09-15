@@ -387,8 +387,8 @@ fn integer_division_produces_a_float() {
         let parsed =
             build_ast("prop x = 0.0\non_frame {\n  x = 1 / 2\n}\nrender {\n  draw::clear()\n}\n")
                 .expect("should parse");
-        match &parsed.blocks[0].statements[0] {
-            visamp_2::model::Statement::Assignment(assignment) => assignment.expression.clone(),
+        match &parsed.blocks[0].statements[0].kind {
+            visamp_2::model::StatementKind::Assignment(assignment) => assignment.expression.clone(),
             other => panic!("expected an assignment, got {other:?}"),
         }
     };
@@ -523,7 +523,10 @@ fn float_range_bounds_are_rejected() {
     let err = expect_runtime_error(
         "prop n = 0\non_frame {\n  for i in 0..2.5 {\n    n = i\n  }\n}\nrender {\n  draw::clear()\n}\n",
     );
-    assert!(err.contains("whole number"), "unexpected: {err}");
+    assert!(
+        err.contains("requires an integer, got float 2.5"),
+        "unexpected: {err}"
+    );
 }
 
 #[test]
@@ -1457,11 +1460,11 @@ fn a_misspelled_colour_argument_is_reported() {
 /// there), so this reads it back from a `let` instead.
 fn eval_gradient_let(source: &str) -> Value {
     use visamp_2::interpreter::{evaluate_expression, Runtime};
-    use visamp_2::model::{Declarations, Statement};
+    use visamp_2::model::{Declarations, StatementKind};
 
     let parsed = build_ast(source).unwrap_or_else(|e| panic!("parse failed: {e}"));
-    let expr = match &parsed.blocks[0].statements[0] {
-        Statement::LetDecl(let_decl) => let_decl.expression.clone(),
+    let expr = match &parsed.blocks[0].statements[0].kind {
+        StatementKind::LetDecl(let_decl) => let_decl.expression.clone(),
         other => panic!("expected a let declaration, got {other:?}"),
     };
 
@@ -1695,8 +1698,8 @@ fn a_builtin_call_is_still_matched_before_a_user_call() {
     let block = &script.blocks[0];
     assert!(
         matches!(
-            block.statements[0],
-            visamp_2::model::Statement::FunctionCall(_)
+            block.statements[0].kind,
+            visamp_2::model::StatementKind::FunctionCall(_)
         ),
         "expected a builtin call, got {:?}",
         block.statements[0]
@@ -1821,7 +1824,8 @@ fn canvas_filter_calls_parse_and_resolve() {
     for call in calls {
         let source = format!("render {{\n  {call}\n  draw::clear()\n}}\n");
         let script = build_ast(&source).unwrap_or_else(|error| panic!("{call}: {error}"));
-        let visamp_2::model::Statement::FunctionCall(parsed) = &script.blocks[0].statements[0]
+        let visamp_2::model::StatementKind::FunctionCall(parsed) =
+            &script.blocks[0].statements[0].kind
         else {
             panic!("{call} was not parsed as a builtin call");
         };

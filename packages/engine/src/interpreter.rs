@@ -236,7 +236,7 @@ fn range_int(
     match evaluate_expression(expr, decels, runtime, functions)? {
         Value::Integer(value) => Ok(value),
         Value::Float(value) => Err(format!(
-            "{} must be a whole number, got {}. Use math::floor to convert.",
+            "{} requires an integer, got float {:?}. Use integer division (\\ 1) to convert.",
             label, value
         )),
         other => Err(format!("{} must be a whole number, got {:?}", label, other)),
@@ -397,9 +397,30 @@ fn interpret_statement(
     target: Target<'_>,
     functions: &[FunctionDef],
 ) -> InterpResult<Option<Value>> {
+    interpret_statement_kind(&statement.kind, decels, runtime, target, functions).map_err(|error| {
+        // Errors cross both statement and expression/function paths as strings.
+        // Keep the first (innermost) location when an outer statement unwinds.
+        if error.starts_with("Runtime error:  --> ") {
+            error
+        } else {
+            format!(
+                "Runtime error:  --> {}:{}\n  |\n  = {}",
+                statement.location.line, statement.location.column, error
+            )
+        }
+    })
+}
+
+fn interpret_statement_kind(
+    statement: &StatementKind,
+    decels: &mut Declarations,
+    runtime: &Runtime,
+    target: Target<'_>,
+    functions: &[FunctionDef],
+) -> InterpResult<Option<Value>> {
     charge_execution_step()?;
     match statement {
-        Statement::LetDecl(let_decl) => {
+        StatementKind::LetDecl(let_decl) => {
             if decels.contains(&let_decl.ident) {
                 return Err(format!("Variable '{}' already declared", let_decl.ident));
             }
@@ -407,7 +428,7 @@ fn interpret_statement(
             decels.declare(let_decl.ident.clone(), evaluated);
             Ok(None)
         }
-        Statement::Assignment(assignment) => {
+        StatementKind::Assignment(assignment) => {
             let evaluated =
                 evaluate_expression(&assignment.expression, decels, runtime, functions)?;
             if !decels.contains(&assignment.ident) {
@@ -420,7 +441,7 @@ fn interpret_statement(
         // through `evaluate_expression`: that path has no canvas to hand, so a
         // `draw::` inside the body would be silently skipped and a drawing
         // helper would do nothing at all. Running it here keeps the context.
-        Statement::Call(expression) => {
+        StatementKind::Call(expression) => {
             let Expression::Call { name, args } = expression else {
                 return Err("expected a function call".to_string());
             };
@@ -459,11 +480,11 @@ fn interpret_statement(
 
             Ok(None)
         }
-        Statement::FunctionCall(function_call) => {
+        StatementKind::FunctionCall(function_call) => {
             interpret_statement_function_call(function_call, decels, target, runtime, functions)?;
             Ok(None)
         }
-        Statement::If(if_stmt) => {
+        StatementKind::If(if_stmt) => {
             let condition = evaluate_expression(&if_stmt.condition, decels, runtime, functions)?;
             let is_true = match condition {
                 Value::Boolean(b) => b,
@@ -484,7 +505,7 @@ fn interpret_statement(
             }
             Ok(None)
         }
-        Statement::For(for_loop) => {
+        StatementKind::For(for_loop) => {
             // Ranges are walked numerically rather than expanded into an array,
             // so a large one costs no allocation.
             let (mut current, step, count) = match &for_loop.iterable {
@@ -547,7 +568,7 @@ fn interpret_statement(
             }
             Ok(None)
         }
-        Statement::While(while_loop) => {
+        StatementKind::While(while_loop) => {
             let mut iterations = 0;
             loop {
                 let condition =
@@ -573,7 +594,7 @@ fn interpret_statement(
             }
             Ok(None)
         }
-        Statement::Return(ret) => {
+        StatementKind::Return(ret) => {
             let val = evaluate_expression(&ret.expression, decels, runtime, functions)?;
             Ok(Some(val))
         }

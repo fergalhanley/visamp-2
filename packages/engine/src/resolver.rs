@@ -1,9 +1,9 @@
 //! Compile-time checking of builtin calls, run straight after parsing.
 //!
-//! This works over pest `Pair`s rather than the AST because the AST carries no
-//! source positions, and every diagnostic here has to point at a line and
-//! column — the editor draws squiggles from them, and the save flow refuses a
-//! script that does not compile.
+//! This works over pest `Pair`s for argument-level source positions. The AST
+//! preserves statement start locations for runtime errors, but not expression
+//! or argument spans. The editor draws squiggles from these compile diagnostics,
+//! and the save flow refuses a script that does not compile.
 //!
 //! Everything reported here fires before the first frame. Errors that can only
 //! be known while drawing (an unbalanced transform stack, a mesh that is too
