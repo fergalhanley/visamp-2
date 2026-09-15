@@ -245,7 +245,11 @@ impl PointRenderer {
         ] {
             gl.uniform_matrix4fv_with_f32_array(loc(name).as_ref(), false, matrix.as_slice());
         }
-        gl.draw_arrays(GL::POINTS, 0, cloud.count as i32);
+        if let Some((columns, rows)) = cloud.grid {
+            gl.draw_arrays(GL::TRIANGLES, 0, ((columns - 1) * (rows - 1) * 6) as i32);
+        } else {
+            gl.draw_arrays(GL::POINTS, 0, cloud.count as i32);
+        }
         gl.bind_vertex_array(None);
         gl.active_texture(GL::TEXTURE0);
         Ok(())

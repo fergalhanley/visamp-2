@@ -188,6 +188,12 @@ pub const BUILTINS: &[Builtin] = &[
         ],
         &[],
     ),
+    ns3(
+        "draw",
+        "grid",
+        &["columns", "rows", "x", "y", "z", "color"],
+        &["columns", "rows"],
+    ),
     d3("sprite", &["size", "w", "h"], &[]),
     d3(
         "mesh",

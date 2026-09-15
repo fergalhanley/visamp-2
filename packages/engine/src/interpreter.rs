@@ -797,7 +797,7 @@ fn record_draw(
     args: &mut ArgReader<'_>,
     scene: &RefCell<Scene>,
 ) -> InterpResult<()> {
-    if call.function == "point_cloud" {
+    if matches!(call.function.as_str(), "point_cloud" | "grid") {
         let Some(cloud) = crate::points::build(call, args.decels, args.runtime, args.functions)?
         else {
             return Ok(());

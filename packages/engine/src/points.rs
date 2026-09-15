@@ -7,12 +7,15 @@ use crate::model::*;
 
 pub const MAX_POINTS: u32 = 1_000_000;
 pub const MAX_DATA: usize = 32_768;
+pub const MAX_GRID_DATA: usize = 524_288;
 pub const DATA_WIDTH: usize = 1024;
 const MAX_NODES: usize = 512;
 
 #[derive(Debug, Clone)]
 pub struct PointCloud {
     pub count: u32,
+    /// Connected triangle grid dimensions; None renders independent points.
+    pub grid: Option<(u32, u32)>,
     pub size: f32,
     pub attenuation: bool,
     pub model: Option<(String, Rc<Vec<[f32; 3]>>)>,
@@ -36,6 +39,25 @@ pub fn build(
             .map(|a| &a.expression)
     };
     let eval = |expr: &Expression| evaluate_expression(expr, declarations, runtime, functions);
+    let grid = if call.function == "grid" {
+        let dimension = |name: &str| -> Result<u32, String> {
+            let n = eval(arg(name).ok_or_else(|| format!("draw::grid: {name} is required"))?)?
+                .try_into_f64()?;
+            if !n.is_finite() || n.fract() != 0.0 || !(2.0..=4096.0).contains(&n) {
+                return Err(format!(
+                    "draw::grid: {name} must be a whole number from 2 to 4096"
+                ));
+            }
+            Ok(n as u32)
+        };
+        let dimensions = (dimension("columns")?, dimension("rows")?);
+        if dimensions.0 * dimensions.1 > MAX_POINTS {
+            return Err(format!("draw::grid: vertex count exceeds {MAX_POINTS}"));
+        }
+        Some(dimensions)
+    } else {
+        None
+    };
     let model_id = match arg("model") {
         Some(e) => match eval(e)? {
             Value::Asset(a) if a.kind == AssetKind::Model => Some(a.id),
@@ -52,6 +74,10 @@ pub fn build(
     };
     let count = match arg("count") {
         Some(e) => eval(e)?.try_into_f64()?,
+        None if grid.is_some() => {
+            let (columns, rows) = grid.unwrap();
+            (columns * rows) as f64
+        }
         None => model
             .as_ref()
             .map(|(_, p)| p.len() as f64)
@@ -101,6 +127,7 @@ pub fn build(
         functions,
         count: count as u32,
         has_model: model.is_some(),
+        grid,
         data: Vec::new(),
         bindings: HashMap::new(),
         nodes: 0,
@@ -109,6 +136,17 @@ pub fn build(
     for (axis, name) in ["x", "y", "z"].iter().enumerate() {
         fields.push(match arg(name) {
             Some(e) => compiler.number(e, 0)?,
+            None if grid.is_some() && *name != "y" => {
+                let (columns, rows) = grid.unwrap();
+                if *name == "x" {
+                    format!(
+                        "float(grid_vertex_id % {columns}) / {}.0 - 0.5",
+                        columns - 1
+                    )
+                } else {
+                    format!("float(grid_vertex_id / {columns}) / {}.0 - 0.5", rows - 1)
+                }
+            }
             None if model.is_some() => format!("model_at(float(gl_VertexID), {axis})"),
             None => "0.0".into(),
         });
@@ -121,17 +159,25 @@ pub fn build(
         Some(e) if dependent(e, 0)? => compiler.number(e, 0)?,
         _ => "u_size".into(),
     };
+    let mut body = format!(
+        "vec3 point_position = vec3({}, {}, {});\nvec4 point_color = {};\nfloat point_size = {};",
+        fields[0], fields[1], fields[2], color, size_field
+    );
+    if let Some((columns, _)) = grid {
+        // Two upward-facing triangles per cell. Derive connectivity from the
+        // draw vertex, avoiding a CPU mesh rebuild or index upload each frame.
+        body = body.replace("gl_VertexID", "grid_vertex_id");
+        body = format!("int cell = gl_VertexID / 6; int corner = gl_VertexID % 6;\nint grid_vertex_id = (cell / {cells}) * {columns} + cell % {cells};\ngrid_vertex_id += (corner == 1 || corner == 3 || corner == 4 ? {columns} : 0) + (corner == 2 || corner == 4 || corner == 5 ? 1 : 0);\n{body}", cells = columns - 1);
+    }
     Ok(Some(PointCloud {
         count: count as u32,
+        grid,
         size: size as f32,
         attenuation,
         model,
         texture,
         alpha_test: alpha_test as f32,
-        body: format!(
-            "vec3 point_position = vec3({}, {}, {});\nvec4 point_color = {};\nfloat point_size = {};",
-            fields[0], fields[1], fields[2], color, size_field
-        ),
+        body,
         data: compiler.data,
     }))
 }
@@ -148,7 +194,10 @@ fn dependent(expr: &Expression, depth: usize) -> Result<bool, String> {
         Ok(match expr {
             Expression::SystemValue(name) => matches!(
                 name.as_str(),
-                "POINT_INDEX"
+                "GRID_INDEX"
+                    | "GRID_COLUMN"
+                    | "GRID_ROW"
+                    | "POINT_INDEX"
                     | "POINT_COUNT"
                     | "POINT_X"
                     | "POINT_Y"
@@ -193,6 +242,7 @@ struct Fields<'a> {
     functions: &'a [FunctionDef],
     count: u32,
     has_model: bool,
+    grid: Option<(u32, u32)>,
     data: Vec<f32>,
     bindings: HashMap<String, (usize, usize)>,
     nodes: usize,
@@ -207,8 +257,13 @@ impl Fields<'_> {
         if let Some(binding) = self.bindings.get(&key) {
             return Ok(*binding);
         }
-        if self.data.len() + values.len() > MAX_DATA {
-            return Err(format!("point field data exceeds {MAX_DATA} numbers"));
+        let limit = if self.grid.is_some() {
+            MAX_GRID_DATA
+        } else {
+            MAX_DATA
+        };
+        if self.data.len() + values.len() > limit {
+            return Err(format!("procedural field data exceeds {limit} numbers"));
         }
         if values.iter().any(|v| !v.is_finite()) {
             return Err("point field inputs must be finite".into());
@@ -232,6 +287,14 @@ impl Fields<'_> {
         }
         let d = depth + 1;
         Ok(match expr {
+            Expression::SystemValue(name) if matches!(name.as_str(), "GRID_INDEX" | "GRID_COLUMN" | "GRID_ROW") => {
+                let (columns, _) = self.grid.ok_or_else(|| format!("${name} requires draw::grid"))?;
+                match name.as_str() {
+                    "GRID_COLUMN" => format!("float(grid_vertex_id % {columns})"),
+                    "GRID_ROW" => format!("float(grid_vertex_id / {columns})"),
+                    _ => "float(grid_vertex_id)".into(),
+                }
+            }
             Expression::SystemValue(name) if matches!(name.as_str(), "POINT_X" | "POINT_Y" | "POINT_Z") => {
                 if !self.has_model { return Err(format!("${name} requires a model on draw::point_cloud")); }
                 let axis = match name.as_str() { "POINT_X" => 0, "POINT_Y" => 1, _ => 2 };
@@ -273,11 +336,11 @@ impl Fields<'_> {
                 let (offset, len) = if let Some(binding) = self.bindings.get(&key) { *binding } else {
                     let values = match self.eval(target)? {
                         Value::Bytes(bytes) => {
-                            if bytes.len() > MAX_DATA { return Err("point field array is too large".into()); }
+                            if bytes.len() > (if self.grid.is_some() { MAX_GRID_DATA } else { MAX_DATA }) { return Err("point field array is too large".into()); }
                             bytes.iter().map(|v| *v as f32).collect::<Vec<_>>()
                         },
                         Value::Array(values) => {
-                            if values.len() > MAX_DATA { return Err("point field array is too large".into()); }
+                            if values.len() > (if self.grid.is_some() { MAX_GRID_DATA } else { MAX_DATA }) { return Err("point field array is too large".into()); }
                             values.into_iter().map(|v| v.try_into_f64().map(|v| v as f32)).collect::<Result<Vec<_>, _>>()?
                         }
                         _ => return Err("point field indexing needs a numeric array".into()),

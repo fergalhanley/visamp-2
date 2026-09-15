@@ -532,3 +532,55 @@ fn model_source_budget_counts_shared_assets_once() {
     with_store_mut(|s| s.clear());
     assert!(!visamp_2::set_asset_points("incomplete", &[0.0, 1.0]));
 }
+
+#[test]
+fn grids_compile_vertex_fields_and_share_frame_budgets() {
+    let scene = run(r#"context 3d
+render {
+ let heights = array::filled(count: 65536, value: 1.0)
+ draw::grid(columns: 256, rows: 512, y: heights[$GRID_INDEX % 65536],
+   color: color::rgb(r: $GRID_COLUMN / 255.0, b: $GRID_ROW / 511.0))
+}"#);
+    let grid = &scene.point_clouds[0];
+    assert_eq!(grid.grid, Some((256, 512)));
+    assert_eq!(grid.count, 131072);
+    assert!(grid.body.contains("grid_vertex_id"));
+    assert!(grid.data.len() >= 65536);
+    assert!(grid.body.contains("array_at"));
+    let err = run_err("context 3d\nrender { draw::grid(columns: 1000, rows: 1000)\n draw::point_cloud(count: 1) }");
+    assert!(err.contains("budget exceeded"), "{err}");
+}
+
+#[test]
+fn grids_reject_invalid_dimensions_and_contexts() {
+    for args in [
+        "columns: 1, rows: 2",
+        "columns: 2.5, rows: 3",
+        "columns: 4097, rows: 2",
+        "columns: 4096, rows: 4096",
+    ] {
+        let err = run_err(&format!("context 3d\nrender {{ draw::grid({args}) }}"));
+        assert!(err.contains("draw::grid"), "{err}");
+    }
+    assert!(build_ast("context 2d\nrender { draw::grid(columns: 2, rows: 2) }").is_err());
+    assert!(build_ast("context 3d\nrender { draw::grid(columns: 2) }").is_err());
+    assert!(
+        run_err("context 3d\nrender { draw::point_cloud(count: 1, x: $GRID_ROW) }")
+            .contains("requires draw::grid")
+    );
+}
+
+#[test]
+fn grid_input_uploads_remain_bounded() {
+    let declarations = (0..9)
+        .map(|i| format!("let a{i} = array::filled(count: 65536, value: 1.0)\n"))
+        .collect::<String>();
+    let field = (0..9)
+        .map(|i| format!("a{i}[$GRID_INDEX]"))
+        .collect::<Vec<_>>()
+        .join(" + ");
+    let err = run_err(&format!(
+        "context 3d\nrender {{\n{declarations} draw::grid(columns: 2, rows: 2, y: {field})\n}}"
+    ));
+    assert!(err.contains("data exceeds 524288"), "{err}");
+}

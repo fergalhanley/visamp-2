@@ -109,3 +109,16 @@ Browser regression check: build with `pnpm --filter @visamp/engine build:validat
 serve the repository root, then open `packages/engine/tests/browser/capture.html`.
 The page checks PNG pixels, dimensions, filters, model sprites, repeated captures,
 live state preservation, context loss recovery and error diagnostics.
+
+## Procedural grids
+
+`draw::grid` reuses the bounded point-field compiler and renderer for connected
+triangle surfaces with interpolated vertex colours. `PointCloud.grid` selects
+triangle topology; dimensions count unique vertices for the shared scene budget.
+The vertex shader derives two triangles per cell from `gl_VertexID`, then uses a
+row-major logical vertex index for fields. No CPU geometry or index buffer is
+rebuilt per frame. Grid inputs are capped at 524,288 numbers per call and share
+the existing 1,000,000-number scene cap. Point-cloud limits remain unchanged.
+
+See `apps/docs/src/3d/overview.md` for syntax. Browser coverage lives in
+`tests/browser/grid.html` (build the web-target WASM package and serve the repo).

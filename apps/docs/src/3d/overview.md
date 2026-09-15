@@ -370,3 +370,49 @@ If you override `count`, `$POINT_COUNT` is that draw count, not the source lengt
 The model is decoded once and its positions are cached on the GPU. They do not
 consume the per-frame field-input limit. Distinct model sources used in one frame
 are limited to 1,000,000 positions in total, independently of the drawn-point limit.
+
+## Animated triangle grids
+
+`draw::grid` (engine 2.6.0) connects a rectangular grid of vertices into a solid,
+unlit surface. Positions and colours are evaluated on the GPU with the same
+arithmetic, math functions and numeric array reads supported by point clouds.
+Colours interpolate across each triangle.
+
+```vdsl
+context 3d
+render {
+  camera::position(x: 0.0, y: 2.0, z: 3.0)
+  camera::look_at(x: 0.0, y: 0.0, z: 0.0)
+  draw::grid(
+    columns: 128, rows: 128,
+    y: math::sin(radians: $GRID_COLUMN / 8.0 + $TIME_SEC) * 0.15,
+    color: color::hsl(h: $GRID_ROW / 128.0, s: 1.0, l: 0.5)
+  )
+}
+```
+
+`columns` and `rows` count **vertices**, not cells, and are required whole numbers
+from 2 to 4096. Defaults form a unit square in XZ: x and z range from -0.5 to
+0.5, y is zero, and colour is white. Each cell contains two triangles facing +Y.
+Override `x`, `y`, `z` and `color` to deform and colour the surface. The current
+camera, transform, culling, depth and blend settings apply. Grids are unlit;
+textures, normals, wireframe and material arguments are not supported.
+
+Inside vertex fields:
+
+| Value | Meaning |
+| --- | --- |
+| `$GRID_COLUMN` | Zero-based column |
+| `$GRID_ROW` | Zero-based row |
+| `$GRID_INDEX` | `row * columns + column` |
+
+Use these values directly inside the fields, rather than assigning them to a
+`let` outside the draw call. For example, `y: heights[$GRID_INDEX]` reads stored
+heights. Invalid array indices read zero. Fields use 32-bit floats and must stay
+within valid math domains.
+
+Grids and point clouds share a per-frame budget of 1,000,000 unique vertices,
+64 calls and 1,000,000 input numbers. A grid can supply up to 524,288 input
+numbers; point clouds retain their 32,768-number limit. Expression limits remain
+512 nodes and 128 levels. Connectivity is generated on the GPU, so the script
+does not construct triangle arrays on each frame. Frame capture supports grids.

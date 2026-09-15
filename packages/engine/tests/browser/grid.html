@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8"><title>Animated grid tests</title><link rel="icon" href="data:,">
+<pre id="result">Running…</pre><div id="visamp-stage" style="width:640px;height:480px"></div>
+<script type="module">
+import init, * as engine from '../../pkg-validator/visamp_2.js';
+const queue=[]; window.requestAnimationFrame=cb=>(queue.push(cb),queue.length);
+const assert=(ok,message)=>{if(!ok)throw Error(message)};
+try {
+ await init();
+ const load=source=>{const e=engine.load_script(source);if(e)throw Error(e)};
+ const step=()=>{queue.shift()(performance.now());const e=engine.get_last_error();if(e)throw Error(e)};
+ load('context 3d\nrender { draw::grid(columns: 2, rows: 2) }');
+ const canvas=document.querySelector('canvas'),gl=canvas.getContext('webgl2');
+ const pixel=(x=320,y=240)=>{const p=new Uint8Array(4);gl.readPixels(x,y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,p);return [...p]};
+ load(`context 3d
+render {
+ camera::orthographic(height: 4.0)
+ draw::grid(columns: 2, rows: 2, x: $GRID_COLUMN * 2.0 - 1.0, y: 1.0 - $GRID_ROW * 2.0, color: color::rgb(r: $GRID_COLUMN, g: $GRID_ROW), z: 0.0)
+}`);
+ step(); let p=pixel(); assert(Math.abs(p[0]-128)<3 && Math.abs(p[1]-128)<3,'interpolated grid colour: '+p);
+ const blob=await engine.capture_frame(), bitmap=await createImageBitmap(blob);
+ assert(bitmap.width===1280&&bitmap.height===720,'grid capture dimensions');
+ const off=document.createElement('canvas');off.width=1280;off.height=720;off.getContext('2d').drawImage(bitmap,0,0);bitmap.close();
+ p=[...off.getContext('2d').getImageData(640,360,1,1).data];assert(Math.abs(p[0]-128)<3&&Math.abs(p[1]-128)<3,'grid capture pixels: '+p);
+ let calls=[];const draw=gl.drawArrays.bind(gl);gl.drawArrays=(mode,start,count)=>{calls.push([mode,count]);draw(mode,start,count)};
+ load(`context 3d
+prop heights = []
+on_init { heights = array::filled(count: 65536, value: 0.0) }
+on_frame { heights[0] = $FREQUENCY_DATA[0] / 255.0 }
+render {
+ camera::orthographic(height: 4.0)
+ draw::grid(columns: 256, rows: 512, x: $GRID_COLUMN / 255.0 * 2.0 - 1.0 + heights[$GRID_INDEX % 1], y: 1.0 - $GRID_ROW / 511.0 * 2.0, z: 0.0, color: $COLOR_RED)
+ draw::point_cloud(count: 1, z: 1.0, size: 20.0, color: $COLOR_GREEN)
+ draw::cube(size: 0.5, z: -1.0, color: $COLOR_BLUE)
+}`);
+ engine.set_audio_frame(new Uint8Array(),new Uint8Array([0]),false); step();
+ assert(calls[0][0]===gl.TRIANGLES&&calls[0][1]===255*511*6,'full grid topology');
+ p=pixel();assert(p[1]>100&&p[0]===0,'point depth after grid: '+p);
+ assert(pixel(230,240)[0]===255,'initial grid position');
+ engine.set_audio_frame(new Uint8Array(),new Uint8Array([255]),false);step();
+ assert(pixel(230,240)[0]===0,'audio array did not deform the grid');
+ assert(gl.getError()===gl.NO_ERROR,'WebGL error');
+ window.results={passed:true,checks:['interpolated vertex colours','1280x720 PNG pixels','256x512 triangle grid','65536-element mutable history','grid/point/mesh depth and program switching']};
+} catch(e){window.results={passed:false,error:String(e)};console.error(e)}
+document.querySelector('#result').textContent=JSON.stringify(window.results,null,2);
+</script>
