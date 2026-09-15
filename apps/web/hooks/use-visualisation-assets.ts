@@ -1,61 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ResolvedAsset } from "@visamp/player";
-
+import { useAuth } from "@/components/auth/auth-provider";
 import { resolveSourceAssets } from "@/lib/assets/client";
 import { createClient } from "@/lib/supabase/client";
 import { extractAssetReferences } from "@/lib/assets/references";
 
-/**
- * Resolves the assets a script cites, for the viewer currently signed in.
- *
- * Keyed on the set of referenced ids rather than the source text, so editing
- * around a reference does not re-download anything. Every fetch is guarded
- * against arriving after a later one: an out-of-order response would otherwise
- * show a previous visual's assets.
- */
-export function useVisualisationAssets(source: string) {
+/** Prepare a complete asset set for one selection and the current viewer. */
+export function useVisualisationAssets(source: string, selectionKey = "") {
+  const { user, loading: authLoading } = useAuth();
+  const scope = user?.id ?? "anonymous";
   const references = extractAssetReferences(source).sort().join(",");
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  // Identity, rather than a reusable string, makes A → B → A revalidate even
+  // when B is still loading and the last completed result belongs to A.
+  const key = useMemo(
+    () => ({ references, selectionKey, scope, authLoading, attempt }),
+    [references, selectionKey, scope, authLoading, attempt],
+  );
   const [resolved, setResolved] = useState<{
-    references: string;
+    key: typeof key;
     assets: ResolvedAsset[];
     missing: string[];
-  }>({ references: "", assets: [], missing: [] });
+  } | null>(null);
 
   useEffect(() => {
-    if (!references) return;
-
+    if (!references || authLoading) return;
     let current = true;
-    void resolveSourceAssets(createClient(), source)
-      .then((resolution) => {
-        if (!current) return;
-        setResolved({ references, ...resolution });
-      })
-      .catch(() => {
-        if (!current) return;
-        // A failed resolve renders untextured rather than blank; VIS-55 owns
-        // telling the author which references are broken.
-        setResolved({ references, assets: [], missing: references.split(",") });
-      });
-
+    void resolveSourceAssets(createClient(), source).then(
+      (result) => {
+        if (current) setResolved({ key, ...result });
+      },
+      () => {
+        if (current)
+          setResolved({ key, assets: [], missing: references.split(",") });
+      },
+    );
     return () => {
       current = false;
     };
-    // `source` is deliberately not a dependency: only the referenced ids matter,
-    // and they are what `references` captures.
+    // Only changing references/selection/viewer/retry requires preparation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [references]);
+  }, [key]);
 
-  // Results from a previous set of references must not be handed to the engine
-  // while the new ones are still in flight.
-  const current = resolved.references === references;
+  const current = resolved?.key === key;
+  const missing = current ? resolved.missing : EMPTY_IDS;
+  const status = !references
+    ? "ready"
+    : !current
+      ? "loading"
+      : missing.length
+        ? "error"
+        : "ready";
   return {
-    assets: current ? resolved.assets : EMPTY_ASSETS,
-    missing: current ? resolved.missing : EMPTY_IDS,
+    assets: references && current ? resolved.assets : EMPTY_ASSETS,
+    preparation: { status, missing, retry, scope } as const,
   };
 }
-
-// Stable identities, so an unchanged result does not re-run the upload effect.
 const EMPTY_ASSETS: ResolvedAsset[] = [];
 const EMPTY_IDS: string[] = [];

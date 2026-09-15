@@ -12,7 +12,26 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 import { extractAssetReferences } from "./references.ts";
+import { DecodedAssetCache } from "./cache.ts";
 import { parseGlbModel } from "./gltf.ts";
+
+const caches = new WeakMap<SupabaseClient<Database>, DecodedAssetCache>();
+function cacheFor(supabase: SupabaseClient<Database>) {
+  let cache = caches.get(supabase);
+  if (!cache) {
+    cache = new DecodedAssetCache();
+    caches.set(supabase, cache);
+    let userId: string | undefined;
+    let initialised = false;
+    supabase.auth.onAuthStateChange((_event, session) => {
+      const next = session?.user.id;
+      if (initialised && next !== userId) cache!.clear();
+      initialised = true;
+      userId = next;
+    });
+  }
+  return cache;
+}
 
 export const ASSET_BUCKET = "assets";
 
@@ -31,43 +50,72 @@ export interface AssetResolution {
 /**
  * Resolves every asset a script references.
  *
- * One failure never fails the batch: a visual referencing four assets and one
- * withdrawal should still draw the other three.
+ * Successful downloads remain reusable when one reference fails. Playback
+ * waits for the complete set; missing references are reported for Retry.
  */
 export async function resolveSourceAssets(
   supabase: SupabaseClient<Database>,
   source: string,
 ): Promise<AssetResolution> {
+  const cache = cacheFor(supabase);
+  const generation = cache.version;
   const ids = extractAssetReferences(source);
   if (ids.length === 0) return { assets: [], missing: [] };
 
   // The read policy does the filtering. Rows that come back are readable by
   // this viewer; ids that do not are missing as far as the renderer cares.
-  const { data, error } = await supabase
-    .from("assets")
-    .select("id,kind,object_key")
-    .in("id", ids)
-    .eq("status", "ready")
-    .is("withdrawn_at", null);
-  if (error) return { assets: [], missing: ids };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20_000);
+  const { data, error } = await Promise.resolve(
+    supabase
+      .from("assets")
+      .select("id,kind,object_key")
+      .in("id", ids)
+      .eq("status", "ready")
+      .is("withdrawn_at", null)
+      .abortSignal(controller.signal),
+  ).finally(() => clearTimeout(timer));
+  if (error || generation !== cache.version)
+    return { assets: [], missing: ids };
 
   const rows = data ?? [];
   const resolved = await Promise.all(
     rows.map(async (row) => {
       try {
-        const file = await supabase.storage.from(ASSET_BUCKET).download(row.object_key);
-        if (file.error || !file.data) return null;
-        const bytes = new Uint8Array(await file.data.arrayBuffer());
-        return row.kind === "model"
-          ? toMesh(row.id, bytes)
-          : await toTexture(row.id, row.kind, file.data, bytes);
+        // This lookup follows a fresh RLS query even when bytes are cached.
+        return await cache.get(
+          `${row.id}:${row.kind}:${row.object_key}`,
+          async () => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 20_000);
+            try {
+              const file = await supabase.storage
+                .from(ASSET_BUCKET)
+                .download(row.object_key, {}, { signal: controller.signal });
+              if (file.error || !file.data)
+                throw new Error("Asset download failed");
+              const bytes = new Uint8Array(await file.data.arrayBuffer());
+              const asset =
+                row.kind === "model"
+                  ? toMesh(row.id, bytes)
+                  : await toTexture(row.id, row.kind, file.data, bytes);
+              if (!asset) throw new Error("Asset decode failed");
+              return asset;
+            } finally {
+              clearTimeout(timer);
+            }
+          },
+        );
       } catch {
         return null;
       }
     }),
   );
 
-  const assets = resolved.filter((asset): asset is ResolvedAsset => asset !== null);
+  if (generation !== cache.version) return { assets: [], missing: ids };
+  const assets = resolved.filter(
+    (asset): asset is ResolvedAsset => asset !== null,
+  );
   const found = new Set(assets.map((asset) => asset.id));
   return { assets, missing: ids.filter((id) => !found.has(id)) };
 }
@@ -89,7 +137,10 @@ async function toTexture(
       : await createImageBitmap(blob).catch(() => null);
   if (!source) return null;
 
-  const scale = Math.min(1, MAX_TEXTURE_SIZE / Math.max(source.width, source.height));
+  const scale = Math.min(
+    1,
+    MAX_TEXTURE_SIZE / Math.max(source.width, source.height),
+  );
   const width = Math.max(1, Math.round(source.width * scale));
   const height = Math.max(1, Math.round(source.height * scale));
 
@@ -102,7 +153,13 @@ async function toTexture(
   if ("close" in source) source.close();
 
   const pixels = context.getImageData(0, 0, width, height);
-  return { id, kind: "texture", width, height, rgba: new Uint8Array(pixels.data.buffer) };
+  return {
+    id,
+    kind: "texture",
+    width,
+    height,
+    rgba: new Uint8Array(pixels.data.buffer),
+  };
 }
 
 /**
@@ -133,4 +190,15 @@ function rasteriseVector(bytes: Uint8Array): Promise<HTMLImageElement | null> {
     };
     image.src = url;
   });
+}
+
+/** Speculative preparation shares downloads/decoded data with playback. */
+export function preloadSourceAssets(
+  supabase: SupabaseClient<Database>,
+  source: string,
+) {
+  return resolveSourceAssets(supabase, source).catch(() => ({
+    assets: [],
+    missing: extractAssetReferences(source),
+  }));
 }

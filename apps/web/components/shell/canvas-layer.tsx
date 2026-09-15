@@ -1,7 +1,9 @@
 "use client";
 
 import { VisampCanvas } from "@visamp/player";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, type PointerEvent as ReactPointerEvent } from "react";
+import { preloadSourceAssets } from "@/lib/assets/client";
+import { createClient } from "@/lib/supabase/client";
 
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
@@ -15,8 +17,23 @@ import { useSessionStore } from "@/lib/store/session";
  * segment navigation — so browsing never remounts the engine.
  */
 export function CanvasLayer() {
-  const source = useSessionStore((s) => s.current.source);
-  const { assets } = useVisualisationAssets(source);
+  const current = useSessionStore((s) => s.current);
+  const context = useSessionStore((s) => s.context);
+  const shuffle = useSessionStore((s) => s.shuffleVis);
+  const source = current.source;
+  const { assets, preparation } = useVisualisationAssets(source, current.id);
+  const index = context.findIndex((vis) => vis.id === current.id);
+  const nextSource =
+    !shuffle && context.length > 1
+      ? context[(index + 1) % context.length]?.source
+      : undefined;
+  useEffect(() => {
+    if (preparation.status !== "ready" || !nextSource) return;
+    const timer = setTimeout(() => {
+      void preloadSourceAssets(createClient(), nextSource);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [nextSource, preparation.status, preparation.scope]);
   const { toggle: toggleFullscreen } = useFullscreen();
   const analyser = useAnalyser();
 
@@ -42,6 +59,8 @@ export function CanvasLayer() {
       <VisampCanvas
         source={source}
         assets={assets}
+        assetPreparation={preparation}
+        posterUrl={current.thumbUrl}
         // Always on: there is no gate in front of the player any more, so the
         // engine boots with the page.
         active

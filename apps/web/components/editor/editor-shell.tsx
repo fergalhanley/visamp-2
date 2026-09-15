@@ -53,6 +53,7 @@ import {
 import { useEditorAutosave, type EditorSnapshot } from "@/hooks/use-editor-autosave";
 import { saveDocument } from "@/lib/editor/save-document";
 import { useAnalyser } from "@/hooks/use-analyser";
+import { publicStorageUrl } from "@/lib/storage-urls";
 import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import type { AiModelKey, GenerationEvent } from "@/lib/ai/types";
@@ -125,7 +126,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const analyser = useAnalyser();
   // Re-resolves only when the set of referenced ids changes, so typing around
   // an asset reference does not re-download it.
-  const { assets } = useVisualisationAssets(liveSource);
+  const { assets, preparation } = useVisualisationAssets(liveSource, visualisation?.id);
   const { user } = useAuth();
   // Shares its state with the transport's button through the fullscreen API,
   // so the two never disagree about whether the preview is expanded.
@@ -780,6 +781,8 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
               ref={canvasHandle}
               source={liveSource}
               assets={assets}
+              assetPreparation={preparation}
+              posterUrl={publicStorageUrl("thumbnails", visualisation?.thumb_path, visualisation?.updated_at)}
               active
               analyser={analyser}
               onCompileResult={onCompileResult}

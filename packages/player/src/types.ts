@@ -57,6 +57,7 @@ export interface LogEntry {
 export interface EngineModule {
   main_web(): void;
   load_script(code: string): string;
+  validate_script(code: string): string;
   get_last_error(): string;
   /** CSS filter composed by the latest rendered frame. */
   get_canvas_filter(): string;

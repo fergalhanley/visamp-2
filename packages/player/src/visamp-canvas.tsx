@@ -1,6 +1,6 @@
 "use client";
 
-import { registerAsset } from "./assets";
+import { activateScript } from "./activation";
 import {
   useCallback,
   useEffect,
@@ -49,12 +49,18 @@ export interface VisampCanvasProps {
    * Assets the host has fetched and decoded for the current viewer, keyed by
    * the ids the source cites with `asset::`.
    *
-   * References with nothing supplied for them render as untextured shapes and
-   * absent geometry rather than failing the frame — which is what an asset
-   * still loading, withdrawn, or not readable by this viewer looks like from
-   * in here.
+   * Supply assetPreparation to hold activation until every required asset
+   * is ready. Callers without preparation retain direct-render behaviour.
    */
   assets?: ResolvedAsset[];
+  assetPreparation?: {
+    status: "loading" | "error" | "ready";
+    missing: readonly string[];
+    retry: () => void;
+    /** Changes when the viewer changes; previous assets must then be cleared. */
+    scope: string;
+  };
+  posterUrl?: string;
   /**
    * The engine boots the first time this is true, and the WASM module is not
    * fetched before then. This is what makes the landing and cold-link play
@@ -100,6 +106,8 @@ export interface VisampCanvasProps {
 export function VisampCanvas({
   source,
   assets,
+  assetPreparation,
+  posterUrl,
   active,
   analyser,
   onCompileResult,
@@ -112,6 +120,15 @@ export function VisampCanvas({
   const engineRef = useRef<EngineModule | null>(null);
   const bootedRef = useRef(false);
   const [ready, setReady] = useState(false);
+  const [activated, setActivated] = useState(false);
+  const [activationError, setActivationError] = useState("");
+  const applied = useRef<{
+    source: string;
+    assets: ResolvedAsset[];
+    scope: string;
+  } | null>(null);
+  const assetStatus = assetPreparation?.status ?? "ready";
+  const assetScope = assetPreparation?.scope ?? "default";
   /** Last error already reported via onCompileResult, to avoid double-logging. */
   const reportedErrorRef = useRef("");
 
@@ -160,77 +177,58 @@ export function VisampCanvas({
     });
   }, [active]);
 
-  // Hands the engine whatever the host has resolved, replacing the previous
-  // set wholesale. Clearing first matters: an asset the last viewer could read
-  // must not stay resident for the next one, and a withdrawn asset must stop
-  // drawing rather than linger from a previous upload.
+  // Validate independently of readiness so editor diagnostics/autosave still
+  // work while downloads are pending. Activation waits for the complete set.
   useEffect(() => {
     const engine = engineRef.current;
     if (!ready || !engine) return;
-
-    engine.clear_assets();
-    for (const asset of assets ?? []) {
-      try {
-        registerAsset(engine, asset);
-      } catch (error) {
-        // One malformed asset must not take the whole visual down.
-        onLogRef.current?.({
-          level: "warn",
-          message: `Could not load asset ${asset.id}: ${String(error)}`,
-        });
-      }
+    if (applied.current && applied.current.scope !== assetScope) {
+      engine.clear_assets();
+      engine.load_script("");
+      applied.current = null;
+      setActivated(false);
     }
-  }, [ready, assets]);
-
-  // Applies the source once the engine exists, and on every later change.
-  // `main_web()` mounts no canvas and draws nothing until this runs, so the
-  // first pass is what puts anything on screen at all.
-  //
-  // The engine keeps its Runtime (elapsed time, frame count) across a swap, so
-  // there is no black frame — and a failed parse leaves the previous model in
-  // place, which is what keeps the last good render on screen.
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!ready || !engine) return;
-
     let result: CompileResult;
-    let rawError = "";
-
     try {
-      rawError = engine.load_script(source);
-      result = toCompileResult(rawError);
+      const error = engine.validate_script(source);
+      result = toCompileResult(error);
+      if (result.ok && assetStatus === "ready") {
+        const prepared = assets ?? EMPTY_ASSETS;
+        const previous = applied.current;
+        if (
+          !previous ||
+          previous.source !== source ||
+          previous.assets !== prepared
+        ) {
+          const error = activateScript(
+            engine,
+            source,
+            prepared,
+            previous?.assets ?? EMPTY_ASSETS,
+          );
+          result = toCompileResult(error);
+          if (result.ok) {
+            applied.current = { source, assets: prepared, scope: assetScope };
+            setActivated(true);
+            setActivationError("");
+          }
+        }
+      }
     } catch (error) {
-      rawError = String(error);
-      // A panic inside the wasm module surfaces here as a thrown exception.
-      // Left uncaught it escapes through React and takes the whole editor down
-      // with an error overlay — over a half-typed keyword. Report it as a
-      // diagnostic instead; the last good render stays on screen.
+      const message = error instanceof Error ? error.message : String(error);
+      setActivationError(message);
+      onLogRef.current?.({ level: "error", message });
       result = {
         ok: false,
         usesAudio: false,
-        diagnostics: [
-          {
-            severity: "error",
-            message:
-              error instanceof Error
-                ? `Engine error: ${error.message.split("\n")[0]}`
-                : "The engine failed on this script",
-            raw: String(error),
-          },
-        ],
+        diagnostics: [{ severity: "error", message, raw: message }],
       };
     }
-
-    // The engine also parks failures in its last-error slot, so remember what
-    // we just reported and let the poller skip it rather than logging twice.
-    //
-    // The whole string, not the first diagnostic: a compile can now turn up
-    // several problems at once, and the engine parks all of them together.
-    // Comparing against one of them would never match, and every error would
-    // be logged twice.
-    reportedErrorRef.current = result.ok ? "" : rawError;
+    reportedErrorRef.current = result.ok
+      ? ""
+      : (result.diagnostics[0]?.raw ?? "");
     onCompileResultRef.current?.(result);
-  }, [ready, source]);
+  }, [ready, source, assets, assetStatus, assetScope]);
 
   // The engine reports runtime errors by parking a string rather than calling
   // out, so drain it on an interval. Replace with a real callback when the
@@ -309,13 +307,85 @@ export function VisampCanvas({
 
   const captureFrame = useCallback(async (): Promise<Blob> => {
     const engine = engineRef.current;
-    if (!engine) {
-      throw new Error("Engine is not ready yet");
+    if (
+      !engine ||
+      assetStatus !== "ready" ||
+      activationError ||
+      applied.current?.source !== source ||
+      applied.current?.assets !== (assets ?? EMPTY_ASSETS) ||
+      applied.current?.scope !== assetScope
+    ) {
+      throw new Error("The visualisation is not ready to capture yet");
     }
     return engine.capture_frame();
-  }, []);
+  }, [source, assets, assetScope, assetStatus, activationError]);
 
   useImperativeHandle(ref, () => ({ captureFrame }), [captureFrame]);
 
-  return <div id={HOST_ID} className={className} />;
+  const pending = assetStatus !== "ready" || Boolean(activationError);
+  return (
+    <div className={className} style={{ position: "relative" }}>
+      <div id={HOST_ID} style={{ width: "100%", height: "100%" }} />
+      {pending && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            ...(!activated && posterUrl
+              ? {
+                  backgroundImage: `url(${JSON.stringify(posterUrl)})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : {}),
+          }}
+        >
+          <div
+            role={
+              assetStatus === "error" || activationError ? "alert" : "status"
+            }
+            style={{
+              pointerEvents: "auto",
+              maxWidth: "90%",
+              padding: "12px 16px",
+              borderRadius: 8,
+              color: "white",
+              background: "rgba(0,0,0,.8)",
+              fontSize: 14,
+            }}
+            onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            {assetStatus === "loading"
+              ? "Loading assets…"
+              : "Could not load visualisation assets."}
+            {assetStatus !== "loading" && (
+              <>
+                <p style={{ overflowWrap: "anywhere" }}>
+                  {activationError || assetPreparation?.missing.join(", ")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivationError("");
+                    assetPreparation?.retry();
+                  }}
+                  style={{ textDecoration: "underline", cursor: "pointer" }}
+                >
+                  Retry
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
+
+const EMPTY_ASSETS: ResolvedAsset[] = [];

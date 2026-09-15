@@ -1,8 +1,23 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  esbuild: { jsx: "automatic" },
+  resolve: {
+    alias: {
+      "@visamp/engine": new URL(
+        "../../packages/engine/pkg/visamp_2.js",
+        import.meta.url,
+      ).pathname,
+      "@": new URL(".", import.meta.url).pathname,
+    },
+  },
   test: {
-    include: ["hooks/**/*.test.ts", "lib/editor/**/*.test.ts"],
+    include: [
+      "hooks/**/*.test.ts",
+      "lib/editor/**/*.test.ts",
+      "lib/assets/**/*.test.ts",
+      "components/**/*.test.tsx",
+    ],
     environment: "jsdom",
     pool: "forks",
     poolOptions: { forks: { singleFork: true } },

@@ -2,6 +2,9 @@
 
 import { AudioLines } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useRef } from "react";
+import { preloadSourceAssets } from "@/lib/assets/client";
+import { createClient } from "@/lib/supabase/client";
 
 import { VisMenu } from "@/components/panels/vis-menu";
 import type { Visualisation } from "@/lib/types";
@@ -34,6 +37,13 @@ interface VisTileProps {
 
 /** E3.6 — fixed height, 16:9 thumb, badge right-aligned to the creator name. */
 export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProps) {
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cancelPreload = () => clearTimeout(timer.current);
+  const preload = () => {
+    cancelPreload();
+    timer.current = setTimeout(() => { void preloadSourceAssets(createClient(), vis.source); }, 150);
+  };
+  useEffect(() => () => clearTimeout(timer.current), [vis.source]);
   return (
     // A row rather than a button: the menu trigger is a sibling, because a
     // button cannot legally contain another button.
@@ -49,6 +59,10 @@ export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProp
       <button
         type="button"
         onClick={onSelect}
+        onMouseEnter={preload}
+        onMouseLeave={cancelPreload}
+        onFocus={preload}
+        onBlur={cancelPreload}
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 py-2 text-left"
       >
         <div
