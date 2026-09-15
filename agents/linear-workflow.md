@@ -90,11 +90,8 @@ If access is missing, stop with the actual connection or permission error.
   grant GitHub access. Ordinary work needs no pull request; a release pull request
   from `develop` to `main` is opened only when the project owner asks for one, and
   needs an authenticated GitHub tool or the GitHub CLI.
-- Send the progress messages required by AGENTS.md to **#progress** in Fergal's
-  Visamp Slack workspace. Fergal created and selected this channel. Resolve that
-  channel in the connected workspace before posting; confirm the local client's
-  Slack access and posting authorisation. Linear OAuth does not connect Slack.
-  Do not claim a post was sent unless the Slack tool confirms it.
+- Send the progress messages required by AGENTS.md in the active task conversation.
+  Slack reporting is retired; a Slack connection is not a delivery prerequisite.
 - Use a separate worktree for each active task, all on `develop`. Do not share a
   working tree with another running agent. AGENTS.md allows two long-lived branches
   and no others, so there is no per-issue branch to isolate.
@@ -194,6 +191,5 @@ authorise agents to take work assigned to Fergal without explicit delegation.
 
 Fergal reports local authentication is complete. The read-only smoke check above
 still needs recorded results from each client; authentication alone does not prove
-issue read/write access. The Slack destination is #progress; local Slack integration
-and a successful authorised post remain to be verified. Track activation evidence
-on VIS-70.
+issue read/write access. Track activation evidence on VIS-70. Slack reporting
+is retired and does not need activation evidence.

@@ -13,10 +13,8 @@ this protocol; it does not replace its prerequisite, progress or review requirem
   dependencies, ownership, status, and acceptance criteria.
 - **GitHub** is the source of truth for code, branches, commits, pull requests,
   reviews, and permanent technical documentation.
-- **Slack #progress** is the progress feed for concise agent updates, blockers,
-  questions, and handoffs in the Visamp workspace. Resolve the channel through the
-  connected Slack tools before posting. Do not rely on Slack as the permanent
-  record of requirements or decisions.
+- **The active task conversation** is the progress feed for concise updates,
+  blockers, questions, and handoffs. No Slack connection or reporting is required.
 - If these sources disagree, stop and ask for clarification. Do not silently
   choose one interpretation.
 
@@ -57,7 +55,7 @@ checks yourself first.
    rather than implementing around an unresolved dependency.
 4. Move the issue to **In Progress**, or ask the project owner to do so if the
    agent cannot update Linear.
-5. Post a concise progress update in the designated Visamp Slack channel:
+5. Post a concise progress update in the active task conversation:
 
    ```text
    STARTING <ISSUE-ID> — <short description>
@@ -77,16 +75,16 @@ checks yourself first.
 - Run the smallest relevant checks during development and the full relevant
   verification before handoff.
 - Record durable product or architectural decisions in Linear and, when they
-  affect future implementation, in repository documentation. Slack alone is
-  not a sufficient decision record.
+  affect future implementation, in repository documentation. Conversation updates
+  alone are not a sufficient decision record.
 - Reference the Linear issue ID in every commit message, and in the release
   pull request when the work is part of one.
 - When work overlaps another active issue, coordinate through Linear and post
-  the conflict in Slack before editing the shared area.
+  the conflict in the active task conversation before editing the shared area.
 
 ## Progress updates
 
-Slack updates are intended to let the project owner track agent activity without
+Conversation updates are intended to let the project owner track agent activity without
 reading every commit. Post an update when:
 
 - work starts;
@@ -113,7 +111,7 @@ There is no pull request for ordinary work. When the implementation is ready:
 1. Run the relevant checks and confirm they pass.
 2. Commit to `develop` and push.
 3. Move the Linear issue to **In Review**, or ask the project owner to do so.
-4. Post the `READY` update in Slack, naming the commit.
+4. Post the `READY` update in the active task conversation, naming the commit.
 5. Leave the issue open until its acceptance criteria have been verified.
 6. Do not mark the issue **Done** unless authorised by the project owner or the
    task instructions explicitly grant that authority.
@@ -148,7 +146,7 @@ Stop and request clarification when:
 
 When blocked, do not leave `develop` half-changed. Either commit something that
 stands on its own, or keep the work uncommitted and say so. Describe the current
-state in the Linear issue and post a `BLOCKED` update in Slack.
+state in the Linear issue and post a `BLOCKED` update in the active task conversation.
 
 ## Completion standard
 
