@@ -58,6 +58,12 @@ enum Backend {
     ThreeD(Renderer, Option<feedback::Feedback>),
 }
 
+struct Capture3d {
+    canvas: web_sys::HtmlCanvasElement,
+    gl: web_sys::WebGl2RenderingContext,
+    renderer: Renderer,
+}
+
 struct AppState {
     model: RefCell<Model>,
     runtime: RefCell<Runtime>,
@@ -76,6 +82,8 @@ struct AppState {
     backend: RefCell<Option<Backend>>,
     /// Rebuilt from scratch every 3d frame; see `Scene::reset`.
     scene: RefCell<Scene>,
+    /// Reuse one detached context across captures, including script reloads.
+    capture_3d: RefCell<Option<Capture3d>>,
     /// CSS filter composed while interpreting the most recent frame.
     canvas_filter: RefCell<String>,
     last_error: RefCell<Option<String>>,
@@ -243,6 +251,7 @@ fn init_app() -> Result<(), String> {
         kind: RefCell::new(None),
         backend: RefCell::new(None),
         scene: RefCell::new(Scene::default()),
+        capture_3d: RefCell::new(None),
         canvas_filter: RefCell::new(String::new()),
         last_error: RefCell::new(None),
         scramble_capable: Cell::new(false),
@@ -636,33 +645,62 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
         .with(|s| s.borrow().clone())
         .ok_or("Engine is not initialised")?;
 
-    // A capture renders into a fresh detached canvas, which means a fresh 2d
-    // context. There is no 3d equivalent yet, and quietly returning an empty
-    // image would be worse than saying so.
-    if *state.kind.borrow() == Some(ContextKind::ThreeD) {
-        return Err("Capturing a frame is not supported in 3d mode yet".to_string());
-    }
-
+    let three_d = *state.kind.borrow() == Some(ContextKind::ThreeD);
     let document = web_sys::window()
         .ok_or("No window object")?
         .document()
         .ok_or("No document object")?;
 
-    // Detached from the DOM: never appended, so it cannot disturb the layout.
-    let canvas: web_sys::HtmlCanvasElement = document
-        .create_element("canvas")
-        .map_err(|_| "Could not create canvas")?
-        .dyn_into()
-        .map_err(|_| "Element is not a canvas")?;
-    canvas.set_width(CAPTURE_WIDTH);
-    canvas.set_height(CAPTURE_HEIGHT);
-
-    let ctx: CanvasRenderingContext2d = canvas
-        .get_context("2d")
-        .map_err(|_| "Failed to get 2d context")?
-        .ok_or("2d context is null")?
-        .dyn_into()
-        .map_err(|_| "Failed to cast to CanvasRenderingContext2d")?;
+    let mut capture_3d = state.capture_3d.borrow_mut();
+    if three_d
+        && capture_3d
+            .as_ref()
+            .is_none_or(|capture| capture.gl.is_context_lost())
+    {
+        let canvas: web_sys::HtmlCanvasElement = document
+            .create_element("canvas")
+            .map_err(|_| "Could not create capture canvas")?
+            .dyn_into()
+            .map_err(|_| "Capture element is not a canvas")?;
+        canvas.set_width(CAPTURE_WIDTH);
+        canvas.set_height(CAPTURE_HEIGHT);
+        let gl = canvas
+            .get_context("webgl2")
+            .map_err(|_| "Failed to get capture WebGL2 context")?
+            .ok_or("This browser has no WebGL2 for capture")?
+            .dyn_into::<web_sys::WebGl2RenderingContext>()
+            .map_err(|_| "Failed to cast capture WebGL2 context")?;
+        let renderer = Renderer::new(gl.clone())?;
+        *capture_3d = Some(Capture3d {
+            canvas,
+            gl,
+            renderer,
+        });
+    }
+    let canvas = if three_d {
+        capture_3d.as_ref().unwrap().canvas.clone()
+    } else {
+        let canvas: web_sys::HtmlCanvasElement = document
+            .create_element("canvas")
+            .map_err(|_| "Could not create canvas")?
+            .dyn_into()
+            .map_err(|_| "Element is not a canvas")?;
+        canvas.set_width(CAPTURE_WIDTH);
+        canvas.set_height(CAPTURE_HEIGHT);
+        canvas
+    };
+    let ctx = if three_d {
+        None
+    } else {
+        Some(
+            canvas
+                .get_context("2d")
+                .map_err(|_| "Failed to get 2d context")?
+                .ok_or("2d context is null")?
+                .dyn_into::<CanvasRenderingContext2d>()
+                .map_err(|_| "Failed to cast to CanvasRenderingContext2d")?,
+        )
+    };
 
     // Report the capture size to the script, so anything positioned with
     // $WIDTH / $HEIGHT composes for 1280x720 rather than for the on-screen
@@ -675,23 +713,40 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
         snapshot
     };
 
-    let mut model = state.model.borrow_mut();
-    let blocks = model.blocks.clone();
-    let functions = model.functions.clone();
+    // Render blocks may assign properties, including arrays. Keep those writes
+    // in the snapshot as well as skipping lifecycle hooks.
+    let Model {
+        blocks,
+        functions,
+        mut decels,
+        ..
+    } = state.model.borrow().clone();
 
     // Only layer blocks run. on_frame is deliberately skipped: a capture is a
     // snapshot of the current state, not a step forward in time.
     let filter = RefCell::new(String::new());
+    let scene = RefCell::new(Scene::default());
     let _execution = execution_scope();
     for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
-        interpret_render_block(
-            block,
-            &mut model.decels,
-            Target::canvas(&ctx, &filter),
-            &runtime,
-            &functions,
-        )
-        .map_err(|e| format!("Capture failed: {}", e))?;
+        let target = match ctx.as_ref() {
+            Some(ctx) => Target::canvas(ctx, &filter),
+            None => Target::scene(&scene, &filter),
+        };
+        interpret_render_block(block, &mut decels, target, &runtime, &functions)
+            .map_err(|e| format!("Capture failed: {}", e))?;
+    }
+    if three_d {
+        let scene = scene.borrow();
+        scene.check_balanced()?;
+        assets::with_store(|store| {
+            capture_3d.as_mut().unwrap().renderer.render(
+                &scene,
+                store,
+                CAPTURE_WIDTH,
+                CAPTURE_HEIGHT,
+                false,
+            )
+        })?;
     }
 
     let filter = filter.into_inner();
@@ -717,6 +772,8 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
     if !filter.is_empty() {
         output_ctx.set_filter(&filter);
     }
+    // Copy WebGL pixels synchronously, before the browser can clear its default
+    // drawing buffer. Only the independent 2D output is encoded asynchronously.
     output_ctx
         .draw_image_with_html_canvas_element(&canvas, 0.0, 0.0)
         .map_err(|_| "Failed to composite the filtered capture")?;
@@ -732,7 +789,7 @@ pub fn capture_frame() -> js_sys::Promise {
     let canvas = match render_capture_canvas() {
         Ok(canvas) => canvas,
         Err(message) => {
-            return js_sys::Promise::reject(&JsValue::from_str(&message));
+            return js_sys::Promise::reject(&js_sys::Error::new(&message));
         }
     };
 
@@ -748,7 +805,7 @@ pub fn capture_frame() -> js_sys::Promise {
             if blob.is_null() || blob.is_undefined() {
                 let _ = reject_on_null.call1(
                     &JsValue::NULL,
-                    &JsValue::from_str("Canvas produced no blob"),
+                    &js_sys::Error::new("Canvas produced no blob"),
                 );
             } else {
                 let _ = resolve.call1(&JsValue::NULL, &blob);
@@ -761,7 +818,7 @@ pub fn capture_frame() -> js_sys::Promise {
         {
             let _ = reject.call1(
                 &JsValue::NULL,
-                &JsValue::from_str("toBlob is unavailable in this browser"),
+                &js_sys::Error::new("toBlob is unavailable in this browser"),
             );
         }
     })

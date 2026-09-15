@@ -89,3 +89,23 @@ pnpm --filter @visamp/validator verify:scramble --serve
 
 See [procedural point clouds](POINT_CLOUDS.md) for dense GPU point fields (2.3.0)
 and model-backed textured particles (2.5.0).
+
+## Frame capture
+
+`capture_frame()` returns a `Promise<Blob>` containing an opaque 1280×720 PNG
+for both 2D and 3D scripts. It rerenders the current render blocks at that size,
+using copies of properties and runtime values and skipping lifecycle hooks.
+3D captures support the same meshes, model points and bitmap sprites as playback.
+CSS filters are baked into the image. Captures render a fresh frame; accumulated
+feedback/scramble history from playback is not included.
+
+One detached WebGL2 renderer is reused for 3D captures, with recreation if its
+context is lost. Pixels are copied to the output canvas synchronously before
+asynchronous PNG encoding, so playback and later captures cannot clear the image.
+Capture failures reject with JavaScript `Error` objects and retain DSL statement
+locations where available.
+
+Browser regression check: build with `pnpm --filter @visamp/engine build:validator`,
+serve the repository root, then open `packages/engine/tests/browser/capture.html`.
+The page checks PNG pixels, dimensions, filters, model sprites, repeated captures,
+live state preservation, context loss recovery and error diagnostics.

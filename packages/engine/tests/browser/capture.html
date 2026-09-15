@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Frame capture tests</title>
+<link rel="icon" href="data:,">
+<pre id="result">Running…</pre>
+<div id="visamp-stage" style="width:640px;height:480px"></div>
+<script type="module">
+import init, * as engine from '../../pkg-validator/visamp_2.js';
+import { verifyCapture } from './capture.mjs';
+const queue = [];
+window.requestAnimationFrame = cb => (queue.push(cb), queue.length);
+try {
+  await init();
+  const step = () => {
+    queue.shift()(performance.now());
+    const error = engine.get_last_error();
+    if (error) throw Error(error);
+  };
+  const load = source => { const error = engine.load_script(source); if (error) throw Error(error); };
+  window.results = await verifyCapture(engine, step, load);
+} catch (error) {
+  window.results = {passed: false, error: String(error)};
+  console.error(error);
+}
+document.querySelector('#result').textContent = JSON.stringify(window.results, null, 2);
+</script>
