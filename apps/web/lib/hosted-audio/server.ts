@@ -172,26 +172,26 @@ async function playbackForTrack(
     throw new Error(`Could not read hosted renditions: ${error.message}`);
 
   const renditions = (data ?? []) as RenditionRow[];
-  const opus = renditions.find((item) => item.format === "opus");
-  const aac = renditions.find((item) => item.format === "aac");
-  if (!opus || !aac || !track.peaks_key) {
-    throw new HostedAudioHttpError(503, "Track ingest is incomplete");
+  if (!renditions.length) {
+    throw new HostedAudioHttpError(503, "Track audio is unavailable");
   }
 
   const artworkKey = track.artwork_1024_key ?? artist.avatar_key;
-  const [opusAsset, aacAsset, peaks, artwork] = await Promise.all([
-    signMediaObject(opus.object_key),
-    signMediaObject(aac.object_key),
-    signMediaObject(track.peaks_key),
+  const [sources, peaks, artwork] = await Promise.all([
+    Promise.all(
+      renditions.map(async (source) => ({
+        format: source.format,
+        bitrateKbps: source.bitrate_kbps,
+        ...(await signMediaObject(source.object_key)),
+      })),
+    ),
+    track.peaks_key ? signMediaObject(track.peaks_key) : null,
     artworkKey ? signMediaObject(artworkKey) : null,
   ]);
 
   return {
     track: summary(track, artist),
-    sources: [
-      { format: "opus", bitrateKbps: opus.bitrate_kbps, ...opusAsset },
-      { format: "aac", bitrateKbps: aac.bitrate_kbps, ...aacAsset },
-    ],
+    sources,
     peaks,
     artwork: artwork ?? { url: "/VA.svg", expiresAt: null },
   };

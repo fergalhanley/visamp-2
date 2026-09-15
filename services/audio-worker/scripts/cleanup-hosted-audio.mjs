@@ -113,3 +113,23 @@ function required(name) {
   if (!value) throw new Error(`${name} is required`);
   return value;
 }
+
+// Direct-upload verification uses unique candidate originals. Keep every
+// referenced master, including retained originals of withdrawn recordings.
+const mastersBucket = process.env.R2_MASTERS_BUCKET ?? "visamp-masters";
+const { data: masters, error: mastersError } = await supabase.from("tracks").select("master_key");
+if (mastersError) throw mastersError;
+const keptMasters = new Set((masters ?? []).map((track) => track.master_key).filter(Boolean));
+let masterToken;
+do {
+  const page = await s3.send(new ListObjectsV2Command({ Bucket: mastersBucket, ContinuationToken: masterToken }));
+  for (const object of page.Contents ?? []) {
+    if (!object.Key || !object.LastModified || object.LastModified.getTime() >= graceBefore || keptMasters.has(object.Key)) continue;
+    // Only the candidate layout introduced by direct MP3 uploads. Legacy
+    // masters and incoming uploads have separate retention policies.
+    if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/original\.mp3$/.test(object.Key)) continue;
+    console.log(`${execute ? "DELETE" : "WOULD DELETE"} original ${object.Key}`);
+    if (execute) await s3.send(new DeleteObjectCommand({ Bucket: mastersBucket, Key: object.Key }));
+  }
+  masterToken = page.NextContinuationToken;
+} while (masterToken);

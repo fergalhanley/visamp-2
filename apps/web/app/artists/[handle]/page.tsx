@@ -1,3 +1,4 @@
+import { TrackPreview } from "@/components/audio/track-preview";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
@@ -125,6 +126,7 @@ export default async function ArtistPage({
                   <tr key={track.id}>
                     <td>
                       {track.title}
+                      <TrackPreview trackId={track.id} />
                       {track.isExplicit && (
                         <span className="ml-2 text-[10px] text-[#9ba69e]">
                           EXPLICIT
@@ -142,8 +144,8 @@ export default async function ArtistPage({
           <div className="gallery-empty">
             <h3>Nothing live yet.</h3>
             <p>
-              Your tracks appear here once we have approved your licence. Upload
-              them now and they will publish themselves.
+              Upload your MP3s and accept the upload agreement. Each track
+              appears here as soon as its upload is verified.
             </p>
             <a className="site-button secondary" href="/upload">
               Upload music

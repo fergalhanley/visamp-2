@@ -1,15 +1,21 @@
 # Deployment
 
-Two things run outside Vercel.
+The visual validator runs outside Vercel. New MP3 uploads are verified and published
+by the web app without an audio processing service. See [direct MP3 uploads](direct-mp3-uploads.md).
 
 | Service | Where | Why it cannot live with the web app |
 | --- | --- | --- |
 | Render validator | Railway | Pooled headless Chromium; see `apps/validator/README.md` |
-| Audio processing worker | Railway | Needs the FFmpeg binaries and runs for minutes per track |
+| Legacy audio processing worker | Railway, only while draining old uploads | FFmpeg for previously admitted lossless masters |
 
 The web app itself is on Vercel — see [VERCEL_BUILD.md](../VERCEL_BUILD.md).
 
-## Audio processing worker
+## Legacy audio processing worker
+
+Do not provision this for new MP3 uploads. Retire its cron/service after resolving
+existing queued/processing uploads and deploying the direct-upload migration.
+Keep the separate visual validator running. The following settings describe the
+legacy service for draining old jobs only.
 
 Transcodes uploaded masters into the playback renditions, generates the
 waveform peaks, and moves a track to `draft` for review. Until it runs, an

@@ -10,8 +10,8 @@ export default function UploadPage() {
         <p className="site-eyebrow">FOR THE MUSIC MAKERS</p>
         <h1>Give your sound a new home.</h1>
         <p>
-          Upload your original tracks. We’ll get them ready for a world of
-          visuals.
+          Upload your MP3s and bring your music to a world of visuals. Each track
+          becomes available as soon as its upload is verified.
         </p>
         <UploadForm />
       </main>

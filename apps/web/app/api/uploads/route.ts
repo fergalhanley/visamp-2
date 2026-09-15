@@ -5,7 +5,7 @@ import {
   sameOrigin,
   uploadError,
   uploadIdentity,
-  uploadLicenceGrantsIngest,
+  uploadLicenceValid,
 } from "@/lib/hosted-audio/uploads";
 import { CURRENT_AGREEMENT_VERSION } from "@/lib/hosted-audio/agreement";
 import { readableRpcError } from "@/lib/hosted-audio/rpc-errors";
@@ -21,32 +21,23 @@ export async function GET() {
     if (!admin) artistsQuery = artistsQuery.eq("claimed_by", userId);
     const artists = await artistsQuery;
     if (artists.error) throw artists.error;
-    const ids = (artists.data ?? []).map((artist) => artist.id);
-    // VIS-86 — there is no licence to choose any more. What the form still
-    // wants to know is whether this artist's music has been approved yet, so it
-    // can say so rather than leaving people wondering where their track went.
-    const licences = ids.length
-      ? await db
-          .from("licences")
-          .select("*")
-          .in("music_artist_id", ids)
-          .eq("status", "active")
-          .limit(500)
-      : { data: [], error: null };
     const uploads = await db
       .from("audio_uploads")
-      .select("id,title,status,error,created_at,track_id")
+      .select("id,title,status,error,created_at,track_id,tracks(status)")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(30);
-    if (licences.error || uploads.error)
-      throw new Error("Upload configuration unavailable.");
+    if (uploads.error) throw new Error("Upload configuration unavailable.");
+    const quota = await db
+      .from("audio_uploads")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gt("created_at", new Date(Date.now() - 86400000).toISOString());
+    if (quota.error) throw quota.error;
     return Response.json(
       {
         artists: artists.data,
-        approvedArtistIds: (licences.data ?? [])
-          .filter((licence) => licence.status === "active")
-          .map((licence) => licence.music_artist_id),
+        remainingToday: Math.max(0, 20 - (quota.count ?? 0)),
         agreementVersion: CURRENT_AGREEMENT_VERSION,
         uploads: uploads.data,
         admin,
@@ -81,20 +72,22 @@ export async function POST(request: Request) {
         { error: "Invalid upload details." },
         { status: 400 },
       );
-    const { title, fileName, bytes, sha256, artistId, rightsConfirmed } =
-      body as Record<string, unknown>;
+    const {
+      title,
+      fileName,
+      bytes,
+      sha256,
+      artistId,
+      rightsConfirmed,
+      uploadId,
+    } = body as Record<string, unknown>;
     const uuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const extension =
       typeof fileName === "string"
         ? fileName.split(".").at(-1)?.toLowerCase()
         : null;
-    const types: Record<string, string> = {
-      wav: "audio/wav",
-      flac: "audio/flac",
-      aif: "audio/aiff",
-      aiff: "audio/aiff",
-    };
+    const types: Record<string, string> = { mp3: "audio/mpeg" };
     if (
       typeof title !== "string" ||
       !title.trim() ||
@@ -111,12 +104,14 @@ export async function POST(request: Request) {
       !/^[0-9a-f]{64}$/.test(sha256) ||
       typeof artistId !== "string" ||
       !uuid.test(artistId) ||
+      (uploadId !== undefined &&
+        (typeof uploadId !== "string" || !uuid.test(uploadId))) ||
       rightsConfirmed !== true
     )
       return Response.json(
         {
           error:
-            "Choose a lossless file up to 250 MB, enter a title and confirm the rights.",
+            "Choose an MP3 up to 250 MB, enter a title and confirm the rights.",
         },
         { status: 400 },
       );
@@ -149,13 +144,13 @@ export async function POST(request: Request) {
     }
 
     const licence = accepted.data;
-    if (!licence || !uploadLicenceGrantsIngest(licence))
+    if (!licence || !uploadLicenceValid(licence))
       return Response.json(
         { error: "The upload agreement could not be recorded." },
         { status: 403 },
       );
     const licenceId = licence.id;
-    const id = randomUUID();
+    const id = typeof uploadId === "string" ? uploadId : randomUUID();
     const key = `incoming/${userId}/${id}/original.${extension}`;
     const admission = await db.rpc("begin_audio_upload", {
       p_id: id,
@@ -169,16 +164,35 @@ export async function POST(request: Request) {
       p_sha256: sha256,
     });
     if (admission.error) {
-      if (admission.error.message.includes("Upload limit reached"))
+      if (
+        /^(Daily upload limit|Too many uploads in progress)/.test(
+          admission.error.message,
+        )
+      )
         return Response.json(
-          {
-            error:
-              "Upload limit reached. Wait for existing uploads to finish (3 pending, 20 per day).",
-          },
+          { error: admission.error.message },
           { status: 429 },
+        );
+      if (admission.error.code === "23514")
+        return Response.json(
+          { error: admission.error.message },
+          { status: 409 },
         );
       throw admission.error;
     }
+    const current = await db
+      .from("audio_uploads")
+      .select("status,track_id")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single();
+    if (current.error) throw current.error;
+    if (current.data.status === "completed")
+      return Response.json({
+        id,
+        status: "completed",
+        trackId: current.data.track_id,
+      });
     const contentType = types[extension]!;
     try {
       const url = await signMasterUpload(key, bytes, contentType);

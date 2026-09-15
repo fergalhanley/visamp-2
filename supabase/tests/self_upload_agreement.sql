@@ -51,8 +51,8 @@ begin
     'a0000000-0000-4000-8000-000000000001',
     'b0000000-0000-4000-8000-000000000001', '2026-09-10', 'test-agent');
 
-  perform pg_temp.check(v_first.status = 'pending',
-    'an accepted licence starts pending, not active');
+  perform pg_temp.check(v_first.status = 'active',
+    'accepting the agreement activates the licence immediately');
   perform pg_temp.check(v_first.warrants_master and v_first.warrants_publishing,
     'the artist warrants master and publishing');
   perform pg_temp.check(v_first.grants_hosting and v_first.grants_streaming
@@ -84,7 +84,7 @@ begin
       'b0000000-0000-4000-8000-000000000001', '  ') is not null,
     'a blank agreement version is refused');
 
-  -- The whole point: uploading is now possible, publishing still is not.
+  -- Publication needs valid audio but no manual licence approval.
   insert into public.tracks (id, music_artist_id, licence_id, slug, title, duration_ms,
                              peaks_key, master_key, master_sha256)
   values ('c0000000-0000-4000-8000-000000000001',
@@ -96,24 +96,17 @@ begin
   values ('c0000000-0000-4000-8000-000000000001','opus','m/x.opus',128,1),
          ('c0000000-0000-4000-8000-000000000001','aac','m/x.m4a',192,1);
 
-  begin
-    update public.tracks set status = 'live'
-      where id = 'c0000000-0000-4000-8000-000000000001';
-    v_track_error := null;
-  exception when others then
-    v_track_error := sqlerrm;
-  end;
-  perform pg_temp.check(v_track_error is not null,
-    'a track cannot go live on a pending licence');
-
-  -- ...and once an admin activates it, publication is allowed.
-  update public.licences set status = 'active' where id = v_first.id;
   update public.tracks set status = 'live'
     where id = 'c0000000-0000-4000-8000-000000000001';
   perform pg_temp.check(
-    (select status from public.tracks
-     where id = 'c0000000-0000-4000-8000-000000000001') = 'live',
-    'activating the licence releases the track');
+    (select status from public.tracks where id = 'c0000000-0000-4000-8000-000000000001') = 'live',
+    'acceptance allows immediate publication');
+  update public.licences set status = 'terminated' where id = v_first.id;
+  perform pg_temp.check(
+    pg_temp.accept_error('a0000000-0000-4000-8000-000000000001',
+      'b0000000-0000-4000-8000-000000000001', '2026-09-10') is not null,
+    'accepting again cannot bypass termination');
+
 end;
 $$;
 

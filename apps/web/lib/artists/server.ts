@@ -76,7 +76,7 @@ async function viewerId(): Promise<string | null> {
  *
  * This is what makes unverified self-serve claiming safe: a claim grants the
  * ability to upload, not a public identity, because the page appears on the
- * same admin licence activation that releases the music.
+ * first verified upload under the accepted agreement.
  */
 export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
   const { data: artist, error } = await admin()

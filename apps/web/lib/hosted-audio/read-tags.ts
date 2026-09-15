@@ -1,15 +1,4 @@
-/**
- * What we can learn about a lossless file without uploading it.
- *
- * Uploads are `wav`, `flac`, `aif` and `aiff`, so ID3 barely enters into it and
- * each format needs its own reader. Duration comes out reliably for all three;
- * tags are often absent, especially in WAV, so the title falls back to the file
- * name — which is what most people would have typed anyway.
- *
- * Only the head of the file is read. A 250 MB master must not be pulled into
- * memory to find out how long it is.
- */
-
+/** Read tags without decoding audio or buffering a whole recording. */
 export interface TrackTags {
   title: string | null;
   artist: string | null;
@@ -35,7 +24,8 @@ const HEAD_BYTES = 512 * 1024;
 
 const ascii = (view: DataView, at: number, length: number) => {
   let out = "";
-  for (let i = 0; i < length; i += 1) out += String.fromCharCode(view.getUint8(at + i));
+  for (let i = 0; i < length; i += 1)
+    out += String.fromCharCode(view.getUint8(at + i));
   return out;
 };
 
@@ -86,7 +76,9 @@ function readWav(view: DataView): TrackTags {
       while (cursor + 8 <= end) {
         const key = ascii(view, cursor, 4);
         const length = view.getUint32(cursor + 4, true);
-        const text = clean(ascii(view, cursor + 8, Math.min(length, end - cursor - 8)));
+        const text = clean(
+          ascii(view, cursor + 8, Math.min(length, end - cursor - 8)),
+        );
         if (key === "INAM") tags.title = text;
         else if (key === "IART") tags.artist = text;
         else if (key === "IPRD") tags.album = text;
@@ -109,7 +101,10 @@ function readFlac(view: DataView): TrackTags {
     const header = view.getUint8(at);
     const last = (header & 0x80) !== 0;
     const type = header & 0x7f;
-    const size = (view.getUint8(at + 1) << 16) | (view.getUint8(at + 2) << 8) | view.getUint8(at + 3);
+    const size =
+      (view.getUint8(at + 1) << 16) |
+      (view.getUint8(at + 2) << 8) |
+      view.getUint8(at + 3);
     const body = at + 4;
     if (body + size > view.byteLength) break;
 
@@ -131,7 +126,10 @@ function readFlac(view: DataView): TrackTags {
       let cursor = 0;
       const u32 = () => {
         const value =
-          bytes[cursor]! | (bytes[cursor + 1]! << 8) | (bytes[cursor + 2]! << 16) | (bytes[cursor + 3]! << 24);
+          bytes[cursor]! |
+          (bytes[cursor + 1]! << 8) |
+          (bytes[cursor + 2]! << 16) |
+          (bytes[cursor + 3]! << 24);
         cursor += 4;
         return value >>> 0;
       };
@@ -179,9 +177,13 @@ function readAiff(view: DataView): TrackTags {
       if (tags.sampleRate > 0)
         tags.durationMs = Math.round((frames / tags.sampleRate) * 1000);
     } else if (id === "NAME") {
-      tags.title = clean(ascii(view, body, Math.min(size, view.byteLength - body)));
+      tags.title = clean(
+        ascii(view, body, Math.min(size, view.byteLength - body)),
+      );
     } else if (id === "AUTH") {
-      tags.artist = clean(ascii(view, body, Math.min(size, view.byteLength - body)));
+      tags.artist = clean(
+        ascii(view, body, Math.min(size, view.byteLength - body)),
+      );
     }
 
     at = body + size + (size % 2);
@@ -199,7 +201,25 @@ export function titleFromFileName(name: string): string {
 
 export async function readTrackTags(file: File): Promise<TrackTags> {
   try {
-    const head = await file.slice(0, Math.min(HEAD_BYTES, file.size)).arrayBuffer();
+    if (file.name.toLowerCase().endsWith(".mp3")) {
+      const { parseBlob } = await import("music-metadata");
+      const { common, format } = await parseBlob(file, {
+        duration: false,
+        skipCovers: true,
+      });
+      return {
+        title: common.title?.trim().slice(0, 200) || null,
+        artist: common.artist ?? null,
+        album: common.album ?? null,
+        year: common.year ?? null,
+        sampleRate: format.sampleRate ?? null,
+        channels: format.numberOfChannels ?? null,
+        durationMs: format.duration ? Math.round(format.duration * 1000) : null,
+      };
+    }
+    const head = await file
+      .slice(0, Math.min(HEAD_BYTES, file.size))
+      .arrayBuffer();
     const view = new DataView(head);
     if (view.byteLength < 12) return { ...EMPTY };
 

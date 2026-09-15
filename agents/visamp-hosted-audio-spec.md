@@ -3,21 +3,26 @@
 Replaces the PoC technical proposal. Reviewed at f224eeebd0fa003cda6c5fbd65e01eb3ac3f9a7e.
 Product authority: [MVP specification](../dev/mvp.md). Work: [ticket drafts](../dev/mvp-backlog.md).
 
-## Implemented in code; user validation pending
+## Direct MP3 uploads (2026-09-15)
 
-- Supabase stores music artists, licences, tracks, renditions, upload and operational state.
-- Music artist records can exist without accounts; optional claimed_by links an auth user.
-- Private R2 storage holds masters and derived media; browser playback uses presigned URLs.
-  Keep this private delivery model unless a separately reviewed task changes it.
-- Artist upload checks account/artist eligibility and licence, uploads directly to storage,
-  and queues processing. Worker ingests/transcodes and leaves tracks in draft.
-- Admin can inspect uploads/tracks, preview, edit metadata, publish and withdraw.
-- Artist/permission setup still uses trusted database administration; onboarding UI is pending.
-- Upload processing is separate from web requests and must be scheduled in deployment.
-- Current upload limits are 250 MB, WAV/FLAC/AIFF, at most 30 minutes and at least 44.1 kHz.
-  Verify these against upload-rules and worker code before changing them.
-- Existing implementation includes licence checks, restricted storage, play counting,
-  processing failure handling and cleanup. Verify these in stage; do not infer production readiness.
+Owner-approved simplification supersedes the lossless-master processing flow:
+
+- Select multiple MP3s, accept the agreement once and upload three at a time.
+- Keep the submitted recording unchanged: no normalization, conversion or waveform generation.
+- Limit each file to 250 MB and 30 minutes; recommend 320 kbps without requiring it.
+- Upload directly to private R2. Freeze a candidate original before format, duration and
+  SHA-256 verification, then register an identical private playback copy.
+- Acceptance activates the self-upload licence immediately. Successful verification
+  atomically publishes the track; there is no admin approval queue.
+- Retry the same admission/complete request without duplicate tracks or another daily slot.
+  The daily limit is 20 new admissions. Keep the tab open for transfers.
+- Existing Opus/AAC recordings remain playable. Waveforms are optional.
+- Existing withdrawal removes current playback copies; originals remain unless explicitly deleted.
+- A terminated self-upload agreement cannot be bypassed by accepting again.
+- Track suspension/account suspension UX and a track dispute form with email notification
+  are separate backlog work. Linear reconciliation is deferred at the owner's request.
+
+See [direct upload operations](../deploy/direct-mp3-uploads.md) for rollout and verification.
 
 ## Source and operational references
 

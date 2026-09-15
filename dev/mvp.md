@@ -186,7 +186,7 @@ the claim goes through a security-definer RPC beside the existing `begin_audio_u
 table is added. Unclaimed artists keep full pages, and `on delete set null` already returns an
 artist to unclaimed when its claimant's account goes.
 
-An admin activates an artist's licence once; tracks then publish automatically as described under
+Agreement acceptance activates an artist's upload licence; tracks publish after verification as described under
 music-artist onboarding, with no per-track review. Until an artist has a live track its page is
 visible only to its claimant, so an immediate self-serve claim grants an upload capability rather
 than a public identity — which is what makes claiming safe without verifying the claimant.
@@ -216,7 +216,9 @@ claimed.
 - For Fergal-managed uploads, his intended process is to email the agreement and record
   the confirmation reply. Store the agreement and evidence together; this records a product
   workflow, not a determination that any particular wording clears every required right.
-- Automatically publish after successful processing and applicable permission checks.
+- Accept MP3 uploads directly and publish each track after file verification and agreement acceptance.
+  No admin approval, transcoding, normalization or generated waveform is required.
+  Upload three files concurrently with per-file and overall progress, independent retries and cancellation.
   Keep published/unpublished status so content can be unpublished. This changes the PoC
   worker/admin-review flow, which currently leaves processed tracks in draft.
 - Artist-managed fields/actions: title, artwork, description, preferred visual and withdrawal.
@@ -355,8 +357,8 @@ claimed.
 - Stripe payment testing uses its test mode/sandbox; this does not require a separate staging
   application stack. Keep test purchases distinct from real credit purchases.
 - No error reporting, uptime monitoring or alerts are currently in place.
-  Define a minimal monitoring setup as launch operations work; send error/outage alerts to Slack.
-  Monitoring provider(s) and the specific Slack channel remain to be selected.
+  Define a minimal monitoring setup as launch operations work; send error/outage alerts to the owner.
+  Monitoring provider(s) and the notification destination remain to be selected.
 - Discord is the community and beta bug-reporting/user-support channel. Fergal has an existing
   server; use the perpetual invite he supplied: https://discord.gg/exV68HvWV8.
   Make the invite available through Visamp only to signed-in users. Signed-out site UI must not
@@ -395,7 +397,8 @@ Company setup has not started and needs to begin. Track it as a distinct busines
 alongside Australian grant research and preparation; do not assume registration or grant funding
 has been completed. Fergal owns founder decisions.
 
-Slack is the agent/company progress and operational-alert feed; Discord is the community.
+Agent progress is reported in the active task conversation, with durable decisions in Linear
+and repository documentation. Slack reporting is retired. Discord is the community.
 
 admin@visamp.io is ready. Social accounts and their actual URLs still need setup.
 Provision accounts and send messages only under the relevant user authorisation.

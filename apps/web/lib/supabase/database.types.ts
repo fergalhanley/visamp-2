@@ -875,6 +875,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      finalize_mp3_upload: {
+        Args: { p_upload_id: string; p_user_id: string; p_master_key: string; p_media_key: string; p_duration_ms: number; p_bitrate_kbps: number; p_sha256: string; p_album: string | null; p_year: number | null }
+        Returns: string
+      }
       finalize_hosted_track_ingest: {
         Args: {
           p_artwork_1024_key: string

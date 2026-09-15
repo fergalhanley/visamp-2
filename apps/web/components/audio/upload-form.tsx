@@ -1,29 +1,56 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 
+import {
+  createFileHasher,
+  runUploadQueue,
+} from "@/lib/hosted-audio/upload-queue";
+import { TrackPreview } from "./track-preview";
 import { AccountMenu } from "@/components/auth/account-menu";
 import { useAuth } from "@/components/auth/auth-provider";
 import { AGREEMENT_SUMMARY } from "@/lib/hosted-audio/agreement";
-import { readTrackTags, titleFromFileName, type TrackTags } from "@/lib/hosted-audio/read-tags";
+import {
+  readTrackTags,
+  titleFromFileName,
+  type TrackTags,
+} from "@/lib/hosted-audio/read-tags";
 
 type UploadData = {
   artists: { id: string; name: string; slug: string }[];
-  /** Artists whose licence an admin has activated, so their music can publish. */
-  approvedArtistIds: string[];
-  uploads: { id: string; title: string; status: string; error: string | null }[];
+  remainingToday: number;
+  uploads: {
+    id: string;
+    title: string;
+    status: string;
+    error: string | null;
+    track_id: string | null;
+    tracks: { status: string } | null;
+  }[];
   admin: boolean;
 };
 
 const MAX_BYTES = 250 * 1024 * 1024;
-const ACCEPTED = [".wav", ".flac", ".aif", ".aiff"];
+const ACCEPTED = [".mp3"];
 
-type RowState = "queued" | "preparing" | "uploading" | "finishing" | "done" | "failed";
+type RowState =
+  "queued" | "preparing" | "uploading" | "finishing" | "done" | "failed";
 
 interface Row {
   key: string;
   file: File;
   title: string;
   tags: TrackTags | null;
+  uploadId: string;
+  admitted: boolean;
+  transferred: boolean;
+  trackId: string | null;
+  trackStatus: string | null;
   state: RowState;
   percent: number;
   error: string | null;
@@ -42,7 +69,7 @@ const rowLabel: Record<RowState, string> = {
   preparing: "Preparing…",
   uploading: "Uploading",
   finishing: "Finishing…",
-  done: "Uploaded",
+  done: "Available",
   failed: "Failed",
 };
 
@@ -68,7 +95,10 @@ function UserUploads() {
   const [running, setRunning] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const xhr = useRef<XMLHttpRequest | null>(null);
+  const xhr = useRef(new Map<string, XMLHttpRequest>());
+  const hashFile = useRef(createFileHasher());
+  const cancelled = useRef(new Set<string>());
+  const busy = useRef(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const active = useRef(true);
   const seq = useRef(0);
@@ -84,15 +114,18 @@ function UserUploads() {
       }
     } catch (cause) {
       if (active.current)
-        setError(cause instanceof Error ? cause.message : "Could not load uploads.");
+        setError(
+          cause instanceof Error ? cause.message : "Could not load uploads.",
+        );
     }
   }, []);
 
   useEffect(() => {
     active.current = true;
+    const transfers = xhr.current;
     return () => {
       active.current = false;
-      xhr.current?.abort();
+      for (const transfer of transfers.values()) transfer.abort();
     };
   }, []);
 
@@ -121,17 +154,24 @@ function UserUploads() {
     for (const file of Array.from(incoming)) {
       const name = file.name.toLowerCase();
       if (!ACCEPTED.some((ext) => name.endsWith(ext))) {
-        rejected.push(`${file.name} — needs to be WAV, FLAC or AIFF`);
+        rejected.push(`${file.name} — needs to be MP3`);
         continue;
       }
-      if (file.size > MAX_BYTES) {
-        rejected.push(`${file.name} — ${megabytes(file.size)} is over the 250 MB limit`);
+      if (file.size === 0 || file.size > MAX_BYTES) {
+        rejected.push(
+          `${file.name} — ${megabytes(file.size)} must be between 1 byte and 250 MB`,
+        );
         continue;
       }
       seq.current += 1;
       accepted.push({
         key: `${Date.now()}-${seq.current}`,
         file,
+        uploadId: crypto.randomUUID(),
+        admitted: false,
+        transferred: false,
+        trackId: null,
+        trackStatus: null,
         title: titleFromFileName(file.name),
         tags: null,
         state: "queued",
@@ -157,7 +197,8 @@ function UserUploads() {
                 tags,
                 // Only overwrite the fallback title, never something typed.
                 title:
-                  existing.title === titleFromFileName(row.file.name) && tags.title
+                  existing.title === titleFromFileName(row.file.name) &&
+                  tags.title
                     ? tags.title
                     : existing.title,
               }
@@ -169,13 +210,18 @@ function UserUploads() {
 
   /** One file, start to finish. Throws so the caller can mark the row failed. */
   async function uploadRow(row: Row, artist: string) {
-    patch(row.key, { state: "preparing", error: null, percent: 0 });
+    if (!active.current || cancelled.current.has(row.key))
+      throw new Error("Upload cancelled.");
+    patch(row.key, {
+      state: "preparing",
+      error: null,
+      percent: row.transferred ? 100 : 0,
+    });
 
-    const digest = await crypto.subtle.digest("SHA-256", await row.file.arrayBuffer());
-    if (!active.current) return;
-    const sha256 = [...new Uint8Array(digest)]
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
+    if (row.transferred) return finishRow(row);
+    const sha256 = await hashFile.current(row.file);
+    if (!active.current || cancelled.current.has(row.key))
+      throw new Error("Upload cancelled.");
 
     const response = await fetch("/api/uploads", {
       method: "POST",
@@ -186,33 +232,46 @@ function UserUploads() {
         fileName: row.file.name,
         bytes: row.file.size,
         sha256,
+        uploadId: row.uploadId,
         // The checkbox. Accepting the agreement is what creates the licence.
         rightsConfirmed: true,
       }),
     });
     const started = await response.json();
     if (!response.ok) throw new Error(started.error);
+    patch(row.key, { admitted: true });
+    if (started.status === "completed") return finishRow(row);
+    if (!active.current || cancelled.current.has(row.key)) {
+      await cancelRow(row);
+      throw new Error("Upload cancelled.");
+    }
 
     patch(row.key, { state: "uploading" });
     try {
       await new Promise<void>((resolve, reject) => {
         const put = new XMLHttpRequest();
-        xhr.current = put;
+        xhr.current.set(row.key, put);
         put.open("PUT", started.url);
         put.setRequestHeader("Content-Type", started.contentType);
         put.timeout = 15 * 60 * 1000;
         put.upload.onprogress = (event) => {
           if (event.lengthComputable)
-            patch(row.key, { percent: Math.round((event.loaded / event.total) * 100) });
+            patch(row.key, {
+              percent: Math.round((event.loaded / event.total) * 100),
+            });
         };
         put.onload = () =>
           put.status >= 200 && put.status < 300
             ? resolve()
             : reject(new Error("Upload failed. Please try again."));
         put.onerror = () =>
-          reject(new Error("Could not upload. Check your connection and try again."));
-        put.ontimeout = () => reject(new Error("Upload timed out. Please try again."));
+          reject(
+            new Error("Could not upload. Check your connection and try again."),
+          );
+        put.ontimeout = () =>
+          reject(new Error("Upload timed out. Please try again."));
         put.onabort = () => reject(new Error("Upload cancelled."));
+        put.onloadend = () => xhr.current.delete(row.key);
         put.send(row.file);
       });
     } catch (cause) {
@@ -224,52 +283,85 @@ function UserUploads() {
       throw cause;
     }
 
-    patch(row.key, { state: "finishing", percent: 100 });
-    const finish = await fetch(`/api/uploads/${started.id}/complete`, { method: "POST" });
-    const result = await finish.json();
-    if (!finish.ok) throw new Error(result.error);
-    if (result.status === "failed") throw new Error("Upload expired. Please submit again.");
-    patch(row.key, { state: "done" });
+    patch(row.key, { transferred: true });
+    await finishRow(row);
   }
 
-  /**
-   * Sequential on purpose. These are lossless masters — several at once would
-   * compete for the same upstream and make every one of them slower, and the
-   * server caps concurrent admissions at three anyway.
-   */
-  async function start(event: FormEvent) {
-    event.preventDefault();
-    if (running || !data) return;
+  async function finishRow(row: Row) {
+    patch(row.key, { state: "finishing", percent: 100 });
+    const finish = await fetch(`/api/uploads/${row.uploadId}/complete`, {
+      method: "POST",
+    });
+    const result = await finish.json();
+    if (!finish.ok) {
+      if (result.retryUpload)
+        patch(row.key, { transferred: false, percent: 0 });
+      throw new Error(result.error);
+    }
+    if (result.status !== "completed")
+      throw new Error("Upload is not complete. Please retry.");
+    patch(row.key, {
+      state: "done",
+      trackId: result.trackId,
+      trackStatus: result.trackStatus,
+    });
+  }
 
+  async function cancelRow(row: Row) {
+    cancelled.current.add(row.key);
+    xhr.current.get(row.key)?.abort();
+    await fetch(`/api/uploads/${row.uploadId}/cancel`, {
+      method: "POST",
+      keepalive: true,
+    }).catch(() => {});
+    patch(row.key, {
+      state: "failed",
+      error: "Upload cancelled.",
+      percent: 0,
+      transferred: false,
+    });
+  }
+
+  async function uploadRows(pending: Row[]) {
+    if (busy.current || !data || !agreed || !pending.length) return;
     const artist = artistId || data.artists[0]?.id;
     if (!artist) return;
-
-    const pending = rows.filter((row) => row.state !== "done");
-    if (!pending.length) return;
-
-    const untitled = pending.find((row) => !row.title.trim());
-    if (untitled) {
+    if (pending.some((row) => !row.title.trim())) {
       setNotice("Every track needs a title before it can be uploaded.");
       return;
     }
-
+    if (pending.filter((row) => !row.admitted).length > data.remainingToday) {
+      setNotice(
+        `You can upload ${data.remainingToday} more new tracks today. Remove some files to continue; retries do not use another slot.`,
+      );
+      return;
+    }
+    busy.current = true;
     setRunning(true);
     setNotice(null);
-    for (const row of pending) {
-      if (!active.current) break;
-      try {
-        await uploadRow(row, artist);
-      } catch (cause) {
-        patch(row.key, {
-          state: "failed",
-          error: cause instanceof Error ? cause.message : "Upload failed.",
-        });
-      }
-    }
+    for (const row of pending) cancelled.current.delete(row.key);
+    await runUploadQueue(
+      pending,
+      (row) => uploadRow(row, artist),
+      (row, cause) => {
+        if (active.current)
+          patch(row.key, {
+            state: "failed",
+            error: cause instanceof Error ? cause.message : "Upload failed.",
+          });
+      },
+      () => active.current,
+    );
+    busy.current = false;
     if (active.current) {
       setRunning(false);
       await refresh();
     }
+  }
+
+  async function start(event: FormEvent) {
+    event.preventDefault();
+    await uploadRows(rows.filter((row) => row.state !== "done"));
   }
 
   if (!data)
@@ -277,7 +369,10 @@ function UserUploads() {
       <div className="site-form">
         <p role="status">{error ?? "Loading your artist profile…"}</p>
         {error && (
-          <button className="site-button secondary" onClick={() => void refresh()}>
+          <button
+            className="site-button secondary"
+            onClick={() => void refresh()}
+          >
             Try again
           </button>
         )}
@@ -287,9 +382,20 @@ function UserUploads() {
   if (!data.artists.length) return <ClaimArtistForm onClaimed={refresh} />;
 
   const selected = artistId || data.artists[0]!.id;
-  const approved = data.approvedArtistIds.includes(selected);
+
   const queued = rows.filter((row) => row.state !== "done").length;
-  const uploaded = rows.filter((row) => row.state === "done").length;
+  const uploaded = rows.filter(
+    (row) => row.state === "done" && row.trackStatus === "live",
+  ).length;
+
+  const totalBytes = rows.reduce((sum, row) => sum + row.file.size, 0);
+  const sentBytes = rows.reduce(
+    (sum, row) => sum + (row.file.size * row.percent) / 100,
+    0,
+  );
+  const overallPercent = totalBytes
+    ? Math.round((sentBytes / totalBytes) * 100)
+    : 0;
 
   return (
     <>
@@ -325,14 +431,14 @@ function UserUploads() {
           onDrop={(event) => {
             event.preventDefault();
             setDragging(false);
-            void addFiles(event.dataTransfer.files);
+            if (!running) void addFiles(event.dataTransfer.files);
           }}
           className={
             "rounded-lg border border-dashed p-6 text-center transition " +
             (dragging ? "border-[#d3fb90] bg-[#d3fb90]/10" : "border-white/20")
           }
         >
-          <p className="text-sm">Drop your masters here, or</p>
+          <p className="text-sm">Drop your music here, or</p>
           <button
             type="button"
             className="site-button secondary mt-3"
@@ -345,7 +451,7 @@ function UserUploads() {
             ref={fileInput}
             type="file"
             multiple
-            accept=".wav,.flac,.aif,.aiff"
+            accept=".mp3,audio/mpeg"
             className="hidden"
             onChange={(event) => {
               if (event.target.files) void addFiles(event.target.files);
@@ -353,8 +459,9 @@ function UserUploads() {
             }}
           />
           <small className="mt-3 block">
-            WAV, FLAC or AIFF · up to 250 MB each · at least 44.1 kHz. We create the
-            playback formats for you.
+            MP3 · up to 250 MB and 30 minutes each · 320 kbps recommended. Your
+            files play as uploaded, without processing. {data.remainingToday}{" "}
+            new tracks remaining today.
           </small>
         </div>
 
@@ -366,8 +473,8 @@ function UserUploads() {
 
         {rows.length > 0 && (
           <div className="site-table-wrap">
-            <table className="site-table">
-              <thead>
+            <table className="site-table block sm:table">
+              <thead className="sr-only sm:not-sr-only">
                 <tr>
                   <th scope="col">Title</th>
                   <th scope="col">File</th>
@@ -378,16 +485,23 @@ function UserUploads() {
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="block sm:table-row-group">
                 {rows.map((row) => (
-                  <tr key={row.key}>
-                    <td>
+                  <tr
+                    key={row.key}
+                    className="block border-b border-white/10 py-4 sm:table-row"
+                  >
+                    <td className="block sm:table-cell">
                       <input
                         value={row.title}
-                        onChange={(event) => patch(row.key, { title: event.target.value })}
+                        onChange={(event) =>
+                          patch(row.key, { title: event.target.value })
+                        }
                         maxLength={200}
                         aria-label={`Title for ${row.file.name}`}
-                        disabled={running || row.state === "done"}
+                        disabled={
+                          running || row.transferred || row.state === "done"
+                        }
                         className="w-full"
                       />
                       {row.tags?.artist && (
@@ -397,7 +511,7 @@ function UserUploads() {
                         </small>
                       )}
                     </td>
-                    <td>
+                    <td className="block sm:table-cell">
                       {row.file.name}
                       <small className="block">
                         {megabytes(row.file.size)}
@@ -406,18 +520,57 @@ function UserUploads() {
                           : ""}
                       </small>
                     </td>
-                    <td>{duration(row.tags?.durationMs ?? null)}</td>
-                    <td>
+                    <td className="block sm:table-cell">
+                      {duration(row.tags?.durationMs ?? null)}
+                    </td>
+                    <td className="block sm:table-cell">
                       {row.state === "uploading"
                         ? `${rowLabel.uploading} ${row.percent}%`
-                        : rowLabel[row.state]}
-                      {row.error && <small className="block">{row.error}</small>}
+                        : row.state === "done" && row.trackStatus !== "live"
+                          ? "Withdrawn / unavailable"
+                          : rowLabel[row.state]}
+                      {row.state === "uploading" && (
+                        <progress
+                          value={row.percent}
+                          max={100}
+                          aria-label={`Upload progress for ${row.file.name}`}
+                          className="block w-full"
+                        />
+                      )}
+                      {row.trackId && row.trackStatus === "live" && (
+                        <TrackPreview trackId={row.trackId} />
+                      )}
+                      {row.error && (
+                        <small className="block">{row.error}</small>
+                      )}
                     </td>
-                    <td>
+                    <td className="block sm:table-cell">
+                      {row.state === "failed" && (
+                        <button
+                          type="button"
+                          disabled={running || !agreed}
+                          onClick={() => void uploadRows([row])}
+                        >
+                          Retry
+                        </button>
+                      )}
+                      {running &&
+                        ["queued", "preparing", "uploading"].includes(
+                          row.state,
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() => void cancelRow(row)}
+                          >
+                            Cancel
+                          </button>
+                        )}
                       <button
                         type="button"
                         onClick={() =>
-                          setRows((current) => current.filter((item) => item.key !== row.key))
+                          setRows((current) =>
+                            current.filter((item) => item.key !== row.key),
+                          )
                         }
                         disabled={running}
                         aria-label={`Remove ${row.file.name}`}
@@ -432,6 +585,21 @@ function UserUploads() {
           </div>
         )}
 
+        {rows.length > 0 && (
+          <div>
+            <p aria-live="polite">
+              {uploaded} of {rows.length} tracks available · {overallPercent}%
+              transferred
+            </p>
+            <progress
+              value={sentBytes}
+              max={totalBytes || 1}
+              aria-label="Overall upload progress"
+              className="w-full"
+            />
+          </div>
+        )}
+
         {/* VIS-86 — this replaces the licence dropdown. Accepting is what
             creates the licence, so there is nothing to choose. */}
         <label className="check-label">
@@ -442,9 +610,7 @@ function UserUploads() {
             required
             disabled={running}
           />
-          <span>
-            I agree to the VisAmp upload terms for these recordings.
-          </span>
+          <span>I agree to the VisAmp upload terms for these recordings.</span>
         </label>
         <ul className="m-0 list-disc pl-5 text-xs text-[#9ba69e]">
           {AGREEMENT_SUMMARY.map((line) => (
@@ -467,19 +633,17 @@ function UserUploads() {
           {running
             ? "Keep this page open until the uploads finish."
             : uploaded > 0 && !queued
-              ? approved
-                ? "Uploaded. Your tracks are queued for processing and will publish once processed."
-                : "Uploaded. Your tracks are queued for processing, and go public once we have approved your licence."
-              : !approved
-                ? "You can upload now. Your music goes public once we have approved your licence."
-                : ""}
+              ? "Your music is available now."
+              : "Each track becomes available as soon as its upload is verified."}
         </p>
       </form>
 
       <section className="mt-12">
         <h2>Recent uploads</h2>
         {!data.uploads.length ? (
-          <p className="text-sm text-muted-foreground">Your uploads will appear here.</p>
+          <p className="text-sm text-muted-foreground">
+            Your uploads will appear here.
+          </p>
         ) : (
           <div className="site-table-wrap">
             <table className="site-table">
@@ -495,9 +659,18 @@ function UserUploads() {
                   <tr key={upload.id}>
                     <td>{upload.title}</td>
                     <td>
-                      {upload.status === "completed" ? "Ready for review" : upload.status}
+                      {upload.status === "completed"
+                        ? upload.tracks?.status === "live"
+                          ? "Available"
+                          : "Withdrawn / unavailable"
+                        : upload.status}
                     </td>
-                    <td>{upload.error ?? "—"}</td>
+                    <td>
+                      {upload.error ?? ""}
+                      {upload.track_id && upload.tracks?.status === "live" && (
+                        <TrackPreview trackId={upload.track_id} />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -514,10 +687,8 @@ function UserUploads() {
  * before you could do anything, which was a dead end reached by everybody who
  * had just signed up to upload music.
  *
- * Claiming is unverified on purpose. It grants the ability to upload, not a
- * public page: nothing an artist uploads is reachable by anyone else until an
- * admin activates their licence, and the artist's own page stays private until
- * a track goes live with it.
+ * Claiming links the uploader to an artist; the accepted agreement authorizes
+ * publication as soon as each recording has been verified.
  */
 function ClaimArtistForm({ onClaimed }: { onClaimed: () => Promise<void> }) {
   const [name, setName] = useState("");
@@ -542,7 +713,9 @@ function ClaimArtistForm({ onClaimed }: { onClaimed: () => Promise<void> }) {
       await onClaimed();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not create your artist.",
+        cause instanceof Error
+          ? cause.message
+          : "Could not create your artist.",
       );
       setPending(false);
     }
@@ -553,8 +726,8 @@ function ClaimArtistForm({ onClaimed }: { onClaimed: () => Promise<void> }) {
       <h2>What do you release under?</h2>
       <p>
         Your artist name is what listeners see beside your tracks. You can start
-        uploading straight away — a track only becomes public once we have
-        approved your licence.
+        uploading straight away. Accept the upload agreement and your music
+        becomes available as soon as each upload is verified.
       </p>
       <label>
         Artist name

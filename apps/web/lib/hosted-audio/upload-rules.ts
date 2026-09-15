@@ -4,11 +4,10 @@ type Licence = Database["public"]["Tables"]["licences"]["Row"];
 /**
  * VIS-86 — what a licence must say before we will accept the audio.
  *
- * Deliberately silent about `status`. The artist warrants the rights when they
- * accept the agreement, which is enough to take the file; whether the music
- * goes out is a separate decision, and `enforce_hosted_track_state` still
- * refuses to promote a track to `live` without an *active* licence. Moving the
- * gate here is the whole point: it used to stop people uploading at all.
+ * Legacy pending agreements may still ingest, but terminated ones cannot.
+ * New MP3 uploads use an active self-accepted agreement and publish immediately
+ * after verification. Keep this helper aligned with the legacy worker until
+ * its existing queue has drained.
  *
  * `scripts/ingest-hosted-audio.mjs` carries the same rule as
  * `licenceGrantsIngest`, because the worker runs as plain .mjs and cannot
@@ -19,6 +18,7 @@ export function uploadLicenceGrantsIngest(
   today = new Date().toISOString().slice(0, 10),
 ) {
   return (
+    licence.status !== "terminated" &&
     !!licence.signed_at &&
     !!licence.effective_from &&
     licence.effective_from <= today &&

@@ -13,9 +13,12 @@
     "test:tags": "node --experimental-strip-types --test lib/hosted-audio/read-tags.test.mts",
     "test:rpc-errors": "node --experimental-strip-types --test lib/hosted-audio/rpc-errors.test.mts",
     "verify:assets": "node --env-file=.env.local scripts/verify-asset-access.mjs",
-    "clean": "rm -rf .next"
+    "clean": "rm -rf .next",
+    "test:mp3": "node --experimental-strip-types --test lib/hosted-audio/inspect-mp3.test.mts lib/hosted-audio/upload-queue.test.mts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/s3-request-presigner": "^3.1127.0",
     "@base-ui/react": "^1.7.0",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/language": "^6.12.4",
@@ -23,8 +26,6 @@
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.8",
     "@lezer/highlight": "^1.2.3",
-    "@aws-sdk/client-s3": "^3.1127.0",
-    "@aws-sdk/s3-request-presigner": "^3.1127.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "@visamp/player": "workspace:*",
@@ -33,6 +34,7 @@
     "codemirror": "^6.0.2",
     "hls.js": "^1.7.0",
     "lucide-react": "^1.31.0",
+    "music-metadata": "^11.15.0",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",

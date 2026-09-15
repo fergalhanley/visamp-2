@@ -7,6 +7,8 @@ const trackId = process.env.HOSTED_AUDIO_TEST_TRACK_ID;
 const baseUrl =
   process.env.HOSTED_AUDIO_TEST_BASE_URL ?? "http://localhost:3000";
 
+const playbackOrigin = process.env.HOSTED_AUDIO_TEST_ORIGIN ?? baseUrl;
+
 test(
   "hosted audio supports ranges, CORS and Web Audio analysis",
   {
@@ -26,18 +28,18 @@ test(
       /no-store/,
     );
     const playback = await playbackResponse.json();
-    assert.ok(playback.sources?.length >= 2);
+    assert.ok(playback.sources?.length >= 1);
 
     const source =
       playback.sources.find((item) => item.format === "opus") ??
       playback.sources[0];
     const rangeResponse = await fetch(source.url, {
-      headers: { Origin: baseUrl, Range: "bytes=0-1023" },
+      headers: { Origin: playbackOrigin, Range: "bytes=0-1023" },
     });
     assert.equal(rangeResponse.status, 206);
     assert.equal(
       rangeResponse.headers.get("access-control-allow-origin"),
-      baseUrl,
+      playbackOrigin,
     );
     assert.match(
       rangeResponse.headers.get("content-range") ?? "",
@@ -54,7 +56,7 @@ test(
     });
     try {
       const page = await browser.newPage();
-      await page.goto(baseUrl);
+      await page.goto(playbackOrigin);
       const level = await page.evaluate(async (sources) => {
         const audio = new Audio();
         audio.crossOrigin = "anonymous";

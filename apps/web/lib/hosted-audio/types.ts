@@ -1,4 +1,4 @@
-export type HostedAudioFormat = "opus" | "aac";
+export type HostedAudioFormat = "mp3" | "opus" | "aac";
 
 export interface HostedTrackSummary {
   id: string;
@@ -30,6 +30,6 @@ export interface HostedPlaybackSource extends HostedSignedAsset {
 export interface HostedPlayback {
   track: HostedTrackSummary;
   sources: HostedPlaybackSource[];
-  peaks: HostedSignedAsset;
+  peaks: HostedSignedAsset | null;
   artwork: HostedSignedAsset;
 }
