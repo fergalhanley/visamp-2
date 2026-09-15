@@ -324,66 +324,68 @@ export function VisampCanvas({
 
   const pending = assetStatus !== "ready" || Boolean(activationError);
   return (
-    <div className={className} style={{ position: "relative" }}>
-      <div id={HOST_ID} style={{ width: "100%", height: "100%" }} />
-      {pending && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "none",
-            ...(!activated && posterUrl
-              ? {
-                  backgroundImage: `url(${JSON.stringify(posterUrl)})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }
-              : {}),
-          }}
-        >
+    <div className={className}>
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <div id={HOST_ID} style={{ width: "100%", height: "100%" }} />
+        {pending && (
           <div
-            role={
-              assetStatus === "error" || activationError ? "alert" : "status"
-            }
             style={{
-              pointerEvents: "auto",
-              maxWidth: "90%",
-              padding: "12px 16px",
-              borderRadius: 8,
-              color: "white",
-              background: "rgba(0,0,0,.8)",
-              fontSize: 14,
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              ...(!activated && posterUrl
+                ? {
+                    backgroundImage: `url(${JSON.stringify(posterUrl)})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : {}),
             }}
-            onClick={(event) => event.stopPropagation()}
-            onDoubleClick={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
           >
-            {assetStatus === "loading"
-              ? "Loading assets…"
-              : "Could not load visualisation assets."}
-            {assetStatus !== "loading" && (
-              <>
-                <p style={{ overflowWrap: "anywhere" }}>
-                  {activationError || assetPreparation?.missing.join(", ")}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivationError("");
-                    assetPreparation?.retry();
-                  }}
-                  style={{ textDecoration: "underline", cursor: "pointer" }}
-                >
-                  Retry
-                </button>
-              </>
-            )}
+            <div
+              role={
+                assetStatus === "error" || activationError ? "alert" : "status"
+              }
+              style={{
+                pointerEvents: "auto",
+                maxWidth: "90%",
+                padding: "12px 16px",
+                borderRadius: 8,
+                color: "white",
+                background: "rgba(0,0,0,.8)",
+                fontSize: 14,
+              }}
+              onClick={(event) => event.stopPropagation()}
+              onDoubleClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              {assetStatus === "loading"
+                ? "Loading assets…"
+                : "Could not load visualisation assets."}
+              {assetStatus !== "loading" && (
+                <>
+                  <p style={{ overflowWrap: "anywhere" }}>
+                    {activationError || assetPreparation?.missing.join(", ")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivationError("");
+                      assetPreparation?.retry();
+                    }}
+                    style={{ textDecoration: "underline", cursor: "pointer" }}
+                  >
+                    Retry
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

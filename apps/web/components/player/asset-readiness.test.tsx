@@ -37,6 +37,7 @@ it("holds playback during preparation, then registers before init; diagnoses and
   const view = render(
     <VisampCanvas
       ref={ref}
+      className="hero-canvas"
       source="first"
       assets={[]}
       assetPreparation={loading}
@@ -46,6 +47,16 @@ it("holds playback during preparation, then registers before init; diagnoses and
   );
   await waitFor(() =>
     expect(engine.validate_script).toHaveBeenCalledWith("first"),
+  );
+  // Host layout classes (the home hero uses absolute inset:0) must win.
+  const hero = view.container.querySelector<HTMLElement>(".hero-canvas")!;
+  view.container.insertAdjacentHTML(
+    "afterbegin",
+    "<style>.hero-canvas { position: absolute; inset: 0; }</style>",
+  );
+  expect(getComputedStyle(hero).position).toBe("absolute");
+  expect((hero.firstElementChild as HTMLElement).style.position).toBe(
+    "relative",
   );
   expect(engine.load_script).not.toHaveBeenCalled();
   expect(engine.clear_assets).not.toHaveBeenCalled();
