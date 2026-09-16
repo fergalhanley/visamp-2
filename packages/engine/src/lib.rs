@@ -1124,3 +1124,23 @@ pub fn set_audio_analysis(
     });
     Ok(())
 }
+
+/// Push the browser's 1024 byte-frequency bins for the next rendered frame.
+#[wasm_bindgen]
+pub fn set_audio_frequency(frequency: &[u8]) -> Result<(), JsValue> {
+    STATE.with(|s| {
+        if let Some(state) = s.borrow().as_ref() {
+            state
+                .runtime
+                .borrow_mut()
+                .audio
+                .push_frequency(frequency)
+                .map_err(|e| JsValue::from_str(&e))?;
+        } else if frequency.len() != 1024 {
+            return Err(JsValue::from_str(
+                "frequency snapshot must contain exactly 1024 bins",
+            ));
+        }
+        Ok(())
+    })
+}

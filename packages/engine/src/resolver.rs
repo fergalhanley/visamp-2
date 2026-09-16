@@ -74,14 +74,14 @@ impl Resolver {
         match pair.as_rule() {
             Rule::system_value => {
                 let replacement = match pair.as_str() {
-                    "$FREQUENCY_DATA" => Some("audio::detect::get_spectrum()"),
+                    "$FREQUENCY_DATA" => Some("audio::detect::get_frequency()"),
                     "$TIME_DOMAIN_DATA" => Some("audio::detect::get_waveform()"),
                     "$BEAT" => Some("audio::detect::get_beat()"),
                     _ => None,
                 };
                 if let Some(replacement) = replacement {
                     self.errors.push(located(&pair, format!(
-                        "{} was removed in Visript 4.0; use {replacement}. Audio samples use normalized ranges; see the audio migration guide.", pair.as_str()
+                        "{} was removed in Visript 4.0; use {replacement}. See the audio migration guide for value ranges.", pair.as_str()
                     )));
                 }
             }

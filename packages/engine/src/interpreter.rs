@@ -559,6 +559,9 @@ fn interpret_statement_kind(
                     let items = match iterable {
                         Value::Array(arr) => arr,
                         // Widened only as it is walked, one value at a time.
+                        Value::Bytes(bytes) => {
+                            bytes.iter().map(|&v| Value::Integer(v as i64)).collect()
+                        }
                         Value::Samples(samples) => {
                             samples.iter().map(|&v| Value::Float(v as f64)).collect()
                         }
@@ -1557,6 +1560,16 @@ fn evaluate_expression_inner(
             // Shared samples are indexed without materialising the array.
             let items = match collection {
                 Value::Array(items) => items,
+                Value::Bytes(bytes) => {
+                    let position = range_int(index, "array index", decels, runtime, functions)?;
+                    return Ok(Value::Integer(
+                        usize::try_from(position)
+                            .ok()
+                            .and_then(|i| bytes.get(i))
+                            .copied()
+                            .unwrap_or(0) as i64,
+                    ));
+                }
                 Value::Samples(samples) => {
                     let position = range_int(index, "array index", decels, runtime, functions)?;
                     return Ok(Value::Float(
@@ -1692,6 +1705,7 @@ fn evaluate_expression_inner(
         Expression::AudioCall { func, args } => {
             let snapshot = &runtime.audio.current;
             Ok(match func.as_str() {
+                "get_frequency" => Value::Bytes(Rc::clone(&runtime.audio.frequency.0)),
                 "get_waveform" => Value::Samples(Rc::clone(&snapshot.waveform)),
                 "get_spectrum" => Value::Samples(Rc::clone(&snapshot.spectrum)),
                 "get_beat" => Value::Boolean(snapshot.beat),
@@ -2028,7 +2042,7 @@ fn type_name(value: &Value) -> &'static str {
         Value::Float(_) => "a number",
         Value::String(_) => "a string",
         Value::Array(_) => "an array",
-        Value::Samples(_) => "an array",
+        Value::Bytes(_) | Value::Samples(_) => "an array",
         Value::Identifier(_) => "an identifier",
         Value::SystemValue(_) => "a system value",
         Value::Color(_) => "a color",

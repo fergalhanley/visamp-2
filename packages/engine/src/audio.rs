@@ -107,6 +107,8 @@ fn unit(v: f64) -> f64 {
 #[derive(Clone, Default)]
 pub struct AudioState {
     pub current: Snapshot,
+    pub frequency: Frequency,
+    pending_frequency: Option<Frequency>,
     pending: Option<Snapshot>,
     beat: bool,
     onset: bool,
@@ -119,12 +121,31 @@ impl AudioState {
         self.strength = self.strength.max(snapshot.onset_strength);
         self.pending = Some(snapshot);
     }
+    pub fn push_frequency(&mut self, values: &[u8]) -> Result<(), String> {
+        if values.len() != 1024 {
+            return Err("frequency snapshot must contain exactly 1024 bins".into());
+        }
+        self.pending_frequency = Some(Frequency(Rc::new(values.to_vec())));
+        Ok(())
+    }
     pub fn begin_frame(&mut self) {
+        if let Some(frequency) = self.pending_frequency.take() {
+            self.frequency = frequency;
+        }
         if let Some(snapshot) = self.pending.take() {
             self.current = snapshot;
         }
         self.current.beat = std::mem::take(&mut self.beat);
         self.current.onset = std::mem::take(&mut self.onset);
         self.current.onset_strength = std::mem::take(&mut self.strength);
+    }
+}
+
+/// Immutable browser byte-frequency bins, independent of the linear spectrum.
+#[derive(Clone)]
+pub struct Frequency(pub Rc<Vec<u8>>);
+impl Default for Frequency {
+    fn default() -> Self {
+        Self(Rc::new(vec![0; 1024]))
     }
 }

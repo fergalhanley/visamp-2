@@ -18,3 +18,6 @@ assets require the pre-4.0 engine and are retained for historical records only.
 The version 2 reference positions spectrum bars inside the viewport and animates
 hue sufficiently to exercise the validator's default frame-variation threshold.
 It passes the default uniformity, frame variation and audio-response checks.
+
+Version 3 adds independent byte-frequency fixtures and exercises `get_frequency()`
+in the reference script. The normalized spectrum and waveform remain available.

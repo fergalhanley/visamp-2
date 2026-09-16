@@ -144,3 +144,7 @@ and `pnpm --filter @visamp/web test:audio` cover the runtime and signal analysis
 For the real AudioWorklet → WASM → GPU path, build `pkg-validator` with the
 web target, serve the repository root, and open `tests/browser/audio-detect.html`
 under this package. Click **Run audio tests** to unlock browser audio.
+
+Engine 4.1 adds `get_frequency()` for the original browser byte-spectrum response.
+It is cached separately from the audio-thread linear spectrum. See
+[frequency restoration](RESTORING_FREQUENCY.md) for backed-up script restoration.

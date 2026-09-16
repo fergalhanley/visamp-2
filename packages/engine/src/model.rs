@@ -302,6 +302,8 @@ pub struct LinearGradient {
 /// Runtime value in Visript
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// Shared integer bins from audio::detect::get_frequency().
+    Bytes(std::rc::Rc<Vec<u8>>),
     /// Shared normalized audio samples; reads do not copy the backing array.
     Samples(std::rc::Rc<Vec<f32>>),
     Boolean(bool),
@@ -363,7 +365,7 @@ impl Value {
             Value::Float(_) => "float",
             Value::String(_) => "string",
             Value::Array(_) => "array",
-            Value::Samples(_) => "array",
+            Value::Bytes(_) | Value::Samples(_) => "array",
             Value::Identifier(_) => "identifier",
             Value::SystemValue(_) => "system",
             Value::Color(_) => "color",
@@ -404,6 +406,20 @@ impl Value {
                     format!("[{head}, … {} items]", samples.len())
                 } else {
                     format!("[{head}]")
+                }
+            }
+            Value::Bytes(bytes) => {
+                const SHOWN: usize = 8;
+                let head = bytes
+                    .iter()
+                    .take(SHOWN)
+                    .map(|b| b.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if bytes.len() > SHOWN {
+                    format!("[{}, … {} items]", head, bytes.len())
+                } else {
+                    format!("[{}]", head)
                 }
             }
             Value::Array(items) => {

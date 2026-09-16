@@ -13,7 +13,8 @@ interface DetectionMessage {
 }
 
 /**
- * audio::detect values come from a cached audio-thread analysis tap.
+ * Normalized audio::detect values come from the audio thread; byte frequency
+ * uses the browser analyser at animation-frame cadence for compatibility.
  * Hosts serve /audio-detect-worklet.mjs (the VisAmp web app's public asset).
  */
 export function startAudioBridge(
@@ -22,11 +23,31 @@ export function startAudioBridge(
   onError: (message: string) => void = console.error,
 ): () => void {
   const context = analyser.context;
+  // Use the same browser analyser and settings as the former frequency global.
+  analyser.fftSize = 2048;
+  analyser.minDecibels = -100;
+  analyser.maxDecibels = -30;
+  analyser.smoothingTimeConstant = 0.8;
+  const frequency = new Uint8Array(1024);
+  let frequencyFrame = 0;
   let disposed = false;
   let node: AudioWorkletNode | undefined;
   let beats = 0,
     onsets = 0,
     generation = 0;
+
+  const sampleFrequency = () => {
+    if (disposed) return;
+    try {
+      if (context.state === "running") analyser.getByteFrequencyData(frequency);
+      else frequency.fill(0);
+      engine.set_audio_frequency(frequency);
+    } catch (error) {
+      onError(`Frequency analysis failed: ${String(error)}`);
+    }
+    frequencyFrame = requestAnimationFrame(sampleFrequency);
+  };
+  frequencyFrame = requestAnimationFrame(sampleFrequency);
 
   const reset = () => {
     generation++;
@@ -95,6 +116,7 @@ export function startAudioBridge(
 
   return () => {
     disposed = true;
+    cancelAnimationFrame(frequencyFrame);
     analyser.removeEventListener("visamp-source-reset", reset);
     context.removeEventListener("statechange", reset);
     if (node) {

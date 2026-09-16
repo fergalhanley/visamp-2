@@ -42,7 +42,7 @@ def prepare(rows, reviewed, output):
     os.chmod(output, 0o700)
     def sql(rollback=False):
         sql = ["-- Generated from a reviewed snapshot. Contains private source: do not commit.",
-               "-- Requires Visript 4.0 for forward migration; rollback restores 3.1 syntax.",
+               f"-- Requires Visript {version}; rollback restores the captured original sources.",
                "begin;", "set local standard_conforming_strings = on;",
                "lock table public.visualisations in share row exclusive mode;",
                "create temporary table visript_v4_changes (id uuid primary key, original text not null, replacement text not null, original_updated_at timestamptz) on commit drop;"]

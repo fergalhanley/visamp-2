@@ -476,6 +476,7 @@ pub const ARRAY_FILLED: Builtin = Builtin {
 
 /// Snapshot-reading expressions; all band arguments are required.
 pub const AUDIO_FUNCTIONS: &[&str] = &[
+    "get_frequency",
     "get_waveform",
     "get_spectrum",
     "get_beat",

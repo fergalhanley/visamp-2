@@ -1,0 +1,51 @@
+<!doctype html><title>Byte frequency compatibility</title>
+<button id="run">Run frequency tests</button><pre id="result">Ready</pre><div id="visamp-stage" style="width:320px;height:240px"></div>
+<script type="module">
+import init,* as engine from '../../pkg-validator/visamp_2.js';
+const queue=[];window.requestAnimationFrame=fn=>(queue.push(fn),queue.length);
+const assert=(ok,message)=>{if(!ok)throw Error(message)};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+document.querySelector('#run').onclick=async()=>{
+ const context=new AudioContext();await context.resume();let oscillator;
+ try {
+  await init();
+  const analyser=context.createAnalyser();analyser.fftSize=2048;
+  const silent=context.createGain();silent.gain.value=0;analyser.connect(silent);silent.connect(context.destination);
+  const gain=context.createGain();gain.gain.value=0.001;
+  oscillator=context.createOscillator();oscillator.frequency.value=40*context.sampleRate/2048;
+  oscillator.connect(gain);gain.connect(analyser);oscillator.start();
+  const error=engine.load_script(`context 3d
+prop bins = [] prop saved = [] prop total = 0 prop first = 0 prop held = 0
+on_frame {
+ bins = audio::detect::get_frequency()
+ if $FRAME_COUNT == 1 { saved = bins }
+ first = bins[40] held = saved[40] total = 0
+ for value in bins { total += value }
+}
+render {
+ camera::orthographic(height: 4)
+ gfx::clear(color: $COLOR_BLACK)
+ draw::point_cloud(count: 1, size: 20, color: color::rgb(g: audio::detect::get_frequency()[40] / 255))
+}`);
+  assert(!error,error);
+  const data=new Uint8Array(1024);const deadline=performance.now()+5000;
+  while(data[40]<70 && performance.now()<deadline){await sleep(30);analyser.getByteFrequencyData(data);}
+  assert(data[40]>=70,'quiet tone must yield dB-scaled bytes, not linear amplitude * 255');
+  const expected=data[40], sum=data.reduce((a,b)=>a+b,0);
+  engine.set_audio_frequency(data);
+  const step=()=>{queue.shift()(performance.now());assert(!engine.get_last_error(),engine.get_last_error());};
+  const props=()=>Object.fromEntries(JSON.parse(engine.get_properties()).map(p=>[p.name,p.value]));
+  step();let p=props();assert(Number(p.first)===expected && Number(p.total)===sum,'native analyser bytes arrive unchanged');
+  assert(p.bins.includes('1024 items'),'exact 1024-bin array');
+  const canvas=document.querySelector('canvas'),gl=canvas.getContext('webgl2'),pixel=new Uint8Array(4);
+  gl.readPixels(canvas.width/2,canvas.height/2,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+  assert(Math.abs(pixel[1]-expected)<=1,'integer bins reach GPU');
+  engine.set_audio_frequency(new Uint8Array(1024));assert(props().first===p.first,'values stay stable before next frame');
+  step();p=props();assert(Number(p.first)===0 && Number(p.held)===expected,'old array retains its snapshot');
+  assert(!engine.load_script('prop low = 9 prop high = 9 on_frame { low = audio::detect::get_frequency()[-1] high = audio::detect::get_frequency()[1024] } render {}'),'bounds script');step();p=props();assert(p.low==='0'&&p.high==='0','out-of-range reads return integer zero');
+  engine.clear_audio_frame();
+  window.results={passed:true,bins:1024,nativeByte:expected,linearAmplitudeTimes255:0.255,checks:['native browser bytes','integer sum','frame cache','immutable history','GPU indexing','safe bounds']};
+ }catch(error){window.results={passed:false,error:String(error)};console.error(error);}
+ finally{oscillator?.stop();await context.close();document.querySelector('#result').textContent=JSON.stringify(window.results,null,2);}
+};
+</script>

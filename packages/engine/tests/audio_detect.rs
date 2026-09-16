@@ -111,7 +111,7 @@ fn invalid_names_arguments_and_statement_use_have_compile_diagnostics() {
 #[test]
 fn removed_audio_globals_fail_at_compile_time_with_replacements() {
     for (old, new) in [
-        ("$FREQUENCY_DATA", "get_spectrum"),
+        ("$FREQUENCY_DATA", "get_frequency"),
         ("$TIME_DOMAIN_DATA", "get_waveform"),
         ("$BEAT", "get_beat"),
     ] {
@@ -129,4 +129,54 @@ fn removed_audio_globals_fail_at_compile_time_with_replacements() {
         ))
         .is_ok());
     }
+}
+
+#[test]
+fn byte_frequency_is_integer_shared_and_latched_independently() {
+    let mut runtime = Runtime::new();
+    assert_eq!(runtime.audio.frequency.0.len(), 1024);
+    let mut bins = vec![0; 1024];
+    bins[0] = 255;
+    bins[1] = 128;
+    runtime.audio.push_frequency(&bins).unwrap();
+    assert_eq!(runtime.audio.frequency.0[0], 0);
+    runtime.audio.begin_frame();
+    let saved = Rc::clone(&runtime.audio.frequency.0);
+    let script=build_ast("context 3d prop a = [] prop b = [] prop total = 0 prop first = 0 on_frame { a = audio::detect::get_frequency() b = audio::detect::get_frequency() first = a[0] for bin in b { total += bin } } render { draw::point_cloud(count: 2, y: audio::detect::get_frequency()[$POINT_INDEX] / 255) }").unwrap();
+    let mut model = Model::from_script(&script);
+    for block in &model.blocks {
+        if block.block_type == BlockType::OnFrame {
+            interpret_event_block(block, &mut model.decels, &runtime, &model.functions).unwrap();
+        }
+    }
+    assert_eq!(model.decels.get("first"), Some(&Value::Integer(255)));
+    assert_eq!(model.decels.get("total"), Some(&Value::Integer(383)));
+    for name in ["a", "b"] {
+        let Value::Bytes(data) = model.decels.get(name).unwrap() else {
+            panic!()
+        };
+        assert!(Rc::ptr_eq(data, &saved));
+    }
+    let scene = RefCell::new(Scene::default());
+    let block = model
+        .blocks
+        .iter()
+        .find(|b| b.block_type == BlockType::Render)
+        .unwrap();
+    interpret_render_block(
+        block,
+        &mut model.decels,
+        Target::scene(&scene, &RefCell::new(String::new())),
+        &runtime,
+        &model.functions,
+    )
+    .unwrap();
+    assert!(scene.borrow().point_clouds[0].data.contains(&255.0));
+    runtime.audio.push_frequency(&vec![0; 1024]).unwrap();
+    runtime.audio.push(Snapshot::default());
+    assert_eq!(runtime.audio.frequency.0[0], 255);
+    runtime.audio.begin_frame();
+    assert_eq!(runtime.audio.frequency.0[0], 0);
+    assert_eq!(saved[0], 255);
+    assert!(runtime.audio.push_frequency(&[1; 1023]).is_err());
 }

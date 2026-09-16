@@ -10,6 +10,7 @@ audio globals and byte bridge. Existing scripts must follow the
 | Function | Result | Meaning |
 | --- | --- | --- |
 | `get_waveform()` | Float array | Recent mono PCM samples, clamped to −1…+1; silence is zero |
+| `get_frequency()` | Integer array | Exactly 1,024 browser frequency bins, 0–255 (engine 4.1) |
 | `get_spectrum()` | Float array | Linear spectral amplitudes, 0…1; index 0 is DC |
 | `get_level()` | Float | Smoothed waveform RMS, 0…1 |
 | `get_beat()` | Boolean | One or more detected rhythmic low-frequency attacks since the previous rendered frame |
@@ -53,7 +54,7 @@ Events are consumed at the next render boundary; they do not repeatedly fire
 when no further audio events arrive. Capture reads the current frame without
 consuming its pending events.
 
-Waveform/spectrum getters share immutable backing buffers. Calling one inside a
+Waveform, spectrum and frequency getters share immutable backing buffers. Calling one inside a
 loop does not recompute an FFT or allocate another array. A saved array reference
 keeps that snapshot when a later frame arrives. Indexing and `for` iteration work;
 these snapshots cannot be mutated with indexed assignment. Copy desired values
@@ -76,6 +77,30 @@ index a frame's audio array, or use scalar readings as frame constants. Custom
 band bounds must be frame values when used within a dependent GPU field; compute
 per-point band calculations outside that field. Lifecycle initialization/resize
 reads the last latched snapshot; `on_frame` is the place to react to events.
+
+## Byte frequency data (4.1)
+
+`audio::detect::get_frequency()` provides the former frequency-global response:
+exactly **1,024 integer bins in 0–255**, ordered from DC upwards. Use the original
+byte-scale calculations, such as `get_frequency()[i] / 255.0` for a colour channel.
+It is a separate measurement from `get_spectrum()`, not the linear spectrum times 255.
+
+The player reads the browser's `AnalyserNode.getByteFrequencyData()` with FFT size
+2,048, `minDecibels = -100`, `maxDecibels = -30`, and `smoothingTimeConstant = 0.8`,
+matching the previous host defaults. Browser FFT/windowing, decibel mapping and
+smoothing therefore match the former frequency data. Actual sample rate determines
+bin spacing (`sample_rate / 2048`). Silence returns 1,024 zeros.
+
+The player samples this analyser once per animation frame, as the former bridge
+did. The engine latches the latest byte snapshot before `on_frame`; repeated
+getters allocate no extra array and never call the analyser. Saved arrays remain
+immutable, indexing and loops yield integers, and GPU point/grid indexing works.
+This compatibility measurement has browser-frame timing. The waveform, linear
+spectrum and event detectors still run on the audio thread; the two analyses are
+not promised to represent the exact same audio sample window.
+
+For original scripts, replace the frequency global with `get_frequency()` and
+keep their original arithmetic. See [restoring original scripts](../language/audio-migration.md#restoring-the-original-frequency-response-41).
 
 ## Analysis and normalization
 
@@ -105,7 +130,8 @@ Current implementation:
   using fractional overlap of bins. It is not total power, waveform RMS, or
   instrument isolation. Prefix sums make custom band reads constant time.
 
-Array sizes describe this implementation, not a permanent language guarantee.
+Waveform and linear spectrum lengths describe this implementation, not a permanent
+language guarantee. `get_frequency()` specifically guarantees 1,024 bins.
 Use iteration where possible rather than depending on fixed array lengths.
 Without a source, normalized arrays contain zeros and scalar/event readings are
 zero/false. Source changes, seeks, pauses, suspension and bridge teardown reset
@@ -147,6 +173,7 @@ while audio processing continues.
 
 ## References
 
+- [Browser byte frequency data](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/getByteFrequencyData)
 - [Web Audio waveform samples](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/getFloatTimeDomainData)
 - [Browser float frequency data uses decibels](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/getFloatFrequencyData)
 - [FFT bin count](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/frequencyBinCount)

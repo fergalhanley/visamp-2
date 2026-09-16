@@ -46,3 +46,16 @@ is not equivalent to waveform RMS, so switching that measurement is a design
 change rather than a mechanical migration.
 
 See [Audio detection](../programming/audio-detection.md) for the complete contract.
+
+## Restoring the original frequency response (4.1)
+
+Use `audio::detect::get_frequency()` when porting the former `$FREQUENCY_DATA`.
+It returns the browser's 1,024 integer bins in 0–255 with the original analyser
+settings. Keep the old divisions, nonlinear calculations and history-buffer units.
+`get_spectrum()` remains available for linear amplitude data.
+
+If a script was already converted to the linear spectrum, start from the original
+backup; replacing the getter without undoing the numeric changes would scale it
+incorrectly. The prepared 4.1 restoration follows this approach, retaining only
+the necessary signed-waveform and beat syntax changes. Its rollback restores the
+current sources captured before restoration, including recent experiments.

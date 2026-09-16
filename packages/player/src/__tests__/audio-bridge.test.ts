@@ -41,6 +41,7 @@ function setup(module = Promise.resolve()) {
     getByteFrequencyData: vi.fn(),
   });
   const engine = {
+    set_audio_frequency: vi.fn(),
     set_audio_analysis: vi.fn(),
     clear_audio_frame: vi.fn(),
   };
@@ -71,7 +72,7 @@ it("delivers independent audio events without running an animation frame", async
   await Promise.resolve();
   const node = Node.instances[0]!;
   node.port.onmessage!(message(2, 3));
-  expect(requestAnimationFrame).not.toHaveBeenCalled();
+  expect(s.engine.set_audio_frequency).not.toHaveBeenCalled();
   expect(s.analyser.getByteFrequencyData).not.toHaveBeenCalled();
   expect(s.analyser.getByteTimeDomainData).not.toHaveBeenCalled();
   expect(s.engine.set_audio_analysis.mock.calls[0]?.slice(4, 6)).toEqual([
@@ -119,4 +120,20 @@ it("cancels async startup and reports module failures without leaking nodes", as
   await Promise.resolve();
   expect(bad.error).toHaveBeenCalled();
   bad.stop();
+});
+
+it("copies native byte frequency once per animation frame and stops on cleanup", () => {
+ const s=setup();
+ s.analyser.getByteFrequencyData.mockImplementation((data: Uint8Array)=>{data[0]=213;data[1023]=255;});
+ const sample=vi.mocked(requestAnimationFrame).mock.calls[0]![0];
+ sample(0);
+ expect(s.analyser.getByteFrequencyData).toHaveBeenCalledOnce();
+ expect(s.engine.set_audio_frequency.mock.calls[0]![0]).toHaveLength(1024);
+ expect(s.engine.set_audio_frequency.mock.calls[0]![0][0]).toBe(213);
+ expect(s.engine.set_audio_frequency.mock.calls[0]![0][1023]).toBe(255);
+ s.context.state="suspended";sample(16);
+ expect(s.engine.set_audio_frequency.mock.calls.at(-1)![0].every((v: number)=>v===0)).toBe(true);
+ s.stop();sample(32);
+ expect(s.engine.set_audio_frequency).toHaveBeenCalledTimes(2);
+ expect(cancelAnimationFrame).toHaveBeenCalled();
 });

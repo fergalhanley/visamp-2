@@ -63,6 +63,7 @@ export interface EngineModule {
   get_canvas_filter(): string;
   capture_frame(): Promise<Blob>;
   set_audio_analysis(waveform: Float32Array, spectrum: Float32Array, sampleRate: number, level: number, beat: boolean, onset: boolean, onsetStrength: number): void;
+  set_audio_frequency(frequency: Uint8Array): void;
   clear_audio_frame(): void;
   /** JSON array of `PropertyView`; see `startPropertiesBridge`. */
   get_properties(): string;

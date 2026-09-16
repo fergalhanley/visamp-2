@@ -31,6 +31,7 @@ window.validatorHarness = {
       audio.onset,
       audio.onsetStrength,
     );
+    engine.set_audio_frequency(Uint8Array.from(audio.frequency));
     const durationMs = step();
     const runtimeError = engine.get_last_error();
     if (runtimeError) throw new Error(runtimeError);
