@@ -15,8 +15,7 @@ pub struct Runtime {
     pub frame_count: u64,
     pub canvas_width: f64,
     pub canvas_height: f64,
-    pub mouse_x: f64,
-    pub mouse_y: f64,
+    pub input: crate::input::InputState,
 }
 
 impl Runtime {
@@ -26,8 +25,7 @@ impl Runtime {
             frame_count: 0,
             canvas_width: 800.0,
             canvas_height: 600.0,
-            mouse_x: 0.0,
-            mouse_y: 0.0,
+            input: crate::input::InputState::default(),
         }
     }
 }
@@ -1145,6 +1143,11 @@ fn interpret_statement_function_call(
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
+    if runtime.input.in_handler() {
+        return Err(
+            "drawing and graphics calls are only allowed in render, not input handlers".into(),
+        );
+    }
     if function_call.namespace == "effect" && function_call.function == "scramble" {
         let mut args = ArgReader::new(function_call, decels, runtime, functions);
         let kind = match args.raw("type")? {
@@ -1702,6 +1705,18 @@ fn evaluate_expression_inner(
             }
             Ok(Value::Array(vec![value; count]))
         }
+        Expression::InputCall { path, args } => {
+            let values = args
+                .iter()
+                .map(|(name, expr)| {
+                    Ok((
+                        name.clone(),
+                        evaluate_expression(expr, decels, runtime, functions)?,
+                    ))
+                })
+                .collect::<InterpResult<Vec<_>>>()?;
+            runtime.input.read(path, &values)
+        }
         Expression::AudioCall { func, args } => {
             let snapshot = &runtime.audio.current;
             Ok(match func.as_str() {
@@ -1899,8 +1914,6 @@ pub(crate) fn map_value_runtime(name: &str, runtime: &Runtime) -> InterpResult<V
         "TIME_MS" => Ok(Value::Integer(start_time_ms() as i64)),
         "WIDTH" => Ok(Value::Float(runtime.canvas_width)),
         "HEIGHT" => Ok(Value::Float(runtime.canvas_height)),
-        "MOUSE_X" => Ok(Value::Float(runtime.mouse_x)),
-        "MOUSE_Y" => Ok(Value::Float(runtime.mouse_y)),
         "FRAME_COUNT" => Ok(Value::Integer(runtime.frame_count as i64)),
         // Audio. Each is 0..255; time domain is centred on 128 (silence).
         // Math constants

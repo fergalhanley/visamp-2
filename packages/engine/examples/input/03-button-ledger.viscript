@@ -1,0 +1,28 @@
+// Three rows count down, up and completed clicks. Drag = no click.
+// Hold both buttons, release them separately. Escape tests cancellation.
+prop down = 0
+prop up = 0
+prop clicks = 0
+prop cancellations = 0
+prop last_button = "none"
+prop hover = false
+on_input_pointer_enter { hover = true }
+on_input_pointer_leave { hover = false }
+on_input_pointer_down { down++ last_button = input::pointer::event::get_button() }
+on_input_pointer_up { up++ last_button = input::pointer::event::get_button() }
+on_input_pointer_click { clicks++ }
+on_input_pointer_cancel { cancellations++ hover = false }
+render {
+  draw::background(color: color::rgb(r: 0.025, g: 0.02, b: 0.05))
+  let counts = [down, up, clicks, cancellations]
+  for row in 0..4 {
+    for i in 0..20 {
+      let lightness = 0.15
+      if i < counts[row] % 21 { lightness = 0.6 }
+      draw::circle(x: 30 + i * ($WIDTH - 60) / 20, y: 95 + row * 70, radius: 9, color: color::hsl(h: row / 5, s: 0.8, l: lightness))
+    }
+  }
+  draw::text(content: "DOWN / UP / CLICK / CANCEL (rows, modulo 21)", x: 20, y: 30, size: 15, color: $COLOR_WHITE)
+  draw::text(content: last_button, x: 20, y: 365, size: 24, color: $COLOR_CORAL)
+  if hover { draw::circle(x: $WIDTH - 30, y: 30, radius: 8, color: $COLOR_WHITE) }
+}

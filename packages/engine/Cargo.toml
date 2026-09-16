@@ -1,7 +1,7 @@
 [package]
 name = "visamp_2"
 description = "The Visript visualisation language for creative coding in the browser"
-version = "4.1.0"
+version = "5.0.0"
 authors = ["Fergal Hanley <fergalhanley@gmail.com>"]
 categories = ["wasm"]
 readme = "README.md"
@@ -24,6 +24,8 @@ js-sys = "0.3.104"
 once_cell = "1.21.4"
 pest = "2.8.8"
 pest_derive = "2.8.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dependencies.web-sys]
 version = "0.3.104"

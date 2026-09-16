@@ -46,7 +46,8 @@ async function visriptReference() {
     readFile(path.resolve(process.cwd(), "../docs/src/programming/system-values.md"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/effects/filters.md"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/programming/audio-detection.md"), "utf8"),
-  ]).then(([grammar, basic, animation, systemValues, filters, audioDetection]) =>
+    readFile(path.resolve(process.cwd(), "../docs/src/programming/input-detection.md"), "utf8"),
+  ]).then(([grammar, basic, animation, systemValues, filters, audioDetection, inputDetection]) =>
     [
       "You generate Visript code. Return only the complete Visript script, with no explanation.",
       "Preserve useful behavior from the current script unless the instruction asks to replace it.",
@@ -60,6 +61,8 @@ async function visriptReference() {
       systemValues,
       filters,
       audioDetection,
+      "## Input state and events",
+      inputDetection,
     ].join("\n\n"),
   );
   return referencePromise;

@@ -30,7 +30,7 @@ context_kind = @{ ("3d" | "2d") ~ !(ASCII_ALPHANUMERIC | "_" | "-") }
 // sequence elements, so `on_` followed by a newline and the next block would
 // match as a single name — half-typed `on_` in the editor swallowed the whole
 // `render` block that followed it.
-event_block_name  = @{ "on_" ~ ASCII_ALPHANUMERIC+ }
+event_block_name  = @{ "on_" ~ (ASCII_ALPHANUMERIC | "_")+ }
 render_block_name = @{ "render" }
 
 block = { (event_block_name|render_block_name) ~ "{" ~ statement* ~ "}" }
@@ -149,7 +149,7 @@ unary_operator = { "!" | "-" | "+" }
 postfix_expr = { primary_expr ~ index* }
 index = { "[" ~ expression ~ "]" }
 
-primary_expr = _{ audio_expr | array_expr | math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
+primary_expr = _{ input_expr | audio_expr | array_expr | math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
 
 math_expr = { "math::" ~ math_func ~ "(" ~ math_args? ~ ")" }
 // Longest-first, and atomic with a trailing guard. Ordered alternation means a
@@ -191,3 +191,6 @@ array_expr = { "array::filled" ~ function_params }
 
 // Audio functions are snapshot-reading expressions, including indexed arrays.
 audio_expr = { "audio::detect::" ~ identifier ~ function_params }
+
+input_expr = { input_path ~ function_params }
+input_path = @{ "input::" ~ identifier ~ "::" ~ identifier ~ "::" ~ identifier }

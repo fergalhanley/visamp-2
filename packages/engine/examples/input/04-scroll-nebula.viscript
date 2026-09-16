@@ -1,0 +1,16 @@
+// Focus the canvas, then scroll vertically to zoom and horizontally to turn.
+prop zoom = 1.0
+prop turn = 0.0
+on_input_scroll {
+  zoom = math::clamp(value: zoom - input::scroll::event::get_delta_y() * 0.001, min: 0.2, max: 3.0)
+  turn += input::scroll::event::get_delta_x() * 0.003
+}
+render {
+  draw::background(color: color::rgb(r: 0.01, g: 0.01, b: 0.04))
+  for i in 0..240 {
+    let a = i * 2.39996 + turn + $TIME_SEC * 0.05
+    let r = math::sqrt(value: i) * 12 * zoom
+    draw::circle(x: $WIDTH / 2 + math::cos(rad: a) * r, y: $HEIGHT / 2 + math::sin(rad: a) * r, radius: 1.5 + zoom, color: color::hsl(h: i / 350 + turn * 0.05, s: 0.75, l: 0.6))
+  }
+  draw::text(content: "CLICK TO FOCUS / SCROLL TO ZOOM / HORIZONTAL SCROLL TO TURN", x: 20, y: 30, size: 14, color: $COLOR_WHITE)
+}

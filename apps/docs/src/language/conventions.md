@@ -95,3 +95,12 @@ Renames require a stated compatibility policy and syntax-aware source migration.
 For engine 3.0 the owner chose a clean break: legacy names are errors. Coordinate
 the engine, server validator and saved-source migration in one release window;
 reload old editor tabs to prevent them saving outdated syntax.
+
+## Input library
+
+Use `input::<device>::state::<getter>` for persistent state and
+`input::<device>::event::<getter>` for the current event payload. Use `get_*` for
+values and `is_*` for booleans. Event-only access requires the corresponding
+`on_input_<device>_<event>` handler; helpers inherit that context at runtime.
+Scroll is an event-only domain. Document units, neutral state, ordering, focus,
+cancellation and host policy for every new channel. See [Input detection](../programming/input-detection.md).

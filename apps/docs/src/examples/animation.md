@@ -157,8 +157,8 @@ on_frame {
   // Particles drift toward mouse
   let new_particles = []
   for p in particles {
-    let px = p[0] + ($MOUSE_X - p[0]) * 0.02
-    let py = p[1] + ($MOUSE_Y - p[1]) * 0.02
+    let px = p[0] + (input::pointer::state::get_x() - p[0]) * 0.02
+    let py = p[1] + (input::pointer::state::get_y() - p[1]) * 0.02
     // Note: would need array mutation support
   }
 }

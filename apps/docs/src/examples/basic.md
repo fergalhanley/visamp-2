@@ -100,8 +100,8 @@ prop trail_x = 400.0
 prop trail_y = 300.0
 
 on_frame {
-  trail_x = trail_x + ($MOUSE_X - trail_x) * 0.08
-  trail_y = trail_y + ($MOUSE_Y - trail_y) * 0.08
+  trail_x = trail_x + (input::pointer::state::get_x() - trail_x) * 0.08
+  trail_y = trail_y + (input::pointer::state::get_y() - trail_y) * 0.08
 }
 
 render {

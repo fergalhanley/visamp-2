@@ -35,6 +35,8 @@ enum Overlay {
 struct Resolver {
     context: ContextKind,
     overlay: Overlay,
+    input_context: Option<crate::input::EventKind>,
+    in_function: bool,
     errors: Vec<String>,
 }
 
@@ -48,6 +50,8 @@ pub fn resolve(pairs: Pairs<Rule>, context: ContextKind) -> Result<(), String> {
     let mut resolver = Resolver {
         context,
         overlay: Overlay::Off,
+        input_context: None,
+        in_function: false,
         errors: Vec::new(),
     };
 
@@ -72,7 +76,75 @@ fn located(pair: &Pair<Rule>, message: String) -> String {
 impl Resolver {
     fn walk(&mut self, pair: Pair<Rule>) {
         match pair.as_rule() {
+            Rule::block | Rule::function_def => {
+                let previous = (self.input_context, self.in_function);
+                self.in_function = pair.as_rule() == Rule::function_def;
+                self.input_context = if self.in_function {
+                    None
+                } else {
+                    crate::input::EventKind::from_block(
+                        pair.clone().into_inner().next().unwrap().as_str(),
+                    )
+                };
+                for child in pair.into_inner() {
+                    self.walk(child);
+                }
+                (self.input_context, self.in_function) = previous;
+            }
+            Rule::input_expr => {
+                let mut inner = pair.clone().into_inner();
+                let function = inner.next().unwrap();
+                let path = function.as_str();
+                match crate::input::signature(path) {
+                    Err(e) => self.errors.push(located(&function, e)),
+                    Ok(labels) => {
+                        let args: Vec<_> = inner.flat_map(|p| p.into_inner()).collect();
+                        let names: Vec<_> = args
+                            .iter()
+                            .map(|a| a.clone().into_inner().next().unwrap().as_str())
+                            .collect();
+                        if names != labels {
+                            self.errors.push(located(
+                                &pair,
+                                format!("{path}: expected arguments {labels:?}"),
+                            ));
+                        }
+                        for arg in args {
+                            let value = arg.clone().into_inner().nth(1).unwrap();
+                            let mut literal = value.clone();
+                            loop {
+                                let children: Vec<_> = literal.clone().into_inner().collect();
+                                if children.len() != 1 { break; }
+                                literal = children[0].clone();
+                            }
+                            let text = literal.as_str();
+                            if literal.as_rule() == Rule::string && path.ends_with("is_button_down") {
+                                if let Err(e) = crate::input::button_mask(&text[1..text.len() - 1])
+                                {
+                                    self.errors.push(located(&value, e));
+                                }
+                            }
+                            self.walk(arg);
+                        }
+                    }
+                }
+                if !self.in_function && !crate::input::event_available(path, self.input_context) {
+                    self.errors.push(located(
+                        &pair,
+                        format!("{path} requires a matching input event handler"),
+                    ));
+                }
+            }
             Rule::system_value => {
+                if matches!(pair.as_str(), "$MOUSE_X" | "$MOUSE_Y") {
+                    let axis = if pair.as_str() == "$MOUSE_X" {
+                        "x"
+                    } else {
+                        "y"
+                    };
+                    self.errors.push(located(&pair, format!("{} was removed in Visript 5.0; use input::pointer::state::get_{axis}()", pair.as_str())));
+                    return;
+                }
                 let replacement = match pair.as_str() {
                     "$FREQUENCY_DATA" => Some("audio::detect::get_frequency()"),
                     "$TIME_DOMAIN_DATA" => Some("audio::detect::get_waveform()"),
@@ -211,6 +283,26 @@ impl Resolver {
         let namespace = path.iter().map(Pair::as_str).collect::<Vec<_>>().join("::");
         let name = name_pair.as_str();
 
+        if self.input_context.is_some()
+            && matches!(
+                namespace.as_str(),
+                "draw" | "gfx" | "camera" | "transform" | "light" | "effect" | "effect::filter"
+            )
+        {
+            self.errors.push(located(
+                pair,
+                "drawing and graphics calls belong in render; input handlers update properties"
+                    .into(),
+            ));
+            return;
+        }
+        if namespace.starts_with("input::") {
+            self.errors.push(located(
+                &pair,
+                "input calls are expressions; bind or use the returned value".into(),
+            ));
+            return;
+        }
         if namespace == "audio::detect" {
             self.errors.push(located(
                 pair,

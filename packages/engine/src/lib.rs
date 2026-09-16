@@ -12,6 +12,7 @@ mod feedback;
 pub mod points;
 mod point_renderer;
 pub mod geometry;
+pub mod input;
 pub mod interpreter;
 pub mod math3;
 pub mod model;
@@ -286,23 +287,6 @@ fn init_app() -> Result<(), String> {
         closure.forget();
     }
 
-    // Mouse tracking hangs off the host, not the canvas, so it survives the
-    // canvas being replaced on a context switch.
-    {
-        let state_clone = state.clone();
-        let host_clone = host.clone();
-        let closure =
-            Closure::<dyn FnMut(web_sys::MouseEvent)>::new(move |e: web_sys::MouseEvent| {
-                let rect = host_clone.get_bounding_client_rect();
-                let mut rt = state_clone.runtime.borrow_mut();
-                rt.mouse_x = e.client_x() as f64 - rect.left();
-                rt.mouse_y = e.client_y() as f64 - rect.top();
-            });
-        host.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())
-            .unwrap();
-        closure.forget();
-    }
-
     // Recomputes the canvas resolution whenever the host's box changes —
     // window resize, fullscreen enter/exit, and the editor's resizable split
     // all land here. Without it the canvas keeps whatever resolution it had
@@ -385,6 +369,10 @@ fn init_app() -> Result<(), String> {
         // All lifecycle and render blocks for this animation frame share one
         // interpreter budget, even when a script declares several of them.
         let _execution = execution_scope();
+
+        if let Err(e) = input::dispatch(blocks, decels, &mut runtime, functions) {
+            *state_ref.last_error.borrow_mut() = Some(e);
+        }
 
         // on_frame always runs to completion before render, so a render block
         // always draws from state that is current for this frame.
@@ -597,7 +585,8 @@ pub fn load_script(code: &str) -> String {
             let mut init_error = None;
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
-                    let runtime = state.runtime.borrow();
+                    let mut runtime = state.runtime.borrow_mut();
+                    runtime.input = input::InputState::default();
                     let Model {
                         blocks,
                         functions,
@@ -1143,4 +1132,59 @@ pub fn set_audio_frequency(frequency: &[u8]) -> Result<(), JsValue> {
         }
         Ok(())
     })
+}
+
+/// Queue a host input transition for the next rendered frame.
+#[wasm_bindgen]
+pub fn queue_input(json: &str) -> Result<(), JsValue> {
+    let event = input::InputEvent::from_json(json).map_err(|e| JsValue::from_str(&e))?;
+    STATE.with(|s| {
+        if let Some(state) = s.borrow().as_ref() {
+            state
+                .runtime
+                .borrow_mut()
+                .input
+                .enqueue(event)
+                .map_err(|e| JsValue::from_str(&e))
+        } else {
+            Ok(())
+        }
+    })
+}
+
+/// Cancel queued interaction when the host loses focus or is detached.
+#[wasm_bindgen]
+pub fn clear_input() {
+    STATE.with(|s| {
+        if let Some(state) = s.borrow().as_ref() {
+            state.runtime.borrow_mut().input.cancel();
+        }
+    });
+}
+
+/// Input domains referenced by actual syntax (comments and strings are ignored).
+/// Bits: pointer=1, keyboard=2, scroll=4. Hosts use this to opt into interaction.
+#[wasm_bindgen]
+pub fn input_capabilities(code: &str) -> u8 {
+    use pest::Parser;
+    fn visit(pair: pest::iterators::Pair<parser::Rule>) -> u8 {
+        use parser::Rule;
+        if matches!(pair.as_rule(), Rule::input_path | Rule::event_block_name) {
+            let name = pair.as_str();
+            return if name.starts_with("input::pointer::") || name.starts_with("on_input_pointer_")
+            {
+                1
+            } else if name.starts_with("input::keyboard::") || name.starts_with("on_input_key_") {
+                2
+            } else if name.starts_with("input::scroll::") || name == "on_input_scroll" {
+                4
+            } else {
+                0
+            };
+        }
+        pair.into_inner().fold(0, |bits, child| bits | visit(child))
+    }
+    parser::VisriptParser::parse(parser::Rule::script, code)
+        .map(|pairs| pairs.fold(0, |bits, pair| bits | visit(pair)))
+        .unwrap_or(0)
 }

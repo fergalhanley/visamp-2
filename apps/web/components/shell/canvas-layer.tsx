@@ -57,6 +57,7 @@ export function CanvasLayer() {
       onDoubleClick={toggleFullscreen}
     >
       <VisampCanvas
+        interactive
         source={source}
         assets={assets}
         assetPreparation={preparation}

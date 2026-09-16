@@ -128,15 +128,12 @@ beat/onset examples. Older scripts need the [4.0 migration](../language/audio-mi
 
 ## Input
 
-| Value | Type | Description |
-|-------|------|-------------|
-| `$MOUSE_X` | Float | Mouse X position relative to canvas |
-| `$MOUSE_Y` | Float | Mouse Y position relative to canvas |
+Pointer and keyboard input use the [input standard library](input-detection.md).
+The former mouse coordinate constants were removed in Visript 5.0.
 
 ```
 render {
-  // Circle follows the mouse
-  draw::circle(x: $MOUSE_X, y: $MOUSE_Y, radius: 30.0, color: $COLOR_CORAL)
+  draw::circle(x: input::pointer::state::get_x(), y: input::pointer::state::get_y(), radius: 30.0, color: $COLOR_CORAL)
 }
 ```
 
@@ -167,8 +164,8 @@ prop trail_y = 0.0
 
 on_frame {
   // Smooth follow toward mouse
-  trail_x = trail_x + ($MOUSE_X - trail_x) * 0.1
-  trail_y = trail_y + ($MOUSE_Y - trail_y) * 0.1
+  trail_x = trail_x + (input::pointer::state::get_x() - trail_x) * 0.1
+  trail_y = trail_y + (input::pointer::state::get_y() - trail_y) * 0.1
 }
 
 render {

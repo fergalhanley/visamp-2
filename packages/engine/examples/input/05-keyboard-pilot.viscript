@@ -1,0 +1,23 @@
+// Click the canvas. WASD or arrows move; Shift boosts. Escape returns focus.
+prop x = 0.0
+prop y = 0.0
+on_init { x = $WIDTH / 2 y = $HEIGHT / 2 }
+on_frame {
+  let step = 3.0
+  if input::keyboard::state::is_key_down(key: "Shift") { step = 9.0 }
+  if input::keyboard::state::is_code_down(code: "KeyA") || input::keyboard::state::is_code_down(code: "ArrowLeft") { x -= step }
+  if input::keyboard::state::is_code_down(code: "KeyD") || input::keyboard::state::is_code_down(code: "ArrowRight") { x += step }
+  if input::keyboard::state::is_code_down(code: "KeyW") || input::keyboard::state::is_code_down(code: "ArrowUp") { y -= step }
+  if input::keyboard::state::is_code_down(code: "KeyS") || input::keyboard::state::is_code_down(code: "ArrowDown") { y += step }
+  x = math::clamp(value: x, min: 15, max: $WIDTH - 15)
+  y = math::clamp(value: y, min: 50, max: $HEIGHT - 15)
+}
+render {
+  draw::background(color: color::rgb(r: 0.01, g: 0.03, b: 0.035))
+  for i in 0..15 {
+    draw::rect(x: i * $WIDTH / 15, y: 0, width: 1, height: $HEIGHT, color: color::rgb(r: 0.03, g: 0.1, b: 0.12))
+    draw::rect(x: 0, y: i * $HEIGHT / 15, width: $WIDTH, height: 1, color: color::rgb(r: 0.03, g: 0.1, b: 0.12))
+  }
+  draw::circle(x: x, y: y, radius: 16, color: color::rgb(r: 0.3, g: 1, b: 0.7))
+  draw::text(content: "CLICK / WASD OR ARROWS / SHIFT BOOST / ESCAPE RELEASE", x: 20, y: 30, size: 14, color: $COLOR_WHITE)
+}

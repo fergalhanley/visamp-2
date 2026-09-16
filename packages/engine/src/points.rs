@@ -222,6 +222,7 @@ fn dependent(expr: &Expression, depth: usize) -> Result<bool, String> {
             }
             Expression::ArrayFilled { args }
             | Expression::Call { args, .. }
+            | Expression::InputCall { args, .. }
             | Expression::AudioCall { args, .. }
             | Expression::MathCall { args, .. }
             | Expression::ColorConstruct { args, .. } => {

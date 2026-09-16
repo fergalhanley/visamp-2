@@ -56,6 +56,9 @@ export interface LogEntry {
 /** The shape wasm-pack generates for the current crate. */
 export interface EngineModule {
   main_web(): void;
+  queue_input(json: string): void;
+  clear_input(): void;
+  input_capabilities(code: string): number;
   load_script(code: string): string;
   validate_script(code: string): string;
   get_last_error(): string;

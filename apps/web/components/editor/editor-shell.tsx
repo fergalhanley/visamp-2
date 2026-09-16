@@ -778,6 +778,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             className="aspect-video w-full shrink-0 bg-black"
           >
             <VisampCanvas
+              interactive
               ref={canvasHandle}
               source={liveSource}
               assets={assets}

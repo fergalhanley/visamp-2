@@ -1,0 +1,26 @@
+// Click, then A/S/D/F. Repeats retrigger the pads. Key and physical code appear.
+prop levels = []
+prop last_key = "Press A / S / D / F"
+prop last_code = ""
+prop repeated = false
+on_init { levels = array::filled(count: 4, value: 0.0) }
+on_input_key_down {
+  last_key = input::keyboard::event::get_key()
+  last_code = input::keyboard::event::get_code()
+  repeated = input::keyboard::event::is_repeat()
+  if last_code == "KeyA" { levels[0] = 1.0 }
+  if last_code == "KeyS" { levels[1] = 1.0 }
+  if last_code == "KeyD" { levels[2] = 1.0 }
+  if last_code == "KeyF" { levels[3] = 1.0 }
+}
+on_input_key_up { repeated = false }
+on_frame { for i in 0..4 { levels[i] *= 0.95 } }
+render {
+  draw::background(color: color::rgb(r: 0.03, g: 0.015, b: 0.035))
+  for i in 0..4 {
+    draw::circle(x: (i + 0.5) * $WIDTH / 4, y: $HEIGHT / 2, radius: $WIDTH / 14 + levels[i] * 20, color: color::hsl(h: i / 5, s: 0.8, l: 0.2 + levels[i] * 0.45))
+  }
+  draw::text(content: last_key, x: 20, y: 36, size: 22, color: $COLOR_WHITE)
+  draw::text(content: last_code, x: 20, y: 66, size: 16, color: $COLOR_CORAL)
+  if repeated { draw::text(content: "REPEAT", x: 20, y: 96, size: 14, color: $COLOR_WHITE) }
+}

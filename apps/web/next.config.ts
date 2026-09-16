@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
       "../docs/src/programming/system-values.md",
       "../docs/src/effects/filters.md",
       "../docs/src/programming/audio-detection.md",
+      "../docs/src/programming/input-detection.md",
     ],
   },
 

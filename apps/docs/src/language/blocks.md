@@ -1,7 +1,9 @@
 # Blocks
 
-Blocks are the top-level execution units in Visript. There are four types:
+Blocks are the top-level execution units in Visript. Lifecycle blocks are
 `on_init`, `on_frame`, `on_resize`, and `render`.
+[Input handlers](../programming/input-detection.md) run queued pointer, scroll and
+keyboard transitions before `on_frame`. They update properties; drawing stays in `render`.
 
 ## on_init
 

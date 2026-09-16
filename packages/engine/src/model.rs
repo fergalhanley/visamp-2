@@ -667,6 +667,7 @@ pub struct Block {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockType {
+    Input(crate::input::EventKind),
     Render,
     OnFrame,
     /// Runs once per compile, before the new model's first frame. Use it to
@@ -834,6 +835,10 @@ pub enum Expression {
         args: Vec<(String, Expression)>,
     },
     ArrayFilled {
+        args: Vec<(String, Expression)>,
+    },
+    InputCall {
+        path: String,
         args: Vec<(String, Expression)>,
     },
     AudioCall {

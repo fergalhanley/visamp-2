@@ -11,7 +11,7 @@ import { tags as t } from "@lezer/highlight";
 const COMMENT = /^\/\/.*/;
 const KEYWORDS = /^(prop|fn|let|if|else|for|in|while|return|context|step)\b/;
 const NAMESPACES =
-  /^(audio::detect|draw|math|array|color|camera|transform|light|gfx|effect::filter|effect)::[A-Za-z0-9_]+/;
+  /^(input::(?:pointer|keyboard|scroll)::(?:state|event)|audio::detect|draw|math|array|color|camera|transform|light|gfx|effect::filter|effect)::[A-Za-z0-9_]+/;
 /**
  * The author's choice is the coordinate model; which backend 3d runs on is the
  * engine's business. The retired backend names are still matched so they get
@@ -19,7 +19,7 @@ const NAMESPACES =
  */
 const CONTEXT_KIND = /^(3d|2d)\b/;
 const RETIRED_CONTEXT_KIND = /^(experimental-webgl|webgl2|webgl|webgpu)\b/;
-const BLOCK_NAME = /^(on_[A-Za-z0-9]+|render\b)/;
+const BLOCK_NAME = /^(on_[A-Za-z0-9_]+|render\b)/;
 const SYSTEM_VALUE = /^\$[A-Za-z0-9_]+/;
 const FLOAT = /^-?\d+\.\d+/;
 const INTEGER = /^-?\d+/;

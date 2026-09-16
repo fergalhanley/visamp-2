@@ -198,8 +198,8 @@ render {
   )
   for i in [1.0, 2.0, 3.0, 4.0, 5.0] {
     draw::circle(
-      x: $MOUSE_X + math::cos(rad: t * 2.0 + i) * i * 26.0,
-      y: $MOUSE_Y + math::sin(rad: t * 2.0 + i) * i * 26.0,
+      x: input::pointer::state::get_x() + math::cos(rad: t * 2.0 + i) * i * 26.0,
+      y: input::pointer::state::get_y() + math::sin(rad: t * 2.0 + i) * i * 26.0,
       radius: 22.0 - i * 3.0,
       color: color::hsl(h: i / 5.0, s: 0.7, l: 0.55)
     )

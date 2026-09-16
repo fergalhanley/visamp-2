@@ -10,6 +10,7 @@ import {
   type Ref,
 } from "react";
 
+import { startInputBridge } from "./input-bridge";
 import { startAudioBridge } from "./audio-bridge";
 import { startPropertiesBridge } from "./properties-bridge";
 import { toRuntimeLog, toCompileResult } from "./diagnostics";
@@ -72,6 +73,8 @@ export interface VisampCanvasProps {
    * no pause entry point.
    */
   active: boolean;
+  /** Enable script input. Landing/decorative previews leave this disabled. */
+  interactive?: boolean;
   /**
    * Audio graph tap for the `audio::detect` standard library.
    *
@@ -109,6 +112,7 @@ export function VisampCanvas({
   assetPreparation,
   posterUrl,
   active,
+  interactive = false,
   analyser,
   onCompileResult,
   onProperties,
@@ -117,6 +121,8 @@ export function VisampCanvas({
   className,
   ref,
 }: VisampCanvasProps) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [activationRevision, setActivationRevision] = useState(0);
   const engineRef = useRef<EngineModule | null>(null);
   const bootedRef = useRef(false);
   const [ready, setReady] = useState(false);
@@ -210,6 +216,7 @@ export function VisampCanvas({
           if (result.ok) {
             applied.current = { source, assets: prepared, scope: assetScope };
             setActivated(true);
+            setActivationRevision((revision) => revision + 1);
             setActivationError("");
           }
         }
@@ -229,6 +236,29 @@ export function VisampCanvas({
       : (result.diagnostics[0]?.raw ?? "");
     onCompileResultRef.current?.(result);
   }, [ready, source, assets, assetStatus, assetScope]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    const host = stageRef.current;
+    if (
+      !engine ||
+      !host ||
+      !ready ||
+      !active ||
+      !interactive ||
+      assetStatus !== "ready" ||
+      applied.current?.source !== source
+    )
+      return;
+    return startInputBridge(
+      host,
+      engine,
+      engine.input_capabilities(source),
+      (message) => {
+        onLogRef.current?.({ level: "error", message });
+      },
+    );
+  }, [ready, active, interactive, source, assetStatus, activationRevision]);
 
   // The engine reports runtime errors by parking a string rather than calling
   // out, so drain it on an interval. Replace with a real callback when the
@@ -328,7 +358,11 @@ export function VisampCanvas({
   return (
     <div className={className}>
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
-        <div id={HOST_ID} style={{ width: "100%", height: "100%" }} />
+        <div
+          ref={stageRef}
+          id={HOST_ID}
+          style={{ width: "100%", height: "100%" }}
+        />
         {pending && (
           <div
             style={{

@@ -1,0 +1,44 @@
+// Drag to orbit, including outside the canvas; scroll zooms. Space toggles spin.
+context 3d
+prop yaw = 25.0
+prop pitch = 20.0
+prop distance = 12.0
+prop last_x = 0.0
+prop last_y = 0.0
+prop dragging = false
+prop spinning = true
+on_input_pointer_down {
+  if input::pointer::event::get_button() == "primary" {
+    dragging = true
+    last_x = input::pointer::event::get_x()
+    last_y = input::pointer::event::get_y()
+  }
+}
+on_input_pointer_move {
+  if dragging {
+    let x = input::pointer::event::get_x()
+    let y = input::pointer::event::get_y()
+    yaw += (x - last_x) * 0.4
+    pitch = math::clamp(value: pitch + (y - last_y) * 0.3, min: -75, max: 75)
+    last_x = x last_y = y
+  }
+}
+on_input_pointer_up { if input::pointer::event::get_button() == "primary" { dragging = false } }
+on_input_pointer_cancel { dragging = false }
+on_input_scroll { distance = math::clamp(value: distance + input::scroll::event::get_delta_y() * 0.01, min: 5, max: 24) }
+on_input_key_down {
+  if input::keyboard::event::get_code() == "Space" && !input::keyboard::event::is_repeat() { spinning = !spinning }
+}
+on_frame { if spinning && !dragging { yaw += 0.15 } }
+render {
+  gfx::clear(color: color::rgb(r: 0.015, g: 0.025, b: 0.055))
+  camera::orbit(distance: distance, yaw_deg: yaw, pitch_deg: pitch)
+  camera::perspective(fov_deg: 50, near: 0.1, far: 100)
+  light::ambient(color: color::rgb(r: 0.25, g: 0.25, b: 0.3))
+  light::directional(x: -1, y: -2, z: -1, intensity: 0.9)
+  draw::cube(size: 2, rotation_y_deg: -yaw * 0.5, color: $COLOR_CORAL)
+  for i in 0..18 {
+    let a = i * $TAU / 18
+    draw::cube(x: math::cos(rad: a) * 4, z: math::sin(rad: a) * 4, y: math::sin(rad: a * 3 + $TIME_SEC) * 0.7, size: 0.45, color: color::hsl(h: i / 18, s: 0.8, l: 0.6))
+  }
+}
