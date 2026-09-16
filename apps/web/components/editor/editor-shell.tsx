@@ -739,7 +739,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
                   ) : (
                     <Camera className="h-3.5 w-3.5" />
                   )}
-                  Capture frame
+                  Capture thumb
                 </button>
 
                 <select

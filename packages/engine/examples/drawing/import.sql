@@ -2,7 +2,7 @@
 -- Set sample_owner below. Re-running skips existing IDs; edited scripts are preserved.
 begin;
 do $import$
-declare sample_owner uuid := auth.uid();
+declare sample_owner uuid := '1958b5c4-9bb0-472d-9892-0d49c5061e5b'::uuid;
 begin
 if sample_owner is null or not exists(select 1 from public.profiles where id=sample_owner) then raise exception 'Set sample_owner to your profile UUID'; end if;
 

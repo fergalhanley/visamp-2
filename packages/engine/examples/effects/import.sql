@@ -2,7 +2,7 @@
 -- Set sample_owner to your profile UUID. Re-importing preserves existing scripts.
 begin;
 do $import$
-declare sample_owner uuid := null; -- REPLACE null WITH 'your-profile-uuid'::uuid
+declare sample_owner uuid := '1958b5c4-9bb0-472d-9892-0d49c5061e5b'::uuid; -- REPLACE null WITH 'your-profile-uuid'::uuid
 begin
 if sample_owner is null or not exists(select 1 from public.profiles where id=sample_owner) then raise exception 'Set sample_owner to your profile UUID'; end if;
 
