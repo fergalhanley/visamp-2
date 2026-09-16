@@ -76,6 +76,30 @@
         "HOSTED_AUDIO_TEST_TRACK_ID",
         "HOSTED_AUDIO_TEST_BASE_URL"
       ]
+    },
+    "@visamp/docs#build": {
+      "outputs": [
+        "book/**",
+        "book-internal/**"
+      ],
+      "env": [
+        "DOCS_INCLUDE_INTERNAL"
+      ],
+      "passThroughEnv": [
+        "MDBOOK_BIN",
+        "MDBOOK_DOWNLOAD"
+      ]
+    },
+    "@visamp/docs#dev": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "DOCS_INCLUDE_INTERNAL"
+      ],
+      "passThroughEnv": [
+        "MDBOOK_BIN",
+        "MDBOOK_DOWNLOAD"
+      ]
     }
   },
   "globalPassThroughEnv": [

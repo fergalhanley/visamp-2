@@ -101,6 +101,7 @@ error. Drawing/graphics calls in input handlers are rejected. Store event values
 in properties if later rendering needs them. Thumbnail capture reads the current
 state snapshot and never dispatches or replays queued input.
 
+<!-- internal:start -->
 ## Host policy
 
 `VisampCanvas interactive` opts a host into input. The compiler identifies actual
@@ -111,3 +112,5 @@ canvas remain available. Every listener is detached when the script/host changes
 The WASM host API is `input_capabilities(source)` (pointer=1, keyboard=2, scroll=4),
 `queue_input(json)` and `clear_input()`. Packets are validated, bounded and contain
 no browser object references. Future channels are tracked in VIS-110.
+
+<!-- internal:end -->

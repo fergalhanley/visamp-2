@@ -20,4 +20,4 @@ parameter tables and examples; individual pages describe context restrictions.
 | Pointer and keyboard state/events | `input::` | [Input detection](../programming/input-detection.md) |
 
 Read [Language Conventions](conventions.md) for coordinate systems, units,
-colour alpha, argument naming and the rules for adding new library functions.
+colour alpha and argument naming.

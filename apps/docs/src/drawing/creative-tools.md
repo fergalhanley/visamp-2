@@ -140,8 +140,7 @@ Outside the final radius the final colour continues. Gradients are 2D/overlay on
 All numeric inputs must be finite. Seeds/indices are whole numbers 0–16777215;
 noise coordinates are within ±1000000. Noise uses cubic smoothstep between hashed
 integer lattice corners. Algorithm version 1: the fixed 32-bit mixer uses
-`0x7feb352d` and `0x846ca68b`, taking its top 24 bits. The engine's
-`creative_math.rs` and `creative_math.glsl` define matching CPU/GPU implementations.
+`0x7feb352d` and `0x846ca68b`, taking its top 24 bits.
 Random samples match exactly at representable inputs; allow 1e-5 floating tolerance
 for noise at moderate coordinates. GPU precision loses subcell detail at large
 coordinates. There is no clock input unless the script supplies one.
@@ -166,6 +165,9 @@ Billboard sprites support Z roll; direct X/Y tilt arguments error. Parent transf
 still affect their position/scale. Unknown blend/cull/shading strings, duplicate
 arguments, and unsupported combinations now error instead of silently defaulting.
 
+<!-- internal:start -->
 The [design review](../design/drawing-expansion.md) records the original audit.
 Deferred geometry, effects and rendering work is tracked in
 [VIS-113](https://linear.app/visamp/issue/VIS-113).
+
+<!-- internal:end -->

@@ -35,6 +35,7 @@ permission may require a user gesture. With no source, audio readings are zero.
 For time-driven motion, use `$TIME_SEC` in an expression or update a property in
 `on_frame`. Follow [Your First Script](first-script.md) for a complete example.
 
+<!-- internal:start -->
 ## Running the repository locally
 
 Creators using the hosted editor can skip this section. Repository development
@@ -62,3 +63,5 @@ pnpm --filter @visamp/docs dev
 Docs serve at `http://localhost:3200`. The docs runner downloads a pinned,
 checksum-verified mdBook binary when that version is not installed locally; it
 needs Node and `tar`, but does not build the Rust/WASM engine.
+
+<!-- internal:end -->

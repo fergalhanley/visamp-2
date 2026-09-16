@@ -114,5 +114,8 @@ Gaussian approximation as `effect::filter::blur`.
 All effects are baked into the final canvas and thumbnails. Large blur/bloom and
 long chains require more GPU work; reuse simpler combinations on smaller devices.
 
+<!-- internal:start -->
 See the [21-script test pack](https://github.com/fergalhanley/visamp-2/tree/develop/packages/engine/examples/effects)
 for individual effects, editable controls, a 3D mosaic and feedback combinations.
+
+<!-- internal:end -->

@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join, relative } from "node:path";
-const root = fileURLToPath(new URL("../book/", import.meta.url));
+const root = fileURLToPath(new URL(process.env.DOCS_INCLUDE_INTERNAL === "true" ? "../book-internal/" : "../book/", import.meta.url));
 const pages = new Map();
 async function visit(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {

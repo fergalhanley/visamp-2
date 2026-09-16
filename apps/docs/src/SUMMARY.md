@@ -54,8 +54,12 @@
 - [Animation Examples](./examples/animation.md)
 - [3D Examples](./examples/3d.md)
 
+<!-- internal:start -->
 - [Sample Packs](./examples/sample-packs.md)
 
 # Contributor Notes
 
 - [Drawing Expansion Design](./design/drawing-expansion.md)
+
+- [API Contributor Conventions](./internal/api-conventions.md)
+<!-- internal:end -->

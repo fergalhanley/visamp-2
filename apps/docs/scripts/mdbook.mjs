@@ -1,3 +1,5 @@
+import { watch } from "node:fs";
+import { includeInternal, prepare } from "./audience.mjs";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, copyFile, chmod, rm, writeFile } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
@@ -50,12 +52,40 @@ async function binary() {
   }
 }
 try {
-  const executable = await binary();
+  const internal = includeInternal(process.env.DOCS_INCLUDE_INTERNAL);
   const command = process.argv.slice(2);
-  const child = spawn(executable, command.length ? command : ["build"], { cwd: root, stdio: "inherit" });
-  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
-  child.on("error", (error) => { console.error(error.message); process.exitCode = 1; });
-  child.on("exit", (code) => { process.exitCode = code ?? 1; });
+  if (!command.length) command.push("build");
+  if (!["build", "serve"].includes(command[0])) throw Error("Use build or serve");
+  const destination = join(root, internal ? "book-internal" : "book");
+  const stage = join(root, ".cache", internal ? "site-internal" : "site-public");
+  const executable = await binary();
+  // Clear the selected output before generating: never retain removed private pages.
+  await rm(destination, { recursive: true, force: true });
+  await prepare(root, stage, internal);
+  console.log(`Building ${internal ? "internal" : "public"} documentation`);
+  const child = spawn(executable, [...command, "--dest-dir", destination], { cwd: stage, stdio: "inherit" });
+  const watchers = [];
+  let timer;
+  let pending = Promise.resolve();
+  if (command[0] === "serve") {
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        pending = pending.then(() => prepare(root, stage, internal)).catch((error) => {
+          console.error(error.message);
+          child.kill();
+          process.exitCode = 1;
+        });
+      }, 100);
+    };
+    for (const path of ["src", "theme", "book.toml"]) {
+      watchers.push(watch(join(root, path), { recursive: path !== "book.toml" }, refresh));
+    }
+  }
+  const cleanup = () => { clearTimeout(timer); watchers.forEach((watcher) => watcher.close()); };
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { cleanup(); child.kill(signal); });
+  child.on("error", (error) => { cleanup(); console.error(error.message); process.exitCode = 1; });
+  child.on("exit", (code) => { cleanup(); process.exitCode = process.exitCode || code || (code === null ? 1 : 0); });
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

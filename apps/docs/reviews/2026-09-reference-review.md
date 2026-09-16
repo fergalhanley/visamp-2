@@ -45,3 +45,19 @@ opening in a new tab to preserve playback/editor state. Local configuration uses
 Compilation does not test visual output of every example. Vercel's Linux build,
 production DNS and deployment remain for the owner to verify during deployment.
 See [deployment instructions](../README.md).
+
+## Follow-up: publication boundary
+
+The repository is private. The production reference now uses public-only source
+staging by default (`DOCS_INCLUDE_INTERNAL=false`). Local setup, contributor
+conventions, design notes, private sample/SQL instructions, host integration APIs
+and private project links are internal. Script-facing syntax, runtime behaviour,
+limits and examples remain public. Internal content is available with the flag
+set to true, in `book-internal`, separate from Vercel's `book` output.
+
+Section markers filter prose and SUMMARY entries before mdBook sees them. Only
+listed chapters and allowlisted public assets are staged. Whole internal pages
+also carry an audience marker, rejected if accidentally listed publicly. Output
+is cleaned before building. Tests inspect generated HTML, search and static files,
+including internal-to-public transitions and stale private pages. Turbo build
+cache keys include the flag. See README for authoring and deployment rules.

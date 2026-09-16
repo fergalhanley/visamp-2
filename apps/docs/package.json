@@ -6,8 +6,10 @@
   "scripts": {
     "build": "node scripts/mdbook.mjs build",
     "dev": "node scripts/mdbook.mjs serve --hostname 127.0.0.1 --port 3200",
-    "clean": "rm -rf book",
+    "clean": "rm -rf book book-internal .cache/site-public .cache/site-internal",
     "check:examples": "node scripts/check-examples.mjs",
-    "check:links": "node scripts/check-links.mjs"
+    "check:links": "node scripts/check-links.mjs",
+    "dev:internal": "DOCS_INCLUDE_INTERNAL=true node scripts/mdbook.mjs serve --hostname 127.0.0.1 --port 3200",
+    "test": "node --test scripts/audience.test.mjs"
   }
 }

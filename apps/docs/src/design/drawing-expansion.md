@@ -1,3 +1,5 @@
+<!-- audience: internal -->
+
 # Drawing expansion proposal
 
 **Status: NOW scope approved and implemented in Visript 5.1 under [VIS-112](https://linear.app/visamp/issue/VIS-112).**

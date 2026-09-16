@@ -1,3 +1,5 @@
+<!-- audience: internal -->
+
 # Sample packs
 
 The repository contains complete `.viscript` files for hands-on testing. Open a

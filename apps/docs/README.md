@@ -3,6 +3,71 @@
 The hosted Visript reference uses mdBook **0.5.4**, with Visamp branding layered
 on the standard theme. Sources live in `src/`; generated `book/` is ignored.
 
+## Public and internal editions
+
+`DOCS_INCLUDE_INTERNAL=false` builds the public reference. This is also the
+**default when unset**. Only the literal values `true` and `false` are accepted;
+a misspelling fails the build. This is a build-time variable, not a browser flag.
+Set it to **false** on the docs Vercel project for Production and Preview.
+
+| Public: usable without repository access | Internal: project implementation and operation |
+| --- | --- |
+| Hosted editor instructions and complete examples | Running the repository locally |
+| Language syntax, API contracts, units and limits | Contributor requirements and host integration APIs |
+| Audio/input behaviour and creator troubleshooting | Design reviews, roadmap and Linear references |
+| Asset use, rendering and thumbnail behaviour | Private repository links, sample packs and SQL imports |
+
+The repo itself is private. Do not assume readers can access source-code links.
+A behaviour or limit that affects script authors belongs in the public reference;
+how to implement, deploy, administer or contribute to Visamp belongs internally.
+Repository-only `README.md` and `reviews/` content is never part of either site.
+
+```sh
+# Public edition -> apps/docs/book (the only Vercel output directory)
+pnpm --filter @visamp/docs build
+# Internal edition -> apps/docs/book-internal
+DOCS_INCLUDE_INTERNAL=true pnpm --filter @visamp/docs build
+# Local internal preview, including public chapters, on port 3200
+pnpm --filter @visamp/docs dev:internal
+```
+
+Use the build wrapper, not bare `mdbook build/serve`: it stages only the chapters
+selected by the filtered SUMMARY and approved public assets before invoking
+mdBook. Excluded content never reaches HTML, search indexes or static files.
+The selected output is cleared before each build, removing stale pages. Internal
+output is separate from `book`, and its header says **Internal Docs**. The flag
+controls publication, not authentication; keep internal output on trusted hosts.
+
+Restart any old docs development server to use the new wrapper. Both preview
+commands watch source and theme edits. Environment variables are supplied by the
+shell or Vercel; this standalone Node runner does not load Next.js `.env` files.
+
+### Authoring rules
+
+Wrap an internal section, including its heading and any links, in standalone
+markers:
+
+```html
+<!-- internal:start -->
+Internal content here.
+<!-- internal:end -->
+```
+
+For a whole internal page, mark the page with `<!-- audience: internal -->` and
+wrap its SUMMARY entry (and any public-page links to it) in the same section
+markers. Prefer `src/internal/` for new internal pages. Unlisted pages and assets
+are not copied. Register new public assets explicitly in `scripts/audience.mjs`.
+Do not use mdBook source include directives; make the content a classified chapter.
+Malformed or unbalanced internal markers fail both builds.
+
+Run `pnpm --filter @visamp/docs test` to verify content filtering, omitted assets,
+search/static output and stale-page cleanup. Run link checks for both editions:
+
+```sh
+pnpm --filter @visamp/docs check:links
+DOCS_INCLUDE_INTERNAL=true pnpm --filter @visamp/docs check:links
+```
+
 ## Local development
 
 From the repository root (Node.js 20 or newer):
@@ -31,6 +96,7 @@ Create a **separate Vercel project** from this repository:
 - Output Directory: `book`.
 - Install Command: `true` (the docs build has no npm dependencies).
 - Use Node.js 20 or newer.
+- Environment variable: **`DOCS_INCLUDE_INTERNAL=false`** (Production and Preview).
 
 `vercel.json` supplies the build, install, framework and output settings. No
 application secrets or database connection are needed. Keep the standard static

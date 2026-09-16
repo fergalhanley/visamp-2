@@ -23,6 +23,7 @@ out/
 
 # mdbook build output
 apps/docs/book/
+apps/docs/book-internal/
 apps/docs/.cache/
 
 # local env

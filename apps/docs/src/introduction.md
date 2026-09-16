@@ -33,7 +33,7 @@ Paste this into the Visamp editor. No script build step is needed.
   [pointer/keyboard input](programming/input-detection.md).
 - **Shape the whole image:** combine [effects](effects/frame-effects.md),
   [filters](effects/filters.md) and [feedback](effects/scramble.md).
-- **Try complete scripts:** browse [examples and sample packs](examples/sample-packs.md).
+- **Try complete scripts:** browse [complete examples](examples/basic.md).
 - **Something is wrong?** Start with [errors and troubleshooting](getting-started/troubleshooting.md).
 
 ## Language and files
