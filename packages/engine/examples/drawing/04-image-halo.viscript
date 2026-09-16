@@ -1,0 +1,17 @@
+// Uses the sprite asset supplied for Skullman; its permissions must allow viewing.
+render {
+  draw::background(color: $COLOR_BLACK)
+  let radius = $HEIGHT * 0.45
+  let glow = color::radial_gradient(x: $WIDTH / 2, y: $HEIGHT / 2, radius: radius,
+    color_stops: [[0, $COLOR_VIOLET], [0.4, color::rgb(r: 0.1, g: 0.04, b: 0.2)], [1, $COLOR_BLACK]])
+  draw::circle(x: $WIDTH / 2, y: $HEIGHT / 2, radius: radius, gradient: glow)
+  transform::translate(x: $WIDTH / 2, y: $HEIGHT / 2)
+  transform::rotate_z(deg: $TIME_SEC * 12)
+  for i in 0..12 {
+    transform::push()
+    transform::rotate_z(deg: i * 30)
+    draw::image(asset: asset::bitmap(id: "081c271e-67d9-4a75-aff2-5a1bb88e4daa"),
+      x: radius * 0.5, y: -radius * 0.1, width: radius * 0.2, height: radius * 0.2, opacity: 0.8)
+    transform::pop()
+  }
+}

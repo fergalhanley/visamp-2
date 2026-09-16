@@ -1,0 +1,23 @@
+// Local clock rings: hour, minute, weekday and month. Frame pulse resets on load.
+prop phase = 0.0
+on_frame { phase = math::wrap(value: phase + $DELTA_SEC * 30, min: 0, max: 360) }
+render {
+  draw::background(color: color::rgb(r: 0.015, g: 0.025, b: 0.055))
+  let unit = $HEIGHT / 10
+  transform::translate(x: $WIDTH / 2, y: $HEIGHT / 2)
+  for i in 0..4 {
+    let values = [$TIME_HOUR / 24, $TIME_MINUTE / 60, $TIME_DAY / 7, $TIME_MONTH / 12]
+    draw::arc(radius: unit * (1 + i * 0.6), start_deg: -90, sweep_deg: 359.9,
+      stroke_width: unit * 0.14, color: color::rgb(r: 0.07, g: 0.10, b: 0.16))
+    if values[i] > 0 {
+      draw::arc(radius: unit * (1 + i * 0.6), start_deg: -90, sweep_deg: values[i] * 360,
+        stroke_width: unit * 0.14, line_cap: "round", color: color::hsl(h: i * 0.18, s: 0.8, l: 0.65))
+    }
+  }
+  draw::circle(radius: unit * (0.22 + ($FRAME_INDEX % 60) / 300), color: $COLOR_CORAL)
+  transform::rotate_z(deg: phase)
+  draw::rect(x: -unit * 0.7, y: -unit * 0.7, width: unit * 1.4, height: unit * 1.4,
+    corner_radius: unit * 0.2, stroke: true, stroke_width: 2, stroke_color: $COLOR_WHITE)
+  transform::identity()
+  draw::text(content: "LOCAL HOUR / MINUTE / WEEKDAY / MONTH", x: 24, y: 36, size: 18, color: $COLOR_WHITE)
+}

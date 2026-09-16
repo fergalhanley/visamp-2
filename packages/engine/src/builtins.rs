@@ -81,6 +81,8 @@ pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
 /// them, and silently preferring one would make the other look like it worked.
 pub const ANGLE_PAIRS: &[(&str, &str)] = &[
     ("deg", "rad"),
+    ("start_deg", "start_rad"),
+    ("sweep_deg", "sweep_rad"),
     ("rotation_deg", "rotation_rad"),
     ("fov_deg", "fov_rad"),
     ("yaw_deg", "yaw_rad"),
@@ -94,12 +96,17 @@ const XYZ: &[&str] = &["x", "y", "z"];
 
 pub const BUILTINS: &[Builtin] = &[
     // ── draw:: 2D, available in both modes ────────────────────────────────
-    d2("clear", &[]),
-    d2("background", &["color", "gradient"]),
+    ns("draw", "clear", &[]),
+    ns("draw", "background", &["color", "gradient"]),
     d2(
         "polygon",
         &[
             "points",
+            "stroke",
+            "stroke_width",
+            "stroke_color",
+            "line_cap",
+            "line_join",
             "color",
             "gradient",
             "rotation_rad",
@@ -122,6 +129,7 @@ pub const BUILTINS: &[Builtin] = &[
     d2(
         "rect",
         &[
+            "corner_radius",
             "x",
             "y",
             "width",
@@ -161,11 +169,72 @@ pub const BUILTINS: &[Builtin] = &[
         namespace: "draw",
         name: "line",
         availability: Availability::Both,
-        args: &["x1", "y1", "x2", "y2", "color", "gradient", "stroke_width"],
+        args: &[
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+            "color",
+            "gradient",
+            "stroke_width",
+            "line_cap",
+            "line_join",
+        ],
         args_3d: &["z1", "z2"],
         required: &[],
         takes_common_3d: true,
     },
+    Builtin {
+        namespace: "draw",
+        name: "image",
+        availability: Availability::Both,
+        args: &["asset", "x", "y", "width", "height", "opacity"],
+        args_3d: &[],
+        required: &["asset", "width", "height"],
+        takes_common_3d: false,
+    },
+    path(
+        "polyline",
+        &[
+            "points",
+            "closed",
+            "color",
+            "gradient",
+            "stroke_width",
+            "line_cap",
+            "line_join",
+        ],
+        &["points"],
+    ),
+    path(
+        "bezier",
+        &[
+            "points",
+            "color",
+            "gradient",
+            "stroke_width",
+            "line_cap",
+            "line_join",
+        ],
+        &["points"],
+    ),
+    path(
+        "arc",
+        &[
+            "x",
+            "y",
+            "radius",
+            "start_deg",
+            "start_rad",
+            "sweep_deg",
+            "sweep_rad",
+            "color",
+            "gradient",
+            "stroke_width",
+            "line_cap",
+        ],
+        &["radius"],
+    ),
     // ── draw:: 3D ─────────────────────────────────────────────────────────
     d3("cube", &["size", "width", "height", "depth"], &[]),
     d3("sphere", &["radius", "resolution"], &[]),
@@ -238,14 +307,14 @@ pub const BUILTINS: &[Builtin] = &[
         &[],
     ),
     // ── transform:: ───────────────────────────────────────────────────────
-    ns3("transform", "push", &[], &[]),
-    ns3("transform", "pop", &[], &[]),
-    ns3("transform", "identity", &[], &[]),
-    ns3("transform", "translate", XYZ, &[]),
+    ns("transform", "push", &[]),
+    ns("transform", "pop", &[]),
+    ns("transform", "identity", &[]),
+    transform("translate", &["x", "y"]),
     ns3("transform", "rotate_x", &["deg", "rad"], &[]),
     ns3("transform", "rotate_y", &["deg", "rad"], &[]),
-    ns3("transform", "rotate_z", &["deg", "rad"], &[]),
-    ns3("transform", "scale", &["x", "y", "z", "all"], &[]),
+    ns("transform", "rotate_z", &["deg", "rad"]),
+    transform("scale", &["x", "y", "all"]),
     // ── light:: ───────────────────────────────────────────────────────────
     ns3("light", "ambient", &["color"], &[]),
     ns3(
@@ -262,7 +331,7 @@ pub const BUILTINS: &[Builtin] = &[
     ),
     // ── gfx:: ─────────────────────────────────────────────────────────────
     ns3("gfx", "depth", &["enabled", "write"], &[]),
-    ns3("gfx", "blend", &["mode"], &[]),
+    ns("gfx", "blend", &["mode"]),
     ns3("gfx", "cull", &["mode"], &[]),
     ns3("gfx", "clear", &["color"], &[]),
     ns3("gfx", "overlay", &["enabled"], &[]),
@@ -345,6 +414,8 @@ const fn ns(namespace: &'static str, name: &'static str, args: &'static [&'stati
 /// misspelled, so `color::rgb(red: 1.0)` quietly rendered black — the whole
 /// reason these are in the table.
 pub const COLOR_ARGS: &[(&str, &[&str])] = &[
+    ("mix", &["a", "b", "amount"]),
+    ("radial_gradient", &["x", "y", "radius", "color_stops"]),
     ("rgb", &["r", "g", "b", "a"]),
     ("hsl", &["h", "s", "l", "a"]),
     ("linear_gradient", &["x0", "y0", "x1", "y1", "color_stops"]),
@@ -352,6 +423,22 @@ pub const COLOR_ARGS: &[(&str, &[&str])] = &[
 
 /// `math::` functions, which had the same silent-default behaviour.
 pub const MATH_ARGS: &[(&str, &[&str])] = &[
+    ("lerp", &["a", "b", "amount"]),
+    (
+        "map",
+        &[
+            "value",
+            "input_min",
+            "input_max",
+            "output_min",
+            "output_max",
+            "clamp",
+        ],
+    ),
+    ("smoothstep", &["value", "min", "max"]),
+    ("wrap", &["value", "min", "max"]),
+    ("random", &["seed", "index"]),
+    ("noise", &["x", "y", "z", "seed"]),
     ("sin", &["rad"]),
     ("cos", &["rad"]),
     ("tan", &["rad"]),
@@ -416,6 +503,12 @@ impl Builtin {
             if self.takes_common_3d {
                 names.extend_from_slice(COMMON_3D_DRAW_ARGS);
             }
+        }
+        if self.namespace == "draw" && matches!(self.name, "line" | "polyline" | "bezier" | "arc") {
+            names.retain(|n| !matches!(*n, "texture" | "shading" | "wireframe"));
+        }
+        if self.namespace == "draw" && matches!(self.name, "polyline" | "bezier") {
+            names.retain(|n| *n != "z");
         }
         names.sort_unstable();
         names.dedup();
@@ -488,3 +581,30 @@ pub const AUDIO_FUNCTIONS: &[&str] = &[
     "get_onset",
     "get_onset_strength",
 ];
+
+const fn path(
+    name: &'static str,
+    args: &'static [&'static str],
+    required: &'static [&'static str],
+) -> Builtin {
+    Builtin {
+        namespace: "draw",
+        name,
+        availability: Availability::Both,
+        args,
+        args_3d: &["z"],
+        required,
+        takes_common_3d: true,
+    }
+}
+const fn transform(name: &'static str, args: &'static [&'static str]) -> Builtin {
+    Builtin {
+        namespace: "transform",
+        name,
+        availability: Availability::Both,
+        args,
+        args_3d: &["z"],
+        required: &[],
+        takes_common_3d: false,
+    }
+}

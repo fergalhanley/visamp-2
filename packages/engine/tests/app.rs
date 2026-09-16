@@ -1162,7 +1162,6 @@ fn three_d_calls_are_rejected_in_two_d_mode() {
     for call in [
         "camera::orbit()",
         "camera::position(x: 1)",
-        "transform::push()",
         "transform::rotate_y(deg: 1)",
         "light::ambient()",
         "gfx::depth(enabled: true)",

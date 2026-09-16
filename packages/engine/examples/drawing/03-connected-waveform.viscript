@@ -1,0 +1,16 @@
+prop points = []
+on_init { points = array::filled(count: 128, value: [0.0, 0.0]) }
+on_frame {
+  let wave = audio::detect::get_waveform()
+  for i in 0..128 {
+    let index = (i * array::length(value: wave)) \ 128
+    points[i][0] = math::map(value: i, input_min: 0, input_max: 127, output_min: $WIDTH * 0.05, output_max: $WIDTH * 0.95)
+    points[i][1] = $HEIGHT / 2 + wave[index] * $HEIGHT * 0.35 + math::sin(rad: i * 0.1 + $TIME_SEC) * $HEIGHT * 0.04
+  }
+}
+render {
+  draw::background(color: color::rgb(r: 0.025, g: 0.02, b: 0.06))
+  draw::polyline(points: points, stroke_width: 4, line_join: "round", color: $COLOR_TURQUOISE)
+  draw::bezier(points: [[$WIDTH * 0.1,$HEIGHT * 0.8],[$WIDTH * 0.3,$HEIGHT * 0.1],[$WIDTH * 0.7,$HEIGHT * 0.9],[$WIDTH * 0.9,$HEIGHT * 0.2]],
+    stroke_width: 2, color: color::mix(a: $COLOR_CORAL, b: $COLOR_VIOLET, amount: math::noise(x: $TIME_SEC * 0.2)))
+}

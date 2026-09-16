@@ -6,8 +6,20 @@ System values provide access to runtime information. They are prefixed with `$`.
 
 | Value | Type | Description |
 |-------|------|-------------|
-| `$TIME_SEC` | Float | Seconds since the script started |
-| `$TIME_MS` | Integer | Milliseconds since the script started |
+| `$TIME_SEC` | Float | Monotonic seconds since engine initialization |
+| `$TIME_MS` | Integer | Monotonic milliseconds since engine initialization |
+| `$DELTA_SEC` | Float | Active elapsed seconds since the previous frame; zero on init, first frame and resume |
+| `$TIME_HOUR` | Integer | Local hour, 0–23 |
+| `$TIME_MINUTE` | Integer | Local minute, 0–59 |
+| `$TIME_DAY` | Integer | Local weekday, 0–6; Sunday = 0 |
+| `$TIME_MONTH` | Integer | Local month, 0–11; January = 0 |
+| `$TIME_YEAR` | Integer | Local full year, e.g. 2026 |
+
+Calendar values use the viewer's local timezone. All time values are sampled once
+per frame, including day/month/year rollover. Capture reuses that snapshot.
+Elapsed time retains its existing engine-lifetime epoch when scripts switch.
+`$DELTA_SEC` is not capped; clamp it explicitly for simulations if needed.
+
 
 ```
 on_frame {
@@ -141,7 +153,13 @@ render {
 
 | Value | Type | Description |
 |-------|------|-------------|
-| `$FRAME_COUNT` | Integer | Number of frames rendered so far |
+| `$FRAME_INDEX` | Integer | Zero-based frame index for the current script activation |
+| `$FRAME_COUNT` | Integer | Existing engine-lifetime frame counter, preserved for compatibility |
+
+`$FRAME_INDEX` is 0 in `on_init` and the first frame, then increases once per
+rendered frame. Successful script loads reset it. Repeated reads, handlers, and
+captures do not advance it. Hidden/resumed playback resets the delta baseline.
+
 
 ```
 on_frame {

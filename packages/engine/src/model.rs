@@ -297,6 +297,7 @@ pub struct LinearGradient {
     pub x1: f64,
     pub y1: f64,
     pub stops: Vec<GradientStop>,
+    pub radial_radius: Option<f64>,
 }
 
 /// Runtime value in Visript
@@ -834,6 +835,9 @@ pub enum Expression {
         kind: ColorConstructKind,
         args: Vec<(String, Expression)>,
     },
+    ArrayLength {
+        args: Vec<(String, Expression)>,
+    },
     ArrayFilled {
         args: Vec<(String, Expression)>,
     },
@@ -856,6 +860,8 @@ pub enum ColorConstructKind {
     Rgb,
     Hsl,
     LinearGradient,
+    RadialGradient,
+    Mix,
 }
 
 #[derive(Debug, Clone)]

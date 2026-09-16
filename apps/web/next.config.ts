@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
       "../docs/src/examples/basic.md",
       "../docs/src/examples/animation.md",
       "../docs/src/programming/system-values.md",
+      "../docs/src/drawing/creative-tools.md",
       "../docs/src/effects/filters.md",
       "../docs/src/programming/audio-detection.md",
       "../docs/src/programming/input-detection.md",

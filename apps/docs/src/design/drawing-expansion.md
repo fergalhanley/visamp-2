@@ -1,6 +1,11 @@
 # Drawing expansion proposal
 
-**Status: proposed, not implemented.** Reviewed against Visript 5.0.0 at
+**Status: NOW scope approved and implemented in Visript 5.1 under [VIS-112](https://linear.app/visamp/issue/VIS-112).**
+The current contract is [Creative Drawing Tools](../drawing/creative-tools.md);
+NEXT/LATER work is in [VIS-113](https://linear.app/visamp/issue/VIS-113).
+The remainder preserves the original pre-implementation review.
+
+**Original audit:** Reviewed against Visript 5.0.0 at
 `93ad44c`, 16 September 2026. Tracking: [VIS-111](https://linear.app/visamp/issue/VIS-111).
 The language is **Visript**; scripts keep the `.viscript` extension.
 

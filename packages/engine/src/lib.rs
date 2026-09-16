@@ -13,6 +13,10 @@ pub mod points;
 mod point_renderer;
 pub mod geometry;
 pub mod input;
+pub mod frame_clock;
+pub mod creative_math;
+pub mod drawing;
+mod overlay;
 pub mod interpreter;
 pub mod math3;
 pub mod model;
@@ -165,6 +169,7 @@ pub fn set_asset_points(id: &str, vertices: &[f32]) -> bool {
 /// so nothing one viewer could read stays resident for the next.
 #[wasm_bindgen]
 pub fn clear_assets() {
+    drawing::clear_images();
     assets::with_store_mut(|store| store.clear());
 }
 
@@ -287,6 +292,16 @@ fn init_app() -> Result<(), String> {
         closure.forget();
     }
 
+    // Hidden time is not a simulation step when the host resumes.
+    {
+        let clock_state = state.clone();
+        let closure = Closure::<dyn FnMut(web_sys::Event)>::new(move |_| {
+            clock_state.runtime.borrow_mut().clock.pause();
+        });
+        document.add_event_listener_with_callback("visibilitychange", closure.as_ref().unchecked_ref()).map_err(|_| "could not watch visibility")?;
+        closure.forget();
+    }
+
     // Recomputes the canvas resolution whenever the host's box changes —
     // window resize, fullscreen enter/exit, and the editor's resizable split
     // all land here. Without it the canvas keeps whatever resolution it had
@@ -354,6 +369,7 @@ fn init_app() -> Result<(), String> {
         };
         runtime.audio.begin_frame();
         runtime.frame_count += 1;
+        runtime.clock.begin_frame(utils::start_time_ms() as f64, frame_clock::Calendar::local_now());
 
         // Borrowed apart rather than cloned. The script's blocks and functions
         // do not change between frames, so copying the whole AST sixty times a
@@ -587,6 +603,7 @@ pub fn load_script(code: &str) -> String {
                 if let Some(ref state) = *s.borrow() {
                     let mut runtime = state.runtime.borrow_mut();
                     runtime.input = input::InputState::default();
+                    runtime.clock = frame_clock::FrameClock::default();
                     let Model {
                         blocks,
                         functions,

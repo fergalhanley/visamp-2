@@ -7,12 +7,12 @@ use std::cell::RefCell;
 use crate::math3::Mat4;
 use crate::model::*;
 use crate::scene::*;
-use crate::utils::start_time_ms;
 
 #[derive(Clone)]
 pub struct Runtime {
     pub audio: crate::audio::AudioState,
     pub frame_count: u64,
+    pub clock: crate::frame_clock::FrameClock,
     pub canvas_width: f64,
     pub canvas_height: f64,
     pub input: crate::input::InputState,
@@ -23,6 +23,7 @@ impl Runtime {
         Runtime {
             audio: crate::audio::AudioState::default(),
             frame_count: 0,
+            clock: crate::frame_clock::FrameClock::default(),
             canvas_width: 800.0,
             canvas_height: 600.0,
             input: crate::input::InputState::default(),
@@ -86,7 +87,7 @@ fn with_execution_budget<T>(run: impl FnOnce() -> InterpResult<T>) -> InterpResu
     run()
 }
 
-fn charge_execution_step() -> InterpResult<()> {
+pub(crate) fn charge_execution_step() -> InterpResult<()> {
     EXECUTION_BUDGET.with(|budget| {
         let mut budget = budget.borrow_mut();
         let Some(budget) = budget.as_mut() else {
@@ -160,8 +161,19 @@ fn build_canvas_gradient(
     ctx: &CanvasRenderingContext2d,
     gradient: &LinearGradient,
 ) -> web_sys::CanvasGradient {
-    let canvas_gradient =
-        ctx.create_linear_gradient(gradient.x0, gradient.y0, gradient.x1, gradient.y1);
+    let canvas_gradient = if let Some(radius) = gradient.radial_radius {
+        ctx.create_radial_gradient(
+            gradient.x0,
+            gradient.y0,
+            0.0,
+            gradient.x0,
+            gradient.y0,
+            radius,
+        )
+        .expect("validated radial gradient")
+    } else {
+        ctx.create_linear_gradient(gradient.x0, gradient.y0, gradient.x1, gradient.y1)
+    };
 
     for stop in &gradient.stops {
         CSS.with(|buf| {
@@ -181,7 +193,11 @@ fn build_canvas_gradient(
 /// plain `color` argument otherwise. Every primitive that can be filled with
 /// a `color::linear_gradient` goes through this rather than `set_fill`
 /// directly.
-fn set_fill_paint(ctx: &CanvasRenderingContext2d, color: Color, gradient: Option<&LinearGradient>) {
+pub(crate) fn set_fill_paint(
+    ctx: &CanvasRenderingContext2d,
+    color: Color,
+    gradient: Option<&LinearGradient>,
+) {
     match gradient {
         Some(g) => ctx.set_fill_style_canvas_gradient(&build_canvas_gradient(ctx, g)),
         None => set_fill(ctx, color),
@@ -191,7 +207,7 @@ fn set_fill_paint(ctx: &CanvasRenderingContext2d, color: Color, gradient: Option
 /// Strokes with `gradient` when the script supplied one, or falls back to the
 /// plain `color`/`stroke_color` argument otherwise. `draw::line`'s `color` is
 /// itself a stroke, so this is the counterpart to `set_fill_paint` for it.
-fn set_stroke_paint(
+pub(crate) fn set_stroke_paint(
     ctx: &CanvasRenderingContext2d,
     color: Color,
     gradient: Option<&LinearGradient>,
@@ -274,6 +290,8 @@ pub struct Target<'a> {
     /// CSS post-processing accumulated for the completed canvas frame.
     pub filter: Option<&'a RefCell<String>>,
     pub scramble: Option<&'a RefCell<Option<crate::scramble::Scramble>>>,
+    pub location: Option<SourceLocation>,
+    pub canvas_state: Option<&'a RefCell<crate::drawing::CanvasState>>,
 }
 
 impl<'a> Target<'a> {
@@ -283,6 +301,8 @@ impl<'a> Target<'a> {
             scene: None,
             filter: Some(filter),
             scramble: None,
+            canvas_state: None,
+            location: None,
         }
     }
 
@@ -292,6 +312,8 @@ impl<'a> Target<'a> {
             scene: Some(scene),
             filter: Some(filter),
             scramble: None,
+            canvas_state: None,
+            location: None,
         }
     }
 
@@ -328,6 +350,18 @@ pub fn interpret_render_block(
     functions: &[FunctionDef],
 ) -> InterpResult<()> {
     with_execution_budget(|| {
+        let canvas_state = RefCell::new(crate::drawing::CanvasState::default());
+        let target = Target {
+            canvas_state: Some(&canvas_state),
+            ..target
+        };
+        if let Some(ctx) = target.ctx {
+            ctx.save();
+            ctx.reset_transform()
+                .map_err(|_| "could not reset canvas transform")?;
+            ctx.set_global_composite_operation("source-over")
+                .map_err(|_| "could not reset blend")?;
+        }
         decels.push_scope();
         let result = (|| {
             for statement in block.statements.iter() {
@@ -336,7 +370,10 @@ pub fn interpret_render_block(
             Ok(())
         })();
         decels.pop_scope();
-        result
+        if let Some(ctx) = target.ctx {
+            ctx.restore();
+        }
+        result.and_then(|()| canvas_state.borrow().balanced())
     })
 }
 
@@ -380,6 +417,10 @@ fn interpret_statement(
     target: Target<'_>,
     functions: &[FunctionDef],
 ) -> InterpResult<Option<Value>> {
+    let target = Target {
+        location: Some(statement.location),
+        ..target
+    };
     interpret_statement_kind(&statement.kind, decels, runtime, target, functions).map_err(|error| {
         // Errors cross both statement and expression/function paths as strings.
         // Keep the first (innermost) location when an outer statement unwinds.
@@ -704,6 +745,14 @@ fn interpret_scene_call(
                 "rotate_y" => Mat4::rotation_y(args.angle("deg", "rad")?.unwrap_or(0.0)),
                 "rotate_z" => Mat4::rotation_z(args.angle("deg", "rad")?.unwrap_or(0.0)),
                 "scale" => {
+                    if call.args.iter().any(|a| a.name == "all")
+                        && call
+                            .args
+                            .iter()
+                            .any(|a| matches!(a.name.as_str(), "x" | "y" | "z"))
+                    {
+                        return Err("transform::scale: all conflicts with axis scales".into());
+                    }
                     // `all` is uniform shorthand and wins over the axes.
                     match args.number("all")? {
                         Some(all) => Mat4::scaling(all, all, all),
@@ -743,6 +792,9 @@ fn interpret_scene_call(
 
         "gfx" => {
             let mut scene = scene.borrow_mut();
+            if scene.gfx.overlay && matches!(call.function.as_str(), "depth" | "cull" | "clear") {
+                return Ok(());
+            }
             match call.function.as_str() {
                 "depth" => {
                     scene.gfx.depth_enabled = args.boolean("enabled")?.unwrap_or(true);
@@ -753,18 +805,29 @@ fn interpret_scene_call(
                         Some("additive") => BlendMode::Additive,
                         Some("multiply") => BlendMode::Multiply,
                         Some("none") => BlendMode::None,
-                        _ => BlendMode::Alpha,
+                        None | Some("alpha") => BlendMode::Alpha,
+                        _ => return Err("gfx::blend: invalid mode".into()),
                     }
                 }
                 "cull" => {
                     scene.gfx.cull = match args.text("mode")?.as_deref() {
                         Some("back") => CullMode::Back,
                         Some("front") => CullMode::Front,
-                        _ => CullMode::None,
+                        None | Some("none") => CullMode::None,
+                        _ => return Err("gfx::cull: invalid mode".into()),
                     }
                 }
                 "clear" => scene.gfx.clear = Some(args.color("color")?.unwrap_or(BLACK)),
-                "overlay" => scene.gfx.overlay = args.boolean("enabled")?.unwrap_or(false),
+                "overlay" => {
+                    let enabled = args.boolean("enabled")?.unwrap_or(false);
+                    if enabled && scene.overlay_finished {
+                        return Err("only one final overlay section is supported per frame".into());
+                    }
+                    if !enabled && scene.gfx.overlay {
+                        scene.overlay_finished = true;
+                    }
+                    scene.gfx.overlay = enabled;
+                }
                 other => return Err(format!("Unknown gfx call: {other}")),
             }
         }
@@ -783,6 +846,9 @@ fn record_draw(
     args: &mut ArgReader<'_>,
     scene: &RefCell<Scene>,
 ) -> InterpResult<()> {
+    if scene.borrow().overlay_finished {
+        return Err("world drawing cannot follow overlay".into());
+    }
     if matches!(call.function.as_str(), "point_cloud" | "grid") {
         let Some(cloud) = crate::points::build(call, args.decels, args.runtime, args.functions)?
         else {
@@ -904,13 +970,18 @@ fn record_draw(
     };
 
     let position = args.vec3(0.0, 0.0, 0.0)?;
-    let rotation = Mat4::rotation_z(args.angle("rotation_z_deg", "rotation_z_rad")?.unwrap_or(0.0))
-        .mul(&Mat4::rotation_y(
-            args.angle("rotation_y_deg", "rotation_y_rad")?.unwrap_or(0.0),
-        ))
-        .mul(&Mat4::rotation_x(
-            args.angle("rotation_x_deg", "rotation_x_rad")?.unwrap_or(0.0),
-        ));
+    let rotation = Mat4::rotation_z(
+        args.angle("rotation_z_deg", "rotation_z_rad")?
+            .unwrap_or(0.0),
+    )
+    .mul(&Mat4::rotation_y(
+        args.angle("rotation_y_deg", "rotation_y_rad")?
+            .unwrap_or(0.0),
+    ))
+    .mul(&Mat4::rotation_x(
+        args.angle("rotation_x_deg", "rotation_x_rad")?
+            .unwrap_or(0.0),
+    ));
 
     let local = Mat4::translation(position[0], position[1], position[2])
         .mul(&rotation)
@@ -941,7 +1012,8 @@ fn record_draw(
         Some("flat") => Shading::Flat,
         Some("lambert") => Shading::Lambert,
         // §6.6 — decided at draw time, which is why lights must come first.
-        _ => scene.default_shading(),
+        None => scene.default_shading(),
+        _ => return Err("invalid shading: expected unlit, flat or lambert".into()),
     };
 
     // A texture reference becomes a binding slot on the batch key; the host
@@ -1175,6 +1247,114 @@ fn interpret_statement_function_call(
             filter.push_str(&fragment);
         }
         return Ok(());
+    }
+
+    let planar = function_call.namespace == "draw"
+        && matches!(
+            function_call.function.as_str(),
+            "clear"
+                | "background"
+                | "circle"
+                | "ellipse"
+                | "rect"
+                | "polygon"
+                | "line"
+                | "text"
+                | "polyline"
+                | "bezier"
+                | "arc"
+                | "image"
+        );
+    let overlay = target
+        .scene
+        .map(|s| s.borrow().gfx.overlay)
+        .unwrap_or(false);
+    if overlay {
+        if let Some(b) = crate::builtins::lookup(&function_call.namespace, &function_call.function)
+        {
+            if b.availability == crate::builtins::Availability::ThreeDOnly
+                && !matches!(function_call.namespace.as_str(), "gfx")
+            {
+                return Err(format!("{} is unavailable inside overlay", b.qualified()));
+            }
+            let accepted = b.accepted_args(ContextKind::TwoD);
+            if function_call.namespace != "gfx"
+                && function_call
+                    .args
+                    .iter()
+                    .any(|a| !accepted.contains(&a.name.as_str()))
+            {
+                return Err("3d arguments are unavailable inside overlay".into());
+            }
+        }
+    }
+    let canvas_extension = function_call.namespace == "transform"
+        || (function_call.namespace == "gfx" && function_call.function == "blend")
+        || (planar
+            && (matches!(
+                function_call.function.as_str(),
+                "clear" | "background" | "polyline" | "bezier" | "arc" | "image"
+            ) || function_call.args.iter().any(|a| {
+                matches!(a.name.as_str(), "corner_radius" | "line_cap" | "line_join")
+                    || function_call.function == "polygon" && a.name == "stroke"
+            })));
+    if (planar && target.scene.is_some())
+        || (overlay
+            && (function_call.namespace == "transform"
+                || function_call.namespace == "gfx" && function_call.function == "blend"))
+        || (target.ctx.is_some() && canvas_extension)
+    {
+        let mut args = std::collections::BTreeMap::new();
+        for arg in &function_call.args {
+            if args.contains_key(&arg.name) {
+                return Err(format!(
+                    "{}: duplicate argument {}",
+                    function_call.function, arg.name
+                ));
+            }
+            args.insert(
+                arg.name.clone(),
+                evaluate_expression(&arg.expression, decels, runtime, functions)?,
+            );
+        }
+        let call = crate::drawing::Call {
+            namespace: function_call.namespace.clone(),
+            name: function_call.function.clone(),
+            args,
+            location: target.location,
+        };
+        if let Some(scene) = target.scene {
+            let mut scene = scene.borrow_mut();
+            if overlay {
+                if scene.overlay_calls.len() >= 8192 {
+                    return Err("overlay command limit exceeded".into());
+                }
+                scene.overlay_values += call.value_count()?;
+                if scene.overlay_values > 262144 {
+                    return Err("overlay value budget exceeded (262144 per frame)".into());
+                }
+                scene.overlay_calls.push(call);
+                return Ok(());
+            }
+            if scene.overlay_finished {
+                return Err("world drawing cannot follow the final overlay section".into());
+            }
+            return crate::drawing::world(
+                &call,
+                &mut scene,
+                runtime.canvas_width,
+                runtime.canvas_height,
+            );
+        }
+        if let (Some(ctx), Some(state)) = (target.ctx, target.canvas_state) {
+            return crate::drawing::canvas(
+                &call,
+                ctx,
+                state,
+                runtime.canvas_width,
+                runtime.canvas_height,
+            );
+        }
     }
 
     // 3d mode records into the scene instead of painting a canvas. The
@@ -1679,6 +1859,28 @@ fn evaluate_expression_inner(
             apply_binary(op, l, r)
         }
 
+        Expression::ArrayLength { args } => {
+            let expr = &args
+                .iter()
+                .find(|(n, _)| n == "value")
+                .ok_or("array::length: missing value")?
+                .1;
+            fn len(value: &Value) -> Result<Value, String> {
+                Ok(Value::Integer(match value {
+                    Value::Array(a) => a.len(),
+                    Value::Bytes(a) => a.len(),
+                    Value::Samples(a) => a.len(),
+                    _ => return Err("array::length: value must be an array".into()),
+                } as i64))
+            }
+            if let Expression::Identifier(name) = expr {
+                len(decels
+                    .get(name)
+                    .ok_or_else(|| format!("unknown variable {name}"))?)
+            } else {
+                len(&evaluate_expression(expr, decels, runtime, functions)?)
+            }
+        }
         Expression::ArrayFilled { args } => {
             let arg = |name| {
                 args.iter()
@@ -1745,6 +1947,18 @@ fn evaluate_expression_inner(
             })
         }
         Expression::MathCall { func, args } => {
+            if crate::creative_math::NAMES.contains(&func.as_str()) {
+                let values = args
+                    .iter()
+                    .map(|(n, e)| {
+                        Ok((
+                            n.clone(),
+                            evaluate_expression(e, decels, runtime, functions)?,
+                        ))
+                    })
+                    .collect::<InterpResult<Vec<_>>>()?;
+                return crate::creative_math::evaluate(func, &values).map(Value::Float);
+            }
             let get_arg = |name: &str| -> InterpResult<f64> {
                 for (n, expr) in args.iter() {
                     if n == name {
@@ -1882,15 +2096,49 @@ fn evaluate_expression_inner(
                     let (r, g, b) = hsl_to_rgb(h, s, l);
                     Ok(Value::Color(Color::new(r, g, b, a)))
                 }
-                ColorConstructKind::LinearGradient => {
-                    let x0 = get_arg("x0")?;
-                    let y0 = get_arg("y0")?;
+                ColorConstructKind::Mix => {
+                    let get = |name| -> InterpResult<Value> {
+                        let expr = &args
+                            .iter()
+                            .find(|(n, _)| n == name)
+                            .ok_or_else(|| format!("color::mix: missing {name}"))?
+                            .1;
+                        evaluate_expression(expr, decels, runtime, functions)
+                    };
+                    let a = get("a")?.try_into_color()?;
+                    let b = get("b")?.try_into_color()?;
+                    let amount = get("amount")?.try_into_f64()?;
+                    crate::creative_math::mix(a, b, amount).map(Value::Color)
+                }
+                ColorConstructKind::LinearGradient | ColorConstructKind::RadialGradient => {
+                    let radial = matches!(kind, ColorConstructKind::RadialGradient);
+                    let radius = if radial {
+                        let r = get_arg("radius")?;
+                        if !r.is_finite() || r <= 0.0 {
+                            return Err(
+                                "color::radial_gradient: radius must be positive and finite".into(),
+                            );
+                        }
+                        Some(r)
+                    } else {
+                        None
+                    };
+                    let x0 = get_arg(if radial { "x" } else { "x0" })?;
+                    let y0 = get_arg(if radial { "y" } else { "y0" })?;
+                    if !x0.is_finite() || !y0.is_finite() {
+                        return Err("gradient coordinates must be finite".into());
+                    }
                     let x1 = get_arg("x1")?;
                     let y1 = get_arg("y1")?;
 
                     let stops = match args.iter().find(|(n, _)| n == "color_stops") {
                         Some((_, expr)) => {
-                            stops_from_value(evaluate_expression(expr, decels, runtime, functions)?)
+                            let value = evaluate_expression(expr, decels, runtime, functions)?;
+                            if radial {
+                                validated_stops(value)?
+                            } else {
+                                stops_from_value(value)
+                            }
                         }
                         None => Vec::new(),
                     };
@@ -1901,6 +2149,7 @@ fn evaluate_expression_inner(
                         x1,
                         y1,
                         stops,
+                        radial_radius: radius,
                     })))
                 }
             }
@@ -1910,8 +2159,15 @@ fn evaluate_expression_inner(
 
 pub(crate) fn map_value_runtime(name: &str, runtime: &Runtime) -> InterpResult<Value> {
     match name {
-        "TIME_SEC" => Ok(Value::Float(start_time_ms() as f64 / 1000.0)),
-        "TIME_MS" => Ok(Value::Integer(start_time_ms() as i64)),
+        "TIME_SEC" => Ok(Value::Float(runtime.clock.elapsed_ms / 1000.0)),
+        "TIME_MS" => Ok(Value::Integer(runtime.clock.elapsed_ms as i64)),
+        "FRAME_INDEX" => Ok(Value::Integer(runtime.clock.index as i64)),
+        "DELTA_SEC" => Ok(Value::Float(runtime.clock.delta_sec)),
+        "TIME_HOUR" => Ok(Value::Integer(runtime.clock.calendar.hour as i64)),
+        "TIME_MINUTE" => Ok(Value::Integer(runtime.clock.calendar.minute as i64)),
+        "TIME_DAY" => Ok(Value::Integer(runtime.clock.calendar.day as i64)),
+        "TIME_MONTH" => Ok(Value::Integer(runtime.clock.calendar.month as i64)),
+        "TIME_YEAR" => Ok(Value::Integer(runtime.clock.calendar.year as i64)),
         "WIDTH" => Ok(Value::Float(runtime.canvas_width)),
         "HEIGHT" => Ok(Value::Float(runtime.canvas_height)),
         "FRAME_COUNT" => Ok(Value::Integer(runtime.frame_count as i64)),
@@ -2238,4 +2494,33 @@ fn filled_value_cost(value: &Value) -> InterpResult<usize> {
         }
     }
     Ok(cost)
+}
+
+fn validated_stops(value: Value) -> InterpResult<Vec<GradientStop>> {
+    let Value::Array(values) = value else {
+        return Err("color_stops must be an array".into());
+    };
+    if values.len() < 2 || values.len() > 1024 {
+        return Err("gradient requires 2..1024 ordered stops".into());
+    }
+    let mut previous = 0.0;
+    let mut stops = Vec::new();
+    for value in values {
+        let Value::Array(pair) = value else {
+            return Err("gradient stop must be [offset,color]".into());
+        };
+        if pair.len() != 2 {
+            return Err("gradient stop must be [offset,color]".into());
+        }
+        let offset = pair[0].clone().try_into_f64()?;
+        if !offset.is_finite() || !(previous..=1.0).contains(&offset) {
+            return Err("gradient offsets must be ordered within 0..1".into());
+        }
+        previous = offset;
+        stops.push(GradientStop {
+            offset,
+            color: pair[1].clone().try_into_color()?,
+        });
+    }
+    Ok(stops)
 }

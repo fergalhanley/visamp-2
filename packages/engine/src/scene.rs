@@ -316,6 +316,9 @@ pub struct Scene {
     /// reference the host has not resolved simply draws untextured.
     pub textures: Vec<String>,
     pub warnings: Vec<String>,
+    pub overlay_values: usize,
+    pub overlay_calls: Vec<crate::drawing::Call>,
+    pub overlay_finished: bool,
     triangles: u64,
     dropped: bool,
 }
@@ -332,6 +335,9 @@ impl Default for Scene {
             point_clouds: Vec::new(),
             textures: Vec::new(),
             warnings: Vec::new(),
+            overlay_values: 0,
+            overlay_calls: Vec::new(),
+            overlay_finished: false,
             triangles: 0,
             dropped: false,
         }

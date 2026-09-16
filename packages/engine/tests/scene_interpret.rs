@@ -268,11 +268,11 @@ fn a_wrongly_typed_argument_is_reported_rather_than_ignored() {
 }
 
 #[test]
-fn a_two_d_primitive_in_three_d_says_it_is_not_rendered_yet() {
-    // The resolver accepts these — promoting them to world space is the
-    // renderer's remaining work, and saying so beats drawing nothing.
-    let err = run_err("context 3d\nrender {\n  draw::rect(x: 0.0, y: 0.0, width: 1.0, height: 1.0)\n}\n");
-    assert!(err.contains("not rendered in 3d mode yet"), "{err}");
+fn planar_rectangle_in_three_d_records_a_mesh() {
+    let scene=run("context 3d render {draw::rect(x: 0,y: 0,width: 1,height: 1)}");
+    assert_eq!(scene.commands.len(),1);
+    assert_eq!(scene.meshes[0].indices.len(),6);
+    assert_eq!(scene.meshes[0].vertices[0],[0.0,0.0,0.0]);
 }
 
 // ── asset references ──────────────────────────────────────────────────────

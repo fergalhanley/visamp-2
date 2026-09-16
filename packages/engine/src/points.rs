@@ -220,7 +220,8 @@ fn dependent(expr: &Expression, depth: usize) -> Result<bool, String> {
                 }
                 found
             }
-            Expression::ArrayFilled { args }
+            Expression::ArrayLength { args }
+            | Expression::ArrayFilled { args }
             | Expression::Call { args, .. }
             | Expression::InputCall { args, .. }
             | Expression::AudioCall { args, .. }
@@ -350,6 +351,41 @@ impl Fields<'_> {
                 format!("array_at({offset}, {len}, {})", self.number(index, d)?)
             }
             Expression::MathCall { func, args } => {
+                if crate::creative_math::NAMES.contains(&func.as_str()) {
+                    let names: &[&str] = match func.as_str() {
+                        "lerp" => &["a", "b", "amount"],
+                        "map" => &["value", "input_min", "input_max", "output_min", "output_max", "clamp"],
+                        "wrap" | "smoothstep" => &["value", "min", "max"],
+                        "noise" => &["x", "y", "z", "seed"],
+                        "random" => &["seed", "index"],
+                        _ => unreachable!(),
+                    };
+                    let mut parts = Vec::new();
+                    for name in names {
+                        let arg = args.iter().find(|(n, _)| n == name);
+                        let part = if *name == "clamp" {
+                            if let Some((_, e)) = arg {
+                                if dependent(e, 0)? {
+                                    return Err("math::map: clamp must be frame-constant in GPU fields".into());
+                                }
+                                match self.eval(e)? {
+                                    Value::Boolean(v) => if v { "1.0" } else { "0.0" }.into(),
+                                    _ => return Err("math::map: clamp must be boolean".into()),
+                                }
+                            } else {
+                                "0.0".into()
+                            }
+                        } else if let Some((_, e)) = arg {
+                            self.number(e, d)?
+                        } else if !crate::creative_math::required(func).contains(name) {
+                            "0.0".into()
+                        } else {
+                            return Err(format!("math::{func}: missing {name}"));
+                        };
+                        parts.push(part);
+                    }
+                    return Ok(format!("creative_{func}({})", parts.join(",")));
+                }
                 let names: &[&str] = match func.as_str() {
                     "sin" | "cos" | "tan" => &["rad"],
                     "atan2" => &["y", "x"],
@@ -396,8 +432,20 @@ impl Fields<'_> {
             ));
         }
         let Expression::ColorConstruct { kind, args } = expr else {
-            return Err("per-point colour must use color::rgb or color::hsl".into());
+            return Err("per-point colour must use color::rgb, color::hsl or color::mix".into());
         };
+        if matches!(kind, ColorConstructKind::Mix) {
+            let get = |name: &str| {
+                args.iter()
+                    .find(|(n, _)| n == name)
+                    .map(|(_, e)| e)
+                    .ok_or_else(|| format!("color::mix: missing {name}"))
+            };
+            let a = self.color(get("a")?)?;
+            let b = self.color(get("b")?)?;
+            let amount = self.number(get("amount")?, 0)?;
+            return Ok(format!("creative_color_mix({a},{b},{amount})"));
+        }
         let names = match kind {
             ColorConstructKind::Rgb => ["r", "g", "b"],
             ColorConstructKind::Hsl => ["h", "s", "l"],

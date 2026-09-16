@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use crate::scene::MeshData;
 
-/// Decoded, premultiplied-alpha RGBA pixels for one asset.
+/// Decoded, straight-alpha RGBA pixels for one asset.
 pub struct TexturePixels {
     pub width: u32,
     pub height: u32,

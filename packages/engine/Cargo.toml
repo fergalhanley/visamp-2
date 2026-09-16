@@ -1,7 +1,7 @@
 [package]
 name = "visamp_2"
 description = "The Visript visualisation language for creative coding in the browser"
-version = "5.0.0"
+version = "5.1.0"
 authors = ["Fergal Hanley <fergalhanley@gmail.com>"]
 categories = ["wasm"]
 readme = "README.md"
@@ -47,6 +47,7 @@ features = [
   "Blob",
   "ResizeObserver",
   "CanvasGradient",
+  "ImageData",
   "WebGl2RenderingContext",
   "WebGlProgram",
   "WebGlShader",
@@ -60,3 +61,6 @@ features = [
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }

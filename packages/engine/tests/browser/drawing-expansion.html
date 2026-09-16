@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>Drawing expansion tests</title><link rel="icon" href="data:,"><pre id="result">Running…</pre><div id="visamp-stage" style="width:640px;height:480px"></div>
+<script type="module">
+import init,* as engine from '../../pkg-validator/visamp_2.js';
+import {verifyDrawing} from './drawing-expansion.mjs';
+const queue=[];window.requestAnimationFrame=cb=>(queue.push(cb),queue.length);
+try {await init();const step=()=>{queue.shift()(performance.now());const e=engine.get_last_error();if(e)throw Error(e);};const load=s=>{const e=engine.load_script(s);if(e)throw Error(e);};window.results=await verifyDrawing(engine,step,load);}
+catch(e){window.results={passed:false,error:String(e)};console.error(e);}
+document.querySelector('#result').textContent=JSON.stringify(window.results,null,2);
+</script>

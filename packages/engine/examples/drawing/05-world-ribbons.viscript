@@ -1,0 +1,20 @@
+context 3d
+prop points = []
+on_init { points = array::filled(count: 96, value: [0.0,0.0,0.0]) }
+on_frame {
+  for i in 0..96 {
+    let angle = i * 0.18 + $TIME_SEC * 0.2
+    points[i][0] = math::cos(rad: angle) * 2
+    points[i][1] = (i / 95 - 0.5) * 5
+    points[i][2] = math::sin(rad: angle) * 2
+  }
+}
+render {
+  draw::background(color: color::rgb(r: 0.015,g: 0.025,b: 0.05))
+  camera::orbit(distance: 10, yaw_deg: $TIME_SEC * 8, pitch_deg: 15)
+  draw::polyline(points: points, stroke_width: 0.07, line_join: "round", line_cap: "round", color: $COLOR_TURQUOISE)
+  draw::rect(x: -0.6,y: -0.6,width: 1.2,height: 1.2,corner_radius: 0.2,color: $COLOR_CORAL,rotation_y_deg: $TIME_SEC * 30)
+  gfx::overlay(enabled: true)
+  draw::text(content: "WORLD RIBBON / SCREEN OVERLAY",x: 24,y: 38,size: 20,color: $COLOR_WHITE)
+  draw::arc(x: $WIDTH - 55,y: 55,radius: 25,sweep_deg: ($FRAME_INDEX % 360),stroke_width: 4,color: $COLOR_CORAL)
+}

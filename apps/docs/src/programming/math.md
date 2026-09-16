@@ -137,3 +137,7 @@ render {
   draw::text(content: "Distance: ", x: 350.0, y: 50.0, size: 20.0, color: $COLOR_WHITE)
 }
 ```
+
+## Additions in 5.1
+
+See [Creative Drawing Tools](../drawing/creative-tools.md) for colour mixing, radial gradients, interpolation, remapping, wrapping, smoothstep, array length and seeded noise/random.

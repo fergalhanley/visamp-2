@@ -25,6 +25,7 @@
 # Drawing
 
 - [Drawing Primitives](./drawing/primitives.md)
+- [Creative Drawing Tools](./drawing/creative-tools.md)
 - [Colors](./drawing/colors.md)
 - [Color Constructors](./drawing/color-constructors.md)
 
@@ -51,4 +52,4 @@
 
 # Design Proposals
 
-- [Drawing Expansion (proposed)](./design/drawing-expansion.md)
+- [Drawing Expansion Design](./design/drawing-expansion.md)

@@ -2,9 +2,12 @@
 
 All drawing happens inside `render` blocks using `draw::` functions.
 
+For polylines, Béziers, arcs, images, rounded rectangles, polygon outlines and
+2D transforms, see [Creative Drawing Tools](creative-tools.md).
+
 ## draw::clear
 
-Clears the entire canvas. Call this at the start of your `render` block to start fresh each frame. Omit it to let previous frames persist (useful for trails and accumulation effects).
+Clears the entire canvas. Call this at the start of your `render` block to start fresh each frame. In 2D, omit it to let previous frames persist (useful for trails and accumulation effects).
 
 ```
 draw::clear()

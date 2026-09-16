@@ -3,13 +3,9 @@
 Adding `context 3d` switches the coordinate model from flat pixels to world
 space, and unlocks a camera, a transform stack, lights and solid primitives.
 
-> **Current rendering limits (5.0).** Solids, sprites, meshes, models, point
-> clouds and grids render through WebGL2. Promoted 2D calls (`rect`, `circle`,
-> `ellipse`, `line`, `polygon`, `text`, `clear`, `background`) pass signature
-> checks but report `is not rendered in 3d mode yet`. `gfx::overlay` currently
-> records state without a screen-space rendering pass, so overlay text is also
-> unavailable. See the [drawing expansion proposal](../design/drawing-expansion.md)
-> for the recommended completion work; proposed APIs are not available yet.
+> **Visript 5.1:** planar shapes, thick strokes and final screen-space overlays
+> are supported. See [Creative Drawing Tools](../drawing/creative-tools.md) for
+> anchors, units, budgets and context-specific limits.
 
 ```
 context 3d
@@ -242,10 +238,10 @@ gfx::depth(enabled: true, write: false)
 
 ### Overlay: intended contract (not rendered yet)
 
-The intended behavior of `gfx::overlay(enabled: true)` is screen space for titles, meters and
-vignettes. Once implemented, inside the bracket 2D primitives should behave as they do in
-`context 2d` — pixel coordinates, no depth test, drawn on top of all 3D
-geometry — and the transform stack is bypassed.
+`gfx::overlay(enabled: true)` begins the final screen-space section. Its 2D
+primitives use pixel coordinates above the world scene, with a separate 2D
+transform stack. Filters and scramble apply after the overlay. World draws cannot
+follow it; world text remains unsupported.
 
 ```
 gfx::overlay(enabled: true)
@@ -256,27 +252,12 @@ gfx::overlay(enabled: false)
 Any 3D call inside the bracket is an error, since none of it means anything in
 screen space.
 
-## What the validator accepts
+## Supported combinations
 
-| Call group | `context 2d` | `context 3d` | inside `gfx::overlay` |
-|---|---|---|---|
-| 2D `draw::` set | ✓ | ✓ world space, `z`/`rot_*` legal | ✓ screen space |
-| 3D `draw::` set | error | ✓ | error |
-| `camera::` | error | ✓ | error |
-| `transform::` | error | ✓ | error |
-| `light::` | error | ✓ | error |
-| `gfx::depth`/`blend`/`cull`/`clear` | error | ✓ | ignored |
-| `gfx::overlay` | error | ✓ | idempotent |
-| `math::`, `color::`, your own `fn` | ✓ | ✓ | ✓ |
-
-This table describes signature/context acceptance, not completed renderer support.
-The promoted 2D and overlay combinations above currently fail at runtime despite
-passing these checks. Other dynamic invalid values can also require runtime checks.
-
-One limit worth knowing: overlay is tracked as straight-line state. If you turn
-it on inside an `if` or a `for`, the checker cannot know whether it is on
-afterwards without running your script, so it stops reporting rather than
-guessing at an error you may not have.
+See the [availability table](../drawing/creative-tools.md#availability). Literal
+unsupported usage is rejected by the validator; dynamically chosen overlay state
+and invalid values are checked at runtime. The 2D transform subset and blending
+are also available inside an overlay.
 
 ## Limits
 

@@ -55,10 +55,12 @@ void main() {
         vec3 centre = a_model[3].xyz;
         float width = length(a_model[0].xyz);
         float height = length(a_model[1].xyz);
+        float roll = atan(a_model[0].y, a_model[0].x);
+        vec2 local = mat2(cos(roll), sin(roll), -sin(roll), cos(roll)) * (a_position.xy * vec2(width,height));
         world = vec4(
             centre
-                + u_camera_right * a_position.x * width
-                + u_camera_up * a_position.y * height,
+                + u_camera_right * local.x
+                + u_camera_up * local.y,
             1.0
         );
         v_normal = normalize(cross(u_camera_right, u_camera_up));
@@ -91,6 +93,7 @@ uniform int u_textured;
 uniform sampler2D u_texture;
 
 uniform int u_lit;
+uniform int u_flat;
 uniform int u_premultiply;
 uniform vec3 u_ambient;
 
@@ -118,7 +121,7 @@ void main() {
         return;
     }
 
-    vec3 normal = normalize(v_normal);
+    vec3 normal = u_flat == 1 ? normalize(cross(dFdx(v_world), dFdy(v_world))) * (gl_FrontFacing ? 1.0 : -1.0) : normalize(v_normal);
     vec3 light = u_ambient;
 
     for (int i = 0; i < 8; i++) {
@@ -144,6 +147,8 @@ void main() {
 "#;
 
 struct Mesh {
+    gl: GL,
+    vertices: WebGlBuffer,
     vao: WebGlVertexArrayObject,
     /// Triangle indices, and the line-segment indices used for wireframe.
     /// Two buffers rather than one: wireframe is not a draw mode over the same
@@ -165,6 +170,7 @@ pub struct Renderer {
     textures: HashMap<String, (u32, WebGlTexture)>,
     premultiplied: bool,
     points: crate::point_renderer::PointRenderer,
+    overlay: Option<crate::overlay::Overlay>,
 }
 
 impl Renderer {
@@ -184,6 +190,7 @@ impl Renderer {
         };
         Ok(Renderer {
             points,
+            overlay: None,
             gl,
             program,
             instances,
@@ -202,6 +209,10 @@ impl Renderer {
         height: u32,
         premultiplied: bool,
     ) -> Result<(), String> {
+        // Also discard meshes left by a failed preceding frame. Frame-local
+        // ids must never resolve to geometry recorded before that failure.
+        self.meshes
+            .retain(|primitive, _| !matches!(primitive, Primitive::Mesh { .. }));
         self.premultiplied = premultiplied;
         self.sync_textures(scene, assets);
         let gl = self.gl.clone();
@@ -251,6 +262,17 @@ impl Renderer {
             self.draw(scene, &batch, width, height)?;
         }
 
+        if !scene.overlay_calls.is_empty() {
+            if self.overlay.is_none() {
+                self.overlay = Some(crate::overlay::Overlay::new(&gl)?);
+            }
+            self.overlay.as_mut().unwrap().render(
+                &scene.overlay_calls,
+                width,
+                height,
+                premultiplied,
+            )?;
+        }
         // Meshes are rebuilt every frame: a `Primitive::Mesh` id is only
         // meaningful within the frame that recorded it, so caching one across
         // frames would draw last frame's geometry.
@@ -411,9 +433,6 @@ impl Renderer {
             mesh.triangles.clone()
         };
 
-        // `flat` is treated as `lambert` for now: distinguishing them needs a
-        // second program compiled with a flat-interpolated normal, and getting
-        // it wrong silently would be worse than shading a little too smoothly.
         // A reference the host has not resolved — not yet loaded, withdrawn,
         // or one this viewer may not read — simply draws untextured.
         let texture = batch
@@ -434,6 +453,7 @@ impl Renderer {
 
         let lit = i32::from(batch.key.shading != Shading::Unlit);
         self.set_int("u_lit", lit);
+        self.set_int("u_flat", i32::from(batch.key.shading == Shading::Flat));
         self.set_int(
             "u_billboard",
             i32::from(batch.key.primitive == Primitive::Sprite),
@@ -550,6 +570,8 @@ impl Renderer {
         self.meshes.insert(
             primitive,
             Mesh {
+                gl: gl.clone(),
+                vertices,
                 vao,
                 triangles,
                 edges,
@@ -702,5 +724,23 @@ fn compile(gl: &GL, kind: u32, source: &str) -> Result<web_sys::WebGlShader, Str
             .unwrap_or_else(|| "unknown shader error".to_string());
         gl.delete_shader(Some(&shader));
         Err(error)
+    }
+}
+
+impl Drop for Mesh {
+    fn drop(&mut self) {
+        self.gl.delete_vertex_array(Some(&self.vao));
+        for b in [&self.vertices, &self.triangles, &self.edges] {
+            self.gl.delete_buffer(Some(b));
+        }
+    }
+}
+impl Drop for Renderer {
+    fn drop(&mut self) {
+        self.gl.delete_program(Some(&self.program));
+        self.gl.delete_buffer(Some(&self.instances));
+        for (_, texture) in self.textures.values() {
+            self.gl.delete_texture(Some(texture));
+        }
     }
 }

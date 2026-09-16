@@ -346,6 +346,8 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 "rgb" => ColorConstructKind::Rgb,
                 "hsl" => ColorConstructKind::Hsl,
                 "linear_gradient" => ColorConstructKind::LinearGradient,
+                "radial_gradient" => ColorConstructKind::RadialGradient,
+                "mix" => ColorConstructKind::Mix,
                 _ => unreachable!("Unknown color construct: {}", kind_str),
             };
             let args: Vec<(String, Expression)> = inner
@@ -361,7 +363,8 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 .collect();
             Expression::ColorConstruct { kind, args }
         }
-        Rule::array_expr => {
+        Rule::array_expr | Rule::array_length_expr => {
+            let is_length = pair.as_rule() == Rule::array_length_expr;
             let args = pair
                 .into_inner()
                 .flat_map(|p| p.into_inner())
@@ -373,7 +376,11 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                     )
                 })
                 .collect();
-            Expression::ArrayFilled { args }
+            if is_length {
+                Expression::ArrayLength { args }
+            } else {
+                Expression::ArrayFilled { args }
+            }
         }
         Rule::input_expr => {
             let mut inner = pair.into_inner();
@@ -649,9 +656,7 @@ fn build_value(pair: pest::iterators::Pair<Rule>) -> Value {
             let values: Vec<Value> = pair.into_inner().map(|p| build_value(p)).collect();
             Value::Array(values)
         }
-        Rule::string => {
-            Value::String(pair.as_str()[1..pair.as_str().len() - 1].to_string())
-        }
+        Rule::string => Value::String(pair.as_str()[1..pair.as_str().len() - 1].to_string()),
         Rule::logical_or_expr
         | Rule::logical_and_expr
         | Rule::bit_or_expr

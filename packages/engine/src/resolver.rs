@@ -114,11 +114,14 @@ impl Resolver {
                             let mut literal = value.clone();
                             loop {
                                 let children: Vec<_> = literal.clone().into_inner().collect();
-                                if children.len() != 1 { break; }
+                                if children.len() != 1 {
+                                    break;
+                                }
                                 literal = children[0].clone();
                             }
                             let text = literal.as_str();
-                            if literal.as_rule() == Rule::string && path.ends_with("is_button_down") {
+                            if literal.as_rule() == Rule::string && path.ends_with("is_button_down")
+                            {
                                 if let Err(e) = crate::input::button_mask(&text[1..text.len() - 1])
                                 {
                                     self.errors.push(located(&value, e));
@@ -202,6 +205,24 @@ impl Resolver {
                             ),
                         ));
                     }
+                }
+                for child in pair.into_inner() {
+                    self.walk(child);
+                }
+            }
+            Rule::array_length_expr => {
+                let args: Vec<_> = pair
+                    .clone()
+                    .into_inner()
+                    .flat_map(|p| p.into_inner())
+                    .collect();
+                if args.len() != 1
+                    || args[0].clone().into_inner().next().unwrap().as_str() != "value"
+                {
+                    self.errors.push(located(
+                        &pair,
+                        "array::length requires exactly one named value argument".into(),
+                    ));
                 }
                 for child in pair.into_inner() {
                     self.walk(child);
@@ -374,6 +395,26 @@ impl Resolver {
             })
             .collect();
 
+        if self.context == ContextKind::ThreeD
+            && self.overlay == Overlay::Off
+            && builtin.namespace == "draw"
+        {
+            if matches!(builtin.name, "text" | "image") {
+                self.errors.push(located(
+                    pair,
+                    format!(
+                        "{} requires gfx::overlay(enabled: true) in 3d",
+                        builtin.qualified()
+                    ),
+                ));
+            }
+            if args.iter().any(|(n, _)| n == "gradient") {
+                self.errors.push(located(
+                    pair,
+                    "gradients are supported in 2d/overlay only".into(),
+                ));
+            }
+        }
         self.check_args(builtin, &args, pair);
         self.track_overlay(builtin, &args);
     }
@@ -392,6 +433,16 @@ impl Resolver {
             return;
         };
 
+        let required: &[&str] = if namespace == "math" {
+            crate::creative_math::required(kind)
+        } else {
+            match kind {
+                "mix" => &["a", "b", "amount"],
+                "radial_gradient" => &["x", "y", "radius", "color_stops"],
+                _ => &[],
+            }
+        };
+        let mut seen = std::collections::HashSet::new();
         let mut alpha_seen = false;
         for arg in inner.flat_map(|p| p.into_inner()) {
             if !matches!(arg.as_rule(), Rule::color_arg | Rule::math_arg) {
@@ -401,6 +452,12 @@ impl Resolver {
                 continue;
             };
             let name = name_pair.as_str();
+            if !seen.insert(name.to_owned()) && !required.is_empty() {
+                self.errors.push(located(
+                    &name_pair,
+                    format!("{namespace}::{kind}: duplicate argument '{name}'"),
+                ));
+            }
             if namespace == "color" && matches!(kind, "rgb" | "hsl") && name == "a" {
                 if alpha_seen {
                     self.errors.push(located(
@@ -430,6 +487,14 @@ impl Resolver {
                 format!("{namespace}::{kind}: unknown argument '{name}'{suggestion}"),
             ));
         }
+        for name in required {
+            if !seen.contains(*name) {
+                self.errors.push(located(
+                    pair,
+                    format!("{namespace}::{kind}: missing {name}"),
+                ));
+            }
+        }
     }
 
     /// Everything except the 2D `draw::` set, which stays legal in overlay.
@@ -438,7 +503,7 @@ impl Resolver {
             // §7: gfx state calls are ignored rather than rejected in overlay,
             // and gfx::overlay itself is idempotent.
             "gfx" => false,
-            "draw" => builtin.availability == Availability::ThreeDOnly,
+            "draw" | "transform" => builtin.availability == Availability::ThreeDOnly,
             _ => true,
         }
     }
@@ -449,7 +514,67 @@ impl Resolver {
         args: &[(String, Pair<Rule>)],
         call: &Pair<Rule>,
     ) {
-        let accepted = builtin.accepted_args(self.context);
+        let effective_context = if self.overlay == Overlay::On {
+            ContextKind::TwoD
+        } else {
+            self.context
+        };
+        let accepted = builtin.accepted_args(effective_context);
+        let mut seen = std::collections::HashSet::new();
+        for (name, arg) in args {
+            if !seen.insert(name) {
+                self.errors.push(located(
+                    arg,
+                    format!("{}: duplicate argument '{name}'", builtin.qualified()),
+                ));
+            }
+            if builtin.name == "sprite"
+                && (name.starts_with("rotation_x_") || name.starts_with("rotation_y_"))
+            {
+                self.errors.push(located(
+                    arg,
+                    "billboard sprites support rotation_z only; tilt is unavailable".into(),
+                ));
+            }
+            let allowed: &[&str] = match (builtin.namespace, builtin.name, name.as_str()) {
+                ("gfx", "blend", "mode") => &["alpha", "additive", "multiply", "none"],
+                ("gfx", "cull", "mode") => &["back", "front", "none"],
+                ("draw", _, "shading") => &["unlit", "flat", "lambert"],
+                ("draw", _, "line_cap") => &["butt", "round", "square"],
+                ("draw", _, "line_join") => &["round", "bevel"],
+                _ => &[],
+            };
+            let raw = arg
+                .as_str()
+                .split_once(':')
+                .map(|(_, v)| v.trim())
+                .unwrap_or("");
+            if !allowed.is_empty()
+                && raw.starts_with('"')
+                && raw.ends_with('"')
+                && !allowed.contains(&raw.trim_matches('"'))
+            {
+                self.errors.push(located(
+                    arg,
+                    format!(
+                        "{}: {name} must be {}",
+                        builtin.qualified(),
+                        allowed.join(", ")
+                    ),
+                ));
+            }
+        }
+        if builtin.namespace == "draw"
+            && builtin.name == "arc"
+            && !args
+                .iter()
+                .any(|(n, _)| n == "sweep_deg" || n == "sweep_rad")
+        {
+            self.errors.push(located(
+                call,
+                "draw::arc: sweep_deg or sweep_rad is required".into(),
+            ));
+        }
 
         for (name, arg_pair) in args {
             if accepted.contains(&name.as_str()) {

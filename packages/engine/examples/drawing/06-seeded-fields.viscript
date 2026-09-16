@@ -1,0 +1,15 @@
+context 3d
+render {
+  draw::background(color: color::rgb(r: 0.01,g: 0.015,b: 0.04))
+  camera::orbit(distance: 12,yaw_deg: $TIME_SEC * 4,pitch_deg: 30)
+  draw::grid(columns: 64,rows: 64,
+    x: ($GRID_COLUMN / 63 - 0.5) * 10,
+    z: ($GRID_ROW / 63 - 0.5) * 10,
+    y: math::noise(x: $GRID_COLUMN * 0.08,y: $GRID_ROW * 0.08,z: $TIME_SEC * 0.15,seed: 42) * 2 - 1,
+    color: color::mix(a: $COLOR_NAVY,b: $COLOR_TURQUOISE,amount: math::noise(x: $GRID_COLUMN * 0.08,y: $GRID_ROW * 0.08,z: $TIME_SEC * 0.15,seed: 42)))
+  draw::point_cloud(count: 512,
+    x: math::random(seed: 1,index: $POINT_INDEX) * 10 - 5,
+    y: 2 + math::random(seed: 2,index: $POINT_INDEX) * 3,
+    z: math::random(seed: 3,index: $POINT_INDEX) * 10 - 5,
+    size: 2,color: $COLOR_CORAL)
+}

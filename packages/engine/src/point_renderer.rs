@@ -34,6 +34,7 @@ vec3 point_hsl(vec3 hsl) {
     vec3 hue = clamp(abs(fract(hsl.x + vec3(0.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
     return hsl.z + (hue - 0.5) * (1.0 - abs(2.0*hsl.z - 1.0)) * hsl.y;
 }
+/*CREATIVE_MATH*/
 void main() {
 /*FIELDS*/
     vec4 view_position = u_view * u_model * vec4(point_position, 1.0);
@@ -132,7 +133,7 @@ impl PointRenderer {
         }
         let gl = &self.gl;
         if !self.programs.contains_key(&cloud.body) {
-            let source = VERTEX.replace("/*FIELDS*/", &cloud.body);
+            let source = VERTEX.replace("/*FIELDS*/", &cloud.body).replace("/*CREATIVE_MATH*/", include_str!("creative_math.glsl"));
             let program = crate::renderer::link(gl, &source, FRAGMENT)
                 .map_err(|e| format!("point cloud shader: {e}"))?;
             self.programs.insert(cloud.body.clone(), program);

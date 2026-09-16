@@ -218,3 +218,7 @@ render {
   draw::line(x1: 0.0, y1: 0.0, x2: 800.0, y2: 600.0, gradient: g, stroke_width: 4.0)
 }
 ```
+
+## Additions in 5.1
+
+See [Creative Drawing Tools](../drawing/creative-tools.md) for colour mixing, radial gradients, interpolation, remapping, wrapping, smoothstep, array length and seeded noise/random.
