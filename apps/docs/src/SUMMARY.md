@@ -48,3 +48,7 @@
 - [Basic Examples](./examples/basic.md)
 - [Animation Examples](./examples/animation.md)
 - [3D Examples](./examples/3d.md)
+
+# Design Proposals
+
+- [Drawing Expansion (proposed)](./design/drawing-expansion.md)

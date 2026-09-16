@@ -3,12 +3,13 @@
 Adding `context 3d` switches the coordinate model from flat pixels to world
 space, and unlocks a camera, a transform stack, lights and solid primitives.
 
-> **Partly renderable.** The solid primitives below — `cube`, `sphere`, `plane`,
-> `cylinder`, `cone`, `torus`, `sprite`, `mesh` and `model` — render through the
-> WebGL2 renderer, with lights, the transform stack and textures. The 2D
-> primitives promoted into 3D (`rect`, `circle`, `line`, `polygon`, `text`)
-> still parse and type-check but report `is not rendered in 3d mode yet` at run
-> time. Expect those pictures to arrive, not the syntax to change.
+> **Current rendering limits (5.0).** Solids, sprites, meshes, models, point
+> clouds and grids render through WebGL2. Promoted 2D calls (`rect`, `circle`,
+> `ellipse`, `line`, `polygon`, `text`, `clear`, `background`) pass signature
+> checks but report `is not rendered in 3d mode yet`. `gfx::overlay` currently
+> records state without a screen-space rendering pass, so overlay text is also
+> unavailable. See the [drawing expansion proposal](../design/drawing-expansion.md)
+> for the recommended completion work; proposed APIs are not available yet.
 
 ```
 context 3d
@@ -239,10 +240,10 @@ gfx::blend(mode: "additive")
 gfx::depth(enabled: true, write: false)
 ```
 
-### Overlay: back to screen space
+### Overlay: intended contract (not rendered yet)
 
-`gfx::overlay(enabled: true)` switches to screen space for titles, meters and
-vignettes. Inside the bracket, 2D primitives behave exactly as they do in
+The intended behavior of `gfx::overlay(enabled: true)` is screen space for titles, meters and
+vignettes. Once implemented, inside the bracket 2D primitives should behave as they do in
 `context 2d` — pixel coordinates, no depth test, drawn on top of all 3D
 geometry — and the transform stack is bypassed.
 
@@ -255,7 +256,7 @@ gfx::overlay(enabled: false)
 Any 3D call inside the bracket is an error, since none of it means anything in
 screen space.
 
-## What is legal where
+## What the validator accepts
 
 | Call group | `context 2d` | `context 3d` | inside `gfx::overlay` |
 |---|---|---|---|
@@ -268,9 +269,9 @@ screen space.
 | `gfx::overlay` | error | ✓ | idempotent |
 | `math::`, `color::`, your own `fn` | ✓ | ✓ | ✓ |
 
-Everything in this table is checked when the script compiles, before a single
-frame runs, so a mistake shows up as a squiggle in the editor rather than a
-blank canvas.
+This table describes signature/context acceptance, not completed renderer support.
+The promoted 2D and overlay combinations above currently fail at runtime despite
+passing these checks. Other dynamic invalid values can also require runtime checks.
 
 One limit worth knowing: overlay is tracked as straight-line state. If you turn
 it on inside an `if` or a `for`, the checker cannot know whether it is on
