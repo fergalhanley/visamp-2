@@ -20,7 +20,7 @@ fn run(source: &str) -> Scene {
         interpret_render_block(
             block,
             &mut model.decels,
-            Target::scene(&scene, &std::cell::RefCell::new(String::new())),
+            Target::scene(&scene, &std::cell::RefCell::new(Vec::new())),
             &runtime,
             &functions,
         )
@@ -42,7 +42,7 @@ fn run_err(source: &str) -> String {
         if let Err(e) = interpret_render_block(
             block,
             &mut model.decels,
-            Target::scene(&scene, &std::cell::RefCell::new(String::new())),
+            Target::scene(&scene, &std::cell::RefCell::new(Vec::new())),
             &runtime,
             &functions,
         ) {
@@ -439,7 +439,7 @@ fn point_cloud_rejects_excessive_audio_data_and_expression_complexity() {
     let scene = RefCell::new(Scene::default());
     let error = interpret_render_block(
         &model.blocks[0], &mut model.decels,
-        Target::scene(&scene, &RefCell::new(String::new())),
+        Target::scene(&scene, &RefCell::new(Vec::new())),
         &runtime,
         &model.functions,
     )

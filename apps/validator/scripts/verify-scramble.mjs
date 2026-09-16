@@ -322,7 +322,7 @@ if (!process.argv.includes("--serve")) {
                 values.every((v) => v[0] === 0),
                 "opaque refresh clears history",
               );
-            else if (colour.includes("1.0"))
+            else if (colour === "color::rgb(a: 0.0)")
               ensure(
                 values.every((v) => v[0] === 255 && v[3] === 255),
                 "transparent refresh retains history",
@@ -343,7 +343,7 @@ if (!process.argv.includes("--serve")) {
         console.log("CHECK: fade timing passed");
         // New depth every frame, even if the previous frame ended with depth writes disabled.
         h.load(
-          `context 3d\nprop t = 0\non_frame {\n t += 1\n}\nrender {\n${effect(3, "color::rgb(a: 0.0)")}\ncamera::orthographic(height: 80)\nif t == 1 {\n draw::sprite(width: 30, height: 30, z: 2, color: $COLOR_RED, shading: "unlit")\n} else {\n draw::sprite(width: 30, height: 30, z: 1, color: $COLOR_GREEN, shading: "unlit")\n draw::sprite(width: 30, height: 30, z: 0, color: $COLOR_BLUE, shading: "unlit")\n}\ngfx::depth(write: false)\ndraw::sprite(x: 50, w: 1, h: 1)\n}\n`,
+          `context 3d\nprop t = 0\non_frame {\n t += 1\n}\nrender {\n${effect(3, "color::rgb(a: 0.0)")}\ncamera::orthographic(height: 80)\nif t == 1 {\n draw::sprite(width: 30, height: 30, z: 2, color: $COLOR_RED, shading: "unlit")\n} else {\n draw::sprite(width: 30, height: 30, z: 1, color: $COLOR_GREEN, shading: "unlit")\n draw::sprite(width: 30, height: 30, z: 0, color: $COLOR_BLUE, shading: "unlit")\n}\ngfx::depth(write: false)\ndraw::sprite(x: 50, width: 1, height: 1)\n}\n`,
         );
         h.step();
         ensure(

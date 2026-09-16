@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8" /><title>GPU filter verification</title
+><link rel="icon" href="data:," />
+<pre id="result">Running…</pre>
+<div
+  id="visamp-stage"
+  style="width: 1280px; height: 720px; background: black"
+></div>
+<script type="module">
+  import init, * as engine from "../../pkg-validator/visamp_2.js";
+  import { verifyFilters } from "./filters.mjs";
+  const queue = [];
+  window.requestAnimationFrame = (cb) => (queue.push(cb), queue.length);
+  try {
+    await init();
+    const load = (source) => {
+      const error = engine.load_script(source);
+      if (error) throw Error(error);
+    };
+    const step = () => {
+      queue.shift()(performance.now());
+      const error = engine.get_last_error();
+      if (error) throw Error(error);
+    };
+    window.results = await verifyFilters(engine, load, step);
+  } catch (error) {
+    window.results = { passed: false, error: String(error) };
+    console.error(error);
+  }
+  document.querySelector("#result").textContent = JSON.stringify(
+    window.results,
+    null,
+    2,
+  );
+</script>

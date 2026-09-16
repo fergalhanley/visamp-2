@@ -5,7 +5,6 @@ const engine = vi.hoisted(() => ({
   load_script: vi.fn(() => ""),
   clear_assets: vi.fn(),
   get_last_error: vi.fn(() => ""),
-  get_canvas_filter: vi.fn(() => ""),
   input_capabilities: vi.fn(() => 2),
   queue_input: vi.fn(),
   clear_input: vi.fn(),

@@ -10,7 +10,7 @@ fn run(source: &str) -> Result<(), String> {
     let mut model = Model::from_script(&script);
     let runtime = Runtime::new();
     let scene = RefCell::new(Scene::default());
-    let filter = RefCell::new(String::new());
+    let filter = RefCell::new(Vec::new());
     for block in &model.blocks {
         if block.block_type == BlockType::Render {
             interpret_render_block(

@@ -96,10 +96,10 @@ and model-backed textured particles (2.5.0).
 for both 2D and 3D scripts. It rerenders the current render blocks at that size,
 using copies of properties and runtime values and skipping lifecycle hooks.
 3D captures support the same meshes, model points and bitmap sprites as playback.
-CSS filters are baked into the image. Captures render a fresh frame; accumulated
+Engine GPU filters are baked into the image, using the same pipeline as playback. Captures render a fresh frame; accumulated
 feedback/scramble history from playback is not included.
 
-One detached WebGL2 renderer is reused for 3D captures, with recreation if its
+One detached WebGL2 context is reused for 3D and filtered 2D captures, with recreation if its
 context is lost. Pixels are copied to the output canvas synchronously before
 asynchronous PNG encoding, so playback and later captures cannot clear the image.
 Capture failures reject with JavaScript `Error` objects and retain Visript statement
@@ -148,3 +148,10 @@ under this package. Click **Run audio tests** to unlock browser audio.
 Engine 4.1 adds `get_frequency()` for the original browser byte-spectrum response.
 It is cached separately from the audio-thread linear spectrum. See
 [frequency restoration](RESTORING_FREQUENCY.md) for backed-up script restoration.
+
+## Filter output verification
+
+See [the shared GPU filter design](reviews/2026-09-filter-output.md). After building
+the validator WASM and serving the repository root, open
+`packages/engine/tests/browser/filters.html` for pixel comparisons of playback and
+capture, filter order, alpha, blur, feedback isolation, resize and context recovery.

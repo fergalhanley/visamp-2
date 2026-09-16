@@ -7,7 +7,6 @@ const engine = vi.hoisted(() => ({
   clear_assets: vi.fn(),
   set_asset_texture: vi.fn(() => true),
   get_last_error: vi.fn(() => ""),
-  get_canvas_filter: vi.fn(() => ""),
   capture_frame: vi.fn(async () => new Blob()),
 }));
 vi.mock("@visamp/engine", () => engine);

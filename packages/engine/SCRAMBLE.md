@@ -46,11 +46,11 @@ of step count. After a long pause, at most 256 steps are needed because the
 still runs per rendered frame.
 
 Explicit background/clear colours belong to the current scene, so an opaque
-one hides trails. Existing CSS filters apply after presentation and do not enter
+one hides trails. Engine GPU filters apply after feedback composition and do not enter
 history. A missing scramble call displays the current scene and invalidates
 history. Reload, resize, re-enable and restored contexts reset history. Rust
 ownership deletes framebuffer, renderbuffer and texture resources when replaced
-or dropped. Scripts without scramble retain their existing backend.
+or dropped. Scripts without scramble or filters retain their existing backend.
 
 ## Reproducible checks
 

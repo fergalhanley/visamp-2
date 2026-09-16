@@ -1856,5 +1856,5 @@ fn canvas_filter_arguments_are_checked() {
 #[test]
 fn canvas_filters_are_available_in_three_d() {
     build_ast("context 3d\nrender {\n  effect::filter::blur(radius: 4.0)\n  draw::cube()\n}\n")
-        .expect("CSS filters should be valid for a WebGL-backed canvas");
+        .expect("GPU filters should be valid for a WebGL-backed canvas");
 }

@@ -336,7 +336,7 @@ pub const BUILTINS: &[Builtin] = &[
     ns3("gfx", "clear", &["color"], &[]),
     ns3("gfx", "overlay", &["enabled"], &[]),
     ns("effect", "scramble", &["type", "refresh_color"]),
-    // ── effect::filter:: CSS post-processing (2D and 3D) ──────────────────────
+    // ── effect::filter:: GPU post-processing (2D and 3D) ──────────────────────
     ns("effect::filter", "blur", &["radius"]),
     ns("effect::filter", "brightness", &["amount"]),
     ns("effect::filter", "contrast", &["amount"]),

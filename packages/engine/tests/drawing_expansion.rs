@@ -15,7 +15,7 @@ fn scene(source: &str) -> Result<Scene, String> {
             interpret_render_block(
                 b,
                 &mut m.decels,
-                Target::scene(&scene, &RefCell::new(String::new())),
+                Target::scene(&scene, &RefCell::new(Vec::new())),
                 &rt,
                 &m.functions,
             )?;

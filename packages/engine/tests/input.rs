@@ -248,7 +248,7 @@ fn state_getters_are_valid_gpu_constants() {
     interpret_render_block(
         &m.blocks[0],
         &mut m.decels,
-        Target::scene(&scene, &RefCell::new(String::new())),
+        Target::scene(&scene, &RefCell::new(Vec::new())),
         &rt,
         &m.functions,
     )

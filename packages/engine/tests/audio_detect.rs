@@ -73,7 +73,7 @@ render {
             interpret_render_block(
                 block,
                 &mut model.decels,
-                Target::scene(&scene, &RefCell::new(String::new())),
+                Target::scene(&scene, &RefCell::new(Vec::new())),
                 &runtime,
                 &model.functions,
             )
@@ -166,7 +166,7 @@ fn byte_frequency_is_integer_shared_and_latched_independently() {
     interpret_render_block(
         block,
         &mut model.decels,
-        Target::scene(&scene, &RefCell::new(String::new())),
+        Target::scene(&scene, &RefCell::new(Vec::new())),
         &runtime,
         &model.functions,
     )

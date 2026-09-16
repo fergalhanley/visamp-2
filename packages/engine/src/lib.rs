@@ -8,24 +8,26 @@ use web_sys::CanvasRenderingContext2d;
 pub mod assets;
 pub mod audio;
 pub mod builtins;
-mod feedback;
-pub mod points;
-mod point_renderer;
-pub mod geometry;
-pub mod input;
-pub mod frame_clock;
 pub mod creative_math;
 pub mod drawing;
-mod overlay;
+mod feedback;
+pub mod filters;
+pub mod frame_clock;
+pub mod geometry;
+pub mod input;
 pub mod interpreter;
 pub mod math3;
 pub mod model;
+mod overlay;
 pub mod parser;
-pub mod source_migration;
+mod point_renderer;
+pub mod points;
+mod postprocess;
 pub mod renderer;
 pub mod resolver;
 pub mod scene;
 pub mod scramble;
+pub mod source_migration;
 pub mod utils;
 
 use interpreter::*;
@@ -65,10 +67,11 @@ enum Backend {
     ThreeD(Renderer, Option<feedback::Feedback>),
 }
 
-struct Capture3d {
+struct CaptureGpu {
     canvas: web_sys::HtmlCanvasElement,
     gl: web_sys::WebGl2RenderingContext,
     renderer: Renderer,
+    post: feedback::Feedback,
 }
 
 struct AppState {
@@ -90,11 +93,10 @@ struct AppState {
     /// Rebuilt from scratch every 3d frame; see `Scene::reset`.
     scene: RefCell<Scene>,
     /// Reuse one detached context across captures, including script reloads.
-    capture_3d: RefCell<Option<Capture3d>>,
-    /// CSS filter composed while interpreting the most recent frame.
-    canvas_filter: RefCell<String>,
+    capture_gpu: RefCell<Option<CaptureGpu>>,
     last_error: RefCell<Option<String>>,
-    scramble_capable: Cell<bool>,
+    post_capable: Cell<bool>,
+    uses_scramble: Cell<bool>,
     context_lost: Cell<bool>,
     recreate_context: Cell<bool>,
     last_frame_ms: Cell<Option<f64>>,
@@ -139,9 +141,15 @@ pub fn set_asset_mesh(
         return false;
     }
     let mesh = MeshData {
-        vertices: vertices.chunks_exact(3).map(|v| [v[0], v[1], v[2]]).collect(),
+        vertices: vertices
+            .chunks_exact(3)
+            .map(|v| [v[0], v[1], v[2]])
+            .collect(),
         indices: indices.to_vec(),
-        normals: normals.chunks_exact(3).map(|n| [n[0], n[1], n[2]]).collect(),
+        normals: normals
+            .chunks_exact(3)
+            .map(|n| [n[0], n[1], n[2]])
+            .collect(),
         uvs: uvs.chunks_exact(2).map(|t| [t[0], t[1]]).collect(),
     };
     assets::with_store_mut(|store| store.set_mesh(id, mesh));
@@ -259,10 +267,10 @@ fn init_app() -> Result<(), String> {
         kind: RefCell::new(None),
         backend: RefCell::new(None),
         scene: RefCell::new(Scene::default()),
-        capture_3d: RefCell::new(None),
-        canvas_filter: RefCell::new(String::new()),
+        capture_gpu: RefCell::new(None),
         last_error: RefCell::new(None),
-        scramble_capable: Cell::new(false),
+        post_capable: Cell::new(false),
+        uses_scramble: Cell::new(false),
         context_lost: Cell::new(false),
         recreate_context: Cell::new(false),
         last_frame_ms: Cell::new(None),
@@ -298,7 +306,9 @@ fn init_app() -> Result<(), String> {
         let closure = Closure::<dyn FnMut(web_sys::Event)>::new(move |_| {
             clock_state.runtime.borrow_mut().clock.pause();
         });
-        document.add_event_listener_with_callback("visibilitychange", closure.as_ref().unchecked_ref()).map_err(|_| "could not watch visibility")?;
+        document
+            .add_event_listener_with_callback("visibilitychange", closure.as_ref().unchecked_ref())
+            .map_err(|_| "could not watch visibility")?;
         closure.forget();
     }
 
@@ -341,8 +351,7 @@ fn init_app() -> Result<(), String> {
         if state_ref.recreate_context.replace(false) {
             let kind = *state_ref.kind.borrow();
             if let Some(kind) = kind {
-                if let Err(error) = mount_canvas(&state_ref, kind, state_ref.scramble_capable.get())
-                {
+                if let Err(error) = mount_canvas(&state_ref, kind, state_ref.post_capable.get()) {
                     *state_ref.last_error.borrow_mut() = Some(error);
                     return;
                 }
@@ -369,7 +378,10 @@ fn init_app() -> Result<(), String> {
         };
         runtime.audio.begin_frame();
         runtime.frame_count += 1;
-        runtime.clock.begin_frame(utils::start_time_ms() as f64, frame_clock::Calendar::local_now());
+        runtime.clock.begin_frame(
+            utils::start_time_ms() as f64,
+            frame_clock::Calendar::local_now(),
+        );
 
         // Borrowed apart rather than cloned. The script's blocks and functions
         // do not change between frames, so copying the whole AST sixty times a
@@ -406,7 +418,7 @@ fn init_app() -> Result<(), String> {
             return;
         };
 
-        let frame_filter = RefCell::new(String::new());
+        let frame_filter = RefCell::new(Vec::new());
         let frame_scramble = RefCell::new(None);
         match backend {
             Backend::TwoD(ctx, feedback) => {
@@ -420,7 +432,9 @@ fn init_app() -> Result<(), String> {
                     if source.height() != height {
                         source.set_height(height);
                     }
-                    ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
+                    if state_ref.uses_scramble.get() {
+                        ctx.clear_rect(0.0, 0.0, width as f64, height as f64);
+                    }
                 }
                 for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
                     if let Err(e) = interpret_render_block(
@@ -440,7 +454,13 @@ fn init_app() -> Result<(), String> {
                     let result = feedback
                         .prepare(runtime.canvas_width as u32, runtime.canvas_height as u32)
                         .and_then(|()| feedback.upload_canvas(&ctx.canvas().unwrap()))
-                        .and_then(|()| feedback.finish(*frame_scramble.borrow(), seconds));
+                        .and_then(|()| {
+                            feedback.finish(
+                                *frame_scramble.borrow(),
+                                seconds,
+                                &frame_filter.borrow(),
+                            )
+                        });
                     if let Err(error) = result {
                         *state_ref.last_error.borrow_mut() = Some(error);
                     }
@@ -497,7 +517,11 @@ fn init_app() -> Result<(), String> {
                         renderer.render(&scene, store, width, height, feedback.is_some())
                     })?;
                     if let Some(feedback) = feedback.as_mut() {
-                        feedback.finish(*frame_scramble.borrow(), seconds)?;
+                        feedback.finish(
+                            *frame_scramble.borrow(),
+                            seconds,
+                            &frame_filter.borrow(),
+                        )?;
                     }
                     Ok::<(), String>(())
                 })();
@@ -510,7 +534,6 @@ fn init_app() -> Result<(), String> {
                 }
             }
         }
-        *state_ref.canvas_filter.borrow_mut() = frame_filter.into_inner();
     }));
 
     request_animation_frame(g.borrow().as_ref().unwrap());
@@ -558,9 +581,10 @@ pub fn load_script(code: &str) -> String {
                     return Err("Engine is not initialised".to_string());
                 };
 
-                let capable = scramble::uses_scramble(&ast);
+                let uses_scramble = scramble::uses_scramble(&ast);
+                let capable = uses_scramble || filters::uses_filters(&ast);
                 if *state.kind.borrow() == Some(model.context)
-                    && state.scramble_capable.get() == capable
+                    && state.post_capable.get() == capable
                     && !state.context_lost.get()
                     && !state.recreate_context.get()
                 {
@@ -578,10 +602,13 @@ pub fn load_script(code: &str) -> String {
                         _ => {}
                     }
                     state.last_frame_ms.set(None);
+                    state.uses_scramble.set(uses_scramble);
                     return Ok(());
                 }
 
-                mount_canvas(state, model.context, capable)
+                mount_canvas(state, model.context, capable)?;
+                state.uses_scramble.set(uses_scramble);
+                Ok(())
             });
 
             if let Err(message) = claimed {
@@ -660,9 +687,10 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
         .document()
         .ok_or("No document object")?;
 
-    let mut capture_3d = state.capture_3d.borrow_mut();
-    if three_d
-        && capture_3d
+    let mut capture_gpu = state.capture_gpu.borrow_mut();
+    let needs_gpu = three_d || state.post_capable.get();
+    if needs_gpu
+        && capture_gpu
             .as_ref()
             .is_none_or(|capture| capture.gl.is_context_lost())
     {
@@ -680,14 +708,16 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
             .dyn_into::<web_sys::WebGl2RenderingContext>()
             .map_err(|_| "Failed to cast capture WebGL2 context")?;
         let renderer = Renderer::new(gl.clone())?;
-        *capture_3d = Some(Capture3d {
+        let post = feedback::Feedback::new(gl.clone())?;
+        *capture_gpu = Some(CaptureGpu {
             canvas,
             gl,
             renderer,
+            post,
         });
     }
     let canvas = if three_d {
-        capture_3d.as_ref().unwrap().canvas.clone()
+        capture_gpu.as_ref().unwrap().canvas.clone()
     } else {
         let canvas: web_sys::HtmlCanvasElement = document
             .create_element("canvas")
@@ -733,7 +763,7 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
 
     // Only layer blocks run. on_frame is deliberately skipped: a capture is a
     // snapshot of the current state, not a step forward in time.
-    let filter = RefCell::new(String::new());
+    let filter = RefCell::new(Vec::new());
     let scene = RefCell::new(Scene::default());
     let _execution = execution_scope();
     for block in blocks.iter().filter(|b| b.block_type == BlockType::Render) {
@@ -744,21 +774,27 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
         interpret_render_block(block, &mut decels, target, &runtime, &functions)
             .map_err(|e| format!("Capture failed: {}", e))?;
     }
-    if three_d {
-        let scene = scene.borrow();
-        scene.check_balanced()?;
-        assets::with_store(|store| {
-            capture_3d.as_mut().unwrap().renderer.render(
-                &scene,
-                store,
-                CAPTURE_WIDTH,
-                CAPTURE_HEIGHT,
-                false,
-            )
-        })?;
-    }
-
-    let filter = filter.into_inner();
+    let final_canvas = if needs_gpu {
+        let capture = capture_gpu.as_mut().unwrap();
+        capture.post.prepare(CAPTURE_WIDTH, CAPTURE_HEIGHT)?;
+        if three_d {
+            let scene = scene.borrow();
+            scene.check_balanced()?;
+            capture.post.bind_scene();
+            assets::with_store(|store| {
+                capture
+                    .renderer
+                    .render(&scene, store, CAPTURE_WIDTH, CAPTURE_HEIGHT, true)
+            })?;
+        } else {
+            capture.post.upload_canvas(&canvas)?;
+        }
+        // Preserve capture's stateless scene re-render: never advance live history.
+        capture.post.finish(None, 0.0, &filter.borrow())?;
+        capture.canvas.clone()
+    } else {
+        canvas
+    };
 
     // Always composite onto opaque black. CSS styles are not baked into
     // `canvas.toBlob()`, and a transparent capture otherwise lets the tile's
@@ -778,13 +814,10 @@ fn render_capture_canvas() -> Result<web_sys::HtmlCanvasElement, String> {
         .map_err(|_| "Failed to cast capture output context")?;
     output_ctx.set_fill_style_str("black");
     output_ctx.fill_rect(0.0, 0.0, CAPTURE_WIDTH as f64, CAPTURE_HEIGHT as f64);
-    if !filter.is_empty() {
-        output_ctx.set_filter(&filter);
-    }
     // Copy WebGL pixels synchronously, before the browser can clear its default
     // drawing buffer. Only the independent 2D output is encoded asynchronously.
     output_ctx
-        .draw_image_with_html_canvas_element(&canvas, 0.0, 0.0)
+        .draw_image_with_html_canvas_element(&final_canvas, 0.0, 0.0)
         .map_err(|_| "Failed to composite the filtered capture")?;
 
     Ok(output)
@@ -1070,7 +1103,7 @@ fn mount_canvas(state: &AppState, kind: ContextKind, capable: bool) -> Result<()
     *state.canvas.borrow_mut() = Some(canvas);
     *state.backend.borrow_mut() = Some(backend);
     *state.kind.borrow_mut() = Some(kind);
-    state.scramble_capable.set(capable);
+    state.post_capable.set(capable);
     state.context_lost.set(false);
     state.recreate_context.set(false);
     state.last_frame_ms.set(None);
@@ -1088,17 +1121,6 @@ pub fn get_last_error() -> String {
         } else {
             String::new()
         }
-    })
-}
-
-/// CSS filter composed by `effect::filter` calls in the latest frame.
-#[wasm_bindgen]
-pub fn get_canvas_filter() -> String {
-    STATE.with(|s| {
-        s.borrow()
-            .as_ref()
-            .map(|state| state.canvas_filter.borrow().clone())
-            .unwrap_or_default()
     })
 }
 

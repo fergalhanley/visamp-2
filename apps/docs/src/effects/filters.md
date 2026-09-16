@@ -39,7 +39,21 @@ effect::filter::contrast(amount: 1.4)
 effect::filter::sepia(amount: 0.8)
 ```
 
-The player applies these functions as a CSS `filter` on the canvas. This keeps
-filtering out of the per-primitive drawing path and lets the browser composite
-the effect efficiently for both Canvas 2D and WebGL. As full-frame effects,
-their position among drawing calls does not limit which primitives they affect.
+Filters run in the engine on the GPU, after the completed scene (including a
+3D overlay) and scramble/feedback. The final canvas contains the filtered pixels,
+so playback and thumbnail capture use the same implementation. Filtered pixels
+never feed back into accumulated drawing or scramble history. Their position
+among drawing calls does not limit which primitives they affect.
+
+Colours use sRGB filter math and premultiplied alpha. Blur `radius` is the Gaussian
+standard deviation in canvas pixels. Large blurs use a downsampled approximation
+to keep rendering practical. Blur samples beyond the canvas are transparent and
+output is clipped to the canvas bounds.
+
+A frame supports up to 32 filter calls. Filtered scripts require WebGL2 in both
+contexts. Post-processing surfaces are limited to 16,777,216 pixels and the GPU's
+maximum texture dimensions. Invalid non-finite values produce a runtime error.
+
+Thumbnail capture renders a fresh frame at its capture resolution, with filters
+baked in. It does not include accumulated drawing or scramble history from live
+playback. No script changes are needed when moving from the former CSS filters.

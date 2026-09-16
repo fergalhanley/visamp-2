@@ -502,7 +502,7 @@ impl Resolver {
         match builtin.namespace {
             // §7: gfx state calls are ignored rather than rejected in overlay,
             // and gfx::overlay itself is idempotent.
-            "gfx" => false,
+            "gfx" | "effect::filter" => false,
             "draw" | "transform" => builtin.availability == Availability::ThreeDOnly,
             _ => true,
         }

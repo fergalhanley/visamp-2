@@ -16,7 +16,7 @@ fn scene(source: &str) -> Scene {
             interpret_render_block(
                 block,
                 &mut model.decels,
-                Target::scene(&scene, &RefCell::new(String::new())),
+                Target::scene(&scene, &RefCell::new(Vec::new())),
                 &Runtime::new(),
                 &model.functions,
             )

@@ -62,8 +62,7 @@ export interface EngineModule {
   load_script(code: string): string;
   validate_script(code: string): string;
   get_last_error(): string;
-  /** CSS filter composed by the latest rendered frame. */
-  get_canvas_filter(): string;
+  /** PNG snapshot with engine post-processing baked into the pixels. */
   capture_frame(): Promise<Blob>;
   set_audio_analysis(waveform: Float32Array, spectrum: Float32Array, sampleRate: number, level: number, beat: boolean, onset: boolean, onsetStrength: number): void;
   set_audio_frequency(frequency: Uint8Array): void;

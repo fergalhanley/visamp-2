@@ -287,15 +287,18 @@ pub struct Target<'a> {
     pub ctx: Option<&'a CanvasRenderingContext2d>,
     /// Present in 3d mode.
     pub scene: Option<&'a RefCell<Scene>>,
-    /// CSS post-processing accumulated for the completed canvas frame.
-    pub filter: Option<&'a RefCell<String>>,
+    /// GPU post-processing accumulated for the completed canvas frame.
+    pub filter: Option<&'a RefCell<Vec<crate::filters::Filter>>>,
     pub scramble: Option<&'a RefCell<Option<crate::scramble::Scramble>>>,
     pub location: Option<SourceLocation>,
     pub canvas_state: Option<&'a RefCell<crate::drawing::CanvasState>>,
 }
 
 impl<'a> Target<'a> {
-    pub fn canvas(ctx: &'a CanvasRenderingContext2d, filter: &'a RefCell<String>) -> Self {
+    pub fn canvas(
+        ctx: &'a CanvasRenderingContext2d,
+        filter: &'a RefCell<Vec<crate::filters::Filter>>,
+    ) -> Self {
         Target {
             ctx: Some(ctx),
             scene: None,
@@ -306,7 +309,10 @@ impl<'a> Target<'a> {
         }
     }
 
-    pub fn scene(scene: &'a RefCell<Scene>, filter: &'a RefCell<String>) -> Self {
+    pub fn scene(
+        scene: &'a RefCell<Scene>,
+        filter: &'a RefCell<Vec<crate::filters::Filter>>,
+    ) -> Self {
         Target {
             ctx: None,
             scene: Some(scene),
@@ -1233,18 +1239,16 @@ fn interpret_statement_function_call(
         }
         return Ok(());
     }
-    // Full-frame post-processing is handed to the JS player as CSS. Avoiding
-    // CanvasRenderingContext2D.filter here keeps every primitive on the fast
-    // drawing path and gives WebGL the same effects for free.
+    // Collect ordered operations; the shared GPU output pass applies them.
     if function_call.namespace == "effect::filter" {
         let mut args = ArgReader::new(function_call, decels, runtime, functions);
-        let fragment = filter_fragment(function_call, &mut args)?;
+        let operation = filter_operation(function_call, &mut args)?;
         if let Some(filter) = target.filter {
             let mut filter = filter.borrow_mut();
-            if !filter.is_empty() {
-                filter.push(' ');
+            if filter.len() >= crate::filters::MAX_FILTERS {
+                return Err("filter limit exceeded (32 per frame)".into());
             }
-            filter.push_str(&fragment);
+            filter.push(operation);
         }
         return Ok(());
     }
@@ -1652,42 +1656,35 @@ fn interpret_statement_function_call(
     Ok(())
 }
 
-fn filter_fragment(call: &FunctionCall, args: &mut ArgReader<'_>) -> InterpResult<String> {
-    let finite = |name: &str, value: f32| {
-        if value.is_finite() {
-            Ok(value)
-        } else {
-            Err(format!(
-                "{}::{}: '{name}' must be finite",
-                call.namespace, call.function
-            ))
-        }
+fn filter_operation(
+    call: &FunctionCall,
+    args: &mut ArgReader<'_>,
+) -> InterpResult<crate::filters::Filter> {
+    use crate::filters::{Filter, Kind};
+    let (kind, amount) = match call.function.as_str() {
+        "blur" => (Kind::Blur, args.number("radius")?.unwrap_or(0.0)),
+        "brightness" => (Kind::Brightness, args.number("amount")?.unwrap_or(1.0)),
+        "contrast" => (Kind::Contrast, args.number("amount")?.unwrap_or(1.0)),
+        "saturate" => (Kind::Saturate, args.number("amount")?.unwrap_or(1.0)),
+        "grayscale" => (Kind::Grayscale, args.number("amount")?.unwrap_or(1.0)),
+        "invert" => (Kind::Invert, args.number("amount")?.unwrap_or(1.0)),
+        "opacity" => (Kind::Opacity, args.number("amount")?.unwrap_or(1.0)),
+        "sepia" => (Kind::Sepia, args.number("amount")?.unwrap_or(1.0)),
+        "hue_rotate" => (Kind::HueRotate, args.angle("deg", "rad")?.unwrap_or(0.0)),
+        other => return Err(format!("Unknown effect::filter call: {other}")),
     };
-    let percentage = |amount: f32| format!("{}%", amount * 100.0);
-
-    match call.function.as_str() {
-        "blur" => {
-            let radius = finite("radius", args.number("radius")?.unwrap_or(0.0))?.max(0.0);
-            Ok(format!("blur({radius}px)"))
-        }
-        "brightness" | "contrast" | "saturate" => {
-            let amount = finite("amount", args.number("amount")?.unwrap_or(1.0))?.max(0.0);
-            Ok(format!(
-                "{}({})",
-                call.function.replace('_', "-"),
-                percentage(amount)
-            ))
-        }
-        "grayscale" | "invert" | "opacity" | "sepia" => {
-            let amount = finite("amount", args.number("amount")?.unwrap_or(1.0))?.clamp(0.0, 1.0);
-            Ok(format!("{}({})", call.function, percentage(amount)))
-        }
-        "hue_rotate" => {
-            let radians = finite("angle", args.angle("deg", "rad")?.unwrap_or(0.0))?;
-            Ok(format!("hue-rotate({radians}rad)"))
-        }
-        other => Err(format!("Unknown effect::filter call: {other}")),
+    if !amount.is_finite() {
+        return Err(format!(
+            "effect::filter::{}: value must be finite",
+            call.function
+        ));
     }
+    let amount = match kind {
+        Kind::HueRotate => amount.rem_euclid(std::f32::consts::TAU),
+        Kind::Grayscale | Kind::Invert | Kind::Opacity | Kind::Sepia => amount.clamp(0.0, 1.0),
+        _ => amount.max(0.0),
+    };
+    Ok(Filter { kind, amount })
 }
 
 pub fn evaluate_expression(

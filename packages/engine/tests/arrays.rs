@@ -56,7 +56,7 @@ render {
     interpret_render_block(
         render,
         &mut model.decels,
-        Target::scene(&scene, &RefCell::new(String::new())),
+        Target::scene(&scene, &RefCell::new(Vec::new())),
         &runtime,
         &model.functions,
     )

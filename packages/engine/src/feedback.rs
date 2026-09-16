@@ -6,17 +6,17 @@ use web_sys::{
     WebGlRenderbuffer, WebGlTexture, WebGlUniformLocation,
 };
 
-const VERTEX: &str = "#version 300 es\nvoid main() {\n vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);\n gl_Position = vec4(p * 2.0 - 1.0, 0, 1);\n}";
+pub(crate) const VERTEX: &str = "#version 300 es\nvoid main() {\n vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);\n gl_Position = vec4(p * 2.0 - 1.0, 0, 1);\n}";
 
-struct Target {
+pub(crate) struct Target {
     gl: GL,
-    texture: WebGlTexture,
-    framebuffer: WebGlFramebuffer,
+    pub(crate) texture: WebGlTexture,
+    pub(crate) framebuffer: WebGlFramebuffer,
     depth: Option<WebGlRenderbuffer>,
 }
 
 impl Target {
-    fn new(gl: &GL, width: u32, height: u32, depth: bool) -> Result<Self, String> {
+    pub(crate) fn new(gl: &GL, width: u32, height: u32, depth: bool) -> Result<Self, String> {
         let texture = gl
             .create_texture()
             .ok_or("could not create feedback texture")?;
@@ -79,6 +79,7 @@ impl Target {
         gl.clear_color(0.0, 0.0, 0.0, 0.0);
         gl.clear(GL::COLOR_BUFFER_BIT);
         gl.bind_framebuffer(GL::FRAMEBUFFER, None);
+        gl.bind_texture(GL::TEXTURE_2D, None);
         Ok(target)
     }
 }
@@ -102,10 +103,13 @@ fn texture_parameters(gl: &GL) {
 
 struct Buffers {
     scene: Target,
-    composite: Target,
-    history: [Target; 2],
+    history: Option<History>,
     width: u32,
     height: u32,
+}
+struct History {
+    composite: Target,
+    images: [Target; 2],
     read: usize,
 }
 
@@ -118,10 +122,12 @@ pub struct Feedback {
     map_key: Option<(u32, u32, u8)>,
     active: bool,
     refresh_remainder: f64,
+    post: crate::postprocess::Postprocess,
 }
 
 impl Feedback {
     pub fn new(gl: GL) -> Result<Self, String> {
+        let post = crate::postprocess::Postprocess::new(&gl)?;
         let program = crate::renderer::link(&gl, VERTEX, include_str!("scramble.frag"))?;
         let Some(map) = gl.create_texture() else {
             gl.delete_program(Some(&program));
@@ -157,11 +163,13 @@ impl Feedback {
             map_key: None,
             active: false,
             refresh_remainder: 0.0,
+            post,
         })
     }
 
     pub fn reset(&mut self) {
         self.buffers = None;
+        self.post.reset();
         self.map_key = None;
         self.active = false;
         self.refresh_remainder = 0.0;
@@ -182,20 +190,20 @@ impl Feedback {
             .ok()
             .and_then(|v| v.as_f64())
             .unwrap_or(0.0);
-        if width == 0 || height == 0 || width as f64 > max || height as f64 > max {
-            return Err("scramble size exceeds GPU texture limits".into());
+        if width == 0
+            || height == 0
+            || width as f64 > max
+            || height as f64 > max
+            || width as u64 * height as u64 > 16_777_216
+        {
+            return Err("post-processing size exceeds GPU limits (maximum 16777216 pixels)".into());
         }
         self.gl.active_texture(GL::TEXTURE0);
         self.buffers = Some(Buffers {
             scene: Target::new(&self.gl, width, height, true)?,
-            composite: Target::new(&self.gl, width, height, false)?,
-            history: [
-                Target::new(&self.gl, width, height, false)?,
-                Target::new(&self.gl, width, height, false)?,
-            ],
+            history: None,
             width,
             height,
-            read: 0,
         });
         Ok(())
     }
@@ -250,9 +258,28 @@ impl Feedback {
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }
 
-    pub fn finish(&mut self, effect: Option<Scramble>, seconds: f64) -> Result<(), String> {
+    pub fn finish(
+        &mut self,
+        effect: Option<Scramble>,
+        seconds: f64,
+        filters: &[crate::filters::Filter],
+    ) -> Result<(), String> {
         let gl = &self.gl;
+        if effect.is_some() {
+            let b = self.buffers.as_mut().expect("feedback prepared");
+            if b.history.is_none() {
+                b.history = Some(History {
+                    composite: Target::new(gl, b.width, b.height, false)?,
+                    images: [
+                        Target::new(gl, b.width, b.height, false)?,
+                        Target::new(gl, b.width, b.height, false)?,
+                    ],
+                    read: 0,
+                });
+            }
+        }
         let b = self.buffers.as_ref().expect("feedback prepared");
+        let (width, height) = (b.width, b.height);
         if let Some(effect) = effect.filter(|e| b.width < 27 && e.kind <= 17) {
             let key = (b.width, b.height, effect.kind);
             if self.map_key != Some(key) {
@@ -299,10 +326,19 @@ impl Feedback {
         gl.active_texture(GL::TEXTURE2);
         gl.bind_texture(GL::TEXTURE_2D, Some(&self.map));
         gl.active_texture(GL::TEXTURE1);
-        gl.bind_texture(GL::TEXTURE_2D, Some(&b.history[b.read].texture));
-        if let Some(effect) = effect {
+        gl.bind_texture(
+            GL::TEXTURE_2D,
+            Some(
+                b.history
+                    .as_ref()
+                    .map(|h| &h.images[h.read].texture)
+                    .unwrap_or(&b.scene.texture),
+            ),
+        );
+        let output_texture = if let Some(effect) = effect {
+            let h = b.history.as_ref().unwrap();
             if !self.active {
-                for history in &b.history {
+                for history in &h.images {
                     gl.bind_framebuffer(GL::FRAMEBUFFER, Some(&history.framebuffer));
                     gl.clear_color(0.0, 0.0, 0.0, 0.0);
                     gl.clear(GL::COLOR_BUFFER_BIT);
@@ -329,16 +365,24 @@ impl Feedback {
                 gl.uniform4i(self.loc("u_offsets"), p[0], p[1], p[2], p[3]);
                 gl.uniform1i(self.loc("u_exclude"), p[4]);
             }
-            self.draw(0, &b.scene.texture, Some(&b.composite.framebuffer));
-            let output = &b.history[1 - b.read];
-            self.draw(1, &b.composite.texture, Some(&output.framebuffer));
-            self.draw(2, &output.texture, None);
-            self.buffers.as_mut().unwrap().read = 1 - b.read;
+            self.draw(0, &b.scene.texture, Some(&h.composite.framebuffer));
+            let output = &h.images[1 - h.read];
+            self.draw(1, &h.composite.texture, Some(&output.framebuffer));
+            let texture = output.texture.clone();
+            self.buffers
+                .as_mut()
+                .unwrap()
+                .history
+                .as_mut()
+                .unwrap()
+                .read = 1 - h.read;
             self.active = true;
+            texture
         } else {
-            self.draw(3, &b.scene.texture, None);
             self.active = false;
-        }
+            b.scene.texture.clone()
+        };
+        self.post.render(&output_texture, width, height, filters)?;
         // Do not leak sampler or framebuffer bindings into the scene renderer.
         for unit in [GL::TEXTURE2, GL::TEXTURE1, GL::TEXTURE0] {
             gl.active_texture(unit);
