@@ -6,7 +6,7 @@ Visript provides 32 named color constants plus RGB and HSL color constructors.
 
 Use color constants with the `$COLOR_` prefix:
 
-```
+```visript
 draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 ```
 
@@ -30,7 +30,7 @@ For custom colors, use `color::rgb()` or `color::hsl()`.
 
 ### RGB
 
-```
+```visript
 color::rgb(r: 1.0, g: 0.5, b: 0.0, a: 0.8)
 ```
 
@@ -45,7 +45,7 @@ All parameters are optional.
 
 ### HSL
 
-```
+```visript
 color::hsl(h: 0.5, s: 0.8, l: 0.5, a: 1.0)
 ```
 
@@ -60,7 +60,7 @@ All parameters are optional.
 
 ### Examples
 
-```
+```visript
 // Custom orange
 let my_orange = color::rgb(r: 1.0, g: 0.65, b: 0.0)
 

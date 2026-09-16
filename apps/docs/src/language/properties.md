@@ -4,13 +4,13 @@ Properties define mutable state that persists across frames. They are declared a
 
 ## Syntax
 
-```
+```text
 prop <name> = <value>
 ```
 
 ## Examples
 
-```
+```visript
 prop angle = 0.0
 prop count = 10
 prop name = "hello"
@@ -22,13 +22,13 @@ prop points = [[100.0, 200.0], [300.0, 400.0]]
 
 - Properties must be declared before any blocks
 - Each property name must be unique
-- Properties can be read and written in `on_frame` blocks
-- Properties can be read in `render` blocks
+- Lifecycle/input blocks can read and write properties
+- `render` can read and write properties; prefer `on_frame` for persistent updates
 - Properties retain their values between frames
 
 ## Usage
 
-```
+```visript
 prop x = 100.0
 
 on_frame {

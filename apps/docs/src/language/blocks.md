@@ -11,7 +11,7 @@ Runs once, when the script compiles — before its first frame. Use it to seed
 state from the canvas size the script is starting at, or anything else that
 only needs computing once.
 
-```
+```visript
 prop cx = 0.0
 prop cy = 0.0
 
@@ -35,11 +35,11 @@ runs again each time — it means "before this version's first frame", not
 
 Runs once per frame, before rendering. Use it to update state.
 
-```
+```visript
 on_frame {
   // Statements here run every frame
-  angle = angle + 0.01
-  x = x + speed
+  let phase = $TIME_SEC
+  // Assign an existing property here to keep state between frames.
 }
 ```
 
@@ -56,7 +56,7 @@ fullscreen, the browser window resizing, the editor's resizable split being
 dragged. It does **not** run for the canvas's first sizing when the script
 starts; that's what `on_init` is for.
 
-```
+```visript
 prop scale = 1.0
 
 on_resize {
@@ -75,7 +75,7 @@ on_resize {
 
 Runs once per frame, after `on_frame`. Use it to draw graphics.
 
-```
+```visript
 render {
   // Statements here run every frame, after on_frame
   draw::background(color: $COLOR_BLACK)
@@ -87,7 +87,8 @@ render {
 - Can read properties and local variables
 - Can call draw functions
 - Can declare local variables with `let`
-- Cannot write to properties (use `on_frame` for that)
+- Can write properties, but prefer `on_frame` for persistent simulation state
+- Capture rerenders `render` using copies of properties; those writes do not affect playback
 
 ## Execution Order
 
@@ -97,8 +98,9 @@ Once, when the script compiles:
 
 Then, on every frame:
 
-1. Every `on_frame` block runs, in the order it appears in the script
-2. The `render` block runs
+1. Queued pointer, scroll and keyboard handlers run
+2. Every `on_frame` block runs, in the order it appears in the script
+3. The `render` block runs
 
 `on_frame` is always finished before `render` starts, so `render` always draws
 from state that is current for this frame. That guarantee is what lets you
@@ -114,10 +116,11 @@ This happens outside the regular per-frame cycle — as soon as the resize is
 detected, before the next `on_frame`/`render` pass — rather than on a fixed
 schedule.
 
-Nothing clears the canvas for you. A frame paints over whatever the last one
-left behind, which is what makes trails possible:
+In plain 2D, nothing clears the canvas for you. A frame paints over the previous
+one, making trails possible. World 3D starts fresh each frame; use
+[scramble](../effects/scramble.md) for explicit feedback in either context:
 
-```
+```visript
 render {
   // A nearly-transparent wash instead of a clear — old frames fade out
   draw::rect(
@@ -127,7 +130,7 @@ render {
     height: $HEIGHT,
     color: color::rgb(a: 0.07)
   )
-  draw::circle(x: x, y: y, radius: 12.0, color: $COLOR_CYAN)
+  draw::circle(x: $WIDTH / 2 + math::sin(rad: $TIME_SEC) * 100, y: $HEIGHT / 2, radius: 12.0, color: $COLOR_CYAN)
 }
 ```
 
@@ -139,7 +142,7 @@ You may have **as many `on_init`, `on_frame`, and `on_resize` blocks as you
 like**, and **exactly one `render` block**. A second `render` block is a
 parse error:
 
-```
+```text
 render {
   draw::clear()
 }
@@ -152,7 +155,7 @@ render {          // error: only one render block is allowed
 Splitting update logic across several `on_frame` blocks is fine — they run in
 source order:
 
-```
+```visript
 on_frame {
   // Update physics
 }

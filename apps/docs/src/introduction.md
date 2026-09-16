@@ -1,40 +1,50 @@
-# Visript
+# Create with Visript
 
-Visript is VisAmp’s visualisation language for creative coding in the browser. Write declarative code to create audio-reactive graphics using Canvas 2D and WebGL 3D.
+Visript is **Visamp’s language for realtime visuals**. Write a few lines, see them
+render, then add motion, audio, interaction and effects. Scripts run in your
+browser as WebAssembly, with Canvas 2D and WebGL2 doing the drawing.
 
-## What is Visript?
+<div class="docs-version">Language reference · Engine 5.2</div>
 
-Visript is a domain-specific language designed for creating animated visual art. It combines the simplicity of declarative graphics with the power of a full programming language.
+## Start with a moving shape
 
-## Names and source files
-
-**Visript** is the language; **VisAmp** is the application that hosts it.
-Use `.viscript` for source files and `visript` for Markdown code fences.
-Existing `.vdsl` files remain supported. The syntax and stored
-visualisations are unchanged by the naming update.
-
-## Key Features
-
-- **Simple syntax** - Easy to learn, focused on visual output
-- **Live preview** - See changes instantly as you type
-- **Animation** - Built-in frame loop for smooth animations
-- **Drawing primitives** - Circles, rectangles, polygons, lines, ellipses, text
-- **Color system** - 32 named colors plus RGB/HSL constructors
-- **Control flow** - If/else, for loops, while loops
-- **Functions** - Define reusable drawing routines
-- **System values** - Access time, mouse position, canvas dimensions
-
-## Architecture
-
-```
-visript.pest (grammar) → parser → AST → interpreter → Canvas 2D / WebGL 3D
+```visript
+render {
+  draw::background(color: color::rgb(r: 0.02, g: 0.03, b: 0.06))
+  draw::circle(
+    x: $WIDTH / 2 + math::sin(rad: $TIME_SEC) * $WIDTH * 0.2,
+    y: $HEIGHT / 2,
+    radius: $HEIGHT * 0.08,
+    color: $COLOR_TURQUOISE
+  )
+  effect::bloom(threshold: 0.5, intensity: 1.5, radius: 12)
+}
 ```
 
-The entire language runs as WebAssembly in your browser. There is no server, no build step for your scripts - just write code and see it render.
+Paste this into the Visamp editor. No script build step is needed.
 
-## Who is this for?
+## Find your next step
 
-- Creative coders who want a simple, focused language
-- Artists exploring generative art
-- Educators teaching programming concepts through visuals
-- Anyone who wants to make animated graphics without complex setup
+- **New to Visript?** Follow [Quick Start](getting-started/quick-start.md) and
+  [Your First Script](getting-started/first-script.md).
+- **Draw something:** explore [2D primitives](drawing/primitives.md),
+  [paths and transforms](drawing/creative-tools.md), or [3D](3d/overview.md).
+- **Make it react:** use [audio detection](programming/audio-detection.md) and
+  [pointer/keyboard input](programming/input-detection.md).
+- **Shape the whole image:** combine [effects](effects/frame-effects.md),
+  [filters](effects/filters.md) and [feedback](effects/scramble.md).
+- **Try complete scripts:** browse [examples and sample packs](examples/sample-packs.md).
+- **Something is wrong?** Start with [errors and troubleshooting](getting-started/troubleshooting.md).
+
+## Language and files
+
+The language is **Visript**; its standard file extension is **`.viscript`**.
+Use `visript` for Markdown code fences. `.vdsl` remains a legacy file alias.
+This reference describes the current 5.2 language. Old parameter names and audio
+constants may require updates; see [language conventions](language/conventions.md)
+and the [audio migration notes](language/audio-migration.md).
+
+Dimensions are canvas pixels in 2D and world units in 3D. Named arguments,
+explicit angle units and a small set of lifecycle blocks keep scripts readable.
+The [standard-library guide](language/standard-library.md) maps each namespace to
+its reference page.

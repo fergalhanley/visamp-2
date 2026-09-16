@@ -6,7 +6,7 @@ Visript supports if/else, for loops, and while loops.
 
 Execute code conditionally.
 
-```
+```text
 if <condition> {
   // runs when condition is true
 } else {
@@ -16,7 +16,7 @@ if <condition> {
 
 ### Examples
 
-```
+```visript
 // Simple if
 if x > 100 {
   draw::circle(x: x, y: 300.0, radius: 20.0, color: $COLOR_RED)
@@ -41,7 +41,7 @@ if x > 400 {
 
 Any expression that evaluates to a boolean:
 
-```
+```visript
 if count == 10 { ... }
 if x < $WIDTH { ... }
 if visible && active { ... }
@@ -52,7 +52,7 @@ if !(done) { ... }
 
 Iterate over an array, or over a range of numbers.
 
-```
+```text
 for <variable> in <array> {
   // body runs once per element
 }
@@ -66,14 +66,14 @@ for <variable> in <start>..<end> {
 
 Ranges count integers. `..` stops **before** the end, `..=` **includes** it:
 
-```
+```visript
 for i in 0..5 { }     // 0 1 2 3 4
 for i in 0..=5 { }    // 0 1 2 3 4 5
 ```
 
 `step` changes the increment, and a negative step counts down:
 
-```
+```visript
 for i in 0..10 step 2 { }   // 0 2 4 6 8
 for i in 5..0 step -1 { }   // 5 4 3 2 1
 for i in 5..=0 step -1 { }  // 5 4 3 2 1 0
@@ -82,13 +82,13 @@ for i in 5..=0 step -1 { }  // 5 4 3 2 1 0
 **A descending range needs an explicit negative step.** Without one it simply
 does not run, rather than quietly counting backwards:
 
-```
+```visript
 for i in 5..0 { }           // never runs
 ```
 
 Bounds can be any integer expression:
 
-```
+```visript
 prop bars = 32
 
 render {
@@ -104,14 +104,17 @@ render {
 }
 ```
 
+For a computed float bound, use `value \ 1`. `math::floor` rounds but still
+returns a float; use `math::floor(value: value) \ 1` when rounding down.
+
 Ranges are **integers only** — `0..2.5` is an error rather than being rounded,
 and a step of `0` is rejected instead of looping forever. A range is also
-capped at 100,000 iterations: your script runs inside the frame loop, so an
+capped at 10,000 iterations: your script runs inside the frame loop, so an
 enormous one would lock the browser rather than merely being slow.
 
 ### Examples
 
-```
+```visript
 // Draw 5 circles in a row
 for i in 0..5 {
   draw::circle(x: i * 150.0 + 100.0, y: 300.0, radius: 30.0, color: $COLOR_BLUE)
@@ -132,7 +135,7 @@ for row in [0, 1, 2] {
 
 // Iterate over coordinates
 for point in [[100.0, 200.0], [300.0, 400.0], [500.0, 200.0]] {
-  draw::circle(x: point, y: 300.0, radius: 20.0, color: $COLOR_GOLD)
+  draw::circle(x: point[0], y: point[1], radius: 20.0, color: $COLOR_GOLD)
 }
 ```
 
@@ -140,7 +143,7 @@ for point in [[100.0, 200.0], [300.0, 400.0], [500.0, 200.0]] {
 
 Repeat while a condition is true.
 
-```
+```text
 while <condition> {
   // body runs while condition is true
 }
@@ -148,7 +151,7 @@ while <condition> {
 
 ### Examples
 
-```
+```visript
 // Count up
 prop x = 0.0
 
@@ -168,7 +171,7 @@ on_frame {
 
 Variables declared inside control flow blocks are local to that block:
 
-```
+```visript
 render {
   let x = 100.0
 

@@ -30,7 +30,7 @@ aliases, loop variables, history buffers and user-function arguments.
   Spectrum length remains 1,024 in this implementation. Do not make either
   length a permanent assumption in new designs.
 - Audio arrays now contain floats. If a sample controls an integer index, range,
-  bitwise operation or count, convert deliberately with `math::floor` or `\`.
+  bitwise operation or count, convert deliberately with `value \ 1` (or `math::floor(value: value) \ 1`).
 - Silence produces zero-filled arrays, so loops still execute. Scripts that used
   an empty array as a “source connected” test need a different condition.
 

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "true",
+  "buildCommand": "node scripts/mdbook.mjs build",
+  "outputDirectory": "book",
+  "trailingSlash": false
+}

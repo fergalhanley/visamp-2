@@ -4,7 +4,7 @@ Define reusable routines with `fn`. Functions follow the same named-argument sty
 
 ## Syntax
 
-```
+```text
 fn <name>(<param>: <default>, ...) {
   // body
   return <value>    // optional
@@ -21,23 +21,23 @@ fn <name>(<param>: <default>, ...) {
 
 ## No Parameters
 
-```
-fn getOne() {
+```visript
+fn get_one() {
   return 1
 }
 
-fn randomColor() {
+fn random_color() {
   return color::hsl(h: $TIME_SEC * 0.1, s: 0.8, l: 0.5)
 }
 
 render {
-  draw::background(color: randomColor())
+  draw::background(color: random_color())
 }
 ```
 
 ## Parameters with Defaults
 
-```
+```visript
 fn dot(x: 0.0, y: 0.0, color: $COLOR_RED) {
   draw::circle(x: x, y: y, radius: 10.0, color: color)
 }
@@ -54,7 +54,7 @@ render {
 
 All calls use named arguments, matching the draw command style:
 
-```
+```visript
 fn greet(name: "world", excited: false) {
   // ...
 }
@@ -67,7 +67,7 @@ greet()                                // all defaults
 
 Arguments can be provided in **any order**:
 
-```
+```visript
 dot(color: $COLOR_BLUE, y: 200.0, x: 300.0)   // same as dot(x: 300.0, y: 200.0, color: $COLOR_BLUE)
 ```
 
@@ -78,7 +78,7 @@ Defaults serve two purposes:
 1. **Type inference** — the default value determines the parameter's type
 2. **Optional arguments** — callers can omit any parameter
 
-```
+```visript
 fn draw_star(x: 400.0, y: 300.0, size: 40.0, color: $COLOR_GOLD, rotate: 0.0) {
   draw::polygon(
     points: [
@@ -110,7 +110,7 @@ render {
 
 Use `return` to send a value back to the caller:
 
-```
+```visript
 fn double(x: 0.0) {
   return x * 2.0
 }
@@ -133,7 +133,7 @@ If a function doesn't explicitly return, it returns `false`.
 - Functions can be called from `on_frame`, `render`, and other functions
 - Functions **cannot** access or modify properties directly — pass values as parameters
 
-```
+```visript
 fn helper(x: 0.0) {
   return x + 10.0
 }
@@ -152,9 +152,11 @@ render {
 
 ## Alignment with Draw Commands
 
-User-defined functions use the exact same conventions as built-in draw commands:
+User-defined functions share the named-argument style of built-in commands.
+User-defined parameters always have defaults; some built-ins require arguments,
+such as the bitmap `map` for `effect::displace`.
 
-```
+```visript
 // Built-in — named args, all optional with defaults
 draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 

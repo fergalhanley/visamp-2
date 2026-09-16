@@ -135,12 +135,15 @@ export function TopBar({
             <a
               key={link.href}
               href={link.href}
+              target={link.external ? "_blank" : undefined}
+              rel={link.external ? "noopener noreferrer" : undefined}
               className={cn(
                 "whitespace-nowrap text-muted-foreground transition hover:text-foreground",
                 link.compact ? "hidden lg:inline" : "hidden xl:inline",
               )}
             >
               {link.label}
+              {link.external && <span className="sr-only"> (new tab)</span>}
             </a>
           ))}
 
@@ -157,10 +160,17 @@ export function TopBar({
                 <DropdownMenuItem
                   key={link.href}
                   nativeButton={false}
-                  render={<a href={link.href} />}
+                  render={
+                    <a
+                      href={link.href}
+                      target={link.external ? "_blank" : undefined}
+                      rel={link.external ? "noopener noreferrer" : undefined}
+                    />
+                  }
                   className={link.compact ? "lg:hidden" : undefined}
                 >
                   {link.label}
+                  {link.external && <span className="sr-only"> (new tab)</span>}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

@@ -1,97 +1,40 @@
-# Rendering Context
+# Rendering context
 
-`context` chooses the coordinate model your script draws in. There are two:
+Choose the coordinate system once per script:
 
-| Context | Meaning |
-|---------|---------|
-| `2d` | Flat pixel coordinates — the default |
-| `3d` | World-space coordinates, a camera, lights and depth |
-
-```
+```visript
 context 3d
-
 render {
-  draw::cube()
+  draw::cube(rotation_y_deg: $TIME_SEC * 20, color: $COLOR_CORAL)
 }
 ```
 
-> **`3d` does not render yet.** The language understands it — the grammar, the
-> full builtin surface and every compile-time check described below are in
-> place — but the renderer behind it is still being built. A `context 3d`
-> script currently reports that when you run it, which also keeps it out of the
-> save flow rather than letting you publish something that draws nothing.
+`context 2d` is the default when the declaration is omitted. Both modes are
+implemented. A context declaration is top-level and can appear before or after
+properties/functions; convention puts it first. Declaring it twice is an error.
 
-## Which backend does `3d` use?
+## What changes
 
-That is the engine's decision, not yours. `3d` runs on WebGL2 today and may
-move to WebGPU where it is available; scripts do not change either way.
+| | 2D | 3D |
+| --- | --- | --- |
+| Coordinates | Pixels, origin top-left, +Y down | World units, origin at world centre, +Y up |
+| Drawing | Shapes, paths, text, images | Solids, planar shapes, strokes, points, grids, models |
+| Camera/lights | Not used | `camera::` and `light::` |
+| Previous frame | Retained unless cleared | Scene rebuilt each frame; use scramble for feedback |
+| Text/images | Canvas coordinates | Final screen-space overlay |
+| Full-frame effects | GPU post-processing | Same GPU post-processing |
 
-Naming a backend was never really the author's problem — what a script cares
-about is whether it is drawing flat or in space.
+Math, properties, arrays, functions, audio and input are shared. Some transform
+and blend calls work in both modes; others require 3D. Check the
+[availability table](../drawing/creative-tools.md#availability) before moving a
+2D sketch into world space. In particular, text and image drawing need
+`gfx::overlay(enabled: true)` in a 3D script.
 
-## Rules
+The host recreates the canvas when switching between 2D and 3D scripts, or when
+adding/removing GPU post-processing. You can change `context` in the editor;
+it is not a permanent choice for the whole browser session.
 
-**Omitting it means `2d`.** These two scripts are identical:
+3D, scramble, filters and whole-frame effects require WebGL2. Plain 2D uses
+Canvas 2D. Backend selection is automatic—there is no backend declaration.
 
-```
-render {
-  draw::clear()
-}
-```
-
-```
-context 2d
-
-render {
-  draw::clear()
-}
-```
-
-**It can go anywhere at the top level.** Convention is to put it first, but it
-is legal after properties or functions:
-
-```
-prop angle = 0.0
-context 3d
-
-render {
-  draw::cube()
-}
-```
-
-This is why `context` is read for the whole file before anything else is
-checked — a `draw::cube()` on line 2 is judged against a declaration that might
-not appear until line 40.
-
-**Declaring it twice is a parse error:**
-
-```
-context 2d
-context 3d    // error: context is already set
-```
-
-## Why it is fixed for the life of a canvas
-
-A canvas element keeps whichever backend it is first given until it is
-destroyed — there is no way to switch a 2D canvas to WebGL later. The engine
-therefore reads `context` when it binds to the canvas, and a script asking for
-a different one cannot take over an already-initialised canvas.
-
-## What changes between the two
-
-Everything in the 2D language keeps working under `context 3d`. `math::`,
-`color::`, properties, control flow and user functions are unaffected, and the
-2D primitives — `rect`, `circle`, `ellipse`, `polygon`, `text`, `line` — stay
-legal and draw on the `z = 0` plane.
-
-What `3d` adds:
-
-- **New arguments on the 2D primitives**: `z`, `rotation_x_deg`, `rotation_y_deg`, `rotation_z_deg`, plus
-  `shading`, `wireframe`, `opacity` and `texture`. Using one of these under
-  `context 2d` is an error that says so, rather than being quietly ignored.
-- **New namespaces**: `camera::`, `transform::`, `light::`, `gfx::`, `asset::`,
-  and the 3D primitives `draw::cube`, `sphere`, `plane`, `cylinder`, `cone`,
-  `torus`, `sprite`, `mesh` and `model`. Using any of these under `context 2d`
-  is an error telling you to add `context 3d`.
-
-See [3D Mode](../3d/overview.md) for the full surface.
+See [3D Mode](../3d/overview.md) for camera, lighting, geometry and point fields.

@@ -1,0 +1,107 @@
+/* Visamp additions to mdBook: upstream navigation, search and themes stay intact. */
+:root {
+  --visamp-header-height: 64px;
+  --sidebar-target-width: 280px;
+  --content-max-width: 860px;
+  --page-padding: 28px;
+  --mono-font: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+html.navy, html.coal, html.ayu {
+  --bg: #0c1010;
+  --fg: #dce6e3;
+  --sidebar-bg: #101616;
+  --sidebar-fg: #a8b9b4;
+  --sidebar-active: #70ebc1;
+  --sidebar-spacer: #263532;
+  --links: #70ebc1;
+  --inline-code-color: #a3efd5;
+  --quote-bg: #132321;
+  --quote-border: #3d8b73;
+  --table-border-color: #2a3935;
+  --table-header-bg: #192925;
+  --table-alternate-bg: #111b19;
+  --code-bg: #141d1b;
+  --icons: #99aaa5;
+  --icons-hover: #70ebc1;
+  --theme-popup-bg: #15211e;
+  --theme-popup-border: #344b42;
+  --theme-hover: #243830;
+  --searchbar-bg: #14211c;
+  --searchbar-fg: #e0ede7;
+  --searchbar-border-color: #3d5a4c;
+  --searchresults-header-fg: #adbbb5;
+  --searchresults-border-color: #2a3935;
+}
+html.light, html.rust {
+  --links: #08704f;
+  --sidebar-active: #08704f;
+  --inline-code-color: #0b6f55;
+}
+html { scroll-padding-top: 135px; }
+body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.visamp-header {
+  position: fixed; inset: 0 0 auto; z-index: 110;
+  height: var(--visamp-header-height); box-sizing: border-box;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 28px; background: #0c1010; color: #e7f4ed;
+  border-bottom: 1px solid #263a31;
+}
+.visamp-header a { color: inherit; text-decoration: none; }
+.visamp-brand { display: flex; align-items: center; gap: 20px; }
+.visamp-brand img { width: 142px; height: 28px; object-fit: contain; mix-blend-mode: screen; }
+.visamp-docs-label { font-size: 15px; padding-left: 20px; border-left: 1px solid #3b4d44; color: #c0d2c8; }
+.visamp-header-links { display: flex; align-items: center; gap: 22px; font-size: 13px; }
+.visamp-header-links a { padding: 8px 12px; border: 1px solid #365c49; border-radius: 6px; }
+.visamp-header-links a:hover { background: #1a3327; }
+.visamp-release { color: #8fab9c; }
+.visamp-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.page-wrapper { padding-top: var(--visamp-header-height); }
+#mdbook-sidebar { top: var(--visamp-header-height); height: calc(100% - var(--visamp-header-height)); border-right: 1px solid var(--sidebar-spacer); }
+#mdbook-menu-bar.sticky, #mdbook-menu-bar:hover,
+#mdbook-menu-bar-hover-placeholder:hover + #mdbook-menu-bar,
+html.sidebar-visible #mdbook-menu-bar { top: var(--visamp-header-height) !important; }
+#mdbook-menu-bar-hover-placeholder { top: var(--visamp-header-height); }
+.menu-title { font-size: 13px; font-weight: 500; letter-spacing: .02em; }
+.sidebar .sidebar-scrollbox { padding: 22px 16px; }
+.chapter { line-height: 1.65; font-size: 13px; }
+.chapter li.part-title { color: var(--fg); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; padding-top: 26px; }
+.chapter li a { border-radius: 4px; padding: 4px 8px; }
+.chapter li a.active { background: color-mix(in srgb, var(--links) 9%, transparent); font-weight: 600; }
+.content { padding-top: 24px; padding-bottom: 70px; line-height: 1.75; }
+.content main { overflow-wrap: break-word; }
+.content h1 { font-size: clamp(30px, 4vw, 44px); line-height: 1.15; letter-spacing: -.035em; margin: 12px 0 26px; font-weight: 650; }
+.content h2 { margin-top: 48px; font-size: 25px; letter-spacing: -.02em; border-bottom: 1px solid var(--table-border-color); padding-bottom: 12px; }
+.content h3 { margin-top: 32px; }
+.content p, .content li { font-size: 15px; }
+.content pre { border: 1px solid var(--table-border-color); border-radius: 8px; }
+.content pre > code { padding: 20px; line-height: 1.65; background: var(--code-bg); }
+.content code { font-size: .88em; }
+.content :not(pre) > code { border-radius: 3px; padding: .1em .3em; }
+.content table { width: 100%; font-size: 13px; margin: 24px 0; display: block; overflow-x: auto; }
+.content th { text-align: left; }
+.content td, .content th { padding: 10px 14px; line-height: 1.65; }
+.docs-version { display: inline-flex; border: 1px solid var(--table-border-color); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--links); }
+a:focus-visible, button:focus-visible, label:focus-visible { outline: 2px solid var(--links); outline-offset: 4px; }
+html.navy .hljs-keyword, html.coal .hljs-keyword, html.ayu .hljs-keyword { color: #97dac2; }
+html.navy .hljs-built_in, html.coal .hljs-built_in, html.ayu .hljs-built_in { color: #9ed6ff; }
+html.navy .hljs-variable, html.coal .hljs-variable, html.ayu .hljs-variable { color: #ecd497; }
+html.navy .hljs-number, html.coal .hljs-number, html.ayu .hljs-number { color: #d4b2fa; }
+html.navy .hljs-string, html.coal .hljs-string, html.ayu .hljs-string { color: #b9df95; }
+html.navy .hljs-comment, html.coal .hljs-comment, html.ayu .hljs-comment { color: #829a90; }
+@media (max-width: 700px) {
+  :root { --page-padding: 18px; }
+  .visamp-header { padding: 0 16px; }
+  .visamp-brand { gap: 12px; }
+  .visamp-brand img { width: 108px; height: 24px; }
+  .visamp-docs-label { padding-left: 12px; font-size: 13px; }
+  .visamp-release { display: none; }
+  .visamp-header-links a { padding: 7px 9px; font-size: 12px; }
+  .content { padding-top: 12px; }
+  .content h1 { font-size: 32px; }
+  .menu-title { display: none; }
+}
+@media print {
+  .visamp-header { display: none; }
+  .page-wrapper { padding-top: 0; }
+  .content { color: black; }
+}

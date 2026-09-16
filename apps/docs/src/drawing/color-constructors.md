@@ -6,7 +6,7 @@ Color constructors let you create custom colors using RGB or HSL values.
 
 Create a color from red, green, and blue components.
 
-```
+```visript
 color::rgb(r: 1.0, g: 0.5, b: 0.0, a: 0.8)
 ```
 
@@ -16,7 +16,7 @@ All parameters are **optional**. Colour channels default to `0.0`; alpha `a`
 defaults to `1.0`. A *misspelled* parameter
 is an error, not a silent zero:
 
-```
+```text
 color::rgb(red: 1.0)
 // error: color::rgb: unknown argument 'red' (it is 'r' now)
 ```
@@ -30,7 +30,7 @@ color::rgb(red: 1.0)
 
 ### Examples
 
-```
+```visript
 // Pure red
 color::rgb(r: 1.0)
 
@@ -48,7 +48,7 @@ color::rgb(r: 0.3, g: 0.3, b: 0.3)
 
 Create a color from hue, saturation, and lightness.
 
-```
+```visript
 color::hsl(h: 0.5, s: 0.8, l: 0.5, a: 1.0)
 ```
 
@@ -58,7 +58,7 @@ All parameters are **optional**. Colour channels default to `0.0`; alpha `a`
 defaults to `1.0`. A *misspelled* parameter
 is an error, not a silent zero:
 
-```
+```text
 color::hsl(hue: 0.5)
 // error: color::hsl: unknown argument 'hue' (it is 'h' now)
 ```
@@ -72,7 +72,7 @@ color::hsl(hue: 0.5)
 
 ### Hue Wheel
 
-```
+```visript
 0.00 = Red
 0.17 = Yellow
 0.33 = Green
@@ -84,7 +84,7 @@ color::hsl(hue: 0.5)
 
 ### Examples
 
-```
+```visript
 // Vivid red
 color::hsl(h: 0.0, s: 1.0, l: 0.5)
 
@@ -101,7 +101,7 @@ fn rainbow_color(position: 0.0) {
 
 Create a gradient that fades between colors along a line.
 
-```
+```visript
 color::linear_gradient(
   x0: 0.0, y0: 0.0,
   x1: 200.0, y1: 0.0,
@@ -142,7 +142,7 @@ still line up between them, the way a background gradient would.
 
 ### Examples
 
-```
+```visript
 // A horizontal fade from red to blue across a 400px-wide shape
 color::linear_gradient(
   x0: 0.0, y0: 0.0, x1: 400.0, y1: 0.0,
@@ -164,7 +164,7 @@ color::linear_gradient(
 
 Color constructors are expressions and can be used anywhere a color is expected:
 
-```
+```visript
 render {
   draw::background(color: color::rgb(r: 0.1, g: 0.1, b: 0.2))
 
@@ -184,7 +184,7 @@ render {
 argument alongside `color`. Supply one or the other — a gradient, when
 present, wins:
 
-```
+```visript
 render {
   draw::rect(
     x: 100.0, y: 100.0, width: 600.0, height: 200.0,
@@ -208,7 +208,7 @@ stays a plain color.
 `draw::line` has no separate fill: its `color` already draws the stroke, so
 `gradient` there replaces that stroke directly —
 
-```
+```visript
 render {
   let g = color::linear_gradient(
     x0: 0.0, y0: 0.0, x1: 800.0, y1: 600.0,

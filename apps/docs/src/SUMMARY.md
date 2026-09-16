@@ -6,9 +6,12 @@
 
 - [Quick Start](./getting-started/quick-start.md)
 - [Your First Script](./getting-started/first-script.md)
+- [Runtime & Capture](./getting-started/runtime.md)
+- [Troubleshooting](./getting-started/troubleshooting.md)
 
 # Language Reference
 
+- [Standard Library Map](./language/standard-library.md)
 - [Language Conventions](./language/conventions.md)
 - [Comments](./language/comments.md)
 - [Properties](./language/properties.md)
@@ -51,6 +54,8 @@
 - [Animation Examples](./examples/animation.md)
 - [3D Examples](./examples/3d.md)
 
-# Design Proposals
+- [Sample Packs](./examples/sample-packs.md)
+
+# Contributor Notes
 
 - [Drawing Expansion Design](./design/drawing-expansion.md)

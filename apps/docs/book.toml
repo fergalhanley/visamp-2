@@ -3,3 +3,18 @@ authors = ["Fergal Hanley"]
 language = "en"
 src = "src"
 title = "Visript Reference"
+description = "Create realtime visuals with Visript, the visualisation language for Visamp."
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+additional-css = ["theme/visamp.css"]
+no-section-label = true
+site-url = "/"
+
+[output.html.playground]
+runnable = false
+copyable = true
+
+[output.html.print]
+enable = false

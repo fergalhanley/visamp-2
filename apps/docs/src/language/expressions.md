@@ -4,7 +4,7 @@ Expressions compute values. Visript supports a full expression system with arith
 
 ## Literals
 
-```
+```visript
 42          // Integer
 3.14        // Float
 "hello"     // String
@@ -14,7 +14,7 @@ false       // Boolean
 
 ## Arithmetic
 
-```
+```visript
 1 + 2       // 3
 10 - 3      // 7
 4 * 5       // 20
@@ -25,7 +25,7 @@ false       // Boolean
 ```
 
 Mixed types are promoted to float:
-```
+```visript
 1 + 2.5     // 3.5 (integer promoted to float)
 ```
 
@@ -38,7 +38,7 @@ This matters because a lot of what you divide is an integer without looking
 like one. `$TIME_MS` and `$FRAME_COUNT` are integers, so under truncating division
 something like
 
-```
+```visript
 on_frame {
   // Would step 0, 1, 2, 3 … one whole radian every 5 seconds
   angle = math::sin(rad: $TIME_MS / 5000)
@@ -49,7 +49,7 @@ would snap between whole values instead of moving smoothly.
 
 `%` is left alone, because integer modulus is usually what you want:
 
-```
+```visript
 on_frame {
   if $FRAME_COUNT % 60 == 0 {
     flash = true
@@ -62,7 +62,7 @@ on_frame {
 When you want a whole number, use `\`. It divides and throws away the
 fraction, always giving an integer:
 
-```
+```visript
 let columns = $WIDTH \ 100     // how many 100px columns fit
 let bucket  = i \ 8            // group an index into eights
 ```
@@ -70,14 +70,14 @@ let bucket  = i \ 8            // group an index into eights
 It accepts floats as well as integers — `$WIDTH` and `$HEIGHT` are floats, and
 requiring a conversion first would defeat the point:
 
-```
+```visript
 7.5 \ 2     // 3
 ```
 
 `\` truncates **toward zero**, so `-7 \ 2` is `-3`. If you want it to round
 down instead, use `math::floor`:
 
-```
+```visript
 math::floor(value: -7 / 2)    // -4
 ```
 
@@ -85,7 +85,7 @@ Dividing by zero is an error, the same as with `/`.
 
 ## Comparison
 
-```
+```visript
 1 == 1      // true
 1 != 2      // true
 3 < 5       // true
@@ -96,7 +96,7 @@ Dividing by zero is an error, the same as with `/`.
 
 ## Boolean Logic
 
-```
+```visript
 true && false   // false
 true || false   // true
 !true           // false
@@ -105,7 +105,7 @@ true || false   // true
 `&&` and `||` **short-circuit**: if the left side settles the answer, the right
 side is never worked out at all. That is what lets one side guard the other:
 
-```
+```visript
 on_frame {
   // The division only happens when n is non-zero
   if n != 0 && total \ n > 5 {
@@ -121,7 +121,7 @@ non-zero as true — a number is not a truth value here.
 
 `&`, `|` and `^` work on the bits of whole numbers:
 
-```
+```visript
 6 & 3       // 2   — bits set in both
 6 | 3       // 7   — bits set in either
 6 ^ 3       // 5   — bits set in exactly one
@@ -130,7 +130,7 @@ non-zero as true — a number is not a truth value here.
 They are useful for packing several on/off flags into one property, or for
 cycling through a power-of-two range:
 
-```
+```visript
 prop flags = 0
 
 on_frame {
@@ -142,21 +142,21 @@ on_frame {
 ```
 
 Whole numbers only. `6.5 & 3` is an error rather than a silent truncation,
-since a bit pattern is not a meaningful notion for a float — use `\` or
-`math::floor` first if you have a fraction.
+since a bit pattern is not a meaningful notion for a float — use `value \ 1` to truncate, or
+`math::floor(value: value) \ 1` to round down and convert.
 
 Note that `&` is a different operator from `&&`, and `|` from `||`. The
 doubled forms are the boolean ones.
 
 ## String Operations
 
-```
+```visript
 "hello" + " " + "world"   // "hello world"
 ```
 
 ## Arrays
 
-```
+```visript
 [1, 2, 3]
 [[100.0, 200.0], [300.0, 400.0]]
 ```
@@ -165,27 +165,27 @@ doubled forms are the boolean ones.
 
 Read a single element with `[...]`, counting from zero:
 
-```
+```visript
 let first = audio::detect::get_spectrum()[0]
 let bass  = audio::detect::get_spectrum()[4]
 ```
 
 The index can be any whole-number expression, and indexing chains:
 
-```
+```visript
 let v = audio::detect::get_spectrum()[i * 2]
 let y = points[1][0]
 ```
 
-**Reading past the end gives 0** rather than failing. That is deliberate: the
-audio arrays are empty whenever nothing is playing, so an error would break
+**Reading past the end gives 0** rather than failing. That is deliberate: an
+index may be outside an array’s bounds, so an error would break
 every audio-reactive script the moment it fell silent. A negative index also
 reads as 0.
 
-The index must be a whole number — use `\` or `math::floor` if you have a
-fraction:
+The index must have integer type. Use `value \ 1` to truncate or
+`math::floor(value: value) \ 1` to round down:
 
-```
+```visript
 let v = audio::detect::get_spectrum()[$WIDTH \ 40]
 ```
 
@@ -193,14 +193,14 @@ let v = audio::detect::get_spectrum()[$WIDTH \ 40]
 
 Use parentheses to control precedence:
 
-```
+```visript
 (1 + 2) * 3    // 9
 1 + (2 * 3)    // 7
 ```
 
 ## Color Constructors
 
-```
+```visript
 color::rgb(r: 1.0, g: 0.5, b: 0.0)
 color::hsl(h: 0.5, s: 0.8, l: 0.5)
 ```
@@ -209,8 +209,8 @@ See [Color Constructors](../drawing/color-constructors.md) for details.
 
 ## Function Calls
 
-```
-my_func(1.0, 2.0)
+```visript
+my_func(x: 1.0, y: 2.0)
 ```
 
 See [Functions](../programming/functions.md) for details.
@@ -235,14 +235,14 @@ From lowest to highest. This follows C, which is what most languages use:
 One consequence is worth knowing, because it surprises people in every language
 that inherits it: **the bitwise operators bind more loosely than `==`**. So
 
-```
+```visript
 flags & 4 == 4
 ```
 
 groups as `flags & (4 == 4)`, which is a type error rather than the test you
 meant. Parenthesise when you mix them:
 
-```
+```visript
 (flags & 4) == 4
 ```
 

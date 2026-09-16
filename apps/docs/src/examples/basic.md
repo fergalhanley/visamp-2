@@ -2,7 +2,7 @@
 
 ## Static Scene
 
-```
+```visript
 render {
   draw::background(color: $COLOR_NAVY)
 
@@ -26,7 +26,7 @@ render {
 
 ## Color Palette Display
 
-```
+```visript
 render {
   draw::background(color: $COLOR_BLACK)
 
@@ -50,7 +50,7 @@ render {
 
 ## Concentric Circles
 
-```
+```visript
 render {
   draw::background(color: $COLOR_BLACK)
 
@@ -69,8 +69,8 @@ render {
 
 ## Grid Pattern
 
-```
-fn cell(cx, cy, size, hue) {
+```visript
+fn cell(cx: 0.0, cy: 0.0, size: 80.0, hue: 0.0) {
   draw::rect(
     x: cx - size / 2.0,
     y: cy - size / 2.0,
@@ -87,7 +87,7 @@ render {
   for row in [0, 1, 2, 3, 4, 5] {
     for col in [0, 1, 2, 3, 4, 5, 6, 7] {
       let hue = (row * 8 + col) * 0.02
-      cell(col * 95.0 + 50.0, row * 95.0 + 50.0, 80.0, hue)
+      cell(cx: col * 95.0 + 50.0, cy: row * 95.0 + 50.0, size: 80.0, hue: hue)
     }
   }
 }
@@ -95,7 +95,7 @@ render {
 
 ## Mouse Trail
 
-```
+```visript
 prop trail_x = 400.0
 prop trail_y = 300.0
 

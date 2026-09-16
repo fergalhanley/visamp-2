@@ -6,7 +6,7 @@ Visript provides a comprehensive math library for calculations in your scripts.
 
 All trigonometric functions use **rad**.
 
-```
+```visript
 math::sin(rad: 1.57)     // sine
 math::cos(rad: 0.0)      // cosine
 math::tan(rad: 0.785)    // tangent
@@ -18,7 +18,7 @@ math::atan2(y: 1.0, x: 1.0)  // arc tangent of y/x (returns rad)
 
 ## Powers and Roots
 
-```
+```visript
 math::sqrt(value: 16.0)      // square root
 math::cbrt(value: 27.0)      // cube root
 math::pow(base: 2.0, exp: 3.0)  // power (2^3 = 8)
@@ -30,7 +30,7 @@ math::log10(value: 100.0)    // base-10 logarithm
 
 ## Rounding Functions
 
-```
+```visript
 math::abs(value: -5.0)       // absolute value
 math::floor(value: 3.7)      // round down (3.0)
 math::ceil(value: 3.2)       // round up (4.0)
@@ -40,7 +40,7 @@ math::trunc(value: 3.7)      // truncate decimal (3.0)
 
 ## Min/Max/Clamp
 
-```
+```visript
 math::min(a: 5.0, b: 3.0)    // minimum (3.0)
 math::max(a: 5.0, b: 3.0)    // maximum (5.0)
 math::clamp(value: 15.0, min: 0.0, max: 10.0)  // clamp to range (10.0)
@@ -50,7 +50,7 @@ math::clamp(value: 15.0, min: 0.0, max: 10.0)  // clamp to range (10.0)
 
 Access mathematical constants with the `$` prefix:
 
-```
+```visript
 $PI     // 3.141592653589793
 $E      // 2.718281828459045
 $TAU    // 6.283185307179586 (2 * PI)
@@ -60,7 +60,7 @@ $TAU    // 6.283185307179586 (2 * PI)
 
 ### Circular Motion
 
-```
+```visript
 prop angle = 0.0
 
 on_frame {
@@ -80,7 +80,7 @@ render {
 
 ### Wave Pattern
 
-```
+```visript
 render {
   draw::clear()
   draw::background(color: $COLOR_NAVY)
@@ -95,7 +95,7 @@ render {
 
 ### Spiral
 
-```
+```visript
 prop t = 0.0
 
 on_frame {
@@ -118,7 +118,7 @@ render {
 
 ### Distance Calculation
 
-```
+```visript
 prop x1 = 100.0
 prop y1 = 100.0
 prop x2 = 700.0

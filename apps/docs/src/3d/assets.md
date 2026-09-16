@@ -3,7 +3,7 @@
 Images, vectors and 3D models you have uploaded can be drawn from a script:
 a bitmap or SVG as a texture on any primitive, a model as geometry.
 
-```
+```visript
 context 3d
 
 render {
@@ -40,7 +40,7 @@ own — pass it to a draw call.
 `texture:` is accepted by every 3D `draw::` call and takes a `bitmap` or
 `vector` reference.
 
-```
+```visript
 context 3d
 
 render {
@@ -52,7 +52,7 @@ render {
 The texture **modulates** the shape's colour rather than replacing it, so
 everything else still works the way you would expect:
 
-```
+```visript
 // Tinted red, half transparent, still textured.
 draw::cube(
   texture: asset::bitmap(id: "a1b2c3d4-…"),
@@ -89,7 +89,7 @@ memory, which is more than the whole visual is likely to have.
 `draw::model` draws an uploaded GLB. It takes the same position, rotation,
 colour, shading and `texture` arguments as any other 3D primitive.
 
-```
+```visript
 context 3d
 
 render {
@@ -126,29 +126,24 @@ points or triangles, at most 1,000,000 point positions and 65,536 triangle
 vertices. Triangle indices are limited to 6,000,000. Bounds, transforms, attribute
 counts and node hierarchies are checked before an asset becomes ready.
 
-## When an asset will not load
+## Loading and missing assets
 
-A reference that cannot be resolved is **not an error, and does not stop the
-frame**. A textured mesh draws untextured; a `draw::model` draws nothing.
-A point cloud awaiting its model or requested texture draws nothing; the
-rest of your script carries on.
+The Visamp host resolves and preloads referenced assets **before activating the
+script**. Cached assets can be reused when you return to a visual. While loading,
+the player shows a loading state; a failed or unavailable asset shows a retryable
+error instead of rendering an incomplete visual. Upload completion alone is not
+enough: the asset must be ready and readable by the current viewer.
 
-That covers all of:
-
-- the asset is still downloading, which is the usual case for a fraction of a
-  second after a visual opens;
-- the asset is private and belongs to someone else;
-- the asset has been removed from availability.
-
-The three are indistinguishable from inside a script, on purpose: a script must
-never become a way to find out whether an asset exists or who owns it.
+The engine itself never fetches URLs or bypasses permissions. Custom hosts must
+supply decoded assets and implement their own readiness gate. Some low-level
+mesh/point calls have missing-asset fallbacks; `effect::displace` requires its
+bitmap and reports a located runtime error if it has not been supplied.
 
 ## Access
 
 - Your uploads are **private by default** and only you can use them.
 - Making one **public** lets anybody use it, including in exported video.
-- Referencing an asset you cannot read does not give you access to it. It draws
-  as though it were missing.
+- Referencing an asset you cannot read does not give you access to it. The host reports it as unavailable.
 - A **public visual cannot reference a private asset**. Publishing one is
   refused, and names the assets that need making public first.
 
@@ -157,8 +152,7 @@ keeps the source, so it keeps the references. Whether they load is decided for
 whoever is watching: a fork of a visual using a public asset works for everyone,
 and a fork can never reach a private one.
 
-If an asset a published visual relies on is removed, the visual keeps rendering
-without it and shows a warning.
+If an asset a published visual relies on is removed, the host reports the dependency as unavailable until it can be resolved.
 
 ## Formats and limits
 

@@ -7,7 +7,7 @@ space, and unlocks a camera, a transform stack, lights and solid primitives.
 > are supported. See [Creative Drawing Tools](../drawing/creative-tools.md) for
 > anchors, units, budgets and context-specific limits.
 
-```
+```visript
 context 3d
 
 render {
@@ -39,14 +39,14 @@ Your script has to look right at any viewport size — the same discipline the
 
 Every angle argument names its unit. Both spellings work everywhere:
 
-```
+```visript
 transform::rotate_y(deg: $TIME_SEC * 30.0)
 transform::rotate_y(rad: $TIME_SEC * 0.52)
 ```
 
 Where a call takes several angles, the unit suffixes each name:
 
-```
+```visript
 camera::orbit(yaw_deg: $TIME_SEC * 20.0, pitch_deg: 15.0)
 camera::orbit(yaw_rad: $TIME_SEC * 0.35, pitch_rad: 0.26)
 ```
@@ -55,7 +55,7 @@ Giving both units for the same angle is an error — there is no sensible way to
 reconcile them, and silently preferring one would make the other look like it
 worked:
 
-```
+```text
 transform::rotate_y(deg: 90.0, rad: 1.57)
 // error: transform::rotate_y: specify deg or rad, not both
 ```
@@ -102,7 +102,7 @@ A matrix stack, reset to a single identity at the start of every `render` block.
 
 Transforms apply to **every** draw call, including the 2D primitives.
 
-```
+```visript
 context 3d
 
 render {
@@ -160,7 +160,7 @@ All unit-sized at the origin, so a bare call renders something.
 triangle list; without `normals` they are computed per face. Capped at 65536
 vertices per call.
 
-```
+```visript
 draw::mesh(
   vertices: [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
 )
@@ -170,7 +170,7 @@ draw::mesh(
 It is a separate call rather than an argument on `draw::mesh` so that one keeps
 its "vertices are required" guarantee. See [Assets](./assets.md).
 
-```
+```visript
 draw::model(asset: asset::model(id: "a1b2c3d4-…"))
 ```
 
@@ -181,7 +181,7 @@ arguments. `draw::rect(x: 0.0, y: 0.0, width: 2.0, height: 1.0)` is a flat quad 
 `z = 0` plane, which is what porting a 2D sketch should look like — and a floor
 needs no new builtin:
 
-```
+```visript
 context 3d
 
 render {
@@ -190,9 +190,10 @@ render {
 }
 ```
 
-None of these are rendered yet — they compile, and then report
-`is not rendered in 3d mode yet` at run time. The rest of this section describes
-the intended behaviour.
+Planar circles, ellipses, rectangles and polygons render on the XY plane.
+Connected strokes render as camera-facing triangle ribbons. Text and images
+require the final screen-space overlay. See the
+[availability table](../drawing/creative-tools.md#availability) for supported styling.
 
 **`draw::line` is the one call whose argument changes meaning between modes.**
 It gains `z1` and `z2`, and its `stroke_width` is read as **screen pixels in
@@ -222,7 +223,7 @@ Per-frame, reset at the start of every `render` block.
 | `gfx::depth` | `enabled`, `write` | `true`, `true` |
 | `gfx::blend` | `mode`: `"alpha"`, `"additive"`, `"multiply"`, `"none"` | `"alpha"` |
 | `gfx::cull` | `mode`: `"none"`, `"back"`, `"front"` | `"none"` |
-| `gfx::clear` | `color` | transparent |
+| `gfx::clear` | `color` | black |
 | `gfx::overlay` | `enabled` | `false` |
 
 Culling defaults to `none` on purpose: drawing a plane and looking at it from
@@ -231,26 +232,26 @@ below should show you the plane, not a debugging session.
 Additive blending with depth writes off is the most common setup for music
 visualisation:
 
-```
+```visript
 gfx::blend(mode: "additive")
 gfx::depth(enabled: true, write: false)
 ```
 
-### Overlay: intended contract (not rendered yet)
+### Final screen-space overlay
 
 `gfx::overlay(enabled: true)` begins the final screen-space section. Its 2D
 primitives use pixel coordinates above the world scene, with a separate 2D
 transform stack. Filters and scramble apply after the overlay. World draws cannot
 follow it; world text remains unsupported.
 
-```
+```visript
 gfx::overlay(enabled: true)
 draw::text(content: "spectrum city", x: 20.0, y: 40.0, size: 24.0, color: $COLOR_WHITE)
 gfx::overlay(enabled: false)
 ```
 
-Any 3D call inside the bracket is an error, since none of it means anything in
-screen space.
+World geometry and camera/light calls cannot run inside the overlay. Shared
+2D transforms, blend state, filters and whole-frame effects remain available.
 
 ## Supported combinations
 
@@ -274,16 +275,13 @@ Enforced by the runtime, so a heavy script degrades instead of dying:
 Going past the per-frame draw or triangle limit drops the rest of that frame's
 commands and warns in the log.
 
-## Not yet
+## Further capabilities
 
-Materials beyond a colour and a single texture, shadows, post-processing (bloom
-is the obvious first want for additive work), spot lights and camera paths are
-all out of scope for now. So are the 2D primitives under `context 3d`, which
-compile but do not draw.
+[Whole-frame effects](../effects/frame-effects.md), including bloom, kaleidoscope
+and pixelation, process the finished scene plus overlay. Textures are supported on
+solid/planar meshes, sprites and model points; see [Assets](assets.md).
 
-Textures have arrived: every primitive carries texture coordinates and
-`draw::mesh(uvs:)` is now used rather than merely accepted. See
-[Assets](./assets.md).
+Shadows, richer materials, spot lights and camera paths remain future work.
 
 ## Point clouds
 

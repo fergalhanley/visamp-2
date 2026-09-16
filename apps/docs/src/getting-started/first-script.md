@@ -6,7 +6,7 @@ Let's walk through creating a simple animated scene.
 
 Every scene starts with a background:
 
-```
+```visript
 render {
   draw::background(color: $COLOR_NAVY)
 }
@@ -16,10 +16,10 @@ render {
 
 Let's add a circle:
 
-```
+```visript
 render {
   draw::background(color: $COLOR_NAVY)
-  draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_GOLD)
+  draw::circle(x: $WIDTH / 2, y: 300.0, radius: 50.0, color: $COLOR_GOLD)
 }
 ```
 
@@ -27,26 +27,26 @@ render {
 
 To animate, we use `prop` for state and `on_frame` to update it:
 
-```
+```visript
 prop y = 100.0
 
 on_frame {
-  y = y + 2.0
+  y = y + 120.0 * $DELTA_SEC
 }
 
 render {
   draw::background(color: $COLOR_NAVY)
-  draw::circle(x: 400.0, y: y, radius: 50.0, color: $COLOR_GOLD)
+  draw::circle(x: $WIDTH / 2, y: y, radius: 50.0, color: $COLOR_GOLD)
 }
 ```
 
-The circle falls down the screen! But it goes off the edge. Let's use a system value:
+The circle falls at 120 pixels per second, using `$DELTA_SEC` to account for frame time. But it goes off the edge. Let's use a system value:
 
-```
+```visript
 prop y = 100.0
 
 on_frame {
-  y = y + 2.0
+  y = y + 120.0 * $DELTA_SEC
   if y > $HEIGHT {
     y = 0.0
   }
@@ -54,7 +54,7 @@ on_frame {
 
 render {
   draw::background(color: $COLOR_NAVY)
-  draw::circle(x: 400.0, y: y, radius: 50.0, color: $COLOR_GOLD)
+  draw::circle(x: $WIDTH / 2, y: y, radius: 50.0, color: $COLOR_GOLD)
 }
 ```
 
@@ -62,7 +62,7 @@ render {
 
 Let's add a rotating rectangle:
 
-```
+```visript
 prop angle = 0.0
 
 on_frame {

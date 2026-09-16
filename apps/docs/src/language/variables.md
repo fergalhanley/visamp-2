@@ -4,7 +4,7 @@
 
 Use `let` to declare local variables within blocks:
 
-```
+```visript
 on_frame {
   let speed = 2.0
   let name = "player"
@@ -22,7 +22,7 @@ render {
 - Variables cannot shadow properties or other variables in the same scope
 - Variables are scoped to the block they're declared in (including control flow blocks)
 
-```
+```visript
 render {
   let x = 100.0
   if true {
@@ -37,7 +37,7 @@ render {
 
 Assign new values to existing variables with `=`:
 
-```
+```visript
 prop count = 0
 
 on_frame {
@@ -50,7 +50,7 @@ on_frame {
 `x += e` is shorthand for `x = x + e`, and the same for `-=`, `*=`, `/=`
 and `%=`:
 
-```
+```visript
 prop angle = 0.0
 prop hits = 0
 
@@ -66,11 +66,11 @@ multiplies by five rather than doubling and then adding three.
 These follow the same typing rules as the long form. In particular **`/=`
 always produces a float**, because `/` does:
 
-```
+```visript
 prop x = 9
 
 on_frame {
-  x /= 3     // 3.0, a float — use \= to keep it whole
+  x /= 3     // 3.0, a float — use x = x \ 3 to keep it whole
 }
 ```
 
@@ -78,7 +78,7 @@ on_frame {
 
 `x++` and `x--` add or subtract one:
 
-```
+```visript
 prop frame = 0
 
 on_frame {
@@ -92,7 +92,7 @@ rather than expressions, so there is no "before or after" distinction to make �
 
 Incrementing a float adds `1.0`, the way `x = x + 1` would:
 
-```
+```visript
 prop x = 1.5
 
 on_frame {
@@ -108,7 +108,7 @@ on_frame {
 | **Scope** | Entire script | Current block |
 | **Lifetime** | Persists across frames | Created each frame |
 | **Writable in on_frame** | Yes | Yes |
-| **Writable in render** | No | Yes |
+| **Writable in render** | Yes; prefer updates in `on_frame` | Yes |
 | **Readable in render** | Yes | Yes |
 
 Use properties for state that needs to persist between frames (animation counters, positions, etc.). Use local variables for temporary calculations within a single frame.

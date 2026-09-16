@@ -32,7 +32,7 @@ release inside, moving at most 5 CSS pixels throughout; a drag/cancel is not a c
 `get_button()` is valid only in down, up and click handlers. Coordinates are
 available in all pointer handlers. Cancellation has no individual changed button.
 
-```
+```visript
 prop x = 0.0
 prop y = 0.0
 on_input_pointer_move {

@@ -4,8 +4,10 @@
   "private": true,
   "description": "Visript language reference (mdBook)",
   "scripts": {
-    "build": "mdbook build",
-    "dev": "mdbook serve --port 3200",
-    "clean": "rm -rf book"
+    "build": "node scripts/mdbook.mjs build",
+    "dev": "node scripts/mdbook.mjs serve --hostname 127.0.0.1 --port 3200",
+    "clean": "rm -rf book",
+    "check:examples": "node scripts/check-examples.mjs",
+    "check:links": "node scripts/check-links.mjs"
   }
 }

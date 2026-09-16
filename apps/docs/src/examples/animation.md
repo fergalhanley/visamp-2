@@ -2,7 +2,7 @@
 
 ## Rotating Square
 
-```
+```visript
 prop angle = 0.0
 
 on_frame {
@@ -22,7 +22,7 @@ render {
 
 ## Bouncing Ball
 
-```
+```visript
 prop x = 100.0
 prop y = 300.0
 prop vx = 3.0
@@ -54,7 +54,7 @@ render {
 
 ## Color Cycling Background
 
-```
+```visript
 render {
   draw::background(
     color: color::hsl(h: $TIME_SEC * 0.05, s: 0.6, l: 0.3)
@@ -72,16 +72,16 @@ render {
 
 ## Orbiting Circles
 
-```
+```visript
 prop angle = 0.0
 
 on_frame {
   angle = $TIME_SEC
 }
 
-fn orbit_particle(a, dist, col) {
-  let px = 400.0 + cos(a) * dist
-  let py = 300.0 + sin(a) * dist
+fn orbit_particle(a: 0.0, dist: 80.0, col: $COLOR_RED) {
+  let px = 400.0 + math::cos(rad: a) * dist
+  let py = 300.0 + math::sin(rad: a) * dist
   draw::circle(x: px, y: py, radius: 12.0, color: col)
 }
 
@@ -92,23 +92,22 @@ render {
   draw::circle(x: 400.0, y: 300.0, radius: 20.0, color: $COLOR_WHITE)
 
   // Orbiting particles
-  orbit_particle(angle, 80.0, $COLOR_RED)
-  orbit_particle(angle + 1.57, 80.0, $COLOR_GREEN)
-  orbit_particle(angle + 3.14, 80.0, $COLOR_BLUE)
-  orbit_particle(angle + 4.71, 80.0, $COLOR_YELLOW)
+  orbit_particle(a: angle, dist: 80.0, col: $COLOR_RED)
+  orbit_particle(a: angle + 1.57, dist: 80.0, col: $COLOR_GREEN)
+  orbit_particle(a: angle + 3.14, dist: 80.0, col: $COLOR_BLUE)
+  orbit_particle(a: angle + 4.71, dist: 80.0, col: $COLOR_YELLOW)
 
   // Outer ring
-  orbit_particle(angle * 0.5, 160.0, $COLOR_CYAN)
-  orbit_particle(angle * 0.5 + 2.09, 160.0, $COLOR_MAGENTA)
-  orbit_particle(angle * 0.5 + 4.19, 160.0, $COLOR_ORANGE)
+  orbit_particle(a: angle * 0.5, dist: 160.0, col: $COLOR_CYAN)
+  orbit_particle(a: angle * 0.5 + 2.09, dist: 160.0, col: $COLOR_MAGENTA)
+  orbit_particle(a: angle * 0.5 + 4.19, dist: 160.0, col: $COLOR_ORANGE)
 }
 ```
 
-> **Note:** This example uses `cos()` and `sin()` which would need to be implemented as system functions or user-defined approximations.
 
 ## Pulsing Ring
 
-```
+```visript
 render {
   draw::background(color: $COLOR_BLACK)
 
@@ -129,13 +128,13 @@ render {
 
 ## Wave Pattern
 
-```
+```visript
 render {
   draw::background(color: $COLOR_BLACK)
 
   for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19] {
     let x = i * 40.0 + 20.0
-    let y = 300.0 + sin($TIME_SEC * 2.0 + i * 0.5) * 100.0
+    let y = 300.0 + math::sin(rad: $TIME_SEC * 2.0 + i * 0.5) * 100.0
     let hue = i * 0.05
 
     draw::circle(
@@ -150,7 +149,7 @@ render {
 
 ## Mouse-Reactive Particles
 
-```
+```visript
 prop particles = [[400.0, 300.0], [350.0, 250.0], [450.0, 350.0], [300.0, 300.0], [500.0, 300.0]]
 
 on_frame {
@@ -169,8 +168,8 @@ render {
   for i in [0, 1, 2, 3, 4] {
     let hue = i * 0.2 + $TIME_SEC * 0.1
     draw::circle(
-      x: 400.0 + sin($TIME_SEC + i) * 100.0,
-      y: 300.0 + cos($TIME_SEC + i) * 100.0,
+      x: 400.0 + math::sin(rad: $TIME_SEC + i) * 100.0,
+      y: 300.0 + math::cos(rad: $TIME_SEC + i) * 100.0,
       radius: 20.0,
       color: color::hsl(h: hue, s: 0.8, l: 0.6)
     )

@@ -2,7 +2,7 @@
 
 Anything after `//` on a line is ignored.
 
-```
+```visript
 // A note to yourself
 prop angle = 0.0   // and one at the end of a line
 
@@ -15,7 +15,7 @@ on_frame {
 Comments can go anywhere whitespace can — between arguments, inside a block,
 on their own line, or at the very end of a file.
 
-```
+```visript
 render {
   draw::circle(
     x: $WIDTH / 2.0,     // centre
@@ -33,7 +33,7 @@ There is no block comment form — `//` to the end of the line is the only kind.
 Two slashes always start a comment. Division is a single `/`, and integer
 division is `\` — neither collides with a comment:
 
-```
+```visript
 let a = 10 / 4    // 2.5
 let b = 10 \ 4    // 2, integer division
 let c = 10        // everything after // is a comment
@@ -41,7 +41,7 @@ let c = 10        // everything after // is a comment
 
 Inside a string, `//` is just text:
 
-```
+```visript
 render {
   draw::text(
     content: "https://visamp.io",

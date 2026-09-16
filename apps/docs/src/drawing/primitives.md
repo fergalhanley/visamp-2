@@ -9,7 +9,7 @@ For polylines, Béziers, arcs, images, rounded rectangles, polygon outlines and
 
 Clears the entire canvas. Call this at the start of your `render` block to start fresh each frame. In 2D, omit it to let previous frames persist (useful for trails and accumulation effects).
 
-```
+```visript
 draw::clear()
 ```
 
@@ -19,7 +19,7 @@ No arguments. Clears the full canvas dimensions.
 
 Fills the entire canvas with a color.
 
-```
+```visript
 draw::background(color: $COLOR_BLACK)
 ```
 
@@ -32,7 +32,7 @@ draw::background(color: $COLOR_BLACK)
 
 Draws a filled circle.
 
-```
+```visript
 draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 ```
 
@@ -51,7 +51,7 @@ draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 
 Draws a rectangle.
 
-```
+```visript
 draw::rect(x: 100.0, y: 200.0, width: 150.0, height: 80.0, color: $COLOR_BLUE, rotation_rad: 0.5)
 ```
 
@@ -61,18 +61,19 @@ draw::rect(x: 100.0, y: 200.0, width: 150.0, height: 80.0, color: $COLOR_BLUE, r
 | `y` | Float | 0.0 | Top-left Y position |
 | `width` | Float | 100.0 | Rectangle width |
 | `height` | Float | 100.0 | Rectangle height |
+| `corner_radius` | Float | 0.0 | Nonnegative radius, clamped to half the smaller dimension |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
 | `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke` | Boolean | false | Draw outline instead of fill |
 | `stroke_width` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
-| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation in rad (around center) |
+| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation around center, in the named unit |
 
 ## draw::polygon
 
 Draws a filled polygon from a list of points.
 
-```
+```visript
 draw::polygon(
   points: [
     [400.0, 100.0],
@@ -89,13 +90,16 @@ draw::polygon(
 | `points` | Array | `[]` | Array of `[x, y]` coordinate pairs |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
 | `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
-| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation in rad (around centroid) |
+| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation around centroid, in the named unit |
+| `stroke` | Boolean | false | Draw outline instead of fill |
+| `stroke_width` | Float | 1.0 | Outline thickness |
+| `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
 
 ## draw::line
 
 Draws a line between two points.
 
-```
+```visript
 draw::line(x1: 100.0, y1: 100.0, x2: 700.0, y2: 500.0, color: $COLOR_WHITE, stroke_width: 2.0)
 ```
 
@@ -113,7 +117,7 @@ draw::line(x1: 100.0, y1: 100.0, x2: 700.0, y2: 500.0, color: $COLOR_WHITE, stro
 
 Draws an ellipse.
 
-```
+```visript
 draw::ellipse(x: 400.0, y: 300.0, radius_x: 80.0, radius_y: 40.0, color: $COLOR_PURPLE, rotation_rad: 0.3)
 ```
 
@@ -128,13 +132,13 @@ draw::ellipse(x: 400.0, y: 300.0, radius_x: 80.0, radius_y: 40.0, color: $COLOR_
 | `stroke` | Boolean | false | Draw outline instead of fill |
 | `stroke_width` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
-| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation in rad |
+| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation in the named unit |
 
 ## draw::text
 
 Draws text on the canvas.
 
-```
+```visript
 draw::text(content: "Hello!", x: 350.0, y: 300.0, size: 24.0, color: $COLOR_WHITE)
 ```
 
@@ -153,7 +157,7 @@ draw::text(content: "Hello!", x: 350.0, y: 300.0, size: 24.0, color: $COLOR_WHIT
 - Origin `(0, 0)` is at the **top-left** corner
 - X increases to the **right**
 - Y increases **downward**
-- Rotations are in **rad**, clockwise
+- Positive rotations are clockwise; choose radians or degrees with the argument name
 
 Rotation arguments are mutually exclusive: supply `rotation_rad` in radians or
 `rotation_deg` in degrees. Both default to no rotation when omitted.

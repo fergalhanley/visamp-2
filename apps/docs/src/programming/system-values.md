@@ -21,7 +21,7 @@ Elapsed time retains its existing engine-lifetime epoch when scripts switch.
 `$DELTA_SEC` is not capped; clamp it explicitly for simulations if needed.
 
 
-```
+```visript
 on_frame {
   angle = $TIME_SEC    // Continuously increasing
 }
@@ -34,7 +34,7 @@ on_frame {
 | `$WIDTH` | Float | Canvas width in pixels |
 | `$HEIGHT` | Float | Canvas height in pixels |
 
-```
+```visript
 render {
   // Draw at center of canvas
   draw::circle(x: $WIDTH / 2.0, y: $HEIGHT / 2.0, radius: 50.0, color: $COLOR_RED)
@@ -54,7 +54,7 @@ lost in the thumbnail.
 Position and scale relative to `$WIDTH` and `$HEIGHT` and the composition holds
 everywhere:
 
-```
+```visript
 render {
   // Fragile: tied to one particular canvas size
   draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
@@ -72,7 +72,7 @@ render {
 A useful habit is to derive one unit from the canvas and build everything from
 it:
 
-```
+```visript
 render {
   let unit = $HEIGHT / 100.0
 
@@ -97,7 +97,7 @@ in [`on_init`](../language/blocks.md#on_init) for the size the script starts
 at, and in [`on_resize`](../language/blocks.md#on_resize) for whenever it
 changes after that (entering fullscreen, the window resizing):
 
-```
+```visript
 prop unit = 0.0
 
 on_init {
@@ -112,6 +112,11 @@ render {
   draw::circle(x: $WIDTH / 2.0, y: $HEIGHT / 2.0, radius: unit * 20.0, color: $COLOR_TURQUOISE)
 }
 ```
+
+Capture changes `$WIDTH`/`$HEIGHT` to 1280×720 without running `on_init` or
+`on_resize`. A cached `unit` property therefore keeps its live-preview value.
+For capture-relative sizing, derive dimensions in `render`, as in the earlier
+examples. See [capture and runtime behaviour](../getting-started/runtime.md).
 
 ## Audio
 
@@ -143,7 +148,7 @@ beat/onset examples. Older scripts need the [4.0 migration](../language/audio-mi
 Pointer and keyboard input use the [input standard library](input-detection.md).
 The former mouse coordinate constants were removed in Visript 5.0.
 
-```
+```visript
 render {
   draw::circle(x: input::pointer::state::get_x(), y: input::pointer::state::get_y(), radius: 30.0, color: $COLOR_CORAL)
 }
@@ -161,7 +166,7 @@ rendered frame. Successful script loads reset it. Repeated reads, handlers, and
 captures do not advance it. Hidden/resumed playback resets the delta baseline.
 
 
-```
+```visript
 on_frame {
   // Flash every 60 frames (roughly once per second at 60fps)
   if $FRAME_COUNT % 60 == 0 {
@@ -176,7 +181,7 @@ See the [Colors](../drawing/colors.md) page for the full list of 32 color consta
 
 ## Example: Combining System Values
 
-```
+```visript
 prop trail_x = 0.0
 prop trail_y = 0.0
 
