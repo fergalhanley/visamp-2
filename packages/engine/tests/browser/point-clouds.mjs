@@ -19,8 +19,13 @@ export function verifyPoints(engine, step, load, canvas) {
   near(pixel(), [0,255,0,255], 'mesh/point/mesh depth');
   render(`gfx::depth(enabled: false, write: false)\n ${redCube}\n draw::point_cloud(count: 1, color: color::rgb(g: 1.0), size: 20.0)\n draw::cube(size: 2.0, color: color::rgb(b: 1.0))`);
   near(pixel(), [0,0,255,255], 'mesh program restored after points');
-  render(`${redCube}\n draw::point_cloud(count: 1, z: 1.0, color: color::rgb(g: 1.0, transparent: 0.5), size: 20.0)`);
+  render(`${redCube}\n draw::point_cloud(count: 1, z: 1.0, color: color::rgb(g: 1.0, a: 0.5), size: 20.0)`);
   near(pixel(), [128,128,0], 'alpha blending');
+  for (const color of ['color::rgb(g: 1.0, a: 1.0 - ($POINT_INDEX + 0.5))', 'color::hsl(h: 1.0 / 3.0, s: 1.0, l: 0.5, a: 1.0 - ($POINT_INDEX + 0.5))']) {
+    render(`${redCube}\n draw::point_cloud(count: 1, z: 1.0, color: ${color}, size: 20.0)`);
+    near(pixel(), [128,128,0], 'dependent alpha matches scalar blending');
+  }
+
   render(`draw::point_cloud(count: 3, x: $POINT_INDEX - 1.0, color: color::hsl(h: $POINT_INDEX / 3.0, s: 1.0, l: 0.5), size: 20.0)`);
   near(pixel(-1), [255,0,0,255], 'HSL red');
   near(pixel(0), [0,255,0,255], 'HSL green');
@@ -91,7 +96,7 @@ render {
   gl.texImage2D = (...args) => { if (args[2] === gl.RGBA32F) modelUploads++; upload(...args); };
   gl.deleteTexture = texture => { deletes++; remove(texture); };
   try {
-    load(`context 3d\nrender { camera::orthographic(height: 4.0)\n gfx::clear(color: $COLOR_BLACK)\n draw::point_cloud(${model}, size: 20.0, y: math::sin(radians: $TIME_SEC)*0.01) }`);
+    load(`context 3d\nrender { camera::orthographic(height: 4.0)\n gfx::clear(color: $COLOR_BLACK)\n draw::point_cloud(${model}, size: 20.0, y: math::sin(rad: $TIME_SEC)*0.01) }`);
     for (let i=0; i<20; i++) step();
     assert(modelUploads === 1, `model should upload once, got ${modelUploads}`);
     engine.set_asset_points('model', new Float32Array([1,0,0]));
@@ -114,7 +119,7 @@ render {
   gl.drawArrays = (mode, first, count) => { draws.push({mode, count}); draw(mode, first, count); };
   gl.linkProgram = p => { links++; link(p); };
   try {
-    load(`context 3d\nrender {\n draw::point_cloud(count: 147456, x: ($POINT_INDEX % 384) / 38.4 - 5.0, y: math::sin(radians: $POINT_INDEX / 384.0 + $FRAME_COUNT / 60.0), z: $POINT_INDEX / 147456.0, color: color::rgb(r: $FREQUENCY_DATA[$POINT_INDEX % 384] / 255.0))\n}`);
+    load(`context 3d\nrender {\n draw::point_cloud(count: 147456, x: ($POINT_INDEX % 384) / 38.4 - 5.0, y: math::sin(rad: $POINT_INDEX / 384.0 + $FRAME_COUNT / 60.0), z: $POINT_INDEX / 147456.0, color: color::rgb(r: $FREQUENCY_DATA[$POINT_INDEX % 384] / 255.0))\n}`);
     engine.set_audio_frame(new Uint8Array(), new Uint8Array(384).fill(128), false);
     step();
     const initialLinks = links;

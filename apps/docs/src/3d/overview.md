@@ -112,7 +112,7 @@ render {
   for i in 0..12 {
     transform::push()
     transform::rotate_y(deg: i * 30.0)
-    draw::cube(x: 4.0, w: 0.3, h: 1.0, d: 0.3)
+    draw::cube(x: 4.0, width: 0.3, height: 1.0, depth: 0.3)
     transform::pop()
   }
 }
@@ -145,13 +145,13 @@ All unit-sized at the origin, so a bare call renders something.
 
 | Call | Arguments | Defaults |
 |---|---|---|
-| `draw::cube` | `size`, or `w`, `h`, `d` | 1 |
+| `draw::cube` | `size`, or `width`, `height`, `depth` | 1 |
 | `draw::sphere` | `radius`, `resolution` | 0.5, 24 |
-| `draw::plane` | `w`, `d`, `subdivisions` | 1, 1, 1 |
+| `draw::plane` | `width`, `depth`, `subdivisions` | 1, 1, 1 |
 | `draw::cylinder` | `radius`, `height`, `segments` | 0.5, 1, 32 |
 | `draw::cone` | `radius`, `height`, `segments` | 0.5, 1, 32 |
-| `draw::torus` | `radius`, `tube`, `segments`, `tube_segments` | 0.5, 0.15, 32, 16 |
-| `draw::sprite` | `size`, or `w`, `h` — always camera-facing | 1 |
+| `draw::torus` | `radius`, `tube_radius`, `segments`, `tube_segments` | 0.5, 0.15, 32, 16 |
+| `draw::sprite` | `size`, or `width`, `height` — always camera-facing | 1 |
 | `draw::mesh` | `vertices` **(required)**, `indices`, `normals`, `uvs` | — |
 | `draw::model` | `asset` **(required)** — an `asset::model` reference | — |
 
@@ -180,7 +180,7 @@ draw::model(asset: asset::model(id: "a1b2c3d4-…"))
 ## `draw::` — the 2D primitives in 3D
 
 They stay legal and are promoted into world space, gaining `z` and the rotation
-arguments. `draw::rect(x: 0.0, y: 0.0, w: 2.0, h: 1.0)` is a flat quad on the
+arguments. `draw::rect(x: 0.0, y: 0.0, width: 2.0, height: 1.0)` is a flat quad on the
 `z = 0` plane, which is what porting a 2D sketch should look like — and a floor
 needs no new builtin:
 
@@ -189,7 +189,7 @@ context 3d
 
 render {
   transform::rotate_x(deg: 90.0)
-  draw::rect(x: 0.0, y: 0.0, w: 20.0, h: 20.0)
+  draw::rect(x: 0.0, y: 0.0, width: 20.0, height: 20.0)
 }
 ```
 
@@ -198,14 +198,14 @@ None of these are rendered yet — they compile, and then report
 the intended behaviour.
 
 **`draw::line` is the one call whose argument changes meaning between modes.**
-It gains `z1` and `z2`, and its `stroke_weight` is read as **screen pixels in
+It gains `z1` and `z2`, and its `stroke_width` is read as **screen pixels in
 2d and world units in 3d**, so lines recede correctly with perspective.
 
 ## Arguments every `draw::` call takes in 3D
 
 | Argument | Meaning | Default |
 |---|---|---|
-| `rot_x`, `rot_y`, `rot_z` | Per-primitive rotation in degrees (`rot_x_rad` etc. also accepted) | 0 |
+| `rotation_x_deg`, `rotation_y_deg`, `rotation_z_deg` | Per-primitive rotation in degrees (`rotation_x_rad` etc. also accepted) | 0 |
 | `color` | A `color::` expression | white |
 | `shading` | `"unlit"`, `"flat"` or `"lambert"` | see `light::` above |
 | `wireframe` | boolean | `false` |
@@ -315,7 +315,7 @@ render {
   draw::point_cloud(
     count: 10000,
     x: ($POINT_INDEX % 100) / 10.0 - 5.0,
-    y: math::sin(radians: $POINT_INDEX / 100.0 + $TIME_SEC),
+    y: math::sin(rad: $POINT_INDEX / 100.0 + $TIME_SEC),
     z: math::floor(value: $POINT_INDEX / 100.0) / 10.0 - 5.0,
     color: color::hsl(h: $POINT_INDEX / $POINT_COUNT, s: 1.0, l: 0.5),
     size: 2.0
@@ -352,7 +352,7 @@ context 3d
 render {
   draw::point_cloud(
     model: asset::model(id: "your-model-id"),
-    y: $POINT_Y + math::sin(radians: $TIME_SEC + $POINT_INDEX / 100.0) * 0.1,
+    y: $POINT_Y + math::sin(rad: $TIME_SEC + $POINT_INDEX / 100.0) * 0.1,
     size: 2.0 + math::abs(value: $POINT_Y)
   )
 }
@@ -385,7 +385,7 @@ render {
   camera::look_at(x: 0.0, y: 0.0, z: 0.0)
   draw::grid(
     columns: 128, rows: 128,
-    y: math::sin(radians: $GRID_COLUMN / 8.0 + $TIME_SEC) * 0.15,
+    y: math::sin(rad: $GRID_COLUMN / 8.0 + $TIME_SEC) * 0.15,
     color: color::hsl(h: $GRID_ROW / 128.0, s: 1.0, l: 0.5)
   )
 }

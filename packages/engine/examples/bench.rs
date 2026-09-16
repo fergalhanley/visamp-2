@@ -104,15 +104,15 @@ on_frame {
 
   let i = 0
   while i < max {
-    let x1 = r * zoom * math::cos( radians: deg * i + theta ) + cx
-    let y1 = r * zoom * math::sin( radians: deg * i + theta) + cy
-    let x2 = r * zoom * math::cos( radians: deg / ocil * i + theta) + cx
-    let y2 = r * zoom * math::sin( radians: deg / ocil * i + theta) + cy
+    let x1 = r * zoom * math::cos( rad: deg * i + theta ) + cx
+    let y1 = r * zoom * math::sin( rad: deg * i + theta) + cy
+    let x2 = r * zoom * math::cos( rad: deg / ocil * i + theta) + cx
+    let y2 = r * zoom * math::sin( rad: deg / ocil * i + theta) + cy
 
     sink = sink + x1 + y1 + x2 + y2 + line_width * zoom + y1 / $HEIGHT + x1 / $WIDTH + i / max
 
-    x2 = cx + (r * zoom * 4 * math::cos( radians: deg * i))
-    y2 = cy + (r * zoom * 4 * math::sin( radians: deg * i))
+    x2 = cx + (r * zoom * 4 * math::cos( rad: deg * i))
+    y2 = cy + (r * zoom * 4 * math::sin( rad: deg * i))
     sink = sink + x2 + y2 + y1 / $HEIGHT + x1 / $WIDTH + i / max
 
     i = i + 1

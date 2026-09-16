@@ -1180,8 +1180,8 @@ fn three_d_calls_are_rejected_in_two_d_mode() {
 fn promoted_arguments_are_rejected_in_two_d_mode() {
     for arg in [
         "z: 1.0",
-        "rot_x: 90.0",
-        "rot_y: 90.0",
+        "rotation_x_deg: 90.0",
+        "rotation_y_deg: 90.0",
         "shading: \"lambert\"",
         "opacity: 0.5",
     ] {
@@ -1270,7 +1270,7 @@ fn three_d_calls_are_rejected_inside_an_overlay_bracket() {
 
 #[test]
 fn two_d_drawing_stays_legal_inside_an_overlay_bracket() {
-    let source = "context 3d\nrender {\n  gfx::overlay(enabled: true)\n  draw::text(content: \"hi\", x: 0.0, y: 40.0)\n  draw::rect(x: 0.0, y: 0.0, w: 10.0, h: 10.0)\n  gfx::overlay(enabled: false)\n}\n";
+    let source = "context 3d\nrender {\n  gfx::overlay(enabled: true)\n  draw::text(content: \"hi\", x: 0.0, y: 40.0)\n  draw::rect(x: 0.0, y: 0.0, width: 10.0, height: 10.0)\n  gfx::overlay(enabled: false)\n}\n";
     assert!(build_ast(source).is_ok(), "{}", resolve_err(source));
 }
 
@@ -1331,11 +1331,11 @@ fn the_full_builtin_surface_resolves() {
         "gfx::cull(mode: \"back\")",
         "gfx::clear(color: $COLOR_BLACK)",
         "draw::cube(size: 2.0)",
-        "draw::cube(w: 0.3, h: 1.0, d: 0.3)",
-        "draw::torus(radius: 0.5, tube: 0.15, segments: 32, tube_segments: 16)",
+        "draw::cube(width: 0.3, height: 1.0, depth: 0.3)",
+        "draw::torus(radius: 0.5, tube_radius: 0.15, segments: 32, tube_segments: 16)",
         "draw::mesh(vertices: [[0.0, 0.0, 0.0]], indices: [0], normals: [[0.0, 1.0, 0.0]], uvs: [[0.0, 0.0]])",
-        "draw::line(x1: 0.0, y1: 0.0, z1: 0.0, x2: 1.0, y2: 1.0, z2: 1.0, stroke_weight: 0.1)",
-        "draw::rect(x: 0.0, y: 0.0, w: 2.0, h: 1.0, z: 1.0, rot_x: 90.0, shading: \"unlit\", opacity: 0.5)",
+        "draw::line(x1: 0.0, y1: 0.0, z1: 0.0, x2: 1.0, y2: 1.0, z2: 1.0, stroke_width: 0.1)",
+        "draw::rect(x: 0.0, y: 0.0, width: 2.0, height: 1.0, z: 1.0, rotation_x_deg: 90.0, shading: \"unlit\", opacity: 0.5)",
     ];
 
     for call in calls {
@@ -1402,9 +1402,9 @@ render {
             x: 6.0,
             y: $FREQUENCY_DATA[i] / 255.0 * 3.0,
             z: 0.0,
-            w: 0.3,
-            h: $FREQUENCY_DATA[i] / 255.0 * 6.0 + 0.1,
-            d: 0.3,
+            width: 0.3,
+            height: $FREQUENCY_DATA[i] / 255.0 * 6.0 + 0.1,
+            depth: 0.3,
             color: color::hsl(h: i / bar_count, s: 0.9, l: 0.5),
             shading: "lambert",
         )
@@ -1429,8 +1429,8 @@ fn colour_constructors_use_short_channel_names() {
 }
 
 #[test]
-fn transparency_keeps_its_whole_word() {
-    let source = "prop c = 0.0\non_frame {\n  let x = color::rgb(r: 1.0, transparent: 0.25)\n  c = 1.0\n}\nrender {\n  draw::clear()\n}\n";
+fn alpha_uses_short_channel_name() {
+    let source = "prop c = 0.0\non_frame {\n  let x = color::rgb(r: 1.0, a: 0.75)\n  c = 1.0\n}\nrender {\n  draw::clear()\n}\n";
     assert_eq!(eval_prop(source, "c"), Value::Float(1.0));
 }
 
@@ -1625,12 +1625,12 @@ render {
 #[test]
 fn a_misspelled_maths_argument_is_reported() {
     let err = build_ast(
-        "prop a = 0.0\non_frame {\n  a = math::sin(radian: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
+        "prop a = 0.0\non_frame {\n  a = math::sin(raa: 1.0)\n}\nrender {\n  draw::clear()\n}\n",
     )
     .unwrap_err();
     assert!(
-        err.contains("math::sin: unknown argument 'radian'")
-            && err.contains("did you mean 'radians'?"),
+        err.contains("math::sin: unknown argument 'raa'")
+            && err.contains("did you mean 'rad'?"),
         "{err}"
     );
 }
@@ -1638,7 +1638,7 @@ fn a_misspelled_maths_argument_is_reported() {
 #[test]
 fn correct_maths_arguments_still_resolve() {
     for call in [
-        "math::sin(radians: 1.0)",
+        "math::sin(rad: 1.0)",
         "math::atan2(x: 1.0, y: 2.0)",
         "math::pow(base: 2.0, exp: 8.0)",
         "math::clamp(value: 5.0, min: 0.0, max: 1.0)",
@@ -1670,7 +1670,7 @@ fn atan2_is_not_shadowed_by_atan() {
 #[test]
 fn maths_names_end_where_they_end() {
     // The trailing guard means a longer identifier cannot match a shorter name.
-    assert!(build_ast("prop a = 0.0\non_frame {\n  a = math::sinh(radians: 1.0)\n}\nrender {\n  draw::clear()\n}\n").is_err());
+    assert!(build_ast("prop a = 0.0\non_frame {\n  a = math::sinh(rad: 1.0)\n}\nrender {\n  draw::clear()\n}\n").is_err());
 }
 
 /// Calling your own function as a statement never parsed — `fn` was only

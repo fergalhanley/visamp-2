@@ -15,7 +15,7 @@ render {
     x: 350.0, y: 250.0,
     width: 100.0, height: 100.0,
     color: $COLOR_CORAL,
-    rotate: angle
+    rotation_rad: angle
   )
 }
 ```
@@ -120,9 +120,9 @@ render {
     x: 400.0,
     y: 300.0,
     radius: radius,
-    color: color::rgb(r: 0.0, g: 1.0, b: 0.5, transparent: alpha),
+    color: color::rgb(r: 0.0, g: 1.0, b: 0.5, a: 1.0 - (alpha)),
     stroke: true,
-    stroke_weight: 3.0
+    stroke_width: 3.0
   )
 }
 ```

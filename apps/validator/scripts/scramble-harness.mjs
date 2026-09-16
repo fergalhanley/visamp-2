@@ -38,8 +38,8 @@ function sample(context, type, refresh) {
   const effect = `effect::scramble(type: ${type}, refresh_color: ${refresh})`;
   const shape =
     context === "2d"
-      ? `draw::circle(x: $WIDTH / 2.0 + math::sin(radians: phase) * $WIDTH * 0.3, y: $HEIGHT / 2.0, radius: 24.0, color: $COLOR_TURQUOISE)`
-      : `draw::cube(x: math::sin(radians: phase) * 3.0, rot_x: phase * 25.0, rot_y: phase * 40.0, size: 1.5, color: $COLOR_TURQUOISE)\n draw::sphere(x: 0.5, z: 0.4, radius: 0.65, color: $COLOR_ORANGE)`;
+      ? `draw::circle(x: $WIDTH / 2.0 + math::sin(rad: phase) * $WIDTH * 0.3, y: $HEIGHT / 2.0, radius: 24.0, color: $COLOR_TURQUOISE)`
+      : `draw::cube(x: math::sin(rad: phase) * 3.0, rotation_x_deg: phase * 25.0, rotation_y_deg: phase * 40.0, size: 1.5, color: $COLOR_TURQUOISE)\n draw::sphere(x: 0.5, z: 0.4, radius: 0.65, color: $COLOR_ORANGE)`;
   return `context ${context}\nprop phase = 0.0\non_frame {\n phase += 0.04\n}\nrender {\n ${effect}\n ${shape}\n}\n`;
 }
 window.scrambleHarness = {

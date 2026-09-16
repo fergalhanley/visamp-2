@@ -31,7 +31,7 @@ For custom colors, use `color::rgb()` or `color::hsl()`.
 ### RGB
 
 ```
-color::rgb(r: 1.0, g: 0.5, b: 0.0, transparent: 0.2)
+color::rgb(r: 1.0, g: 0.5, b: 0.0, a: 0.8)
 ```
 
 | Parameter | Range | Default | Description |
@@ -39,14 +39,14 @@ color::rgb(r: 1.0, g: 0.5, b: 0.0, transparent: 0.2)
 | `r` | 0.0 - 1.0 | 0.0 | Red component |
 | `g` | 0.0 - 1.0 | 0.0 | Green component |
 | `b` | 0.0 - 1.0 | 0.0 | Blue component |
-| `transparent` | 0.0 - 1.0 | 0.0 | Transparency (0 = opaque, 1 = fully transparent) |
+| `a` | 0.0 - 1.0 | 1.0 | Alpha (0 = transparent, 1 = opaque) |
 
 All parameters are optional.
 
 ### HSL
 
 ```
-color::hsl(h: 0.5, s: 0.8, l: 0.5, transparent: 0.0)
+color::hsl(h: 0.5, s: 0.8, l: 0.5, a: 1.0)
 ```
 
 | Parameter | Range | Default | Description |
@@ -54,7 +54,7 @@ color::hsl(h: 0.5, s: 0.8, l: 0.5, transparent: 0.0)
 | `h` | 0.0 - 1.0 | 0.0 | Hue (wraps around) |
 | `s` | 0.0 - 1.0 | 0.0 | Color intensity |
 | `l` | 0.0 - 1.0 | 0.0 | Brightness (0 = black, 0.5 = color, 1 = white) |
-| `transparent` | 0.0 - 1.0 | 0.0 | Transparency |
+| `a` | 0.0 - 1.0 | 1.0 | Alpha (0 = transparent, 1 = opaque) |
 
 All parameters are optional.
 
@@ -65,7 +65,7 @@ All parameters are optional.
 let my_orange = color::rgb(r: 1.0, g: 0.65, b: 0.0)
 
 // Semi-transparent blue
-let ghost_blue = color::rgb(b: 1.0, transparent: 0.5)
+let ghost_blue = color::rgb(b: 1.0, a: 0.5)
 
 // Rainbow colors using HSL
 let red = color::hsl(h: 0.0, s: 1.0, l: 0.5)

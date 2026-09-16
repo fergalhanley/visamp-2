@@ -840,7 +840,7 @@ fn record_draw(
         },
         "torus" => {
             let radius = args.number("radius")?.unwrap_or(0.5).abs().max(1e-3);
-            let tube = args.number("tube")?.unwrap_or(0.15).abs();
+            let tube = args.number("tube_radius")?.unwrap_or(0.15).abs();
             Primitive::Torus {
                 segments: args.count("segments", 32)?,
                 tube_segments: args.count("tube_segments", 16)?,
@@ -884,9 +884,9 @@ fn record_draw(
         "cube" => match args.number("size")? {
             Some(s) => [s, s, s],
             None => [
-                args.number("w")?.unwrap_or(1.0),
-                args.number("h")?.unwrap_or(1.0),
-                args.number("d")?.unwrap_or(1.0),
+                args.number("width")?.unwrap_or(1.0),
+                args.number("height")?.unwrap_or(1.0),
+                args.number("depth")?.unwrap_or(1.0),
             ],
         },
         "sphere" => {
@@ -894,9 +894,9 @@ fn record_draw(
             [r, r, r]
         }
         "plane" => [
-            args.number("w")?.unwrap_or(1.0),
+            args.number("width")?.unwrap_or(1.0),
             1.0,
-            args.number("d")?.unwrap_or(1.0),
+            args.number("depth")?.unwrap_or(1.0),
         ],
         "cylinder" | "cone" => {
             let d = args.number("radius")?.unwrap_or(0.5) * 2.0;
@@ -909,8 +909,8 @@ fn record_draw(
         "sprite" => match args.number("size")? {
             Some(s) => [s, s, 1.0],
             None => [
-                args.number("w")?.unwrap_or(1.0),
-                args.number("h")?.unwrap_or(1.0),
+                args.number("width")?.unwrap_or(1.0),
+                args.number("height")?.unwrap_or(1.0),
                 1.0,
             ],
         },
@@ -918,12 +918,12 @@ fn record_draw(
     };
 
     let position = args.vec3(0.0, 0.0, 0.0)?;
-    let rotation = Mat4::rotation_z(args.angle("rot_z", "rot_z_rad")?.unwrap_or(0.0))
+    let rotation = Mat4::rotation_z(args.angle("rotation_z_deg", "rotation_z_rad")?.unwrap_or(0.0))
         .mul(&Mat4::rotation_y(
-            args.angle("rot_y", "rot_y_rad")?.unwrap_or(0.0),
+            args.angle("rotation_y_deg", "rotation_y_rad")?.unwrap_or(0.0),
         ))
         .mul(&Mat4::rotation_x(
-            args.angle("rot_x", "rot_x_rad")?.unwrap_or(0.0),
+            args.angle("rotation_x_deg", "rotation_x_rad")?.unwrap_or(0.0),
         ));
 
     let local = Mat4::translation(position[0], position[1], position[2])
@@ -1231,7 +1231,8 @@ fn interpret_statement_function_call(
                         "points" => points = points_from_value(evaluated),
                         "color" => color = evaluated.try_into_color()?,
                         "gradient" => gradient = Some(evaluated.try_into_gradient()?),
-                        "rotate" => rotate = evaluated.try_into_f64()?,
+                        "rotation_rad" => rotate = evaluated.try_into_f64()?,
+                        "rotation_deg" => rotate = evaluated.try_into_f64()?.to_radians(),
                         _ => {}
                     }
                 }
@@ -1279,7 +1280,7 @@ fn interpret_statement_function_call(
                         "color" => color = evaluated.try_into_color()?,
                         "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
-                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
+                        "stroke_width" => stroke_weight = evaluated.try_into_f64()?,
                         "stroke_color" => stroke_color = evaluated.try_into_color()?,
                         _ => {}
                     }
@@ -1316,14 +1317,15 @@ fn interpret_statement_function_call(
                     match arg.name.as_str() {
                         "x" => x = evaluated.try_into_f64()?,
                         "y" => y = evaluated.try_into_f64()?,
-                        "width" | "w" => w = evaluated.try_into_f64()?,
-                        "height" | "h" => h = evaluated.try_into_f64()?,
+                        "width" => w = evaluated.try_into_f64()?,
+                        "height" => h = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
                         "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
-                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
+                        "stroke_width" => stroke_weight = evaluated.try_into_f64()?,
                         "stroke_color" => stroke_color = evaluated.try_into_color()?,
-                        "rotate" => rotate = evaluated.try_into_f64()?,
+                        "rotation_rad" => rotate = evaluated.try_into_f64()?,
+                        "rotation_deg" => rotate = evaluated.try_into_f64()?.to_radians(),
                         _ => {}
                     }
                 }
@@ -1364,7 +1366,7 @@ fn interpret_statement_function_call(
                         "y2" => y2 = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
                         "gradient" => gradient = Some(evaluated.try_into_gradient()?),
-                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
+                        "stroke_width" => stroke_weight = evaluated.try_into_f64()?,
                         _ => {}
                     }
                 }
@@ -1394,14 +1396,15 @@ fn interpret_statement_function_call(
                     match arg.name.as_str() {
                         "x" => x = evaluated.try_into_f64()?,
                         "y" => y = evaluated.try_into_f64()?,
-                        "rx" | "radius_x" => rx = evaluated.try_into_f64()?,
-                        "ry" | "radius_y" => ry = evaluated.try_into_f64()?,
+                        "radius_x" => rx = evaluated.try_into_f64()?,
+                        "radius_y" => ry = evaluated.try_into_f64()?,
                         "color" => color = evaluated.try_into_color()?,
                         "gradient" => gradient = Some(evaluated.try_into_gradient()?),
                         "stroke" => stroke = matches!(evaluated, Value::Boolean(true)),
-                        "stroke_weight" => stroke_weight = evaluated.try_into_f64()?,
+                        "stroke_width" => stroke_weight = evaluated.try_into_f64()?,
                         "stroke_color" => stroke_color = evaluated.try_into_color()?,
-                        "rotate" => rotate = evaluated.try_into_f64()?,
+                        "rotation_rad" => rotate = evaluated.try_into_f64()?,
+                        "rotation_deg" => rotate = evaluated.try_into_f64()?.to_radians(),
                         _ => {}
                     }
                 }
@@ -1437,7 +1440,7 @@ fn interpret_statement_function_call(
                     let evaluated =
                         evaluate_expression(&arg.expression, decels, runtime, functions)?;
                     match arg.name.as_str() {
-                        "content" | "text" => {
+                        "content" => {
                             content = match evaluated {
                                 Value::String(s) => s,
                                 other => format!("{:?}", other),
@@ -1733,9 +1736,9 @@ fn evaluate_expression_inner(
 
             let result = match func.as_str() {
                 // Trigonometric
-                "sin" => get_arg("radians")?.sin(),
-                "cos" => get_arg("radians")?.cos(),
-                "tan" => get_arg("radians")?.tan(),
+                "sin" => get_arg("rad")?.sin(),
+                "cos" => get_arg("rad")?.cos(),
+                "tan" => get_arg("rad")?.tan(),
                 "asin" => get_arg("value")?.asin(),
                 "acos" => get_arg("value")?.acos(),
                 "atan" => get_arg("value")?.atan(),
@@ -1838,8 +1841,8 @@ fn evaluate_expression_inner(
                     let r = get_arg("r")?.clamp(0.0, 1.0);
                     let g = get_arg("g")?.clamp(0.0, 1.0);
                     let b = get_arg("b")?.clamp(0.0, 1.0);
-                    let a = if args.iter().any(|(n, _)| n == "transparent") {
-                        1.0 - get_arg("transparent")?.clamp(0.0, 1.0)
+                    let a = if args.iter().any(|(n, _)| n == "a") {
+                        get_arg("a")?.clamp(0.0, 1.0)
                     } else {
                         1.0
                     };
@@ -1849,8 +1852,8 @@ fn evaluate_expression_inner(
                     let h = get_arg("h")?;
                     let s = get_arg("s")?.clamp(0.0, 1.0);
                     let l = get_arg("l")?.clamp(0.0, 1.0);
-                    let a = if args.iter().any(|(n, _)| n == "transparent") {
-                        1.0 - get_arg("transparent")?.clamp(0.0, 1.0)
+                    let a = if args.iter().any(|(n, _)| n == "a") {
+                        get_arg("a")?.clamp(0.0, 1.0)
                     } else {
                         1.0
                     };

@@ -94,7 +94,7 @@ fn draw_star(x: 400.0, y: 300.0, size: 40.0, color: $COLOR_GOLD, rotate: 0.0) {
       [x - size * 0.5, y],
     ],
     color: color,
-    rotate: rotate
+    rotation_rad: rotate
   )
 }
 

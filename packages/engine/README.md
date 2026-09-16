@@ -128,3 +128,6 @@ See `apps/docs/src/3d/overview.md` for syntax. Browser coverage lives in
 Follow the [Visript conventions](../../apps/docs/src/language/conventions.md) when
 extending the language. The [September 2026 consistency review](reviews/2026-09-language-consistency.md)
 records current exceptions, proposed names and the stored-source migration plan.
+
+Engine 3.0 removes the old parameter spellings. See [migrating to 3.0](MIGRATING_V3.md)
+for the source converter, SQL preparation and coordinated deployment requirements.

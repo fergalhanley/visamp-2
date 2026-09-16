@@ -1,17 +1,17 @@
 # Visript consistency review — September 2026
 
 Tracking: [VIS-104](https://linear.app/visamp/issue/VIS-104).
-Baseline: engine 2.6.0, develop `765d82a`. Status: recommendations for review;
-no language behaviour or stored source has been changed in this audit.
+Baseline: engine 2.6.0, develop `765d82a`. The audit below records the original baseline. Subsequent decision (VIS-105):
+implement the first-pass table with **a for colour alpha**, a clean syntax break
+and user-run SQL migrations. Other behavioural findings remain follow-up work.
 
 The [conventions guide](../../../apps/docs/src/language/conventions.md) gives
-contributors a consistent target. Existing syntax remains supported until an
-explicit implementation/migration decision. Visript and `.viscript` are confirmed
+contributors a consistent target. Engine 3.0 implements the accepted naming changes without legacy aliases. Visript and `.viscript` are confirmed
 names, not proposals.
 
-## Recommended first pass: names and aliases
+## Accepted first pass: canonical parameter names
 
-| Current spelling | Proposed canonical spelling | Reason / migration |
+| Current spelling | Canonical spelling in 3.0 | Reason / migration |
 | --- | --- | --- |
 | `draw::rect(w:, h:)`; cube/sprite `w:, h:`; cube/plane `d:` | `width`, `height`, `depth` | Rect already accepts long names, other shapes do not. Keep `size` as uniform sizing with documented precedence. |
 | `draw::ellipse(rx:, ry:)` | `radius_x`, `radius_y` | Already accepted aliases; make long names canonical. |
@@ -21,7 +21,7 @@ names, not proposals.
 | 3D `rot_x`, `rot_y`, `rot_z` | `rotation_x_deg`, `rotation_y_deg`, `rotation_z_deg` | Current unsuffixed values are degrees, unlike 2D `rotate`. |
 | 3D `rot_x_rad`, etc. | `rotation_x_rad`, etc. | Consistent descriptive stem and explicit units. |
 | `math::sin/cos/tan(radians:)` | `rad` | Matches `transform::rotate_x(rad:)` and filter hue rotation. Keep inverse trig results in radians. |
-| `color::rgb/hsl(transparent:)` | `opacity` | Current value means transparency, not opacity. Requires inversion, not just relabelling. |
+| `color::rgb/hsl(transparent:)` | `a` | Current value means transparency, not opacity. Requires inversion, not just relabelling. |
 | `stroke_weight` | `stroke_width` | Consistent name for geometric thickness across circles, ellipses, rectangles and lines. |
 
 Keep established names such as `rect`, `sin`, `sqrt`, `gfx`, channel letters,
@@ -155,7 +155,7 @@ inventory, excluding comments and string contents, found:
 | Candidate | Scripts | Argument occurrences |
 | --- | ---: | ---: |
 | `radians` → `rad` | 20 | 130 |
-| `transparent` → `opacity` | 17 | 20 |
+| `transparent` → `a` | 17 | 20 |
 | `stroke_weight` → `stroke_width` | 14 | 23 |
 | Short dimensions → full names | 1 | 2 |
 | Ellipse radius aliases, `text`, 2D `rotate`, 3D rotation (either unit), torus `tube` | 0 | 0 |
@@ -168,37 +168,10 @@ selected target database before applying anything; do not infer the deployment
 environment from a local credential file. Private sources and credentials are
 not included in this repository.
 
-## Required migration procedure
+## Implementation and migration
 
-1. Agree on the canonical name table and exact numeric semantics. Add aliases
-   in the parser/resolver, scalar interpreter and GPU field compiler. Compile and
-   render old/new fixtures in 2D and 3D; test nested expressions and asset calls.
-2. Deploy compatible engine, editor/AI and validator together before migrating
-   stored sources. A develop commit alone does not update deployed clients.
-   Keep old spellings supported for existing tabs, imports and temporary files.
-3. Select the target database explicitly. Export affected `id`, original source,
-   `updated_at`, checksum and proposed replacement into a restricted backup and
-   migration manifest. Retain the manifest outside git with the migration record.
-4. Use parsed call/argument spans, not global string replacement. Patch only the
-   intended builtin's argument labels; leave comments, strings, user parameters
-   and asset IDs unchanged. For CPU transparency, preserve
-   `1 - clamp(value, 0, 1)` when converting to opacity, evaluating the original
-   expression once. Resolve GPU boundary semantics before applying that transform.
-5. Validate baseline and replacement source with the target compiler. Review
-   source diffs and render comparisons (including trails, point fields and model
-   sprites). Compile success alone cannot prove visual equivalence. Flag ambiguous
-   alias/duplicate cases and baseline failures instead of guessing.
-6. Update each row only if its original source and revision/`updated_at` still
-   match. Abort or report conflicts from concurrent saves. Update through the
-   ordinary source path so asset-reference and timestamp triggers remain active.
-   Preserve ownership, visibility, attribution, thumbnails and other metadata.
-7. Read back, validate and record applied/conflicted counts. Re-running must make
-   no further edits. Rollback must likewise compare against the migrated source
-   before restoring the backup; never overwrite a subsequent user edit.
-8. Re-scan after migration. Historical SQL migrations, immutable generation
-   records and unrelated strings are not current editable visualisations. Audit
-   any additional source-bearing tables before deciding to modify them.
-
-No stored-source update is needed for this documentation-only audit. The proposed
-language implementation and database migration remain pending the naming decision
-and compatible deployment; they have not been represented as completed.
+The owner subsequently approved a clean break, with `a` for alpha and user-run
+SQL migrations (VIS-105). The implementation, release order and guarded migration
+procedure are documented in [migrating to 3.0](../MIGRATING_V3.md). This replaces
+the audit's initial alias-first rollout proposal. Other correctness findings
+above remain follow-up work, except the colour examples corrected in this pass.

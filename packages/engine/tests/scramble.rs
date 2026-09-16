@@ -53,7 +53,7 @@ fn shared_defaults_colours_and_last_call_wins() {
             Some(Scramble::default())
         );
         for kind in 1..=40 {
-            let effect = evaluate(context, &format!("effect::scramble()\neffect::scramble(type: {kind}, refresh_color: color::rgb(b: 0.2, transparent: 0.93))")).unwrap().unwrap();
+            let effect = evaluate(context, &format!("effect::scramble()\neffect::scramble(type: {kind}, refresh_color: color::rgb(b: 0.2, a: 0.07))")).unwrap().unwrap();
             assert_eq!(effect.kind, kind);
             assert!((effect.refresh.a - 0.07).abs() < 1e-12);
             assert_eq!(effect.refresh.b, 0.2);

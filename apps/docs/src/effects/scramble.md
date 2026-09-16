@@ -6,7 +6,7 @@ frame, producing distorted trails. The same call works in `context 2d` and
 `context 3d`.
 
 ```visript
-effect::scramble(type: 1, refresh_color: color::rgb(transparent: 0.93))
+effect::scramble(type: 1, refresh_color: color::rgb(a: 0.07))
 ```
 
 | Parameter | Default | Meaning |
@@ -27,11 +27,11 @@ it, scrambles the combined image, then displays and retains the result.
 | Refresh colour | Behaviour |
 |---|---|
 | Omitted, or `$COLOR_BLACK` | Opaque black replaces history; no trails |
-| `color::rgb(transparent: 0.93)` | Trails fade towards black |
-| `color::rgb(b: 0.2, transparent: 0.93)` | Trails fade towards dark blue |
-| `color::rgb(transparent: 1.0)` | No automatic fading |
+| `color::rgb(a: 0.07)` | Trails fade towards black |
+| `color::rgb(b: 0.2, a: 0.07)` | Trails fade towards dark blue |
+| `color::rgb(a: 0.0)` | No automatic fading |
 
-`transparent: 0.93` means **7% opacity**, using the existing colour API. That
+`a: 0.07` means **7% opacity**, using the existing colour API. That
 opacity is applied in 60 Hz refresh steps accumulated from elapsed time so fade
 duration stays consistent at different frame rates. A faster renderer can draw
 between refresh steps; a slower one applies the elapsed steps together. This
@@ -110,7 +110,7 @@ these distortions accumulate into waves, spirals and fractured trails.
 | 39 | **Block scatter:** shifts each 16×16 tile by a deterministic offset |
 | 40 | **Four-way split:** pushes each quadrant diagonally away from the centre |
 
-For flowing trails, try types 25–34 with `transparent: 0.93`. Types 35–39
+For flowing trails, try types 25–34 with `a: 0.07`. Types 35–39
 produce more fragmented, glitch-like patterns. Types 28 and 29 are gradual
 zooms; a transparent refresh makes their repeated expansion or contraction
 more visible.
@@ -121,9 +121,9 @@ more visible.
 context 2d
 
 render {
-  effect::scramble(type: 1, refresh_color: color::rgb(transparent: 0.93))
+  effect::scramble(type: 1, refresh_color: color::rgb(a: 0.07))
   draw::circle(
-    x: $WIDTH / 2.0 + math::sin(radians: $TIME_SEC) * $WIDTH * 0.3,
+    x: $WIDTH / 2.0 + math::sin(rad: $TIME_SEC) * $WIDTH * 0.3,
     y: $HEIGHT / 2.0,
     radius: 24.0,
     color: $COLOR_TURQUOISE
@@ -137,11 +137,11 @@ render {
 context 3d
 
 render {
-  effect::scramble(type: 3, refresh_color: color::rgb(b: 0.08, transparent: 0.93))
+  effect::scramble(type: 3, refresh_color: color::rgb(b: 0.08, a: 0.07))
   draw::cube(
-    x: math::sin(radians: $TIME_SEC) * 3.0,
-    rot_x: $TIME_SEC * 25.0,
-    rot_y: $TIME_SEC * 40.0,
+    x: math::sin(rad: $TIME_SEC) * 3.0,
+    rotation_x_deg: $TIME_SEC * 25.0,
+    rotation_y_deg: $TIME_SEC * 40.0,
     size: 1.5,
     color: $COLOR_TURQUOISE
   )

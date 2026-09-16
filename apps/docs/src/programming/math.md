@@ -4,16 +4,16 @@ Visript provides a comprehensive math library for calculations in your scripts.
 
 ## Trigonometric Functions
 
-All trigonometric functions use **radians**.
+All trigonometric functions use **rad**.
 
 ```
-math::sin(radians: 1.57)     // sine
-math::cos(radians: 0.0)      // cosine  
-math::tan(radians: 0.785)    // tangent
-math::asin(value: 1.0)       // arc sine (returns radians)
-math::acos(value: 0.0)       // arc cosine (returns radians)
-math::atan(value: 1.0)       // arc tangent (returns radians)
-math::atan2(y: 1.0, x: 1.0)  // arc tangent of y/x (returns radians)
+math::sin(rad: 1.57)     // sine
+math::cos(rad: 0.0)      // cosine
+math::tan(rad: 0.785)    // tangent
+math::asin(value: 1.0)       // arc sine (returns rad)
+math::acos(value: 0.0)       // arc cosine (returns rad)
+math::atan(value: 1.0)       // arc tangent (returns rad)
+math::atan2(y: 1.0, x: 1.0)  // arc tangent of y/x (returns rad)
 ```
 
 ## Powers and Roots
@@ -70,10 +70,10 @@ on_frame {
 render {
   draw::clear()
   draw::background(color: $COLOR_BLACK)
-  
-  let x = 400.0 + math::cos(radians: angle) * 100.0
-  let y = 300.0 + math::sin(radians: angle) * 100.0
-  
+
+  let x = 400.0 + math::cos(rad: angle) * 100.0
+  let y = 300.0 + math::sin(rad: angle) * 100.0
+
   draw::circle(x: x, y: y, radius: 20.0, color: $COLOR_RED)
 }
 ```
@@ -84,10 +84,10 @@ render {
 render {
   draw::clear()
   draw::background(color: $COLOR_NAVY)
-  
+
   for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
     let x = i * 80.0 + 40.0
-    let y = 300.0 + math::sin(radians: $TIME_SEC * 2.0 + i * 0.5) * 100.0
+    let y = 300.0 + math::sin(rad: $TIME_SEC * 2.0 + i * 0.5) * 100.0
     draw::circle(x: x, y: y, radius: 15.0, color: $COLOR_CYAN)
   }
 }
@@ -105,12 +105,12 @@ on_frame {
 render {
   draw::clear()
   draw::background(color: $COLOR_BLACK)
-  
+
   for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] {
     let angle = i * 0.5 + t
     let radius = i * 15.0
-    let x = 400.0 + math::cos(radians: angle) * radius
-    let y = 300.0 + math::sin(radians: angle) * radius
+    let x = 400.0 + math::cos(rad: angle) * radius
+    let y = 300.0 + math::sin(rad: angle) * radius
     draw::circle(x: x, y: y, radius: 8.0, color: $COLOR_GOLD)
   }
 }
@@ -127,13 +127,13 @@ prop y2 = 500.0
 render {
   draw::clear()
   draw::background(color: $COLOR_BLACK)
-  
+
   // Calculate distance between two points
   let dx = x2 - x1
   let dy = y2 - y1
   let distance = math::sqrt(value: dx * dx + dy * dy)
-  
-  draw::line(x1: x1, y1: y1, x2: x2, y2: y2, color: $COLOR_WHITE, stroke_weight: 2.0)
+
+  draw::line(x1: x1, y1: y1, x2: x2, y2: y2, color: $COLOR_WHITE, stroke_width: 2.0)
   draw::text(content: "Distance: ", x: 350.0, y: 50.0, size: 20.0, color: $COLOR_WHITE)
 }
 ```

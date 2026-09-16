@@ -7,12 +7,13 @@ Color constructors let you create custom colors using RGB or HSL values.
 Create a color from red, green, and blue components.
 
 ```
-color::rgb(r: 1.0, g: 0.5, b: 0.0, transparent: 0.2)
+color::rgb(r: 1.0, g: 0.5, b: 0.0, a: 0.8)
 ```
 
 ### Parameters
 
-All parameters are **optional** and default to `0.0` — but a *misspelled* one
+All parameters are **optional**. Colour channels default to `0.0`; alpha `a`
+defaults to `1.0`. A *misspelled* parameter
 is an error, not a silent zero:
 
 ```
@@ -25,7 +26,7 @@ color::rgb(red: 1.0)
 | `r` | Float | 0.0 - 1.0 | 0.0 | Red intensity |
 | `g` | Float | 0.0 - 1.0 | 0.0 | Green intensity |
 | `b` | Float | 0.0 - 1.0 | 0.0 | Blue intensity |
-| `transparent` | Float | 0.0 - 1.0 | 0.0 | Opacity (0 = fully opaque, 1 = fully transparent) |
+| `a` | Float | 0.0 - 1.0 | 1.0 | Alpha (0 = transparent, 1 = opaque) |
 
 ### Examples
 
@@ -37,7 +38,7 @@ color::rgb(r: 1.0)
 color::rgb(r: 0.6, b: 0.8)
 
 // Semi-transparent green
-color::rgb(g: 1.0, transparent: 0.5)
+color::rgb(g: 1.0, a: 0.5)
 
 // Dark gray
 color::rgb(r: 0.3, g: 0.3, b: 0.3)
@@ -48,12 +49,13 @@ color::rgb(r: 0.3, g: 0.3, b: 0.3)
 Create a color from hue, saturation, and lightness.
 
 ```
-color::hsl(h: 0.5, s: 0.8, l: 0.5, transparent: 0.0)
+color::hsl(h: 0.5, s: 0.8, l: 0.5, a: 1.0)
 ```
 
 ### Parameters
 
-All parameters are **optional** and default to `0.0` — but a *misspelled* one
+All parameters are **optional**. Colour channels default to `0.0`; alpha `a`
+defaults to `1.0`. A *misspelled* parameter
 is an error, not a silent zero:
 
 ```
@@ -66,7 +68,7 @@ color::hsl(hue: 0.5)
 | `h` | Float | 0.0 - 1.0 | 0.0 | Color angle (wraps, 0 = red) |
 | `s` | Float | 0.0 - 1.0 | 0.0 | Color intensity (0 = gray, 1 = vivid) |
 | `l` | Float | 0.0 - 1.0 | 0.0 | Brightness (0 = black, 0.5 = color, 1 = white) |
-| `transparent` | Float | 0.0 - 1.0 | 0.0 | Opacity |
+| `a` | Float | 0.0 - 1.0 | 1.0 | Alpha (0 = transparent, 1 = opaque) |
 
 ### Hue Wheel
 
@@ -90,7 +92,7 @@ color::hsl(h: 0.0, s: 1.0, l: 0.5)
 color::hsl(h: 0.6, s: 0.5, l: 0.7)
 
 // Rainbow generator
-fn rainbow_color(position) {
+fn rainbow_color(position: 0.0) {
   return color::hsl(h: position, s: 1.0, l: 0.5)
 }
 ```
@@ -213,6 +215,6 @@ render {
     color_stops: [[0.0, $COLOR_RED], [1.0, $COLOR_BLUE]]
   )
 
-  draw::line(x1: 0.0, y1: 0.0, x2: 800.0, y2: 600.0, gradient: g, stroke_weight: 4.0)
+  draw::line(x1: 0.0, y1: 0.0, x2: 800.0, y2: 600.0, gradient: g, stroke_width: 4.0)
 }
 ```

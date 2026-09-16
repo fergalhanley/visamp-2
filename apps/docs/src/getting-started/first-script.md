@@ -75,7 +75,7 @@ render {
     x: 350.0, y: 250.0,
     width: 100.0, height: 100.0,
     color: $COLOR_CORAL,
-    rotate: angle
+    rotation_rad: angle
   )
 }
 ```

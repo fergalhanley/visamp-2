@@ -232,6 +232,7 @@ impl Resolver {
             return;
         };
 
+        let mut alpha_seen = false;
         for arg in inner.flat_map(|p| p.into_inner()) {
             if !matches!(arg.as_rule(), Rule::color_arg | Rule::math_arg) {
                 continue;
@@ -240,6 +241,15 @@ impl Resolver {
                 continue;
             };
             let name = name_pair.as_str();
+            if namespace == "color" && matches!(kind, "rgb" | "hsl") && name == "a" {
+                if alpha_seen {
+                    self.errors.push(located(
+                        &name_pair,
+                        format!("color::{kind}: specify a once"),
+                    ));
+                }
+                alpha_seen = true;
+            }
             if accepted.contains(&name) {
                 continue;
             }

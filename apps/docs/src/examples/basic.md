@@ -61,7 +61,7 @@ render {
       radius: i * 25.0,
       color: color::hsl(h: i * 0.1, s: 0.8, l: 0.5),
       stroke: true,
-      stroke_weight: 2.0
+      stroke_width: 2.0
     )
   }
 }
@@ -77,7 +77,7 @@ fn cell(cx, cy, size, hue) {
     width: size - 4.0,
     height: size - 4.0,
     color: color::hsl(h: hue, s: 0.7, l: 0.5),
-    rotate: hue * 3.14
+    rotation_rad: hue * 3.14
   )
 }
 

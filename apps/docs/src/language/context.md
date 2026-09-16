@@ -86,7 +86,7 @@ legal and draw on the `z = 0` plane.
 
 What `3d` adds:
 
-- **New arguments on the 2D primitives**: `z`, `rot_x`, `rot_y`, `rot_z`, plus
+- **New arguments on the 2D primitives**: `z`, `rotation_x_deg`, `rotation_y_deg`, `rotation_z_deg`, plus
   `shading`, `wireframe`, `opacity` and `texture`. Using one of these under
   `context 2d` is an error that says so, rather than being quietly ignored.
 - **New namespaces**: `camera::`, `transform::`, `light::`, `gfx::`, `asset::`,

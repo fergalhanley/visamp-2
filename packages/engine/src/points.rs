@@ -351,7 +351,7 @@ impl Fields<'_> {
             }
             Expression::MathCall { func, args } => {
                 let names: &[&str] = match func.as_str() {
-                    "sin" | "cos" | "tan" => &["radians"],
+                    "sin" | "cos" | "tan" => &["rad"],
                     "atan2" => &["y", "x"],
                     "pow" => &["base", "exp"],
                     "min" | "max" => &["a", "b"],
@@ -404,7 +404,7 @@ impl Fields<'_> {
             _ => return Err("point clouds do not support gradients".into()),
         };
         let mut parts = Vec::new();
-        for name in names.into_iter().chain(["transparent"]) {
+        for name in names {
             parts.push(match args.iter().find(|(n, _)| n == name) {
                 Some((_, e)) => self.number(e, 0)?,
                 None => "0.0".into(),
@@ -416,6 +416,11 @@ impl Fields<'_> {
         } else {
             rgb
         };
-        Ok(format!("vec4({rgb},1.0-{})", parts[3]))
+        let alpha = if let Some((_, expr)) = args.iter().find(|(n, _)| n == "a") {
+            self.number(expr, 0)?
+        } else {
+            "1.0".into()
+        };
+        Ok(format!("vec4({rgb},{alpha})"))
     }
 }

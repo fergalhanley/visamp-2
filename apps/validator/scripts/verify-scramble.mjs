@@ -184,7 +184,7 @@ if (!process.argv.includes("--serve")) {
           channels = 0;
         for (let type = 1; type <= 17; type++) {
           h.load(
-            `prop t = 0\non_frame {\n t += 1\n}\nrender {\n effect::scramble(type: ${type}, refresh_color: color::rgb(transparent: 0.93))\n draw::rect(x: t * 3, y: 40, width: 12, height: 12, color: $COLOR_RED)\n}\n`,
+            `prop t = 0\non_frame {\n t += 1\n}\nrender {\n effect::scramble(type: ${type}, refresh_color: color::rgb(a: 0.07))\n draw::rect(x: t * 3, y: 40, width: 12, height: 12, color: $COLOR_RED)\n}\n`,
           );
           const reference = document.createElement("canvas");
           reference.width = 128;
@@ -237,14 +237,14 @@ if (!process.argv.includes("--serve")) {
         const colours = [
           null,
           "$COLOR_BLACK",
-          "color::rgb(transparent: 0.93)",
-          "color::rgb(b: 0.2, transparent: 0.93)",
-          "color::rgb(transparent: 1.0)",
+          "color::rgb(a: 0.07)",
+          "color::rgb(b: 0.2, a: 0.07)",
+          "color::rgb(a: 0.0)",
         ];
         const effect = (type, refresh) =>
           `effect::scramble(type: ${type}${refresh ? `, refresh_color: ${refresh}` : ""})`;
         const moving = (context, type, refresh) =>
-          `context ${context}\nprop t = 0\non_frame {\n t += 1\n}\nrender {\n${effect(type, refresh)}\n${context === "3d" ? "camera::orthographic(height: $HEIGHT)\n" : ""}${context === "2d" ? "draw::rect(x: t * 3, y: 40, width: 12, height: 12, color: $COLOR_RED)" : 'draw::sprite(x: t * 3 + 6 - $WIDTH / 2.0, y: $HEIGHT / 2.0 - 46, w: 12, h: 12, color: $COLOR_RED, shading: "unlit")'}\n}\n`;
+          `context ${context}\nprop t = 0\non_frame {\n t += 1\n}\nrender {\n${effect(type, refresh)}\n${context === "3d" ? "camera::orthographic(height: $HEIGHT)\n" : ""}${context === "2d" ? "draw::rect(x: t * 3, y: 40, width: 12, height: 12, color: $COLOR_RED)" : 'draw::sprite(x: t * 3 + 6 - $WIDTH / 2.0, y: $HEIGHT / 2.0 - 46, width: 12, height: 12, color: $COLOR_RED, shading: "unlit")'}\n}\n`;
         await h.resize(128, 80);
         let parityMax = 0;
         for (let type = 1; type <= 40; type++) {
@@ -267,16 +267,16 @@ if (!process.argv.includes("--serve")) {
         }
         for (const type of [1, 3, 12, 16]) {
           h.load(
-            moving("2d", type, "color::rgb(transparent: 1.0)").replace(
+            moving("2d", type, "color::rgb(a: 0.0)").replace(
               "$COLOR_RED",
-              "color::rgb(r: 1.0, transparent: 0.5)",
+              "color::rgb(r: 1.0, a: 0.5)",
             ),
           );
           const frames = Array.from({ length: 8 }, () => h.step());
           h.load(
-            moving("3d", type, "color::rgb(transparent: 1.0)").replace(
+            moving("3d", type, "color::rgb(a: 0.0)").replace(
               "$COLOR_RED",
-              "color::rgb(r: 1.0, transparent: 0.5)",
+              "color::rgb(r: 1.0, a: 0.5)",
             ),
           );
           for (let f = 0; f < frames.length; f++) {
@@ -343,7 +343,7 @@ if (!process.argv.includes("--serve")) {
         console.log("CHECK: fade timing passed");
         // New depth every frame, even if the previous frame ended with depth writes disabled.
         h.load(
-          `context 3d\nprop t = 0\non_frame {\n t += 1\n}\nrender {\n${effect(3, "color::rgb(transparent: 1.0)")}\ncamera::orthographic(height: 80)\nif t == 1 {\n draw::sprite(w: 30, h: 30, z: 2, color: $COLOR_RED, shading: "unlit")\n} else {\n draw::sprite(w: 30, h: 30, z: 1, color: $COLOR_GREEN, shading: "unlit")\n draw::sprite(w: 30, h: 30, z: 0, color: $COLOR_BLUE, shading: "unlit")\n}\ngfx::depth(write: false)\ndraw::sprite(x: 50, w: 1, h: 1)\n}\n`,
+          `context 3d\nprop t = 0\non_frame {\n t += 1\n}\nrender {\n${effect(3, "color::rgb(a: 0.0)")}\ncamera::orthographic(height: 80)\nif t == 1 {\n draw::sprite(width: 30, height: 30, z: 2, color: $COLOR_RED, shading: "unlit")\n} else {\n draw::sprite(width: 30, height: 30, z: 1, color: $COLOR_GREEN, shading: "unlit")\n draw::sprite(width: 30, height: 30, z: 0, color: $COLOR_BLUE, shading: "unlit")\n}\ngfx::depth(write: false)\ndraw::sprite(x: 50, w: 1, h: 1)\n}\n`,
         );
         h.step();
         ensure(
@@ -357,7 +357,7 @@ if (!process.argv.includes("--serve")) {
             context === "2d"
               ? "draw::background(color: $COLOR_RED)"
               : "gfx::clear(color: $COLOR_RED)";
-          const script = `context ${context}\nprop t = 0\non_frame {\n t += 1\n}\nrender {\nif t != 2 {\n${effect(3, "color::rgb(transparent: 1.0)")}\n}\nif t == 1 {\n${background}\n}\n}\n`;
+          const script = `context ${context}\nprop t = 0\non_frame {\n t += 1\n}\nrender {\nif t != 2 {\n${effect(3, "color::rgb(a: 0.0)")}\n}\nif t == 1 {\n${background}\n}\n}\n`;
           h.load(script);
           h.step();
           h.step();
@@ -365,7 +365,7 @@ if (!process.argv.includes("--serve")) {
           h.load(script);
           h.step();
           h.load(
-            `context ${context}\nrender {\n${effect(3, "color::rgb(transparent: 1.0)")}\n}\n`,
+            `context ${context}\nrender {\n${effect(3, "color::rgb(a: 0.0)")}\n}\n`,
           );
           ensure(at(h.step(), 0, 0)[3] === 0, "reload history reset");
           h.load(script);
@@ -433,7 +433,7 @@ if (!process.argv.includes("--serve")) {
           document.querySelector("#context").value = context;
           document.querySelector("#preset").value = "3";
           await h.resize(1920, 1080);
-          h.load(h.sample(context, 3, "color::rgb(transparent: 0.93)"));
+          h.load(h.sample(context, 3, "color::rgb(a: 0.07)"));
           h.step(1000 / 60, false);
           const gl = document
             .querySelector("#visamp-stage canvas")

@@ -43,12 +43,12 @@ pub const PROMOTED_3D_ARGS: &[&str] = &[
     "z",
     "z1",
     "z2",
-    "rot_x",
-    "rot_y",
-    "rot_z",
-    "rot_x_rad",
-    "rot_y_rad",
-    "rot_z_rad",
+    "rotation_x_deg",
+    "rotation_y_deg",
+    "rotation_z_deg",
+    "rotation_x_rad",
+    "rotation_y_rad",
+    "rotation_z_rad",
     "shading",
     "wireframe",
     "opacity",
@@ -67,12 +67,12 @@ pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
     // An `asset::bitmap` or `asset::vector` reference. Modulates the shape's
     // colour rather than replacing it, so tint and opacity still apply.
     "texture",
-    "rot_x",
-    "rot_y",
-    "rot_z",
-    "rot_x_rad",
-    "rot_y_rad",
-    "rot_z_rad",
+    "rotation_x_deg",
+    "rotation_y_deg",
+    "rotation_z_deg",
+    "rotation_x_rad",
+    "rotation_y_rad",
+    "rotation_z_rad",
 ];
 
 /// Pairs of argument names that mean the same angle in different units.
@@ -81,12 +81,13 @@ pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
 /// them, and silently preferring one would make the other look like it worked.
 pub const ANGLE_PAIRS: &[(&str, &str)] = &[
     ("deg", "rad"),
+    ("rotation_deg", "rotation_rad"),
     ("fov_deg", "fov_rad"),
     ("yaw_deg", "yaw_rad"),
     ("pitch_deg", "pitch_rad"),
-    ("rot_x", "rot_x_rad"),
-    ("rot_y", "rot_y_rad"),
-    ("rot_z", "rot_z_rad"),
+    ("rotation_x_deg", "rotation_x_rad"),
+    ("rotation_y_deg", "rotation_y_rad"),
+    ("rotation_z_deg", "rotation_z_rad"),
 ];
 
 const XYZ: &[&str] = &["x", "y", "z"];
@@ -95,7 +96,16 @@ pub const BUILTINS: &[Builtin] = &[
     // ── draw:: 2D, available in both modes ────────────────────────────────
     d2("clear", &[]),
     d2("background", &["color", "gradient"]),
-    d2("polygon", &["points", "color", "gradient", "rotate"]),
+    d2(
+        "polygon",
+        &[
+            "points",
+            "color",
+            "gradient",
+            "rotation_rad",
+            "rotation_deg",
+        ],
+    ),
     d2(
         "circle",
         &[
@@ -105,7 +115,7 @@ pub const BUILTINS: &[Builtin] = &[
             "color",
             "gradient",
             "stroke",
-            "stroke_weight",
+            "stroke_width",
             "stroke_color",
         ],
     ),
@@ -115,15 +125,14 @@ pub const BUILTINS: &[Builtin] = &[
             "x",
             "y",
             "width",
-            "w",
             "height",
-            "h",
             "color",
             "gradient",
             "stroke",
-            "stroke_weight",
+            "stroke_width",
             "stroke_color",
-            "rotate",
+            "rotation_rad",
+            "rotation_deg",
         ],
     ),
     d2(
@@ -131,23 +140,20 @@ pub const BUILTINS: &[Builtin] = &[
         &[
             "x",
             "y",
-            "rx",
             "radius_x",
-            "ry",
             "radius_y",
             "color",
             "gradient",
             "stroke",
-            "stroke_weight",
+            "stroke_width",
             "stroke_color",
-            "rotate",
+            "rotation_rad",
+            "rotation_deg",
         ],
     ),
     d2(
         "text",
-        &[
-            "content", "text", "x", "y", "size", "color", "gradient", "font",
-        ],
+        &["content", "x", "y", "size", "color", "gradient", "font"],
     ),
     // `line` gains z1/z2 rather than a separate draw::line3, and its
     // thickness becomes world units in 3d (§6.5).
@@ -155,20 +161,20 @@ pub const BUILTINS: &[Builtin] = &[
         namespace: "draw",
         name: "line",
         availability: Availability::Both,
-        args: &["x1", "y1", "x2", "y2", "color", "gradient", "stroke_weight"],
+        args: &["x1", "y1", "x2", "y2", "color", "gradient", "stroke_width"],
         args_3d: &["z1", "z2"],
         required: &[],
         takes_common_3d: true,
     },
     // ── draw:: 3D ─────────────────────────────────────────────────────────
-    d3("cube", &["size", "w", "h", "d"], &[]),
+    d3("cube", &["size", "width", "height", "depth"], &[]),
     d3("sphere", &["radius", "resolution"], &[]),
-    d3("plane", &["w", "d", "subdivisions"], &[]),
+    d3("plane", &["width", "depth", "subdivisions"], &[]),
     d3("cylinder", &["radius", "height", "segments"], &[]),
     d3("cone", &["radius", "height", "segments"], &[]),
     d3(
         "torus",
-        &["radius", "tube", "segments", "tube_segments"],
+        &["radius", "tube_radius", "segments", "tube_segments"],
         &[],
     ),
     ns3(
@@ -194,7 +200,7 @@ pub const BUILTINS: &[Builtin] = &[
         &["columns", "rows", "x", "y", "z", "color"],
         &["columns", "rows"],
     ),
-    d3("sprite", &["size", "w", "h"], &[]),
+    d3("sprite", &["size", "width", "height"], &[]),
     d3(
         "mesh",
         &["vertices", "indices", "normals", "uvs"],
@@ -339,16 +345,16 @@ const fn ns(namespace: &'static str, name: &'static str, args: &'static [&'stati
 /// misspelled, so `color::rgb(red: 1.0)` quietly rendered black — the whole
 /// reason these are in the table.
 pub const COLOR_ARGS: &[(&str, &[&str])] = &[
-    ("rgb", &["r", "g", "b", "transparent"]),
-    ("hsl", &["h", "s", "l", "transparent"]),
+    ("rgb", &["r", "g", "b", "a"]),
+    ("hsl", &["h", "s", "l", "a"]),
     ("linear_gradient", &["x0", "y0", "x1", "y1", "color_stops"]),
 ];
 
 /// `math::` functions, which had the same silent-default behaviour.
 pub const MATH_ARGS: &[(&str, &[&str])] = &[
-    ("sin", &["radians"]),
-    ("cos", &["radians"]),
-    ("tan", &["radians"]),
+    ("sin", &["rad"]),
+    ("cos", &["rad"]),
+    ("tan", &["rad"]),
     ("asin", &["value"]),
     ("acos", &["value"]),
     ("atan", &["value"]),

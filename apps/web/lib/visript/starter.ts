@@ -22,7 +22,7 @@ render {
     width: 80.0,
     height: 80.0,
     color: $COLOR_CRIMSON,
-    rotate: angle
+    rotation_rad: angle
   )
 }
 `;

@@ -41,7 +41,7 @@ like one. `$TIME_MS`, `$FRAME_COUNT` and every value in `$FREQUENCY_DATA` and
 ```
 on_frame {
   // Would step 0, 1, 2, 3 … one whole radian every 5 seconds
-  angle = math::sin(radians: $TIME_MS / 5000)
+  angle = math::sin(rad: $TIME_MS / 5000)
 }
 ```
 

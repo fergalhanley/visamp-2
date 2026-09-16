@@ -2,12 +2,11 @@
 
 Visript is the language; `.viscript` is its standard source extension. VisAmp is
 its host application. This guide is for authors and contributors extending the
-language. It records established conventions and proposed rules for new APIs.
-It does **not** make the proposed spellings below available in the current engine.
+language. It records the conventions for engine 3.0 and requirements for new APIs.
 
 The [September 2026 consistency review](https://github.com/fergalhanley/visamp-2/blob/develop/packages/engine/reviews/2026-09-language-consistency.md)
-records existing exceptions and the proposed migration. Changes to existing public
-names or behaviour need an explicit compatibility decision.
+records the audit and accepted migration. Engine 3.0 deliberately removes the
+old parameter spellings; see the migration guide in the engine repository.
 
 ## Names
 
@@ -37,15 +36,17 @@ inputs, position, dimensions, orientation, appearance, advanced options.
 For new angle parameters, use `rad`/`deg` when the call already names the angle,
 or a descriptive name with `_rad`/`_deg` (for example `rotation_x_deg`). Never
 introduce a new angle whose units are implicit. Reject simultaneous alternatives.
-The existing `rotate`, `rot_x` and `radians` spellings are exceptions under review.
+Use `rotation_rad`/`rotation_deg` for 2D shape rotation and
+`rotation_x_rad`/`rotation_x_deg` (and Y/Z equivalents) for 3D orientation.
+Trigonometric inputs use `rad`.
 Trigonometric inverse functions return radians; HSL hue remains a normalized turn.
 
-Use `opacity` for new opacity controls: `0` is invisible, `1` is opaque, default
-`1`. Existing colour constructors instead take `transparent`, whose direction is
-reversed. A rename must transform the value as well as the parameter name.
+Colour constructors use `a` for alpha: `0` is transparent, `1` is opaque, default
+`1`. Shape-level `opacity` and filter `amount` remain separate controls.
+The removed `transparent` parameter had the opposite direction; migrate its
+value with `a: 1.0 - (old_expression)`.
 
-Use `stroke_width` for new outline thickness controls; existing primitives use
-`stroke_weight`. Give every parameter a type, unit, default, range, and policy for
+Use `stroke_width` for outline thickness controls. Give every parameter a type, unit, default, range, and policy for
 out-of-range/non-finite values. Explicitly state pixels versus world units,
 coordinate origin, rotation pivot and winding where relevant.
 
@@ -89,6 +90,7 @@ A language feature spans more than the parser. Review:
    context restrictions and CPU/GPU parity where applicable.
 7. Version/compatibility policy and stored-source impact before changing old APIs.
 
-For renames, introduce compatible aliases first, use one canonical spelling in
-new examples, then migrate saved sources with syntax-aware edits and validation.
-Do not remove an alias until deployed clients and saved scripts no longer need it.
+Renames require a stated compatibility policy and syntax-aware source migration.
+For engine 3.0 the owner chose a clean break: legacy names are errors. Coordinate
+the engine, server validator and saved-source migration in one release window;
+reload old editor tabs to prevent them saving outdated syntax.

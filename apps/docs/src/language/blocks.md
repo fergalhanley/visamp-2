@@ -123,7 +123,7 @@ render {
     y: 0,
     width: $WIDTH,
     height: $HEIGHT,
-    color: color::rgb(transparent: 0.93)
+    color: color::rgb(a: 0.07)
   )
   draw::circle(x: x, y: y, radius: 12.0, color: $COLOR_CYAN)
 }

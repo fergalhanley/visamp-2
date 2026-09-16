@@ -15,6 +15,7 @@ pub mod interpreter;
 pub mod math3;
 pub mod model;
 pub mod parser;
+pub mod source_migration;
 pub mod renderer;
 pub mod resolver;
 pub mod scene;

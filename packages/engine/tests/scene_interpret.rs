@@ -79,7 +79,7 @@ fn every_three_d_primitive_records_something() {
 
 #[test]
 fn size_arguments_scale_the_model_matrix() {
-    let scene = run("context 3d\nrender {\n  draw::cube(w: 2.0, h: 4.0, d: 6.0)\n}\n");
+    let scene = run("context 3d\nrender {\n  draw::cube(width: 2.0, height: 4.0, depth: 6.0)\n}\n");
     let m = scene.commands[0].model;
     assert_eq!(m.transform_point([0.5, 0.5, 0.5]), [1.0, 2.0, 3.0]);
 
@@ -271,7 +271,7 @@ fn a_wrongly_typed_argument_is_reported_rather_than_ignored() {
 fn a_two_d_primitive_in_three_d_says_it_is_not_rendered_yet() {
     // The resolver accepts these — promoting them to world space is the
     // renderer's remaining work, and saying so beats drawing nothing.
-    let err = run_err("context 3d\nrender {\n  draw::rect(x: 0.0, y: 0.0, w: 1.0, h: 1.0)\n}\n");
+    let err = run_err("context 3d\nrender {\n  draw::rect(x: 0.0, y: 0.0, width: 1.0, height: 1.0)\n}\n");
     assert!(err.contains("not rendered in 3d mode yet"), "{err}");
 }
 

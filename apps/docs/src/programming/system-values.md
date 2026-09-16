@@ -304,7 +304,7 @@ render {
   draw::background(color: $COLOR_BLACK)
 
   // Pulsing size based on time, scaled to the canvas
-  let size = $HEIGHT / 30.0 + math::sin(radians: $TIME_SEC * 3.0) * ($HEIGHT / 60.0)
+  let size = $HEIGHT / 30.0 + math::sin(rad: $TIME_SEC * 3.0) * ($HEIGHT / 60.0)
 
   draw::circle(
     x: trail_x,

@@ -41,7 +41,7 @@ draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 | `color` | Color | `$COLOR_WHITE` | Fill color |
 | `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke` | Boolean | false | Draw outline instead of fill |
-| `stroke_weight` | Float | 1.0 | Outline thickness |
+| `stroke_width` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
 
 ## draw::rect
@@ -49,7 +49,7 @@ draw::circle(x: 400.0, y: 300.0, radius: 50.0, color: $COLOR_RED)
 Draws a rectangle.
 
 ```
-draw::rect(x: 100.0, y: 200.0, width: 150.0, height: 80.0, color: $COLOR_BLUE, rotate: 0.5)
+draw::rect(x: 100.0, y: 200.0, width: 150.0, height: 80.0, color: $COLOR_BLUE, rotation_rad: 0.5)
 ```
 
 | Parameter | Type | Default | Description |
@@ -61,9 +61,9 @@ draw::rect(x: 100.0, y: 200.0, width: 150.0, height: 80.0, color: $COLOR_BLUE, r
 | `color` | Color | `$COLOR_WHITE` | Fill color |
 | `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke` | Boolean | false | Draw outline instead of fill |
-| `stroke_weight` | Float | 1.0 | Outline thickness |
+| `stroke_width` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
-| `rotate` | Float | 0.0 | Rotation in radians (around center) |
+| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation in rad (around center) |
 
 ## draw::polygon
 
@@ -77,7 +77,7 @@ draw::polygon(
     [600.0, 400.0],
   ],
   color: $COLOR_GREEN,
-  rotate: 0.0
+  rotation_rad: 0.0
 )
 ```
 
@@ -86,14 +86,14 @@ draw::polygon(
 | `points` | Array | `[]` | Array of `[x, y]` coordinate pairs |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
 | `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
-| `rotate` | Float | 0.0 | Rotation in radians (around centroid) |
+| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation in rad (around centroid) |
 
 ## draw::line
 
 Draws a line between two points.
 
 ```
-draw::line(x1: 100.0, y1: 100.0, x2: 700.0, y2: 500.0, color: $COLOR_WHITE, stroke_weight: 2.0)
+draw::line(x1: 100.0, y1: 100.0, x2: 700.0, y2: 500.0, color: $COLOR_WHITE, stroke_width: 2.0)
 ```
 
 | Parameter | Type | Default | Description |
@@ -104,28 +104,28 @@ draw::line(x1: 100.0, y1: 100.0, x2: 700.0, y2: 500.0, color: $COLOR_WHITE, stro
 | `y2` | Float | 100.0 | End Y |
 | `color` | Color | `$COLOR_WHITE` | Line color |
 | `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
-| `stroke_weight` | Float | 1.0 | Line thickness |
+| `stroke_width` | Float | 1.0 | Line thickness |
 
 ## draw::ellipse
 
 Draws an ellipse.
 
 ```
-draw::ellipse(x: 400.0, y: 300.0, rx: 80.0, ry: 40.0, color: $COLOR_PURPLE, rotate: 0.3)
+draw::ellipse(x: 400.0, y: 300.0, radius_x: 80.0, radius_y: 40.0, color: $COLOR_PURPLE, rotation_rad: 0.3)
 ```
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `x` | Float | 0.0 | Center X position |
 | `y` | Float | 0.0 | Center Y position |
-| `rx` | Float | 50.0 | X radius |
-| `ry` | Float | 30.0 | Y radius |
+| `radius_x` | Float | 50.0 | X radius |
+| `radius_y` | Float | 30.0 | Y radius |
 | `color` | Color | `$COLOR_WHITE` | Fill color |
 | `gradient` | Gradient | — | [Linear gradient](color-constructors.md#colorlinear_gradient), overrides `color` |
 | `stroke` | Boolean | false | Draw outline instead of fill |
-| `stroke_weight` | Float | 1.0 | Outline thickness |
+| `stroke_width` | Float | 1.0 | Outline thickness |
 | `stroke_color` | Color | `$COLOR_BLACK` | Outline color |
-| `rotate` | Float | 0.0 | Rotation in radians |
+| `rotation_rad` / `rotation_deg` | Float | 0.0 | Rotation in rad |
 
 ## draw::text
 
@@ -150,4 +150,7 @@ draw::text(content: "Hello!", x: 350.0, y: 300.0, size: 24.0, color: $COLOR_WHIT
 - Origin `(0, 0)` is at the **top-left** corner
 - X increases to the **right**
 - Y increases **downward**
-- Rotations are in **radians**, clockwise
+- Rotations are in **rad**, clockwise
+
+Rotation arguments are mutually exclusive: supply `rotation_rad` in radians or
+`rotation_deg` in degrees. Both default to no rotation when omitted.

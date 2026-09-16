@@ -43,7 +43,7 @@ render {
     width: 180.0,
     height: 180.0,
     color: $COLOR_INDIGO,
-    rotate: angle
+    rotation_rad: angle
   )
   draw::polygon(
     points: [
@@ -52,7 +52,7 @@ render {
       [$WIDTH / 2.0 - 130.0, $HEIGHT / 2.0 + 80.0]
     ],
     color: $COLOR_TEAL,
-    rotate: angle * -0.6
+    rotation_rad: angle * -0.6
   )
   draw::circle(
     x: $WIDTH / 2.0,
@@ -97,7 +97,7 @@ render {
     y: 0,
     width: $WIDTH,
     height: $HEIGHT,
-    color: color::rgb(transparent: 0.93)
+    color: color::rgb(a: 0.07)
   )
   draw::circle(x: x, y: y, radius: 16.0, color: $COLOR_CYAN)
   draw::circle(x: x, y: y, radius: 6.0, color: $COLOR_WHITE)
@@ -124,10 +124,10 @@ render {
   draw::background(color: $COLOR_BLACK)
   for i in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0] {
     let a = t + i * $PI / 4.0
-    let r = 190.0 + math::sin(radians: t * 2.0 + i) * 40.0
+    let r = 190.0 + math::sin(rad: t * 2.0 + i) * 40.0
     draw::circle(
-      x: $WIDTH / 2.0 + math::cos(radians: a) * r,
-      y: $HEIGHT / 2.0 + math::sin(radians: a) * r,
+      x: $WIDTH / 2.0 + math::cos(rad: a) * r,
+      y: $HEIGHT / 2.0 + math::sin(rad: a) * r,
       radius: 13.0,
       color: $COLOR_AMBER
     )
@@ -160,7 +160,7 @@ on_frame {
 render {
   draw::background(color: $COLOR_BLACK)
   for i in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0] {
-    let h = math::abs(value: math::sin(radians: t * 1.5 + i * 0.4)) * $HEIGHT * 0.6
+    let h = math::abs(value: math::sin(rad: t * 1.5 + i * 0.4)) * $HEIGHT * 0.6
     draw::rect(
       x: $WIDTH / 2.0 - 300.0 + i * 52.0,
       y: $HEIGHT / 2.0 - h / 2.0,
@@ -194,12 +194,12 @@ render {
     y: 0,
     width: $WIDTH,
     height: $HEIGHT,
-    color: color::rgb(transparent: 0.88)
+    color: color::rgb(a: 0.12)
   )
   for i in [1.0, 2.0, 3.0, 4.0, 5.0] {
     draw::circle(
-      x: $MOUSE_X + math::cos(radians: t * 2.0 + i) * i * 26.0,
-      y: $MOUSE_Y + math::sin(radians: t * 2.0 + i) * i * 26.0,
+      x: $MOUSE_X + math::cos(rad: t * 2.0 + i) * i * 26.0,
+      y: $MOUSE_Y + math::sin(rad: t * 2.0 + i) * i * 26.0,
       radius: 22.0 - i * 3.0,
       color: color::hsl(h: i / 5.0, s: 0.7, l: 0.55)
     )
