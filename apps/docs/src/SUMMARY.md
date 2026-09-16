@@ -39,6 +39,7 @@
 - [Functions](./programming/functions.md)
 - [Math Library](./programming/math.md)
 - [Audio Detection](./programming/audio-detection.md)
+  - [Audio Migration (4.0)](language/audio-migration.md)
 - [System Values](./programming/system-values.md)
 
 # Examples

@@ -369,7 +369,7 @@ render {
   transform::translate(x: 3.0)
   gfx::depth(enabled: false, write: false)
   gfx::blend(mode: "additive")
-  draw::point_cloud(count: 147456, x: $POINT_INDEX % 384, y: $FREQUENCY_DATA[$POINT_INDEX % 384] / 255.0, z: $POINT_INDEX \ 384, color: color::hsl(h: $POINT_INDEX / $POINT_COUNT, s: 1.0, l: 0.5))
+  draw::point_cloud(count: 147456, x: $POINT_INDEX % 384, y: audio::detect::get_spectrum()[$POINT_INDEX % 384], z: $POINT_INDEX \ 384, color: color::hsl(h: $POINT_INDEX / $POINT_COUNT, s: 1.0, l: 0.5))
   draw::cube()
 }"#);
     assert_eq!(scene.commands.len(), 3);
@@ -380,7 +380,7 @@ render {
     assert!(cloud.body.contains("gl_VertexID"));
     assert!(cloud.body.contains("array_at"));
     assert!(cloud.body.contains("point_hsl"));
-    assert!(cloud.data.len() < 16);
+    assert!(cloud.data.len() >= 1024 && cloud.data.len() < 1040);
     let command = &scene.commands[1];
     assert_eq!(command.model.as_slice()[12], 3.0);
     assert!(!command.key.depth_enabled);
@@ -431,18 +431,20 @@ fn point_cloud_signature_rejects_unsupported_common_arguments_and_2d() {
 
 #[test]
 fn point_cloud_rejects_excessive_audio_data_and_expression_complexity() {
-    let source = "context 3d\nrender {\n draw::point_cloud(count: 1, x: $FREQUENCY_DATA[$POINT_INDEX])\n}";
+    let source = "context 3d\nrender {\n draw::point_cloud(count: 1, x: audio::detect::get_spectrum()[$POINT_INDEX])\n}";
     let script = build_ast(source).unwrap();
     let mut model = Model::from_script(&script);
     let mut runtime = Runtime::new();
-    runtime.frequency = std::rc::Rc::new(vec![1; 32769]);
+    runtime.audio.current.spectrum = std::rc::Rc::new(vec![1.0; 32769]);
     let scene = RefCell::new(Scene::default());
     let error = interpret_render_block(
         &model.blocks[0], &mut model.decels,
         Target::scene(&scene, &RefCell::new(String::new())),
-        &runtime, &model.functions,
-    ).unwrap_err();
-    assert!(error.contains("array is too large"), "{error}");
+        &runtime,
+        &model.functions,
+    )
+    .unwrap_err();
+    assert!(error.contains("data exceeds 32768"), "{error}");
     assert!(scene.borrow().commands.is_empty());
 
     let values = vec!["1"; 513].join(",");

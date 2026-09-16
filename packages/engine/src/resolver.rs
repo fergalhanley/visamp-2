@@ -72,6 +72,20 @@ fn located(pair: &Pair<Rule>, message: String) -> String {
 impl Resolver {
     fn walk(&mut self, pair: Pair<Rule>) {
         match pair.as_rule() {
+            Rule::system_value => {
+                let replacement = match pair.as_str() {
+                    "$FREQUENCY_DATA" => Some("audio::detect::get_spectrum()"),
+                    "$TIME_DOMAIN_DATA" => Some("audio::detect::get_waveform()"),
+                    "$BEAT" => Some("audio::detect::get_beat()"),
+                    _ => None,
+                };
+                if let Some(replacement) = replacement {
+                    self.errors.push(located(&pair, format!(
+                        "{} was removed in Visript 4.0; use {replacement}. Audio samples use normalized ranges; see the audio migration guide.", pair.as_str()
+                    )));
+                }
+            }
+
             // `color::` and `math::` are their own grammar rules rather than
             // `function_call`, so they need their own arm — without it their
             // arguments went unchecked and a misspelling silently became 0.0.

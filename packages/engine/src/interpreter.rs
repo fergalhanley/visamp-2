@@ -17,13 +17,6 @@ pub struct Runtime {
     pub canvas_height: f64,
     pub mouse_x: f64,
     pub mouse_y: f64,
-
-    /// Latest analyser snapshot, pushed in from JS via `set_audio_frame`.
-    /// Empty until an audio source is connected, which is what makes a script
-    /// referencing `$FREQUENCY_DATA` degrade to an empty loop rather than fail.
-    pub time_domain: std::rc::Rc<Vec<u8>>,
-    pub frequency: std::rc::Rc<Vec<u8>>,
-    pub beat: bool,
 }
 
 impl Runtime {
@@ -35,18 +28,8 @@ impl Runtime {
             canvas_height: 600.0,
             mouse_x: 0.0,
             mouse_y: 0.0,
-            time_domain: std::rc::Rc::new(Vec::new()),
-            frequency: std::rc::Rc::new(Vec::new()),
-            beat: false,
         }
     }
-}
-
-/// Byte analyser data as a Visript array. Allocates, so callers should bind it to a
-/// `let` rather than re-reading it inside a loop.
-/// Hands the script the audio buffer without copying it.
-fn byte_array_value(bytes: &std::rc::Rc<Vec<u8>>) -> Value {
-    Value::Bytes(std::rc::Rc::clone(bytes))
 }
 
 type InterpResult<T> = Result<T, String>;
@@ -578,9 +561,6 @@ fn interpret_statement_kind(
                         // Widened only as it is walked, one value at a time.
                         Value::Samples(samples) => {
                             samples.iter().map(|&v| Value::Float(v as f64)).collect()
-                        }
-                        Value::Bytes(bytes) => {
-                            bytes.iter().map(|b| Value::Integer(*b as i64)).collect()
                         }
                         _ => {
                             return Err("for loop iterable must be an array or a range".to_string())
@@ -1574,7 +1554,7 @@ fn evaluate_expression_inner(
         Expression::Grouping(inner) => evaluate_expression(inner, decels, runtime, functions),
         Expression::Index { target, index } => {
             let collection = evaluate_expression(target, decels, runtime, functions)?;
-            // Bytes are read in place; nothing is materialised to index them.
+            // Shared samples are indexed without materialising the array.
             let items = match collection {
                 Value::Array(items) => items,
                 Value::Samples(samples) => {
@@ -1586,32 +1566,6 @@ fn evaluate_expression_inner(
                             .copied()
                             .unwrap_or(0.0) as f64,
                     ));
-                }
-                Value::Bytes(bytes) => {
-                    let position = match evaluate_expression(index, decels, runtime, functions)? {
-                        Value::Integer(i) => i,
-                        Value::Float(f) => {
-                            return Err(format!(
-                            "array index must be a whole number, got {}. Use \\ or math::floor.",
-                            f
-                        ))
-                        }
-                        other => {
-                            return Err(format!(
-                                "array index must be a whole number, got {}",
-                                type_name(&other)
-                            ))
-                        }
-                    };
-
-                    // Out of range reads as 0, the same as any other array:
-                    // the audio buffers are empty whenever nothing is playing.
-                    let value = usize::try_from(position)
-                        .ok()
-                        .and_then(|i| bytes.get(i).copied())
-                        .unwrap_or(0);
-
-                    return Ok(Value::Integer(value as i64));
                 }
                 other => {
                     return Err(format!(
@@ -1637,10 +1591,7 @@ fn evaluate_expression_inner(
                 }
             };
 
-            // Out of range reads as 0 rather than failing. $FREQUENCY_DATA and
-            // $TIME_DOMAIN_DATA are empty whenever no audio is playing, so an
-            // error here would break every audio-reactive script the moment it
-            // fell silent (E4.7 — everything must run without audio).
+            // Out-of-range array reads return zero.
             if position < 0 {
                 return Ok(Value::Integer(0));
             }
@@ -1938,9 +1889,6 @@ pub(crate) fn map_value_runtime(name: &str, runtime: &Runtime) -> InterpResult<V
         "MOUSE_Y" => Ok(Value::Float(runtime.mouse_y)),
         "FRAME_COUNT" => Ok(Value::Integer(runtime.frame_count as i64)),
         // Audio. Each is 0..255; time domain is centred on 128 (silence).
-        "TIME_DOMAIN_DATA" => Ok(byte_array_value(&runtime.time_domain)),
-        "FREQUENCY_DATA" => Ok(byte_array_value(&runtime.frequency)),
-        "BEAT" => Ok(Value::Boolean(runtime.beat)),
         // Math constants
         "PI" => Ok(Value::Float(std::f64::consts::PI)),
         "E" => Ok(Value::Float(std::f64::consts::E)),
@@ -2080,7 +2028,7 @@ fn type_name(value: &Value) -> &'static str {
         Value::Float(_) => "a number",
         Value::String(_) => "a string",
         Value::Array(_) => "an array",
-        Value::Bytes(_) | Value::Samples(_) => "an array",
+        Value::Samples(_) => "an array",
         Value::Identifier(_) => "an identifier",
         Value::SystemValue(_) => "a system value",
         Value::Color(_) => "a color",
@@ -2142,7 +2090,7 @@ fn apply_binary(op: &BinaryOperator, l: Value, r: Value) -> InterpResult<Value> 
         // `/` always produces a float, even for two integers.
         //
         // Truncating integer division is a trap in a language like this:
-        // $TIME_MS, $FRAME_COUNT and every value in $FREQUENCY_DATA are
+        // $TIME_MS and $FRAME_COUNT are
         // integers, so `$TIME_MS / 5000` would step 0, 1, 2… and
         // `v / 255` would only ever be 0 or 1 — silently, with no type
         // error to point at. Use math::floor for deliberate truncation.

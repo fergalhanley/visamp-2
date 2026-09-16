@@ -19,7 +19,7 @@ on_frame {
   total = 0.0
   peak = 0.0
   for i in 0..256 {
-    let v = $FREQUENCY_DATA[i * 4]
+    let v = audio::detect::get_spectrum()[i * 4]
     total = total + v
     if v > peak {
       peak = v
@@ -44,8 +44,10 @@ fn once(source: &str, frames: u32) -> f64 {
     let mut model = Model::from_script(&script);
 
     let mut runtime = Runtime::new();
-    runtime.time_domain = std::rc::Rc::new((0..2048).map(|i| (i % 256) as u8).collect());
-    runtime.frequency = std::rc::Rc::new((0..1024).map(|i| (i % 256) as u8).collect());
+    runtime.audio.current.waveform =
+        std::rc::Rc::new((0..2048).map(|i| (i % 256) as f32 / 256.0).collect());
+    runtime.audio.current.spectrum =
+        std::rc::Rc::new((0..1024).map(|i| (i % 256) as f32 / 256.0).collect());
 
     let start = Instant::now();
     for _ in 0..frames {

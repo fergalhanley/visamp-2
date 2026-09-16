@@ -107,3 +107,26 @@ fn invalid_names_arguments_and_statement_use_have_compile_diagnostics() {
         .unwrap_err()
         .contains("expressions"));
 }
+
+#[test]
+fn removed_audio_globals_fail_at_compile_time_with_replacements() {
+    for (old, new) in [
+        ("$FREQUENCY_DATA", "get_spectrum"),
+        ("$TIME_DOMAIN_DATA", "get_waveform"),
+        ("$BEAT", "get_beat"),
+    ] {
+        let error = visamp_2::parser::build_ast(&format!(
+            "render {{\n  if false {{ let value = {old} }}\n}}"
+        ))
+        .unwrap_err();
+        assert!(error.contains("2:"), "{error}");
+        assert!(
+            error.contains("removed in Visript 4.0") && error.contains(new),
+            "{error}"
+        );
+        assert!(visamp_2::parser::build_ast(&format!(
+            "// {old}\nprop note = \"{old}\"\nrender {{}}"
+        ))
+        .is_ok());
+    }
+}

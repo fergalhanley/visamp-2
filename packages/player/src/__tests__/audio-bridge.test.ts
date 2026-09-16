@@ -41,7 +41,6 @@ function setup(module = Promise.resolve()) {
     getByteFrequencyData: vi.fn(),
   });
   const engine = {
-    set_audio_frame: vi.fn(),
     set_audio_analysis: vi.fn(),
     clear_audio_frame: vi.fn(),
   };
@@ -72,7 +71,9 @@ it("delivers independent audio events without running an animation frame", async
   await Promise.resolve();
   const node = Node.instances[0]!;
   node.port.onmessage!(message(2, 3));
-  expect(s.engine.set_audio_frame).not.toHaveBeenCalled();
+  expect(requestAnimationFrame).not.toHaveBeenCalled();
+  expect(s.analyser.getByteFrequencyData).not.toHaveBeenCalled();
+  expect(s.analyser.getByteTimeDomainData).not.toHaveBeenCalled();
   expect(s.engine.set_audio_analysis.mock.calls[0]?.slice(4, 6)).toEqual([
     true,
     true,

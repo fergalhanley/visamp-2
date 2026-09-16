@@ -827,35 +827,6 @@ pub fn capture_frame() -> js_sys::Promise {
     })
 }
 
-/// Hand the engine the latest analyser snapshot.
-///
-/// Called once per animation frame from the player wrapper, which owns the
-/// AnalyserNode. Pushing rather than pulling keeps the audio graph entirely on
-/// the JavaScript side: the engine never needs to know whether the signal came
-/// from a microphone, a local file or a stream.
-///
-/// `time_domain` is the waveform (centred on 128), `frequency` the spectrum,
-/// both 0..255. A frame that arrives while the script is mid-render is simply
-/// seen on the next frame; there is no tearing because the copy completes
-/// before the render loop reads it.
-#[wasm_bindgen]
-pub fn set_audio_frame(time_domain: &[u8], frequency: &[u8], beat: bool) {
-    STATE.with(|s| {
-        if let Some(ref state) = *s.borrow() {
-            // try_borrow_mut: the render loop holds this briefly each frame, and
-            // dropping one audio frame is far better than panicking.
-            if let Ok(mut runtime) = state.runtime.try_borrow_mut() {
-                // Replaced rather than refilled: a script may still be holding
-                // the previous buffer, and one allocation a frame is nothing
-                // beside what sharing it saves.
-                runtime.time_domain = std::rc::Rc::new(time_domain.to_vec());
-                runtime.frequency = std::rc::Rc::new(frequency.to_vec());
-                runtime.beat = beat;
-            }
-        }
-    });
-}
-
 /// Clears the analyser snapshot, so scripts see silence rather than the last
 /// frame frozen in place.
 #[wasm_bindgen]
@@ -864,9 +835,6 @@ pub fn clear_audio_frame() {
         if let Some(ref state) = *s.borrow() {
             if let Ok(mut runtime) = state.runtime.try_borrow_mut() {
                 runtime.audio = audio::AudioState::default();
-                runtime.time_domain = std::rc::Rc::new(Vec::new());
-                runtime.frequency = std::rc::Rc::new(Vec::new());
-                runtime.beat = false;
             }
         }
     });

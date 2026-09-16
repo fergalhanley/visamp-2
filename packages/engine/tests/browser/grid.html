@@ -26,18 +26,18 @@ render {
  load(`context 3d
 prop heights = []
 on_init { heights = array::filled(count: 65536, value: 0.0) }
-on_frame { heights[0] = $FREQUENCY_DATA[0] / 255.0 }
+on_frame { heights[0] = audio::detect::get_spectrum()[0] }
 render {
  camera::orthographic(height: 4.0)
  draw::grid(columns: 256, rows: 512, x: $GRID_COLUMN / 255.0 * 2.0 - 1.0 + heights[$GRID_INDEX % 1], y: 1.0 - $GRID_ROW / 511.0 * 2.0, z: 0.0, color: $COLOR_RED)
  draw::point_cloud(count: 1, z: 1.0, size: 20.0, color: $COLOR_GREEN)
  draw::cube(size: 0.5, z: -1.0, color: $COLOR_BLUE)
 }`);
- engine.set_audio_frame(new Uint8Array(),new Uint8Array([0]),false); step();
+ engine.set_audio_analysis(new Float32Array([0]),new Float32Array([0]),48000,0,false,false,0); step();
  assert(calls[0][0]===gl.TRIANGLES&&calls[0][1]===255*511*6,'full grid topology');
  p=pixel();assert(p[1]>100&&p[0]===0,'point depth after grid: '+p);
  assert(pixel(230,240)[0]===255,'initial grid position');
- engine.set_audio_frame(new Uint8Array(),new Uint8Array([255]),false);step();
+ engine.set_audio_analysis(new Float32Array([0]),new Float32Array([1]),48000,0,false,false,0);step();
  assert(pixel(230,240)[0]===0,'audio array did not deform the grid');
  assert(gl.getError()===gl.NO_ERROR,'WebGL error');
  window.results={passed:true,checks:['interpolated vertex colours','1280x720 PNG pixels','256x512 triangle grid','65536-element mutable history','grid/point/mesh depth and program switching']};

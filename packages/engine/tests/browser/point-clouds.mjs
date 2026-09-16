@@ -53,17 +53,17 @@ export function verifyPoints(engine, step, load, canvas) {
 prop bands = []
 on_init { bands = array::filled(count: 1, value: -1) }
 on_frame {
- if $FREQUENCY_DATA[0] > 0 { bands[0] = $FREQUENCY_DATA[0] }
+ if audio::detect::get_spectrum()[0] > 0 { bands[0] = audio::detect::get_spectrum()[0] * 255 }
 }
 render {
  camera::orthographic(height: 4.0)
  draw::point_cloud(count: 1, size: 20.0, color: color::rgb(r: bands[$POINT_INDEX] / 255.0))
 }`;
   load(arrayScene);
-  engine.set_audio_frame(new Uint8Array(), new Uint8Array([100]), false);
+  engine.set_audio_analysis(new Float32Array([0]), new Float32Array([100 / 255]), 48000, 0, false, false, 0);
   step();
   near(pixel(), [100,0,0,255], 'array state reaches GPU');
-  engine.set_audio_frame(new Uint8Array(), new Uint8Array([0]), false);
+  engine.set_audio_analysis(new Float32Array([0]), new Float32Array([0]), 48000, 0, false, false, 0);
   step();
   near(pixel(), [100,0,0,255], 'array state survives silence');
   load(arrayScene);
@@ -119,13 +119,13 @@ render {
   gl.drawArrays = (mode, first, count) => { draws.push({mode, count}); draw(mode, first, count); };
   gl.linkProgram = p => { links++; link(p); };
   try {
-    load(`context 3d\nrender {\n draw::point_cloud(count: 147456, x: ($POINT_INDEX % 384) / 38.4 - 5.0, y: math::sin(rad: $POINT_INDEX / 384.0 + $FRAME_COUNT / 60.0), z: $POINT_INDEX / 147456.0, color: color::rgb(r: $FREQUENCY_DATA[$POINT_INDEX % 384] / 255.0))\n}`);
-    engine.set_audio_frame(new Uint8Array(), new Uint8Array(384).fill(128), false);
+    load(`context 3d\nrender {\n draw::point_cloud(count: 147456, x: ($POINT_INDEX % 384) / 38.4 - 5.0, y: math::sin(rad: $POINT_INDEX / 384.0 + $FRAME_COUNT / 60.0), z: $POINT_INDEX / 147456.0, color: color::rgb(r: audio::detect::get_spectrum()[$POINT_INDEX % 384]))\n}`);
+    engine.set_audio_analysis(new Float32Array([0]), new Float32Array(384).fill(128 / 255), 48000, 0, false, false, 0);
     step();
     const initialLinks = links;
     for (let i=0; i<20; i++) {
       draws = [];
-      engine.set_audio_frame(new Uint8Array(), new Uint8Array(384).fill(i*10), false);
+      engine.set_audio_analysis(new Float32Array([0]), new Float32Array(384).fill(i*10 / 255), 48000, 0, false, false, 0);
       step();
       assert(draws.length === 1 && draws[0].mode === gl.POINTS && draws[0].count === 147456, 'full density must be one POINTS draw');
     }

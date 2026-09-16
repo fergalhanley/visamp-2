@@ -73,7 +73,7 @@ export interface VisampCanvasProps {
    */
   active: boolean;
   /**
-   * Analyser to sample for `$TIME_DOMAIN_DATA`, `$FREQUENCY_DATA` and `$BEAT`.
+   * Audio graph tap for the `audio::detect` standard library.
    *
    * Supplied by the host because a Web Audio graph cannot span AudioContexts —
    * an analyser created in here could never hear the app's own audio. Null (or
@@ -284,7 +284,7 @@ export function VisampCanvas({
   }, [active, ready]);
 
   // Follow the host analyser lifetime; normalized detection runs independently
-  // of rendered frames, with legacy byte sampling retained by the bridge.
+  // of rendered frames.
   useEffect(() => {
     const engine = engineRef.current;
     if (!ready || !engine || !analyser) return;

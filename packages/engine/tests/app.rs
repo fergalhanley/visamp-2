@@ -297,23 +297,23 @@ fn on_resize_reads_the_runtime_and_writes_a_property() {
 // ── audio bindings ──────────────────────────────────────────────────────────
 
 #[test]
-fn audio_system_values_parse() {
+fn audio_detection_expressions_parse() {
     let source = r#"
 render {
-  for v in $FREQUENCY_DATA {
+  for v in audio::detect::get_spectrum() {
     draw::rect(x: v, y: 0, width: 2, height: v, color: $COLOR_CYAN)
   }
-  for s in $TIME_DOMAIN_DATA {
+  for s in audio::detect::get_waveform() {
     draw::line(x1: 0, y1: s, x2: 10, y2: s, color: $COLOR_WHITE)
   }
-  if $BEAT {
+  if audio::detect::get_beat() {
     draw::circle(x: 50.0, y: 50.0, radius: 20.0, color: $COLOR_RED)
   }
 }
 "#;
     assert!(
         build_ast(source).is_ok(),
-        "audio system values should parse"
+        "audio detection expressions should parse"
     );
 }
 
@@ -323,7 +323,7 @@ fn beat_is_usable_in_on_frame() {
 prop hits = 0
 
 on_frame {
-  if $BEAT {
+  if audio::detect::get_beat() {
     hits = hits + 1
   }
 }
@@ -681,9 +681,7 @@ fn indexing_chains() {
     assert_eq!(eval_expr_prop("[[1, 2], [3, 4]][1][0]"), Value::Integer(3));
 }
 
-/// Out of range reads as 0 rather than failing. The audio arrays are empty
-/// whenever nothing is playing, so erroring would break every audio-reactive
-/// script the moment it fell silent.
+/// Out-of-range array reads return zero rather than failing.
 #[test]
 fn out_of_range_reads_as_zero() {
     assert_eq!(eval_expr_prop("[1, 2, 3][99]"), Value::Integer(0));
@@ -691,10 +689,16 @@ fn out_of_range_reads_as_zero() {
 }
 
 #[test]
-fn indexing_an_empty_audio_array_is_safe() {
-    // No audio is connected in this test runtime, so the array is empty.
-    assert_eq!(eval_expr_prop("$FREQUENCY_DATA[0]"), Value::Integer(0));
-    assert_eq!(eval_expr_prop("$TIME_DOMAIN_DATA[512]"), Value::Integer(0));
+fn indexing_a_silent_audio_snapshot_is_safe() {
+    // No audio is connected, so the snapshot contains zeros.
+    assert_eq!(
+        eval_expr_prop("audio::detect::get_spectrum()[0]"),
+        Value::Float(0.0)
+    );
+    assert_eq!(
+        eval_expr_prop("audio::detect::get_waveform()[512]"),
+        Value::Float(0.0)
+    );
 }
 
 #[test]
@@ -1400,10 +1404,10 @@ render {
 
         draw::cube(
             x: 6.0,
-            y: $FREQUENCY_DATA[i] / 255.0 * 3.0,
+            y: audio::detect::get_spectrum()[i] * 3.0,
             z: 0.0,
             width: 0.3,
-            height: $FREQUENCY_DATA[i] / 255.0 * 6.0 + 0.1,
+            height: audio::detect::get_spectrum()[i] * 6.0 + 0.1,
             depth: 0.3,
             color: color::hsl(h: i / bar_count, s: 0.9, l: 0.5),
             shading: "lambert",
@@ -1723,8 +1727,9 @@ fn eval_prop_with_audio(source: &str, prop: &str) -> Value {
     let mut model = Model::from_script(&script);
 
     let mut runtime = Runtime::new();
-    runtime.frequency = std::rc::Rc::new((0..1024).map(|i| (i % 256) as u8).collect());
-    runtime.time_domain = std::rc::Rc::new(vec![128; 2048]);
+    runtime.audio.current.spectrum =
+        std::rc::Rc::new((0..1024).map(|i| (i % 256) as f32 / 256.0).collect());
+    runtime.audio.current.waveform = std::rc::Rc::new(vec![0.5; 1024]);
 
     let functions = model.functions.clone();
     let blocks = model.blocks.clone();
@@ -1738,26 +1743,31 @@ fn eval_prop_with_audio(source: &str, prop: &str) -> Value {
 #[test]
 fn an_audio_array_can_be_indexed() {
     // The buffer is handed to the script by reference rather than expanded into
-    // a thousand boxed integers, so this must still read the right byte.
+    // a thousand boxed values, so this must still read the right normalized sample.
     let source =
-        "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[7]\n}\nrender {\n  draw::clear()\n}\n";
-    assert_eq!(eval_prop_with_audio(source, "v"), Value::Integer(7));
+        "prop v = 0\non_frame {\n  v = audio::detect::get_spectrum()[7]\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop_with_audio(source, "v"), Value::Float(7.0 / 256.0));
 
     let source =
-        "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[300]\n}\nrender {\n  draw::clear()\n}\n";
-    assert_eq!(eval_prop_with_audio(source, "v"), Value::Integer(44));
+        "prop v = 0\non_frame {\n  v = audio::detect::get_spectrum()[300]\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(
+        eval_prop_with_audio(source, "v"),
+        Value::Float(44.0 / 256.0)
+    );
 }
 
 #[test]
 fn reading_past_an_audio_array_gives_zero() {
-    // Deliberate: the buffers are empty whenever nothing is playing, and an
-    // error would break every audio-reactive script the moment it fell silent.
-    for expr in ["$FREQUENCY_DATA[99999]", "$FREQUENCY_DATA[-1]"] {
+    // Missing bins and negative indexes follow the zero-read contract.
+    for expr in [
+        "audio::detect::get_spectrum()[99999]",
+        "audio::detect::get_spectrum()[-1]",
+    ] {
         let source =
             format!("prop v = 1\non_frame {{\n  v = {expr}\n}}\nrender {{\n  draw::clear()\n}}\n");
         assert_eq!(
             eval_prop_with_audio(&source, "v"),
-            Value::Integer(0),
+            Value::Float(0.0),
             "{expr}"
         );
     }
@@ -1765,37 +1775,34 @@ fn reading_past_an_audio_array_gives_zero() {
 
 #[test]
 fn an_audio_array_can_be_iterated() {
-    let source = "prop total = 0\non_frame {\n  total = 0\n  for v in $TIME_DOMAIN_DATA {\n    total = total + v\n  }\n}\nrender {\n  draw::clear()\n}\n";
-    // 2048 samples of 128.
-    assert_eq!(
-        eval_prop_with_audio(source, "total"),
-        Value::Integer(2048 * 128)
-    );
+    let source = "prop total = 0\non_frame {\n  total = 0\n  for v in audio::detect::get_waveform() {\n    total = total + v\n  }\n}\nrender {\n  draw::clear()\n}\n";
+    // 1024 samples of 0.5.
+    assert_eq!(eval_prop_with_audio(source, "total"), Value::Float(512.0));
 }
 
 #[test]
-fn an_empty_audio_array_iterates_zero_times() {
-    let source = "prop total = 5\non_frame {\n  total = 0\n  for v in $FREQUENCY_DATA {\n    total = total + 1\n  }\n}\nrender {\n  draw::clear()\n}\n";
-    assert_eq!(eval_prop(source, "total"), Value::Integer(0));
+fn silent_audio_snapshots_have_zero_filled_bins() {
+    let source = "prop total = 5\non_frame {\n  total = 0\n  for v in audio::detect::get_spectrum() {\n    total = total + 1\n  }\n}\nrender {\n  draw::clear()\n}\n";
+    assert_eq!(eval_prop(source, "total"), Value::Integer(1024));
 }
 
 #[test]
 fn a_fractional_index_into_an_audio_array_is_still_rejected() {
     let source =
-        "prop v = 0\non_frame {\n  v = $FREQUENCY_DATA[1.5]\n}\nrender {\n  draw::clear()\n}\n";
+        "prop v = 0\non_frame {\n  v = audio::detect::get_spectrum()[1.5]\n}\nrender {\n  draw::clear()\n}\n";
     let err = expect_runtime_error(source);
-    assert!(err.contains("whole number"), "{err}");
+    assert!(err.contains("requires an integer"), "{err}");
 }
 
 #[test]
 fn an_audio_array_reports_itself_as_an_array() {
     use visamp_2::model::Value as V;
-    let bytes = V::Bytes(std::rc::Rc::new(vec![1, 2, 3]));
-    assert_eq!(bytes.type_tag(), "array");
-    assert_eq!(bytes.display(), "[1, 2, 3]");
+    let samples = V::Samples(std::rc::Rc::new(vec![0.0, 0.5, 1.0]));
+    assert_eq!(samples.type_tag(), "array");
+    assert_eq!(samples.display(), "[0, 0.5, 1]");
 
-    let long = V::Bytes(std::rc::Rc::new(
-        (0..1024).map(|i| (i % 256) as u8).collect(),
+    let long = V::Samples(std::rc::Rc::new(
+        (0..1024).map(|i| (i % 256) as f32 / 256.0).collect(),
     ));
     assert!(
         long.display().ends_with("… 1024 items]"),

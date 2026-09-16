@@ -337,10 +337,6 @@ impl Fields<'_> {
                 let (offset, len) = if let Some(binding) = self.bindings.get(&key) { *binding } else {
                     let values = match self.eval(target)? {
                         Value::Samples(samples) => samples.as_ref().clone(),
-                        Value::Bytes(bytes) => {
-                            if bytes.len() > (if self.grid.is_some() { MAX_GRID_DATA } else { MAX_DATA }) { return Err("point field array is too large".into()); }
-                            bytes.iter().map(|v| *v as f32).collect::<Vec<_>>()
-                        },
                         Value::Array(values) => {
                             if values.len() > (if self.grid.is_some() { MAX_GRID_DATA } else { MAX_DATA }) { return Err("point field array is too large".into()); }
                             values.into_iter().map(|v| v.try_into_f64().map(|v| v as f32)).collect::<Result<Vec<_>, _>>()?

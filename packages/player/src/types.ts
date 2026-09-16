@@ -22,7 +22,7 @@ export interface CompileResult {
   diagnostics: Diagnostic[];
   /**
    * Still reported as false. The Visript now *has* audio bindings
-   * ($TIME_DOMAIN_DATA, $FREQUENCY_DATA, $BEAT), so this is finally
+   * (waveform, spectrum and beat events), so this is finally
    * computable — it needs the engine to report whether the parsed script
    * references any of them.
    */
@@ -63,7 +63,6 @@ export interface EngineModule {
   get_canvas_filter(): string;
   capture_frame(): Promise<Blob>;
   set_audio_analysis(waveform: Float32Array, spectrum: Float32Array, sampleRate: number, level: number, beat: boolean, onset: boolean, onsetStrength: number): void;
-  set_audio_frame(timeDomain: Uint8Array, frequency: Uint8Array, beat: boolean): void;
   clear_audio_frame(): void;
   /** JSON array of `PropertyView`; see `startPropertiesBridge`. */
   get_properties(): string;

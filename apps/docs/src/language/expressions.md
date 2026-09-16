@@ -35,8 +35,8 @@ Mixed types are promoted to float:
 float** — `1 / 2` is `0.5`, not `0`.
 
 This matters because a lot of what you divide is an integer without looking
-like one. `$TIME_MS`, `$FRAME_COUNT` and every value in `$FREQUENCY_DATA` and
-`$TIME_DOMAIN_DATA` are integers, so under truncating division something like
+like one. `$TIME_MS` and `$FRAME_COUNT` are integers, so under truncating division
+something like
 
 ```
 on_frame {
@@ -166,14 +166,14 @@ doubled forms are the boolean ones.
 Read a single element with `[...]`, counting from zero:
 
 ```
-let first = $FREQUENCY_DATA[0]
-let bass  = $FREQUENCY_DATA[4]
+let first = audio::detect::get_spectrum()[0]
+let bass  = audio::detect::get_spectrum()[4]
 ```
 
 The index can be any whole-number expression, and indexing chains:
 
 ```
-let v = $FREQUENCY_DATA[i * 2]
+let v = audio::detect::get_spectrum()[i * 2]
 let y = points[1][0]
 ```
 
@@ -186,7 +186,7 @@ The index must be a whole number — use `\` or `math::floor` if you have a
 fraction:
 
 ```
-let v = $FREQUENCY_DATA[$WIDTH \ 40]
+let v = audio::detect::get_spectrum()[$WIDTH \ 40]
 ```
 
 ## Grouping
@@ -277,7 +277,8 @@ have integer type and be within the existing bounds. To convert a float use
 `value \ 1` (or `math::floor(value: value) \ 1` to round down). A failed bounds
 check or arithmetic operation leaves the target element unchanged and reports
 the statement's source location. Writes never grow arrays. Audio snapshots
-such as `$FREQUENCY_DATA` remain read-only; copy selected samples into an array
+such as `audio::detect::get_spectrum()` remain read-only; copy selected samples
+into an array
 created with `array::filled` or a literal.
 
 The constructor also limits the total copied value size to 1,000,000 units:

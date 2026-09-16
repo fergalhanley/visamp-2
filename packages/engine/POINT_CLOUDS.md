@@ -5,11 +5,11 @@ Available in compiler **2.3.0**, under `context 3d`.
 ```visript
 context 3d
 render {
-  let audio = $FREQUENCY_DATA
+  let audio = audio::detect::get_spectrum()
   draw::point_cloud(
     count: 147456,
     x: ($POINT_INDEX % 384) / 38.4 - 5.0,
-    y: audio[$POINT_INDEX % 384] / 255.0,
+    y: audio[$POINT_INDEX % 384],
     z: math::floor(value: $POINT_INDEX / 384.0) / 38.4 - 5.0,
     color: color::hsl(h: $POINT_INDEX / $POINT_COUNT, s: 1.0, l: 0.5),
     size: 2.0

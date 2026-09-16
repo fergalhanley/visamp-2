@@ -22,10 +22,14 @@ window.validatorHarness = {
     if (diagnostic) throw new Error(diagnostic);
   },
   frame(audio) {
-    engine.set_audio_frame(
-      Uint8Array.from(audio.timeDomain),
-      Uint8Array.from(audio.frequency),
+    engine.set_audio_analysis(
+      Float32Array.from(audio.waveform),
+      Float32Array.from(audio.spectrum),
+      audio.sampleRate,
+      audio.level,
       audio.beat,
+      audio.onset,
+      audio.onsetStrength,
     );
     const durationMs = step();
     const runtimeError = engine.get_last_error();

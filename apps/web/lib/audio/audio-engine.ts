@@ -5,7 +5,7 @@
  * something that needs one, because browsers start contexts suspended and
  * autoplay policy only lets a user gesture resume them.
  *
- * The analyser feeds both legacy byte globals and the audio-thread detector
+ * The analyser feeds the audio-thread detector
  * used by Visript audio::detect. It also drives the level meter.
  */
 

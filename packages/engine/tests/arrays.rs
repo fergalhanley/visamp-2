@@ -30,7 +30,7 @@ fn filled_properties_persist_between_frames_and_feed_point_fields() {
 prop bands = []
 on_init { bands = array::filled(count: 384, value: -1) }
 on_frame {
- let audio = $FREQUENCY_DATA
+ let audio = audio::detect::get_spectrum()
  for i in 0..384 {
   if audio[i] > 0 { bands[i] = audio[i] }
  }
@@ -42,11 +42,11 @@ render {
     let mut runtime = Runtime::new();
     event(&mut model, BlockType::OnInit, &runtime).unwrap();
     assert_eq!(numbers(&model, "bands"), vec![-1.0; 384]);
-    runtime.frequency = Rc::new(vec![12, 0, 250]);
+    runtime.audio.current.spectrum = Rc::new(vec![0.25, 0.0, 0.75]);
     event(&mut model, BlockType::OnFrame, &runtime).unwrap();
-    runtime.frequency = Rc::new(vec![0; 384]);
+    runtime.audio.current.spectrum = Rc::new(vec![0.0; 384]);
     event(&mut model, BlockType::OnFrame, &runtime).unwrap();
-    assert_eq!(&numbers(&model, "bands")[..4], &[12.0, -1.0, 250.0, -1.0]);
+    assert_eq!(&numbers(&model, "bands")[..4], &[0.25, -1.0, 0.75, -1.0]);
     let scene = RefCell::new(Scene::default());
     let render = model
         .blocks
@@ -64,7 +64,7 @@ render {
     assert_eq!(scene.borrow().point_clouds[0].count, 147456);
     assert_eq!(
         &scene.borrow().point_clouds[0].data[..4],
-        &[12.0, -1.0, 250.0, -1.0]
+        &[0.25, -1.0, 0.75, -1.0]
     );
     event(&mut model, BlockType::OnInit, &runtime).unwrap();
     assert_eq!(numbers(&model, "bands"), vec![-1.0; 384]);
@@ -210,12 +210,12 @@ fn literal_properties_support_empty_nested_and_typed_elements() {
 
 #[test]
 fn audio_snapshots_are_not_mutable_arrays() {
-    let mut m = model("on_init { let audio = $FREQUENCY_DATA audio[0] = 7 }");
+    let mut m = model("on_init { let audio = audio::detect::get_spectrum() audio[0] = 7 }");
     let mut runtime = Runtime::new();
-    runtime.frequency = Rc::new(vec![1]);
+    runtime.audio.current.spectrum = Rc::new(vec![1.0]);
     let error = event(&mut m, BlockType::OnInit, &runtime).unwrap_err();
     assert!(error.contains("expected a mutable array"), "{error}");
-    assert_eq!(&*runtime.frequency, &[1]);
+    assert_eq!(&*runtime.audio.current.spectrum, &[1.0]);
 }
 
 #[test]

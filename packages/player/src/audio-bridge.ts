@@ -1,4 +1,3 @@
-import { BeatDetector } from "./beat-detector";
 import type { EngineModule } from "./types";
 
 const modules = new WeakMap<BaseAudioContext, Promise<void>>();
@@ -14,8 +13,7 @@ interface DetectionMessage {
 }
 
 /**
- * Existing byte globals retain AnalyserNode's spectrum mapping and smoothing.
- * New audio::detect values come from a separate audio-thread analysis tap.
+ * audio::detect values come from a cached audio-thread analysis tap.
  * Hosts serve /audio-detect-worklet.mjs (the VisAmp web app's public asset).
  */
 export function startAudioBridge(
@@ -23,33 +21,16 @@ export function startAudioBridge(
   analyser: AnalyserNode,
   onError: (message: string) => void = console.error,
 ): () => void {
-  const timeDomain = new Uint8Array(analyser.fftSize);
-  const frequency = new Uint8Array(analyser.frequencyBinCount);
-  const detector = new BeatDetector();
   const context = analyser.context;
-  let frame = 0;
   let disposed = false;
   let node: AudioWorkletNode | undefined;
   let beats = 0,
     onsets = 0,
     generation = 0;
 
-  const sampleLegacy = (now: number) => {
-    analyser.getByteTimeDomainData(timeDomain);
-    analyser.getByteFrequencyData(frequency);
-    engine.set_audio_frame(
-      timeDomain,
-      frequency,
-      detector.detect(frequency, now, context.sampleRate),
-    );
-    frame = requestAnimationFrame(sampleLegacy);
-  };
-  frame = requestAnimationFrame(sampleLegacy);
-
   const reset = () => {
     generation++;
     beats = onsets = 0;
-    detector.reset();
     engine.clear_audio_frame();
     node?.port.postMessage({ type: "reset", generation });
   };
@@ -114,7 +95,6 @@ export function startAudioBridge(
 
   return () => {
     disposed = true;
-    cancelAnimationFrame(frame);
     analyser.removeEventListener("visamp-source-reset", reset);
     context.removeEventListener("statechange", reset);
     if (node) {

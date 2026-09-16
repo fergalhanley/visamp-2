@@ -302,13 +302,6 @@ pub struct LinearGradient {
 /// Runtime value in Visript
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    /// A borrowed run of bytes, used for the audio arrays.
-    ///
-    /// `$FREQUENCY_DATA` used to be built as a `Vec<Value>` every time a script
-    /// mentioned it — a thousand boxed integers per reference, and a script
-    /// indexing it inside a loop paid that on every iteration. Sharing one
-    /// buffer makes handing the array around free.
-    Bytes(std::rc::Rc<Vec<u8>>),
     /// Shared normalized audio samples; reads do not copy the backing array.
     Samples(std::rc::Rc<Vec<f32>>),
     Boolean(bool),
@@ -320,7 +313,7 @@ pub enum Value {
     SystemValue(String),
     Color(Color),
     /// Built by `color::linear_gradient`. `Rc` for the same reason as
-    /// `Bytes`: evaluating a `color_stops` array already allocates once, and
+    /// `Samples`: evaluating a `color_stops` array already allocates once, and
     /// a draw call that reads the argument back should not pay for a second
     /// copy of it.
     Gradient(std::rc::Rc<LinearGradient>),
@@ -370,7 +363,7 @@ impl Value {
             Value::Float(_) => "float",
             Value::String(_) => "string",
             Value::Array(_) => "array",
-            Value::Bytes(_) | Value::Samples(_) => "array",
+            Value::Samples(_) => "array",
             Value::Identifier(_) => "identifier",
             Value::SystemValue(_) => "system",
             Value::Color(_) => "color",
@@ -411,20 +404,6 @@ impl Value {
                     format!("[{head}, … {} items]", samples.len())
                 } else {
                     format!("[{head}]")
-                }
-            }
-            Value::Bytes(bytes) => {
-                const SHOWN: usize = 8;
-                let head = bytes
-                    .iter()
-                    .take(SHOWN)
-                    .map(|b| b.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                if bytes.len() > SHOWN {
-                    format!("[{}, … {} items]", head, bytes.len())
-                } else {
-                    format!("[{}]", head)
                 }
             }
             Value::Array(items) => {
@@ -816,8 +795,7 @@ pub enum Expression {
     Array(Vec<Expression>),
     Grouping(Box<Expression>),
     /// `target[index]`. Reading out of range yields 0 rather than failing —
-    /// the audio arrays are empty whenever nothing is playing, and every
-    /// visualisation has to keep working in silence.
+    /// missing samples do not prevent a visualisation from rendering.
     Index {
         target: Box<Expression>,
         index: Box<Expression>,

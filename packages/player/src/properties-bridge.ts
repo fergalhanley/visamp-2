@@ -3,7 +3,7 @@ import type { EngineModule, PropertyView } from "./types";
 /**
  * How long a value stays on screen before a newer one replaces it.
  *
- * This is what makes single-frame values visible. `$BEAT` is true for one
+ * This is what makes single-frame values visible. `audio::detect::get_beat()` is true for one
  * frame in thirty, so a property tracking it flickers past far too quickly to
  * read — and a slow poll misses it outright, which reads as "beat detection is
  * broken" when it is working. Holding each value briefly also makes a float

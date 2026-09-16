@@ -12,6 +12,11 @@ document.querySelector('#run').onclick=async()=>{
   const ctx=new AudioContext();await ctx.resume();let source,node;
   try {
     await init();
+    assert(!('set_audio_frame' in engine),'legacy byte bridge is absent');
+    for(const name of ['FREQUENCY_DATA','TIME_DOMAIN_DATA','BEAT']) {
+      const error=engine.load_script(`render { let value = $${name} }`);
+      assert(error.includes('removed in Visript 4.0'),`removed global ${name} rejects at compile time`);
+    }
     const diagnostic=engine.load_script(`prop beat1 = false
 prop beat2 = false
 prop onset = false

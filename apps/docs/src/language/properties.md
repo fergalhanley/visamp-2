@@ -55,7 +55,7 @@ on_init {
 }
 
 on_frame {
-  let audio = $FREQUENCY_DATA
+  let audio = audio::detect::get_spectrum()
   for i in 0..384 {
     if audio[i] > 0 {
       bands[i] = audio[i]

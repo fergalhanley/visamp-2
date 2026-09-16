@@ -137,7 +137,7 @@ for the source converter, SQL preparation and coordinated deployment requirement
 Engine 3.1 exposes the [audio::detect library](../../apps/docs/src/programming/audio-detection.md).
 The host pushes normalized audio-thread snapshots through `set_audio_analysis`;
 `audio::AudioState` latches events and shared sample arrays at the render boundary.
-Custom band queries use cached power prefix sums. Legacy byte APIs are unchanged.
+Custom band queries use cached power prefix sums. Engine 4.0 removes the legacy audio globals and byte bridge; see [migration](MIGRATING_V4.md).
 
 Verification: `cargo test --test audio_detect`, the player's audio-bridge tests,
 and `pnpm --filter @visamp/web test:audio` cover the runtime and signal analysis.

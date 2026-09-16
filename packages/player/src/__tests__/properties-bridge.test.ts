@@ -46,8 +46,8 @@ afterEach(() => {
 
 describe("startPropertiesBridge", () => {
   it("catches a value that is true for a single frame", () => {
-    // The reported symptom: `gotBeat = $BEAT` never appeared true, because
-    // `$BEAT` lasts one frame in thirty and the panel sampled far more slowly.
+    // The reported symptom: `gotBeat = audio::detect::get_beat()` never appeared true, because
+    // `audio::detect::get_beat()` lasts one frame in thirty and the panel sampled far more slowly.
     let frame = 0;
     const engine = engineReturning(() => [
       { name: "gotBeat", type: "boolean", value: frame % 30 === 0 ? "true" : "false" },

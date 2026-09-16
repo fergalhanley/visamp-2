@@ -1,9 +1,9 @@
 # Audio detection
 
 Engine **3.1** adds snapshot-reading expressions in `audio::detect`. All calls use
-named arguments and work in both 2D and 3D. Existing `$TIME_DOMAIN_DATA`,
-`$FREQUENCY_DATA` and `$BEAT` retain their earlier byte-based analysis behaviour;
-no stored-source migration is required for this addition.
+named arguments and work in both 2D and 3D. Engine **4.0** removes the legacy
+audio globals and byte bridge. Existing scripts must follow the
+[audio migration guide](../language/audio-migration.md).
 
 ## Functions
 
@@ -106,7 +106,7 @@ Current implementation:
   instrument isolation. Prefix sums make custom band reads constant time.
 
 Array sizes describe this implementation, not a permanent language guarantee.
-Do not assume these arrays match the lengths or values of the older byte globals.
+Use iteration where possible rather than depending on fixed array lengths.
 Without a source, normalized arrays contain zeros and scalar/event readings are
 zero/false. Source changes, seeks, pauses, suspension and bridge teardown reset
 the detection state. On resume, rhythm detection needs to settle again.
@@ -132,15 +132,13 @@ missing bass attacks and irregular music can cause misses or resets. A lone
 attack or a series of high-frequency clicks can be onsets without being beats.
 
 BPM, beat phase, confidence and spectral brightness are intentionally deferred.
-The new beat definition is separate from the earlier `$BEAT` detector.
 
 ## Host requirements
 
 Serve the player's `audio-detect-worklet.mjs` asset (the VisAmp web app provides it
 at `/audio-detect-worklet.mjs`). AudioWorklet requires a secure context and browser
 support; startup/processor failures are logged rather than silently substituting
-render-timed detection. Existing byte globals remain available on their original
-bridge. Multiple visuals share the player's single audio graph; analysis does not
+render-timed detection. Multiple visuals share the player's single audio graph; analysis does not
 add audible monitoring or microphone echo.
 
 Background suspension of the AudioContext stops audio-time processing too; no
