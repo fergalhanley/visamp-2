@@ -38,16 +38,16 @@ interface ValidationResponse {
 
 let referencePromise: Promise<string> | undefined;
 
-async function dslReference() {
+async function visriptReference() {
   referencePromise ??= Promise.all([
-    readFile(path.resolve(process.cwd(), "../../packages/engine/visamp_dsl.pest"), "utf8"),
+    readFile(path.resolve(process.cwd(), "../../packages/engine/visript.pest"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/examples/basic.md"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/examples/animation.md"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/programming/system-values.md"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/effects/filters.md"), "utf8"),
   ]).then(([grammar, basic, animation, systemValues, filters]) =>
     [
-      "You generate VisAmp DSL code. Return only the complete DSL script, with no explanation.",
+      "You generate Visript code. Return only the complete Visript script, with no explanation.",
       "Preserve useful behavior from the current script unless the instruction asks to replace it.",
       "The result must include exactly one render block and must visibly respond to audio when requested.",
       "Grammar:",
@@ -98,7 +98,7 @@ async function callAnthropic(
     body: JSON.stringify({
       model,
       max_tokens: maxOutputTokens(),
-      system: await dslReference(),
+      system: await visriptReference(),
       messages,
     }),
     signal: timedSignal(
@@ -144,7 +144,7 @@ async function callOpenAi(
     headers,
     body: JSON.stringify({
       model,
-      instructions: await dslReference(),
+      instructions: await visriptReference(),
       input: messages,
       max_output_tokens: maxOutputTokens(),
       store: false,
@@ -191,7 +191,7 @@ async function callQwen(
     },
     body: JSON.stringify({
       model,
-      messages: [{ role: "system", content: await dslReference() }, ...messages],
+      messages: [{ role: "system", content: await visriptReference() }, ...messages],
       max_tokens: maxOutputTokens(),
       enable_thinking: false,
       stream: false,
@@ -228,7 +228,7 @@ export function callModel(
 }
 
 export function extractScript(response: string) {
-  const fenced = /```(?:vdsl|visamp)?\s*\n([\s\S]*?)```/i.exec(response);
+  const fenced = /```(?:visript|viscript|vdsl|visamp)?\s*\n([\s\S]*?)```/i.exec(response);
   return (fenced?.[1] ?? response).trim();
 }
 

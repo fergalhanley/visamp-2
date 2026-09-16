@@ -5,8 +5,11 @@ use pest_derive::Parser;
 use crate::model::*;
 
 #[derive(Parser)]
-#[grammar = "visamp_dsl.pest"]
-pub struct VisampDSLParser;
+#[grammar = "visript.pest"]
+pub struct VisriptParser;
+
+/// Compatibility alias for native consumers of the previous parser name.
+pub type VisampDSLParser = VisriptParser;
 
 /// Formats a rule violation the same way pest renders a syntax error, so the
 /// editor can position a squiggle from it and summarise it in the log.
@@ -16,7 +19,7 @@ fn located_error(pair: &Pair<Rule>, message: &str) -> String {
 }
 
 pub fn build_ast(script: &str) -> Result<Script, String> {
-    let pair = VisampDSLParser::parse(Rule::script, script)
+    let pair = VisriptParser::parse(Rule::script, script)
         .map_err(|e| format!("Parse error: {}", e))?
         .next()
         .ok_or("Empty parse result")?;

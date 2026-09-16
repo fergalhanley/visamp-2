@@ -1,7 +1,7 @@
 import type { Creator, Visualisation } from "@/lib/types";
 
 /**
- * Stand-in data until Supabase lands. Every `source` below is real DSL that the
+ * Stand-in data until Supabase lands. Every `source` below is real Visript that the
  * current engine parses and renders — these are what you actually see on screen,
  * not placeholder text.
  */
@@ -69,7 +69,7 @@ render {
     description: "A drifting point over a barely-clearing canvas.",
     creator: nova,
     // Fixture data only — the badge needs a real signal, which waits on audio
-    // bindings in the DSL. Set here so E3.6's badge is actually exercised.
+    // bindings in Visript. Set here so E3.6's badge is actually exercised.
     usesAudio: true,
     likeCount: 508,
     commentCount: 41,

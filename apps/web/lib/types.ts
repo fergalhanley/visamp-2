@@ -10,7 +10,7 @@ export interface Visualisation {
   id: string;
   title: string;
   description?: string;
-  /** DSL source handed straight to the engine. */
+  /** Visript source handed straight to the engine. */
   source: string;
   creator: Creator;
   /** Present for database-backed rows; absent for the local fixtures. */
@@ -21,7 +21,7 @@ export interface Visualisation {
    */
   forkedFromId?: string;
   thumbUrl?: string;
-  /** Always false until the DSL grows audio bindings. */
+  /** Always false until Visript grows audio bindings. */
   usesAudio: boolean;
   likeCount: number;
   commentCount: number;

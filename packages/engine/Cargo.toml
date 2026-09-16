@@ -1,6 +1,6 @@
 [package]
 name = "visamp_2"
-description = "A visual programming DSL for creative coding in the browser"
+description = "The Visript visualisation language for creative coding in the browser"
 version = "2.6.0"
 authors = ["Fergal Hanley <fergalhanley@gmail.com>"]
 categories = ["wasm"]

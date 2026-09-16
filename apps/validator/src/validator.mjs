@@ -15,7 +15,7 @@ const referencePath = path.join(
   "..",
   "assets",
   "reference-scripts",
-  `${REFERENCE_SCRIPT_VERSION}.vdsl`,
+  `${REFERENCE_SCRIPT_VERSION}.viscript`,
 );
 
 async function render(page, source, config) {

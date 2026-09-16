@@ -309,7 +309,7 @@ Textures have arrived: every primitive carries texture coordinates and
 call. Use `$POINT_INDEX` and `$POINT_COUNT` directly in its position, colour and size
 expressions; other values, including audio arrays, are captured once per frame.
 
-```vdsl
+```visript
 context 3d
 render {
   draw::point_cloud(
@@ -332,7 +332,7 @@ depth and blend settings apply; points are unlit and follow draw order.
 
 Per-point fields support arithmetic, `math::` functions and numeric array reads,
 using 32-bit floats. Array indices outside bounds or not whole numbers read zero.
-User functions and other DSL logic must run outside the fields. The per-point
+User functions and other Visript logic must run outside the fields. The per-point
 system values cannot be assigned to a `let` for later use. Colour supports RGB
 and HSL, including transparency. `texture: asset::bitmap(id: "…")` or a vector
 reference applies the whole image to each point. `alpha_test` (0–1, default 0)
@@ -347,7 +347,7 @@ use no triangle budget.
 
 ### Model positions (engine 2.5.0)
 
-```vdsl
+```visript
 context 3d
 render {
   draw::point_cloud(
@@ -364,7 +364,7 @@ current source position. `$MODEL_X[index]`, `$MODEL_Y[index]`, `$MODEL_Z[index]`
 read any source position, allowing interpolation with neighbouring vertices.
 For a closed sequence, wrap explicitly with `($POINT_INDEX + 1) % $POINT_COUNT`.
 Invalid indices read zero. These values are only available inside point fields
-with a model; they are read-only and cannot be copied into ordinary DSL variables.
+with a model; they are read-only and cannot be copied into ordinary Visript variables.
 If you override `count`, `$POINT_COUNT` is that draw count, not the source length.
 
 The model is decoded once and its positions are cached on the GPU. They do not
@@ -378,7 +378,7 @@ unlit surface. Positions and colours are evaluated on the GPU with the same
 arithmetic, math functions and numeric array reads supported by point clouds.
 Colours interpolate across each triangle.
 
-```vdsl
+```visript
 context 3d
 render {
   camera::position(x: 0.0, y: 2.0, z: 3.0)

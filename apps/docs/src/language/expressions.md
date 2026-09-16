@@ -1,6 +1,6 @@
 # Expressions
 
-Expressions compute values. Visamp supports a full expression system with arithmetic, comparison, boolean logic, arrays, and function calls.
+Expressions compute values. Visript supports a full expression system with arithmetic, comparison, boolean logic, arrays, and function calls.
 
 ## Literals
 
@@ -253,7 +253,7 @@ Assignment is a statement, not an operator, so it does not appear here. See
 
 Engine 2.4.0 adds `array::filled(count:, value:)` and indexed assignment:
 
-```vdsl
+```visript
 on_init {
   let values = array::filled(count: 4, value: -1)
   values[0] = 10

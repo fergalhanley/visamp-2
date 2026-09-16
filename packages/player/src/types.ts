@@ -21,7 +21,7 @@ export interface CompileResult {
   ok: boolean;
   diagnostics: Diagnostic[];
   /**
-   * Still reported as false. The DSL now *has* audio bindings
+   * Still reported as false. The Visript now *has* audio bindings
    * ($TIME_DOMAIN_DATA, $FREQUENCY_DATA, $BEAT), so this is finally
    * computable — it needs the engine to report whether the parsed script
    * references any of them.

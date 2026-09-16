@@ -19,7 +19,7 @@ Open `http://localhost:8080` in your browser.
 
 The interface has two panels:
 
-- **Left**: Code editor - write your DSL code here
+- **Left**: Code editor - write your Visript code here
 - **Right**: Canvas - see your graphics rendered live
 - **Bottom right**: Error bar - shows parse and runtime errors
 

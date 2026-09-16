@@ -1,6 +1,6 @@
 import type { Visualisation } from "@/lib/types";
 
-import source from "./default.vdsl";
+import source from "./default.viscript";
 
 /**
  * What plays before anything has chosen otherwise.

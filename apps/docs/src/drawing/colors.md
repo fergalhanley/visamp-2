@@ -1,6 +1,6 @@
 # Colors
 
-Visamp provides 32 named color constants plus RGB and HSL color constructors.
+Visript provides 32 named color constants plus RGB and HSL color constructors.
 
 ## Named Colors
 

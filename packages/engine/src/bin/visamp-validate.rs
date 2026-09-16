@@ -13,7 +13,7 @@ fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Some("--help" | "-h") => {
-            println!("Usage: visamp-validate [FILE]\n       visamp-validate --version\n\nReads stdin when FILE is omitted.");
+            println!("Visript source validator\n\nUsage: visamp-validate [FILE]\n       visamp-validate --version\n\nReads stdin when FILE is omitted.");
             return ExitCode::SUCCESS;
         }
         Some(path) => match fs::read_to_string(path) {

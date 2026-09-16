@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-import { DEFAULT_VISUALISATION } from "@/lib/dsl/default";
+import { DEFAULT_VISUALISATION } from "@/lib/visript/default";
 import { VISUALISATIONS } from "@/lib/fixtures/visualisations";
 import type { PlayerMode, Visualisation } from "@/lib/types";
 

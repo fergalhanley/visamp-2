@@ -299,7 +299,7 @@ pub struct LinearGradient {
     pub stops: Vec<GradientStop>,
 }
 
-/// Runtime value in the DSL
+/// Runtime value in Visript
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// A borrowed run of bytes, used for the audio arrays.
@@ -675,7 +675,7 @@ pub struct Statement {
     pub kind: StatementKind,
 }
 
-/// One-based coordinates of the first token of a statement in the original DSL.
+/// One-based coordinates of the first token of a statement in the original Visript.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLocation {
     pub line: usize,

@@ -87,7 +87,7 @@ export function toCompileResult(raw: string): CompileResult {
   return {
     ok: diagnostics.length === 0,
     diagnostics,
-    // No audio bindings exist in the DSL yet.
+    // No audio bindings exist in Visript yet.
     usesAudio: false,
   };
 }

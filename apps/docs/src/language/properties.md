@@ -47,7 +47,7 @@ Properties are the primary way to create animation. The `on_frame` block runs be
 As of engine 2.4.0, an array property can start empty and be initialized in
 `on_init`. Indexed writes then update existing elements across frames:
 
-```vdsl
+```visript
 prop bands = []
 
 on_init {

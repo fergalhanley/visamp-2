@@ -1,4 +1,4 @@
-//! Scramble's shared DSL contract and the original byte-addressed presets.
+//! Scramble's shared Visript contract and the original byte-addressed presets.
 use crate::model::{Color, Script, Statement, StatementKind, BLACK};
 
 pub const MAX_TYPE: i64 = 40;

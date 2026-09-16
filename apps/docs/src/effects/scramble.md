@@ -5,14 +5,14 @@ transparent refresh colour it retains the **scrambled output** from the previous
 frame, producing distorted trails. The same call works in `context 2d` and
 `context 3d`.
 
-```vdsl
+```visript
 effect::scramble(type: 1, refresh_color: color::rgb(transparent: 0.93))
 ```
 
 | Parameter | Default | Meaning |
 |---|---|---|
 | `type` | `1` | Integer from `1` to `40`; other values cause a runtime error |
-| `refresh_color` | `$COLOR_BLACK` | Existing DSL colour, including its transparency |
+| `refresh_color` | `$COLOR_BLACK` | Existing Visript colour, including its transparency |
 
 The effect applies once after drawing. Its position among drawing calls does
 not matter; if multiple calls execute, the last one supplies that frame's
@@ -117,7 +117,7 @@ more visible.
 
 ## Moving 2D shape
 
-```vdsl
+```visript
 context 2d
 
 render {
@@ -133,7 +133,7 @@ render {
 
 ## Moving 3D scene
 
-```vdsl
+```visript
 context 3d
 
 render {

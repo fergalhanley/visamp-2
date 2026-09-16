@@ -1,7 +1,7 @@
 # Scramble implementation and verification — VIS-71
 
 Issue: <https://linear.app/visamp/issue/VIS-71/create-scramble-filter-in-dsl>.
-DSL support is included in compiler version 2.2.0.
+Visript support is included in compiler version 2.2.0.
 
 ## Rendering
 
@@ -82,7 +82,7 @@ Verified on 2026-09-10:
 - Omitted/opaque, translucent black, translucent blue and fully transparent
   refresh at 30/60/120 FPS; current-frame depth; effect disable/re-enable;
   visual reload; resize; actual `WEBGL_lose_context` loss/restoration.
-- Native tests for DSL values/errors, nested call detection, sequential source
+- Native tests for Visript values/errors, nested call detection, sequential source
   maps, refresh cadence and the documented examples.
 
 The reference images use integer-aligned shapes to distinguish effect errors

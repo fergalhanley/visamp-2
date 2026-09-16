@@ -6,7 +6,7 @@
  * autoplay policy only lets a user gesture resume them.
  *
  * The AnalyserNode this exposes is the seam for E1.6 — the engine can't consume
- * it yet (the DSL has no audio bindings), so today it drives the level meter
+ * it yet (Visript has no audio bindings), so today it drives the level meter
  * and nothing else.
  */
 

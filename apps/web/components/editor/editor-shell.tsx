@@ -622,7 +622,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {name}
+                  {name === "script" ? "Visript" : name}
                 </button>
               ))}
             </div>

@@ -12,7 +12,7 @@
 const REFERENCE =
   /asset::(?:bitmap|vector|model)\s*\(\s*id\s*:\s*"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/gi;
 
-/** Every distinct asset id cited by a piece of DSL source, lowercased. */
+/** Every distinct asset id cited by a piece of Visript source, lowercased. */
 export function extractAssetReferences(source: string): string[] {
   const found = new Set<string>();
   for (const match of (source ?? "").matchAll(REFERENCE)) {

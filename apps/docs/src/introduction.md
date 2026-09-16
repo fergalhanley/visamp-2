@@ -1,10 +1,17 @@
-# Visamp DSL
+# Visript
 
-Visamp is a visual programming DSL for creative coding in the browser. Write simple declarative code to create animated graphics using Canvas 2D.
+Visript is VisAmp’s visualisation language for creative coding in the browser. Write declarative code to create audio-reactive graphics using Canvas 2D and WebGL 3D.
 
-## What is Visamp?
+## What is Visript?
 
-Visamp (Visual Amp) is a domain-specific language designed for creating animated visual art. It combines the simplicity of declarative graphics with the power of a full programming language.
+Visript is a domain-specific language designed for creating animated visual art. It combines the simplicity of declarative graphics with the power of a full programming language.
+
+## Names and source files
+
+**Visript** is the language; **VisAmp** is the application that hosts it.
+Use `.viscript` for source files and `visript` for Markdown code fences.
+Existing `.vdsl` files remain supported. The syntax and stored
+visualisations are unchanged by the naming update.
 
 ## Key Features
 
@@ -20,7 +27,7 @@ Visamp (Visual Amp) is a domain-specific language designed for creating animated
 ## Architecture
 
 ```
-visamp_dsl.pest (grammar) → parser → AST → interpreter → Canvas 2D
+visript.pest (grammar) → parser → AST → interpreter → Canvas 2D / WebGL 3D
 ```
 
 The entire language runs as WebAssembly in your browser. There is no server, no build step for your scripts - just write code and see it render.

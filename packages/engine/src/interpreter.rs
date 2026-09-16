@@ -40,7 +40,7 @@ impl Runtime {
     }
 }
 
-/// Byte analyser data as a DSL array. Allocates, so callers should bind it to a
+/// Byte analyser data as a Visript array. Allocates, so callers should bind it to a
 /// `let` rather than re-reading it inside a loop.
 /// Hands the script the audio buffer without copying it.
 fn byte_array_value(bytes: &std::rc::Rc<Vec<u8>>) -> Value {
@@ -171,7 +171,7 @@ fn set_stroke(ctx: &CanvasRenderingContext2d, color: Color) {
 /// The canvas has no notion of a reusable gradient object surviving between
 /// frames — a script's `on_frame` may rebuild the same `color::linear_gradient`
 /// call every frame anyway, since its stops are ordinary expressions — so this
-/// builds one from the DSL value each time it is used rather than trying to
+/// builds one from Visript value each time it is used rather than trying to
 /// cache it.
 fn build_canvas_gradient(
     ctx: &CanvasRenderingContext2d,

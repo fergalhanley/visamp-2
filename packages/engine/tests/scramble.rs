@@ -9,7 +9,9 @@ use visamp_2::{
 #[test]
 fn documented_examples_compile() {
     let docs = include_str!("../../../apps/docs/src/effects/scramble.md");
-    for example in docs.split("```vdsl\n").skip(1) {
+    let examples: Vec<_> = docs.split("```visript\n").skip(1).collect();
+    assert!(!examples.is_empty(), "expected Visript examples in the docs");
+    for example in examples {
         let code = example.split("```").next().unwrap();
         let code = if code.starts_with("effect::") {
             format!("render {{\n{code}\n}}\n")

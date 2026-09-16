@@ -25,7 +25,7 @@ import { useEffect, useRef } from "react";
 
 import type { Diagnostic } from "@visamp/player";
 
-import { INDENT_WIDTH, visampSyntax } from "@/lib/dsl/language";
+import { INDENT_WIDTH, visriptSyntax } from "@/lib/visript/language";
 
 const editorTheme = EditorView.theme(
   {
@@ -145,7 +145,7 @@ interface CodeEditorProps {
 }
 
 /**
- * E6.4 — CodeMirror 6 with DSL highlighting and error squiggles.
+ * E6.4 — CodeMirror 6 with Visript highlighting and error squiggles.
  *
  * Uncontrolled by design: the document lives in CodeMirror and changes flow
  * out through `onChange`. Feeding every keystroke back in would fight the
@@ -183,7 +183,8 @@ export function CodeEditor({
           indentOnInput(),
           bracketMatching(),
           keymap.of([...editingKeymap, ...defaultKeymap, ...historyKeymap]),
-          visampSyntax,
+          visriptSyntax,
+          EditorView.contentAttributes.of({ "aria-label": "Visript source" }),
           editorTheme,
           EditorView.lineWrapping,
           EditorView.updateListener.of((update) => {

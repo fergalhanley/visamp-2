@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { STARTER_SOURCE } from "@/lib/dsl/starter";
+import { STARTER_SOURCE } from "@/lib/visript/starter";
 import { createClient } from "@/lib/supabase/server";
 
 /**

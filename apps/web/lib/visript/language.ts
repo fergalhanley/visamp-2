@@ -40,8 +40,8 @@ const OPERATOR =
 export const INDENT_WIDTH = 2;
 export const INDENT_STRING = " ".repeat(INDENT_WIDTH);
 
-export const visampLanguage = StreamLanguage.define({
-  name: "visamp",
+export const visriptLanguage = StreamLanguage.define({
+  name: "visript",
 
   languageData: {
     // Gives Cmd+/ line commenting for free via the default keymap.
@@ -78,7 +78,7 @@ export const visampLanguage = StreamLanguage.define({
 });
 
 /**
- * Indentation for a brace-delimited DSL, derived from the text rather than a
+ * Indentation for a brace-delimited Visript, derived from the text rather than a
  * parse tree.
  *
  * The syntax here is a `StreamLanguage`, which carries no nesting information,
@@ -86,7 +86,7 @@ export const visampLanguage = StreamLanguage.define({
  * line covers what this grammar actually does: bodies open with a trailing `{`
  * and close with a `}` on its own line.
  */
-const visampIndent = indentService.of((context, pos) => {
+const visriptIndent = indentService.of((context, pos) => {
   // On Enter, CodeMirror asks about the position *before* a simulated line
   // break, so `lineAt(pos, -1)` is the line being left rather than the one
   // being created. When re-indenting after a typed `}` there is no simulated
@@ -135,7 +135,7 @@ const palette = {
   invalid: "#ff5370",
 };
 
-export const visampHighlightStyle = HighlightStyle.define([
+export const visriptHighlightStyle = HighlightStyle.define([
   { tag: t.keyword, color: palette.keyword },
   { tag: t.standard(t.variableName), color: palette.builtin },
   { tag: t.definition(t.variableName), color: palette.block, fontWeight: "600" },
@@ -149,9 +149,9 @@ export const visampHighlightStyle = HighlightStyle.define([
   { tag: t.invalid, color: palette.invalid, textDecoration: "underline wavy" },
 ]);
 
-export const visampSyntax = [
-  visampLanguage,
-  visampIndent,
+export const visriptSyntax = [
+  visriptLanguage,
+  visriptIndent,
   indentUnit.of(INDENT_STRING),
-  syntaxHighlighting(visampHighlightStyle),
+  syntaxHighlighting(visriptHighlightStyle),
 ];

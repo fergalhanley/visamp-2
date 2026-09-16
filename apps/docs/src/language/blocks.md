@@ -1,6 +1,6 @@
 # Blocks
 
-Blocks are the top-level execution units in Visamp. There are four types:
+Blocks are the top-level execution units in Visript. There are four types:
 `on_init`, `on_frame`, `on_resize`, and `render`.
 
 ## on_init

@@ -2,7 +2,7 @@
 
 Available in compiler **2.3.0**, under `context 3d`.
 
-```vdsl
+```visript
 context 3d
 render {
   let audio = $FREQUENCY_DATA
@@ -46,7 +46,7 @@ and user functions. Per-point expressions support numeric unary `+`/`-`,
 arithmetic `+ - * / \ %`, the existing `math::` functions, and indexed reads
 from a frame's numeric array or audio bytes. They do not support per-point user
 function calls, booleans, comparisons, bitwise operators, or gradients. Move
-those calculations into ordinary DSL statements before the draw.
+those calculations into ordinary Visript statements before the draw.
 
 GPU arithmetic uses 32-bit floats, including indices and truncating division;
 it does not preserve the interpreter's integer type. `%` is nonnegative modulo.
@@ -100,7 +100,7 @@ and point data. The engine does no fetching.
 `draw::point_cloud(model: asset::model(id: "…"))` uses that source's point count
 and positions by default. `$POINT_X/Y/Z` read the current source position;
 `$MODEL_X/Y/Z[index]` read a neighbour in the same immutable source. Both forms
-are available only in point fields with `model`. They are not ordinary DSL
+are available only in point fields with `model`. They are not ordinary Visript
 arrays. Invalid indices return zero; ring animations must wrap explicitly.
 Overriding `count` changes `$POINT_COUNT`, but does not resize the source.
 

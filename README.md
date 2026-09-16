@@ -1,6 +1,15 @@
 # Visamp 2
 
-A visual programming DSL for creative coding in the browser. Write simple declarative code to create animated graphics using Canvas 2D.
+VisAmp is a visual music platform powered by **Visript**, its visualisation language. Write declarative code to create audio-reactive graphics using Canvas 2D and WebGL 3D.
+
+## Language naming
+
+The visualisation language is **Visript**, with `.viscript` as its standard source
+extension and `visript` as its editor/Markdown language identifier. `.vdsl` remains
+supported as a legacy source extension. VisAmp is the product name; `@visamp/engine`, the `visamp_2` Rust crate, `visamp-validate`, database fields
+and the WebAssembly string API retain their existing integration names.
+The grammar is `packages/engine/visript.pest`; web language tooling lives in
+`apps/web/lib/visript`.
 
 ## MVP planning
 
@@ -188,10 +197,10 @@ Full expression support: arithmetic (`+`, `-`, `*`, `/`, `%`), comparison (`==`,
 ## Architecture
 
 ```
-visamp_dsl.pest (grammar) → parser.rs → model.rs (AST) → interpreter.rs → Canvas 2D
+visript.pest (grammar) → parser.rs → model.rs (AST) → interpreter.rs → Canvas 2D
 ```
 
-- **Parser**: Pest-based parser generates AST from DSL source
+- **Parser**: Pest-based parser generates AST from Visript source
 - **Model**: AST types and scoped variable storage
 - **Interpreter**: Walks AST, executes draw commands via `web_sys` Canvas 2D API
 - **WASM**: Compiled to WebAssembly, runs entirely in the browser

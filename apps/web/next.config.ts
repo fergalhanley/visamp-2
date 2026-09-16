@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
 
   outputFileTracingIncludes: {
     "/api/ai/generate": [
-      "../../packages/engine/visamp_dsl.pest",
+      "../../packages/engine/visript.pest",
       "../docs/src/examples/basic.md",
       "../docs/src/examples/animation.md",
       "../docs/src/programming/system-values.md",
@@ -23,23 +23,26 @@ const nextConfig: NextConfig = {
   },
 
   turbopack: {
-    rules: {
-      // DSL scripts are kept as `.vdsl` so they read as source rather than as a
-      // string inside a `.ts` file. The loader inlines the text at build time —
-      // the engine takes a string, so there is nothing to fetch at runtime.
-      "*.vdsl": {
-        loaders: [path.join(import.meta.dirname, "lib/dsl/vdsl-loader.cjs")],
-        as: "*.js",
-      },
-    },
+    // Visript source and the legacy extension use one loader.
+    rules: Object.fromEntries(
+      ["*.viscript", "*.vdsl"].map((extension) => [
+        extension,
+        {
+          loaders: [
+            path.join(import.meta.dirname, "lib/visript/source-loader.cjs"),
+          ],
+          as: "*.js",
+        },
+      ]),
+    ),
   },
 
   // Keep the documented webpack fallback viable for constrained build
   // environments where Turbopack cannot start its internal worker endpoint.
   webpack(config) {
     config.module.rules.push({
-      test: /\.vdsl$/,
-      use: [path.join(import.meta.dirname, "lib/dsl/vdsl-loader.cjs")],
+      test: /\.(?:viscript|vdsl)$/,
+      use: [path.join(import.meta.dirname, "lib/visript/source-loader.cjs")],
     });
     config.experiments = { ...config.experiments, asyncWebAssembly: true };
     return config;

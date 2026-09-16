@@ -85,7 +85,7 @@ export async function deleteAsset(id: string) {
 }
 
 /**
- * The exact DSL an author pastes to use an asset.
+ * The exact Visript an author pastes to use an asset.
  *
  * The `id:` label is required by the grammar and by the reference index, so
  * this is the one spelling that both parses and gets indexed.

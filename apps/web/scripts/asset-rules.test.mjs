@@ -565,7 +565,7 @@ test("GLB extraction still runs the security validator first", () => {
 
 // ── Library and editor helpers ──────────────────────────────────────────────
 
-test("the reference offered to authors is the DSL the engine parses", () => {
+test("the reference offered to authors is Visript the engine parses", () => {
   // Held to the same pattern the reference index matches, so anything the
   // library hands out is guaranteed to be indexed when the visual is saved.
   for (const [kind, id] of [

@@ -4,7 +4,7 @@ Filter effects post-process the completed canvas frame. They work in both
 `context 2d` and `context 3d`, compose in statement order, and reset
 automatically at the beginning of the next frame.
 
-```vdsl
+```visript
 render {
   effect::filter::blur(radius: 4.0)
   effect::filter::brightness(amount: 1.2)
@@ -34,7 +34,7 @@ The available filters are:
 The bounded `amount` filters clamp values to `0.0..1.0`. Brightness, contrast,
 and saturate accept values above `1.0`. Multiple calls combine:
 
-```vdsl
+```visript
 effect::filter::contrast(amount: 1.4)
 effect::filter::sepia(amount: 0.8)
 ```

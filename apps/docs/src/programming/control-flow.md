@@ -1,6 +1,6 @@
 # Control Flow
 
-Visamp supports if/else, for loops, and while loops.
+Visript supports if/else, for loops, and while loops.
 
 ## if / else
 

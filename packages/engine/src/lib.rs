@@ -521,7 +521,7 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
         .unwrap();
 }
 
-/// Load a new DSL script from JavaScript. Returns error message or empty string.
+/// Load a new Visript script from JavaScript. Returns error message or empty string.
 #[wasm_bindgen]
 pub fn load_script(code: &str) -> String {
     web_sys::console::log_1(&wasm_bindgen::JsValue::from_str(&format!(

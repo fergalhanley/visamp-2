@@ -43,7 +43,7 @@ const ERROR_POLL_MS = 500;
 let mountedOnce = false;
 
 export interface VisampCanvasProps {
-  /** DSL source to run. */
+  /** Visript source to run. */
   source: string;
   /**
    * Assets the host has fetched and decoded for the current viewer, keyed by

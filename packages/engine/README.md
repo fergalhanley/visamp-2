@@ -1,20 +1,20 @@
 # @visamp/engine
 
-The Visamp DSL — parser, interpreter and canvas renderer — written in Rust and
+The Visript engine — parser, interpreter and canvas renderer — written in Rust and
 compiled to WebAssembly with `wasm-pack`.
 
 ## Layout
 
 | Path                | Purpose                                        |
 | ------------------- | ---------------------------------------------- |
-| `src/parser.rs`     | pest-based parser for the DSL                  |
+| `src/parser.rs`     | pest-based parser for Visript                  |
 | `src/model.rs`      | AST / runtime value model                      |
 | `src/interpreter.rs`| Evaluates a script and drives the canvas       |
 | `src/lib.rs`        | `wasm-bindgen` boundary exposed to JavaScript  |
 | `src/scramble.rs`   | Scramble presets, timing and backend selection |
 | `src/feedback.rs`   | Shared 2D/3D GPU feedback and resource ownership |
 | `src/scramble.frag` | Composition, byte-addressed scramble and presentation |
-| `visamp_dsl.pest`   | Grammar                                        |
+| `visript.pest`   | Grammar                                        |
 | `pkg/`              | Build output (gitignored)                      |
 
 ## Build
@@ -27,8 +27,8 @@ The same crate also exposes the native validator used by server-side code:
 
 ```bash
 cargo build --release --bin visamp-validate
-target/release/visamp-validate path/to/script.vdsl
-cat path/to/script.vdsl | target/release/visamp-validate
+target/release/visamp-validate path/to/script.viscript
+cat path/to/script.viscript | target/release/visamp-validate
 ```
 
 Validation exits `0` and prints `OK` on success, or exits `1` and writes the
@@ -78,7 +78,7 @@ import init, { load_script } from "@visamp/engine";
 ## Scramble verification
 
 See [the implementation and verification notes](SCRAMBLE.md) and the
-[DSL reference](../../apps/docs/src/effects/scramble.md).
+[Visript reference](../../apps/docs/src/effects/scramble.md).
 
 ```bash
 pnpm --filter @visamp/engine build:validator
@@ -102,7 +102,7 @@ feedback/scramble history from playback is not included.
 One detached WebGL2 renderer is reused for 3D captures, with recreation if its
 context is lost. Pixels are copied to the output canvas synchronously before
 asynchronous PNG encoding, so playback and later captures cannot clear the image.
-Capture failures reject with JavaScript `Error` objects and retain DSL statement
+Capture failures reject with JavaScript `Error` objects and retain Visript statement
 locations where available.
 
 Browser regression check: build with `pnpm --filter @visamp/engine build:validator`,

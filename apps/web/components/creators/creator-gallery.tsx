@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { useCreatorGallery, useCreatorWork, type CreatorStats } from "@/hooks/use-creator-gallery";
 import { useFullscreen } from "@/hooks/use-fullscreen";
-import { DEFAULT_SOURCE } from "@/lib/dsl/default";
+import { DEFAULT_SOURCE } from "@/lib/visript/default";
 import type { Visualisation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 

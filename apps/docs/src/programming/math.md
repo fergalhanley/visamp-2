@@ -1,6 +1,6 @@
 # Math Library
 
-Visamp provides a comprehensive math library for calculations in your scripts.
+Visript provides a comprehensive math library for calculations in your scripts.
 
 ## Trigonometric Functions
 
