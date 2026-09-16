@@ -31,6 +31,7 @@
 
 # Effects
 
+- [Whole-frame Effects](./effects/frame-effects.md)
 - [Canvas Filters](./effects/filters.md)
 - [Scramble](./effects/scramble.md)
 

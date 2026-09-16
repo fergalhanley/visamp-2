@@ -25,26 +25,11 @@ fn filters(body: &str) -> Result<Vec<Filter>, String> {
 fn preserve_order_defaults_and_clamping() {
     let actual = filters("effect::filter::invert(amount: 2) effect::filter::brightness(amount: -1) effect::filter::blur(radius: -4) effect::filter::contrast() effect::filter::opacity(amount: -1)").unwrap();
     let expected = vec![
-        Filter {
-            kind: Kind::Invert,
-            amount: 1.0,
-        },
-        Filter {
-            kind: Kind::Brightness,
-            amount: 0.0,
-        },
-        Filter {
-            kind: Kind::Blur,
-            amount: 0.0,
-        },
-        Filter {
-            kind: Kind::Contrast,
-            amount: 1.0,
-        },
-        Filter {
-            kind: Kind::Opacity,
-            amount: 0.0,
-        },
+        Filter::new(Kind::Invert, 1.0),
+        Filter::new(Kind::Brightness, 0.0),
+        Filter::new(Kind::Blur, 0.0),
+        Filter::new(Kind::Contrast, 1.0),
+        Filter::new(Kind::Opacity, 0.0),
     ];
     assert_eq!(actual, expected);
 }

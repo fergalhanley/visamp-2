@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8" /><title>Effects sample gallery</title
+><link rel="icon" href="data:," />
+<style>
+  #gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  figure {
+    margin: 0;
+  }
+  figure img {
+    width: 100%;
+  }
+  body {
+    background: #12131b;
+    color: #eee;
+    font: 14px sans-serif;
+  }
+</style>
+<div id="gallery"></div>
+<pre id="result">Running…</pre>
+<div
+  id="visamp-stage"
+  style="width: 1280px; height: 720px; background: black"
+></div>
+<script type="module">
+  import init, * as engine from "../../pkg-validator/visamp_2.js";
+  import { verifySamples } from "./effect-samples.mjs";
+  const queue = [];
+  window.requestAnimationFrame = (cb) => (queue.push(cb), queue.length);
+  try {
+    await init();
+    const load = (source) => {
+      const error = engine.load_script(source);
+      if (error) throw Error(error);
+    };
+    const step = () => {
+      queue.shift()(performance.now());
+      const error = engine.get_last_error();
+      if (error) throw Error(error);
+    };
+    window.results = await verifySamples(engine, load, step);
+  } catch (error) {
+    window.results = { passed: false, error: String(error) };
+    console.error(error);
+  }
+  document.querySelector("#result").textContent = JSON.stringify(
+    window.results,
+    null,
+    2,
+  );
+</script>

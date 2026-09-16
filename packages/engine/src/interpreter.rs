@@ -1239,6 +1239,29 @@ fn interpret_statement_function_call(
         }
         return Ok(());
     }
+    if function_call.namespace == "effect" && function_call.function != "scramble" {
+        let mut values = std::collections::HashMap::new();
+        for arg in &function_call.args {
+            values.insert(
+                arg.name.clone(),
+                evaluate_expression(&arg.expression, decels, runtime, functions)?,
+            );
+        }
+        let operation = crate::effects::operation(
+            &function_call.function,
+            values,
+            runtime.canvas_width as f32,
+            runtime.canvas_height as f32,
+        )?;
+        if let Some(filter) = target.filter {
+            let mut filter = filter.borrow_mut();
+            if filter.len() >= crate::filters::MAX_FILTERS {
+                return Err("effect limit exceeded (32 per frame, including filters)".into());
+            }
+            filter.push(operation);
+        }
+        return Ok(());
+    }
     // Collect ordered operations; the shared GPU output pass applies them.
     if function_call.namespace == "effect::filter" {
         let mut args = ArgReader::new(function_call, decels, runtime, functions);
@@ -1684,7 +1707,7 @@ fn filter_operation(
         Kind::Grayscale | Kind::Invert | Kind::Opacity | Kind::Sepia => amount.clamp(0.0, 1.0),
         _ => amount.max(0.0),
     };
-    Ok(Filter { kind, amount })
+    Ok(Filter::new(kind, amount))
 }
 
 pub fn evaluate_expression(

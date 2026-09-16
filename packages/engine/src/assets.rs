@@ -23,6 +23,7 @@ pub struct TexturePixels {
 
 #[derive(Default)]
 pub struct AssetStore {
+    epoch: u64,
     textures: HashMap<String, TexturePixels>,
     meshes: HashMap<String, MeshData>,
     points: HashMap<String, Rc<Vec<[f32; 3]>>>,
@@ -70,9 +71,15 @@ impl AssetStore {
         self.meshes.get(id)
     }
 
+    /// Distinguishes texture versions reused after the host clears the store.
+    pub fn epoch(&self) -> u64 {
+        self.epoch
+    }
+
     /// Dropped when the viewer changes or a visual is unloaded: an asset one
     /// viewer could read must not stay resident for the next one.
     pub fn clear(&mut self) {
+        self.epoch = self.epoch.wrapping_add(1);
         self.textures.clear();
         self.meshes.clear();
         self.points.clear();

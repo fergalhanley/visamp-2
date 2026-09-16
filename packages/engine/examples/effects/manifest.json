@@ -1,0 +1,23 @@
+[
+  "01-kaleidoscope.viscript",
+  "02-swirl.viscript",
+  "03-pixelate.viscript",
+  "04-pixelate-rect.viscript",
+  "05-pixelate-circle.viscript",
+  "06-pixelate-triangle.viscript",
+  "07-pixelate-pentagon.viscript",
+  "08-pixelate-hexagon.viscript",
+  "09-pixelate-pentagram.viscript",
+  "10-pixelate-hexagram.viscript",
+  "11-mirror.viscript",
+  "12-posterize.viscript",
+  "13-chromatic-aberration.viscript",
+  "14-vignette.viscript",
+  "15-ripple.viscript",
+  "16-scanlines.viscript",
+  "17-bloom.viscript",
+  "18-displace.viscript",
+  "19-crystal-bloom.viscript",
+  "20-orbit-mosaic-3d.viscript",
+  "21-neon-feedback.viscript"
+]

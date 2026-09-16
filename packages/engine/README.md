@@ -155,3 +155,10 @@ See [the shared GPU filter design](reviews/2026-09-filter-output.md). After buil
 the validator WASM and serving the repository root, open
 `packages/engine/tests/browser/filters.html` for pixel comparisons of playback and
 capture, filter order, alpha, blur, feedback isolation, resize and context recovery.
+
+## Whole-frame effects (5.2)
+
+See the [effect reference](../../apps/docs/src/effects/frame-effects.md) and
+[21 live test scripts with SQL import](examples/effects/README.md). New effects
+share the ordered GPU filter pipeline in playback and capture. Browser checks
+are in `tests/browser/effects.html` and `tests/browser/effect-samples.html`.

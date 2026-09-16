@@ -336,6 +336,63 @@ pub const BUILTINS: &[Builtin] = &[
     ns3("gfx", "clear", &["color"], &[]),
     ns3("gfx", "overlay", &["enabled"], &[]),
     ns("effect", "scramble", &["type", "refresh_color"]),
+    ns(
+        "effect",
+        "kaleidoscope",
+        &["x", "y", "segments", "branches", "deg", "rad"],
+    ),
+    ns("effect", "swirl", &["x", "y", "radius", "deg", "rad"]),
+    ns("effect", "pixelate", &["size", "gap", "gap_color"]),
+    ns(
+        "effect",
+        "pixelate_rect",
+        &["width", "height", "gap", "gap_color", "deg", "rad"],
+    ),
+    ns("effect", "pixelate_circle", &["size", "gap", "gap_color"]),
+    ns(
+        "effect",
+        "pixelate_triangle",
+        &["side_length", "gap", "gap_color", "deg", "rad"],
+    ),
+    ns(
+        "effect",
+        "pixelate_pentagon",
+        &["side_length", "gap", "gap_color", "deg", "rad"],
+    ),
+    ns(
+        "effect",
+        "pixelate_hexagon",
+        &["side_length", "gap", "gap_color", "deg", "rad"],
+    ),
+    ns(
+        "effect",
+        "pixelate_pentagram",
+        &["size", "gap", "gap_color", "deg", "rad"],
+    ),
+    ns(
+        "effect",
+        "pixelate_hexagram",
+        &["size", "gap", "gap_color", "deg", "rad"],
+    ),
+    ns("effect", "mirror", &["axis"]),
+    ns("effect", "posterize", &["levels"]),
+    ns("effect", "chromatic_aberration", &["amount", "deg", "rad"]),
+    ns(
+        "effect",
+        "vignette",
+        &["x", "y", "radius", "softness", "amount"],
+    ),
+    ns(
+        "effect",
+        "ripple",
+        &["x", "y", "wavelength", "amplitude", "phase"],
+    ),
+    ns("effect", "scanlines", &["spacing", "amount", "deg", "rad"]),
+    ns("effect", "bloom", &["threshold", "intensity", "radius"]),
+    Builtin {
+        required: &["map"],
+        ..ns("effect", "displace", &["map", "amount"])
+    },
     // ── effect::filter:: GPU post-processing (2D and 3D) ──────────────────────
     ns("effect::filter", "blur", &["radius"]),
     ns("effect::filter", "brightness", &["amount"]),

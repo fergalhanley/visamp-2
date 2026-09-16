@@ -1,0 +1,15 @@
+// Toggle enabled to compare with the original image.
+prop enabled = true
+prop axis = "both"
+render {
+  draw::background(color: color::rgb(r: 0.015, g: 0.025, b: 0.06))
+  for i in 0..18 {
+    let phase = i * 0.35 + $TIME_SEC * 0.3
+    let x = $WIDTH * (0.5 + math::cos(rad: phase) * (0.1 + i * 0.019))
+    let y = $HEIGHT * (0.5 + math::sin(rad: phase * 1.3) * 0.4)
+    draw::circle(x: x, y: y, radius: 8 + i * 2, color: color::hsl(h: i / 18, s: 0.85, l: 0.58))
+    draw::rect(x: i * $WIDTH / 18, y: $HEIGHT * 0.8, width: $WIDTH / 36, height: $HEIGHT * 0.2, color: color::hsl(h: i / 18, s: 0.8, l: 0.5))
+  }
+  draw::circle(x: $WIDTH * 0.65, y: $HEIGHT * 0.3, radius: $HEIGHT * 0.05, color: $COLOR_WHITE)
+  if enabled { effect::mirror(axis: axis) }
+}

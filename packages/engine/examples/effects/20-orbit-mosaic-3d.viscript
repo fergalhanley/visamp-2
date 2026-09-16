@@ -1,0 +1,19 @@
+context 3d
+prop side_length = 8.0
+prop gap = 1.0
+render {
+  draw::background(color: color::rgb(r: 0.01,g: 0.02,b: 0.04))
+  camera::orbit(distance: 10,yaw_deg: $TIME_SEC * 12,pitch_deg: 20)
+  light::ambient(color: color::rgb(r: 0.6,g: 0.6,b: 0.6))
+  light::directional(x: 1,y: 2,z: 3,intensity: 0.8)
+  for i in 0..8 {
+    let angle = i * $PI / 4
+    draw::cube(x: math::cos(rad: angle) * 2.5, y: math::sin(rad: angle) * 2.5,
+      size: 0.85, rotation_x_deg: $TIME_SEC * 20, rotation_y_deg: i * 30,
+      color: color::hsl(h: i / 8, s: 0.9, l: 0.65), shading: "lambert")
+  }
+  gfx::overlay(enabled: true)
+  draw::text(content: "ORBIT MOSAIC",x: 24,y: 42,size: 28,color: $COLOR_WHITE)
+  effect::pixelate_hexagon(side_length: side_length,gap: gap)
+  effect::bloom(threshold: 0.6,intensity: 1.2,radius: 7)
+}

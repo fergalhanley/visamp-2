@@ -10,6 +10,7 @@ pub mod audio;
 pub mod builtins;
 pub mod creative_math;
 pub mod drawing;
+pub mod effects;
 mod feedback;
 pub mod filters;
 pub mod frame_clock;

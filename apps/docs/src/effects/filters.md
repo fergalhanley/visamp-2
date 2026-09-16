@@ -50,7 +50,7 @@ standard deviation in canvas pixels. Large blurs use a downsampled approximation
 to keep rendering practical. Blur samples beyond the canvas are transparent and
 output is clipped to the canvas bounds.
 
-A frame supports up to 32 filter calls. Filtered scripts require WebGL2 in both
+A frame supports up to 32 combined filter and [whole-frame effect](frame-effects.md) calls. Filtered scripts require WebGL2 in both
 contexts. Post-processing surfaces are limited to 16,777,216 pixels and the GPU's
 maximum texture dimensions. Invalid non-finite values produce a runtime error.
 

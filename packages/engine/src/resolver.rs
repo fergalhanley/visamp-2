@@ -503,6 +503,7 @@ impl Resolver {
             // §7: gfx state calls are ignored rather than rejected in overlay,
             // and gfx::overlay itself is idempotent.
             "gfx" | "effect::filter" => false,
+            "effect" => builtin.name == "scramble",
             "draw" | "transform" => builtin.availability == Availability::ThreeDOnly,
             _ => true,
         }
@@ -538,6 +539,7 @@ impl Resolver {
             }
             let allowed: &[&str] = match (builtin.namespace, builtin.name, name.as_str()) {
                 ("gfx", "blend", "mode") => &["alpha", "additive", "multiply", "none"],
+                ("effect", "mirror", "axis") => &["x", "y", "both"],
                 ("gfx", "cull", "mode") => &["back", "front", "none"],
                 ("draw", _, "shading") => &["unlit", "flat", "lambert"],
                 ("draw", _, "line_cap") => &["butt", "round", "square"],
@@ -549,6 +551,11 @@ impl Resolver {
                 .split_once(':')
                 .map(|(_, v)| v.trim())
                 .unwrap_or("");
+            if builtin.namespace == "effect" && builtin.name != "scramble" {
+                if let Some(error) = crate::effects::literal_error(builtin.name, name, raw) {
+                    self.errors.push(located(arg, error));
+                }
+            }
             if !allowed.is_empty()
                 && raw.starts_with('"')
                 && raw.ends_with('"')
