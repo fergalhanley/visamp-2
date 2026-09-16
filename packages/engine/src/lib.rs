@@ -6,6 +6,7 @@ use wasm_bindgen::JsCast;
 use web_sys::CanvasRenderingContext2d;
 
 pub mod assets;
+pub mod audio;
 pub mod builtins;
 mod feedback;
 pub mod points;
@@ -367,6 +368,7 @@ fn init_app() -> Result<(), String> {
         ) else {
             return;
         };
+        runtime.audio.begin_frame();
         runtime.frame_count += 1;
 
         // Borrowed apart rather than cloned. The script's blocks and functions
@@ -861,6 +863,7 @@ pub fn clear_audio_frame() {
     STATE.with(|s| {
         if let Some(ref state) = *s.borrow() {
             if let Ok(mut runtime) = state.runtime.try_borrow_mut() {
+                runtime.audio = audio::AudioState::default();
                 runtime.time_domain = std::rc::Rc::new(Vec::new());
                 runtime.frequency = std::rc::Rc::new(Vec::new());
                 runtime.beat = false;
@@ -1123,4 +1126,33 @@ pub fn get_canvas_filter() -> String {
             .map(|state| state.canvas_filter.borrow().clone())
             .unwrap_or_default()
     })
+}
+
+/// Push an audio-thread snapshot. Events are latched until the next render frame.
+#[wasm_bindgen]
+pub fn set_audio_analysis(
+    waveform: &[f32],
+    spectrum: &[f32],
+    sample_rate: f64,
+    level: f64,
+    beat: bool,
+    onset: bool,
+    onset_strength: f64,
+) -> Result<(), JsValue> {
+    let snapshot = audio::Snapshot::new(
+        waveform,
+        spectrum,
+        sample_rate,
+        level,
+        beat,
+        onset,
+        onset_strength,
+    )
+    .map_err(|e| JsValue::from_str(&e))?;
+    STATE.with(|s| {
+        if let Some(state) = s.borrow().as_ref() {
+            state.runtime.borrow_mut().audio.push(snapshot);
+        }
+    });
+    Ok(())
 }

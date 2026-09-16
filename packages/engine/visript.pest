@@ -149,7 +149,7 @@ unary_operator = { "!" | "-" | "+" }
 postfix_expr = { primary_expr ~ index* }
 index = { "[" ~ expression ~ "]" }
 
-primary_expr = _{ array_expr | math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
+primary_expr = _{ audio_expr | array_expr | math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
 
 math_expr = { "math::" ~ math_func ~ "(" ~ math_args? ~ ")" }
 // Longest-first, and atomic with a trailing guard. Ordered alternation means a
@@ -188,3 +188,6 @@ call_args = { call_arg ~ ("," ~ call_arg)* ~ ","? }
 call_arg = { identifier ~ ":" ~ expression }
 
 array_expr = { "array::filled" ~ function_params }
+
+// Audio functions are snapshot-reading expressions, including indexed arrays.
+audio_expr = { "audio::detect::" ~ identifier ~ function_params }

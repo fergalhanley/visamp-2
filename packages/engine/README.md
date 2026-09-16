@@ -131,3 +131,16 @@ records current exceptions, proposed names and the stored-source migration plan.
 
 Engine 3.0 removes the old parameter spellings. See [migrating to 3.0](MIGRATING_V3.md)
 for the source converter, SQL preparation and coordinated deployment requirements.
+
+## Audio detection
+
+Engine 3.1 exposes the [audio::detect library](../../apps/docs/src/programming/audio-detection.md).
+The host pushes normalized audio-thread snapshots through `set_audio_analysis`;
+`audio::AudioState` latches events and shared sample arrays at the render boundary.
+Custom band queries use cached power prefix sums. Legacy byte APIs are unchanged.
+
+Verification: `cargo test --test audio_detect`, the player's audio-bridge tests,
+and `pnpm --filter @visamp/web test:audio` cover the runtime and signal analysis.
+For the real AudioWorklet → WASM → GPU path, build `pkg-validator` with the
+web target, serve the repository root, and open `tests/browser/audio-detect.html`
+under this package. Click **Run audio tests** to unlock browser audio.

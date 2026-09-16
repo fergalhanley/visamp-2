@@ -45,11 +45,13 @@ async function visriptReference() {
     readFile(path.resolve(process.cwd(), "../docs/src/examples/animation.md"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/programming/system-values.md"), "utf8"),
     readFile(path.resolve(process.cwd(), "../docs/src/effects/filters.md"), "utf8"),
-  ]).then(([grammar, basic, animation, systemValues, filters]) =>
+    readFile(path.resolve(process.cwd(), "../docs/src/programming/audio-detection.md"), "utf8"),
+  ]).then(([grammar, basic, animation, systemValues, filters, audioDetection]) =>
     [
       "You generate Visript code. Return only the complete Visript script, with no explanation.",
       "Preserve useful behavior from the current script unless the instruction asks to replace it.",
       "The result must include exactly one render block and must visibly respond to audio when requested.",
+      "Prefer audio::detect snapshot functions for new audio-reactive code. All arguments are named, including low_hz and high_hz.",
       "Grammar:",
       grammar,
       "Examples and language reference:",
@@ -57,6 +59,7 @@ async function visriptReference() {
       animation,
       systemValues,
       filters,
+      audioDetection,
     ].join("\n\n"),
   );
   return referencePromise;

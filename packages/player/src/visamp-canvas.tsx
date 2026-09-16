@@ -283,13 +283,15 @@ export function VisampCanvas({
     return () => window.cancelAnimationFrame(animationFrame);
   }, [active, ready]);
 
-  // Runs only while there is something to listen to, so a silent session
-  // costs no per-frame work.
+  // Follow the host analyser lifetime; normalized detection runs independently
+  // of rendered frames, with legacy byte sampling retained by the bridge.
   useEffect(() => {
     const engine = engineRef.current;
     if (!ready || !engine || !analyser) return;
 
-    return startAudioBridge(engine, analyser);
+    return startAudioBridge(engine, analyser, (message) => {
+      onLogRef.current?.({ level: "error", message });
+    });
   }, [ready, analyser]);
 
   // Keyed on whether anyone is listening, not on the callback itself, so an

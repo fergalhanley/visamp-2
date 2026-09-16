@@ -1,7 +1,7 @@
 [package]
 name = "visamp_2"
 description = "The Visript visualisation language for creative coding in the browser"
-version = "3.0.0"
+version = "3.1.0"
 authors = ["Fergal Hanley <fergalhanley@gmail.com>"]
 categories = ["wasm"]
 readme = "README.md"

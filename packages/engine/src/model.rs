@@ -309,6 +309,8 @@ pub enum Value {
     /// indexing it inside a loop paid that on every iteration. Sharing one
     /// buffer makes handing the array around free.
     Bytes(std::rc::Rc<Vec<u8>>),
+    /// Shared normalized audio samples; reads do not copy the backing array.
+    Samples(std::rc::Rc<Vec<f32>>),
     Boolean(bool),
     Integer(i64),
     Float(f64),
@@ -368,7 +370,7 @@ impl Value {
             Value::Float(_) => "float",
             Value::String(_) => "string",
             Value::Array(_) => "array",
-            Value::Bytes(_) => "array",
+            Value::Bytes(_) | Value::Samples(_) => "array",
             Value::Identifier(_) => "identifier",
             Value::SystemValue(_) => "system",
             Value::Color(_) => "color",
@@ -398,6 +400,19 @@ impl Value {
                 format_float(c.b),
                 format_float(c.a)
             ),
+            Value::Samples(samples) => {
+                let head = samples
+                    .iter()
+                    .take(8)
+                    .map(|&v| format_float(v as f64))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if samples.len() > 8 {
+                    format!("[{head}, … {} items]", samples.len())
+                } else {
+                    format!("[{head}]")
+                }
+            }
             Value::Bytes(bytes) => {
                 const SHOWN: usize = 8;
                 let head = bytes
@@ -825,6 +840,10 @@ pub enum Expression {
         args: Vec<(String, Expression)>,
     },
     ArrayFilled {
+        args: Vec<(String, Expression)>,
+    },
+    AudioCall {
+        func: String,
         args: Vec<(String, Expression)>,
     },
     MathCall {

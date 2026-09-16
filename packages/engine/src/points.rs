@@ -222,6 +222,7 @@ fn dependent(expr: &Expression, depth: usize) -> Result<bool, String> {
             }
             Expression::ArrayFilled { args }
             | Expression::Call { args, .. }
+            | Expression::AudioCall { args, .. }
             | Expression::MathCall { args, .. }
             | Expression::ColorConstruct { args, .. } => {
                 let mut found = false;
@@ -335,6 +336,7 @@ impl Fields<'_> {
                 let key = format!("array:{target:?}");
                 let (offset, len) = if let Some(binding) = self.bindings.get(&key) { *binding } else {
                     let values = match self.eval(target)? {
+                        Value::Samples(samples) => samples.as_ref().clone(),
                         Value::Bytes(bytes) => {
                             if bytes.len() > (if self.grid.is_some() { MAX_GRID_DATA } else { MAX_DATA }) { return Err("point field array is too large".into()); }
                             bytes.iter().map(|v| *v as f32).collect::<Vec<_>>()

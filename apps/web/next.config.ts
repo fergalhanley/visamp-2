@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
       "../docs/src/examples/animation.md",
       "../docs/src/programming/system-values.md",
       "../docs/src/effects/filters.md",
+      "../docs/src/programming/audio-detection.md",
     ],
   },
 

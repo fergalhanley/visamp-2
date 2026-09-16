@@ -314,3 +314,7 @@ render {
   )
 }
 ```
+
+For normalized waveform/spectrum, RMS level, frequency bands and frame-latched
+onsets/beats, use the [audio detection library](audio-detection.md) (engine 3.1).
+The byte-based globals on this page retain their existing behaviour.

@@ -17,6 +17,7 @@ old parameter spellings; see the migration guide in the engine repository.
   `$POINT_INDEX`. Document where each value is available.
 - Use a namespace for a coherent domain: `draw`, `math`, `color`, `asset`,
   `camera`, `transform`, `light`, `gfx`, `effect`, `array`.
+  Audio snapshot getters live in `audio::detect` and use `get_` names.
 - Constructors and draw operations name the thing they create (`rgb`, `circle`);
   actions name the operation (`translate`, `rotate_x`, `look_at`). State setters
   may name the state (`camera::position`, `gfx::blend`). Do not add `set_` to every

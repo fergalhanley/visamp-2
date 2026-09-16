@@ -38,6 +38,7 @@
 - [Control Flow](./programming/control-flow.md)
 - [Functions](./programming/functions.md)
 - [Math Library](./programming/math.md)
+- [Audio Detection](./programming/audio-detection.md)
 - [System Values](./programming/system-values.md)
 
 # Examples

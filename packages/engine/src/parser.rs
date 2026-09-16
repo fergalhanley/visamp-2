@@ -375,6 +375,21 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 .collect();
             Expression::ArrayFilled { args }
         }
+        Rule::audio_expr => {
+            let mut inner = pair.into_inner();
+            let func = inner.next().unwrap().as_str().to_string();
+            let args = inner
+                .flat_map(|p| p.into_inner())
+                .map(|p| {
+                    let mut fields = p.into_inner();
+                    (
+                        fields.next().unwrap().as_str().to_owned(),
+                        build_expression(fields.next().unwrap()),
+                    )
+                })
+                .collect();
+            Expression::AudioCall { func, args }
+        }
         Rule::math_expr => {
             let mut inner = pair.into_inner();
             let func_pair = inner.next().unwrap();

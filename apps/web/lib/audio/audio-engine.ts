@@ -5,9 +5,8 @@
  * something that needs one, because browsers start contexts suspended and
  * autoplay policy only lets a user gesture resume them.
  *
- * The AnalyserNode this exposes is the seam for E1.6 — the engine can't consume
- * it yet (Visript has no audio bindings), so today it drives the level meter
- * and nothing else.
+ * The analyser feeds both legacy byte globals and the audio-thread detector
+ * used by Visript audio::detect. It also drives the level meter.
  */
 
 const FFT_SIZE = 2048;
@@ -139,6 +138,7 @@ class AudioEngine {
   }
 
   disableMic(): void {
+    this.resetDetection();
     this.micGeneration += 1;
     this.micSource?.disconnect();
     this.micSource = null;
@@ -184,7 +184,12 @@ class AudioEngine {
     this.hls = null;
   }
 
+  private resetDetection(): void {
+    this.analyser?.dispatchEvent(new Event("visamp-source-reset"));
+  }
+
   private beginSource(): AbortSignal {
+    this.resetDetection();
     this.sourceController.abort();
     this.sourceController = new AbortController();
     return this.sourceController.signal;
@@ -323,10 +328,12 @@ class AudioEngine {
   }
 
   pause(): void {
+    this.resetDetection();
     this.element?.pause();
   }
 
   seek(seconds: number): void {
+    this.resetDetection();
     if (this.element) this.element.currentTime = seconds;
   }
 
@@ -342,6 +349,7 @@ class AudioEngine {
 
   /** Detach any media playback without tearing down the context. */
   stopFiles(): void {
+    this.resetDetection();
     this.sourceController.abort();
     this.detachHls();
     this.element?.pause();

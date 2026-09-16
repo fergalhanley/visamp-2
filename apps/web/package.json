@@ -15,6 +15,7 @@
     "verify:assets": "node --env-file=.env.local scripts/verify-asset-access.mjs",
     "clean": "rm -rf .next",
     "test:mp3": "node --experimental-strip-types --test lib/hosted-audio/inspect-mp3.test.mts lib/hosted-audio/upload-queue.test.mts",
+    "test:audio": "node --test scripts/audio-detect.test.mjs",
     "test:editor": "vitest run"
   },
   "dependencies": {

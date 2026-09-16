@@ -11,6 +11,7 @@ use crate::utils::start_time_ms;
 
 #[derive(Clone)]
 pub struct Runtime {
+    pub audio: crate::audio::AudioState,
     pub frame_count: u64,
     pub canvas_width: f64,
     pub canvas_height: f64,
@@ -28,6 +29,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn new() -> Self {
         Runtime {
+            audio: crate::audio::AudioState::default(),
             frame_count: 0,
             canvas_width: 800.0,
             canvas_height: 600.0,
@@ -574,6 +576,9 @@ fn interpret_statement_kind(
                     let items = match iterable {
                         Value::Array(arr) => arr,
                         // Widened only as it is walked, one value at a time.
+                        Value::Samples(samples) => {
+                            samples.iter().map(|&v| Value::Float(v as f64)).collect()
+                        }
                         Value::Bytes(bytes) => {
                             bytes.iter().map(|b| Value::Integer(*b as i64)).collect()
                         }
@@ -1572,6 +1577,16 @@ fn evaluate_expression_inner(
             // Bytes are read in place; nothing is materialised to index them.
             let items = match collection {
                 Value::Array(items) => items,
+                Value::Samples(samples) => {
+                    let position = range_int(index, "array index", decels, runtime, functions)?;
+                    return Ok(Value::Float(
+                        usize::try_from(position)
+                            .ok()
+                            .and_then(|i| samples.get(i))
+                            .copied()
+                            .unwrap_or(0.0) as f64,
+                    ));
+                }
                 Value::Bytes(bytes) => {
                     let position = match evaluate_expression(index, decels, runtime, functions)? {
                         Value::Integer(i) => i,
@@ -1722,6 +1737,32 @@ fn evaluate_expression_inner(
                 charge_execution_step()?;
             }
             Ok(Value::Array(vec![value; count]))
+        }
+        Expression::AudioCall { func, args } => {
+            let snapshot = &runtime.audio.current;
+            Ok(match func.as_str() {
+                "get_waveform" => Value::Samples(Rc::clone(&snapshot.waveform)),
+                "get_spectrum" => Value::Samples(Rc::clone(&snapshot.spectrum)),
+                "get_beat" => Value::Boolean(snapshot.beat),
+                "get_onset" => Value::Boolean(snapshot.onset),
+                "get_level" => Value::Float(snapshot.level),
+                "get_onset_strength" => Value::Float(snapshot.onset_strength),
+                "get_bass" => Value::Float(snapshot.band(20.0, 250.0)?),
+                "get_mid" => Value::Float(snapshot.band(250.0, 4000.0)?),
+                "get_treble" => Value::Float(snapshot.band(4000.0, 16000.0)?),
+                "get_band_level" => {
+                    let get = |name: &str| -> InterpResult<f64> {
+                        let expr = &args
+                            .iter()
+                            .find(|(n, _)| n == name)
+                            .ok_or_else(|| format!("audio::detect::{func}: missing {name}"))?
+                            .1;
+                        evaluate_expression(expr, decels, runtime, functions)?.try_into_f64()
+                    };
+                    Value::Float(snapshot.band(get("low_hz")?, get("high_hz")?)?)
+                }
+                _ => return Err(format!("unknown audio detection function {func}")),
+            })
         }
         Expression::MathCall { func, args } => {
             let get_arg = |name: &str| -> InterpResult<f64> {
@@ -2039,7 +2080,7 @@ fn type_name(value: &Value) -> &'static str {
         Value::Float(_) => "a number",
         Value::String(_) => "a string",
         Value::Array(_) => "an array",
-        Value::Bytes(_) => "an array",
+        Value::Bytes(_) | Value::Samples(_) => "an array",
         Value::Identifier(_) => "an identifier",
         Value::SystemValue(_) => "a system value",
         Value::Color(_) => "a color",

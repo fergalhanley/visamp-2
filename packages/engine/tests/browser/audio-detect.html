@@ -1,0 +1,87 @@
+<!doctype html><meta charset="utf-8"><title>Audio detection integration tests</title>
+<button id="run">Run audio tests</button><pre id="result">Ready</pre><div id="visamp-stage" style="width:320px;height:240px"></div>
+<script type="module">
+import init, * as engine from '../../pkg-validator/visamp_2.js';
+const queue=[];
+window.requestAnimationFrame=cb=>(queue.push(cb),queue.length);
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const assert=(ok,message)=>{if(!ok)throw Error(message);};
+const props=()=>Object.fromEntries(JSON.parse(engine.get_properties()).map(p=>[p.name,p.value]));
+const step=()=>{queue.shift()(performance.now());assert(!engine.get_last_error(),engine.get_last_error());};
+document.querySelector('#run').onclick=async()=>{
+  const ctx=new AudioContext();await ctx.resume();let source,node;
+  try {
+    await init();
+    const diagnostic=engine.load_script(`prop beat1 = false
+prop beat2 = false
+prop onset = false
+prop level = 0.0
+prop middle = 0.0
+prop custom = 0.0
+prop low = 0.0
+prop high = 0.0
+render {
+ beat1 = audio::detect::get_beat()
+ beat2 = audio::detect::get_beat()
+ onset = audio::detect::get_onset()
+ level = audio::detect::get_level()
+ middle = audio::detect::get_mid()
+ custom = audio::detect::get_band_level(low_hz: 250, high_hz: 4000)
+ low = audio::detect::get_bass()
+ high = audio::detect::get_treble()
+ draw::background(color: color::rgb(g: level))
+}`);
+    assert(!diagnostic,diagnostic);
+    await ctx.audioWorklet.addModule('/apps/web/public/audio-detect-worklet.mjs');
+    node=new AudioWorkletNode(ctx,'visript-audio-detect',{outputChannelCount:[1]});
+    let last,beats=0,onsets=0,messages=0;
+    node.port.onmessage=({data})=>{
+      last=data;messages++;
+      engine.set_audio_analysis(data.waveform,data.spectrum,data.sampleRate,data.level,data.beatCount>beats,data.onsetCount>onsets,data.onsetStrength);
+      beats=data.beatCount;onsets=data.onsetCount;node.port.postMessage('ack');
+    };
+    const analyser=ctx.createAnalyser();analyser.connect(node);node.connect(ctx.destination);
+    source=ctx.createOscillator();source.frequency.value=40*ctx.sampleRate/2048;
+    const gain=ctx.createGain();gain.gain.value=0.8;source.connect(gain);gain.connect(analyser);source.start();
+    // Wait for audio-time progress rather than assuming device startup fits
+    // into a fixed wall-clock delay on every test machine.
+    const deadline=performance.now()+5000;
+    while(messages<10 && performance.now()<deadline) await sleep(50);
+    await sleep(300);
+    assert(messages>5,`worklet progresses with rendered frames stopped (messages=${messages}, state=${ctx.state}, audioTime=${ctx.currentTime})`);
+    assert(Math.abs(last.spectrum[40]-0.8)<0.01,'linear spectrum normalization');
+    assert(last.waveform.some(v=>v<0)&&last.waveform.some(v=>v>0),'signed waveform');
+    step();let p=props();
+    assert(Math.abs(Number(p.level)-0.8/Math.sqrt(2))<0.02,'Visript RMS');
+    assert(p.middle===p.custom,'band shortcuts use custom-band contract');
+    assert(Number(p.middle)>Number(p.low)&&Number(p.middle)>Number(p.high),'Hz band selection');
+    assert(p.onset==='true','onsets survive render stall');
+    assert(p.beat1===p.beat2,'event reads are stable within frame');
+    step();assert(props().onset==='false','events clear next frame');
+    source.stop();source.disconnect();
+    node.port.postMessage({type:'reset',generation:1});beats=onsets=0;
+    const buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*3.6),ctx.sampleRate);
+    const pcm=buffer.getChannelData(0);
+    for(let i=0;i<pcm.length;i++){const t=i/ctx.sampleRate,q=t%0.5;pcm[i]=q<0.12?0.8*Math.exp(-q*25)*Math.sin(2*Math.PI*90*t):0;}
+    source=ctx.createBufferSource();source.buffer=buffer;source.connect(analyser);source.start();
+    await sleep(3700);
+    assert(beats>=3,`recurring bass detected: ${beats}`);
+    step();assert(props().beat1==='true'&&props().beat2==='true','beats carried to next rendered frame');
+    step();assert(props().beat1==='false','beat consumed once');
+    engine.clear_audio_frame();step();assert(Number(props().level)===0,'clear returns silence');
+    assert(!engine.load_script(`context 3d render {
+      camera::orthographic(height: 4)
+      gfx::clear(color: $COLOR_BLACK)
+      draw::point_cloud(count: 1, color: color::rgb(g: audio::detect::get_spectrum()[$POINT_INDEX]), size: 20)
+    }`),'audio GPU script compiles');
+    engine.set_audio_analysis(new Float32Array([0]),new Float32Array([1]),48000,0,false,false,0);
+    step();
+    const canvas=document.querySelector('canvas'), gl=canvas.getContext('webgl2'), pixel=new Uint8Array(4);
+    gl.readPixels(canvas.width/2,canvas.height/2,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+    assert(pixel[1]>250 && pixel[0]<3,'shared spectrum reaches GPU point fields');
+
+    window.results={passed:true,messages,beats,onsets,checks:['audio-thread processing without render frames','signed PCM','calibrated spectrum/RMS','band shortcuts','onset/beat latching','frame-stable reads','clear/reset','GPU audio array indexing']};
+  } catch(error){window.results={passed:false,error:String(error)};console.error(error);}
+  finally{try{source?.stop();}catch{}node?.port.postMessage('stop');node?.disconnect();await ctx.close();document.querySelector('#result').textContent=JSON.stringify(window.results,null,2);}
+};
+</script>

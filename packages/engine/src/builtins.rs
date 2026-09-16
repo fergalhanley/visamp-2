@@ -473,3 +473,17 @@ pub const ARRAY_FILLED: Builtin = Builtin {
     required: &["count", "value"],
     takes_common_3d: false,
 };
+
+/// Snapshot-reading expressions; all band arguments are required.
+pub const AUDIO_FUNCTIONS: &[&str] = &[
+    "get_waveform",
+    "get_spectrum",
+    "get_beat",
+    "get_level",
+    "get_bass",
+    "get_mid",
+    "get_treble",
+    "get_band_level",
+    "get_onset",
+    "get_onset_strength",
+];

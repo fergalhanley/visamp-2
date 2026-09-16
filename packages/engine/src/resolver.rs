@@ -75,6 +75,52 @@ impl Resolver {
             // `color::` and `math::` are their own grammar rules rather than
             // `function_call`, so they need their own arm — without it their
             // arguments went unchecked and a misspelling silently became 0.0.
+            Rule::audio_expr => {
+                let mut inner = pair.clone().into_inner();
+                let function = inner.next().unwrap();
+                let name = function.as_str();
+                if !builtins::AUDIO_FUNCTIONS.contains(&name) {
+                    self.errors.push(located(
+                        &function,
+                        format!("unknown audio detection function audio::detect::{name}"),
+                    ));
+                }
+                let accepted: &[&str] = if name == "get_band_level" {
+                    &["low_hz", "high_hz"]
+                } else {
+                    &[]
+                };
+                let mut seen = std::collections::HashSet::new();
+                for arg in inner.flat_map(|p| p.into_inner()) {
+                    let label = arg.clone().into_inner().next().unwrap();
+                    let value = label.as_str();
+                    if !accepted.contains(&value) {
+                        self.errors.push(located(
+                            &label,
+                            format!("audio::detect::{name}: unknown argument '{value}'"),
+                        ));
+                    }
+                    if !seen.insert(value.to_owned()) {
+                        self.errors.push(located(
+                            &label,
+                            format!("audio::detect::{name}: duplicate argument '{value}'"),
+                        ));
+                    }
+                }
+                for required in accepted {
+                    if !seen.contains(*required) {
+                        self.errors.push(located(
+                            &pair,
+                            format!(
+                                "audio::detect::{name}: missing required argument '{required}'"
+                            ),
+                        ));
+                    }
+                }
+                for child in pair.into_inner() {
+                    self.walk(child);
+                }
+            }
             Rule::color_expr => {
                 self.check_fixed_args(&pair, "color", builtins::COLOR_ARGS);
                 for inner in pair.into_inner() {
@@ -150,6 +196,14 @@ impl Resolver {
         let Some(name_pair) = path.pop() else { return };
         let namespace = path.iter().map(Pair::as_str).collect::<Vec<_>>().join("::");
         let name = name_pair.as_str();
+
+        if namespace == "audio::detect" {
+            self.errors.push(located(
+                pair,
+                "audio::detect calls are expressions; bind or use the returned value".into(),
+            ));
+            return;
+        }
 
         if !KNOWN_NAMESPACES.contains(&namespace.as_str()) {
             // Left alone: an unknown namespace is the interpreter's to report,
