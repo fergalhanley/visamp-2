@@ -9,6 +9,7 @@
 
 # Language Reference
 
+- [Language Conventions](./language/conventions.md)
 - [Comments](./language/comments.md)
 - [Properties](./language/properties.md)
 - [Blocks](./language/blocks.md)

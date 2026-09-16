@@ -122,3 +122,9 @@ the existing 1,000,000-number scene cap. Point-cloud limits remain unchanged.
 
 See `apps/docs/src/3d/overview.md` for syntax. Browser coverage lives in
 `tests/browser/grid.html` (build the web-target WASM package and serve the repo).
+
+## Language design
+
+Follow the [Visript conventions](../../apps/docs/src/language/conventions.md) when
+extending the language. The [September 2026 consistency review](reviews/2026-09-language-consistency.md)
+records current exceptions, proposed names and the stored-source migration plan.
