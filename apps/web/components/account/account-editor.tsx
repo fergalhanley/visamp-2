@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, LogOut, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
@@ -12,7 +12,7 @@ import { creatorName } from "@/lib/visualisations";
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 export function AccountEditor() {
-  const { user, profile, loading, refreshProfile } = useAuth();
+  const { user, profile, loading, refreshProfile, signOut } = useAuth();
   const [bioDraft, setBioDraft] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -185,6 +185,16 @@ export function AccountEditor() {
             </button>
           </div>
         </form>
+
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          disabled={saving}
+          className="mt-6 flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm text-muted-foreground transition hover:bg-foreground/5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <LogOut aria-hidden="true" className="h-4 w-4" />
+          Log out
+        </button>
       </div>
     </main>
   );
