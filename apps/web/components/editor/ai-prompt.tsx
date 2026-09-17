@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import type { CreditSummary } from "@/lib/billing/server";
 import { useEffect, useState, type KeyboardEvent } from "react";
@@ -89,8 +89,8 @@ export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
             "disabled:cursor-not-allowed disabled:opacity-50",
           )}
         />
-        <div className="mt-2 flex items-center justify-end gap-2">
-          <span className="mr-auto text-xs text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+          <span className="mr-auto min-w-0 flex-1 basis-full text-xs text-muted-foreground">
             {creditError
               ? "Credits unavailable"
               : credits?.exempt
@@ -100,17 +100,18 @@ export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
                   : disabled
                     ? ""
                     : "Loading credits…"}
-            {!disabled && (
-              <Link
-                href="/account/billing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-2 underline"
-              >
-                Buy credits
-              </Link>
-            )}
           </span>
+          {!disabled && (
+            <Link
+              href="/account/billing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-emerald-400/60 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-300 transition hover:border-emerald-300 hover:bg-emerald-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Top Up Credits
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => void submit()}

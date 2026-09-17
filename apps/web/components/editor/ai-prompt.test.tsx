@@ -16,12 +16,10 @@ it.each([false, true])(
   async (exempt) => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          json: async () => ({ available: 50, generationCost: 100, exempt }),
-        }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ available: 50, generationCost: 100, exempt }),
+      }),
     );
     const submit = vi.fn().mockResolvedValue(undefined);
     render(<AiPrompt disabled={false} generating={false} onSubmit={submit} />);
@@ -41,7 +39,7 @@ it.each([false, true])(
       await waitFor(() => expect(submit).toHaveBeenCalledWith("Draw a star"));
     else expect(submit).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("link", { name: "Buy credits" }).getAttribute("href"),
+      screen.getByRole("link", { name: "Top Up Credits" }).getAttribute("href"),
     ).toBe("/account/billing");
   },
 );
