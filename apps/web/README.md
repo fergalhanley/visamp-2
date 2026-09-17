@@ -99,6 +99,13 @@ Supabase Auth's bot-protection settings with the matching secret, and set
 `SUPABASE_AUTH_CAPTCHA_SECRET` when running the local Supabase stack. OAuth does
 not use the email form's widget.
 
+The widget uses Next Script's `onReady` to render after the API loads and an
+effect to recreate it when the cached API is already available. Do not wrap
+rendering in `turnstile.ready()`: it rejects async/defer script loading and
+crashes when switching between authentication forms. Widget failures must
+clear the token and stay within the panel; submitting still requires a valid
+CAPTCHA token.
+
 ## VisAmp-hosted audio
 
 Hosted audio uses private Cloudflare R2 buckets and Supabase catalogue rows.
