@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripeClient, stripeLiveMode } from "@/lib/billing/stripe";
-import { creditsForCents, parsePurchaseCents } from "@/lib/billing/pricing";
+import {
+  CREDITS_PER_USD,
+  creditsForCents,
+  parsePurchaseCents,
+} from "@/lib/billing/pricing";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
@@ -33,7 +37,14 @@ export async function POST(request: Request) {
     const credits = creditsForCents(cents);
     const { error } = await admin
       .from("ai_credit_purchases")
-      .insert({ id, user_id: user.id, amount_cents: cents, credits, livemode });
+      .insert({
+        id,
+        user_id: user.id,
+        amount_cents: cents,
+        credits,
+        credits_per_usd: CREDITS_PER_USD,
+        livemode,
+      });
     if (error) throw error;
     const session = await stripe.checkout.sessions.create(
       {

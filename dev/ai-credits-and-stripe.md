@@ -7,7 +7,9 @@
   Failure, cancellation and exhausted retries do not consume credits. Undo does not refund.
 - Protected `profiles.ai_credit_exempt` skips credit requirements and charges. It does
   not skip authentication, ownership, rate limits or concurrency limits.
-- US$1 purchases 100 credits. Presets: $5 / 500, $20 / 2,000, $50 / 5,000.
+- US$1 purchases 1,000 credits. Presets: $5 / 5,000, $20 / 20,000, $50 / 50,000.
+  This exchange rate stays fixed; future pricing adjusts `generation_cost` instead.
+  At the current 100-credit cost, US$1 funds 10 successful generations.
   Custom purchases accept cents, from $2 to $1,000 per checkout. All prices are USD.
 - New verified signups receive 2,000 credits (20 successful requests). Settings are
   service-role-only. Verification and OAuth retries cannot grant twice. Promotions
@@ -31,16 +33,18 @@ provider spend averages $0.20 × 1.5 / 0.9 = **$0.333 per billable success**.
 At 60,000 input / 8,192 output and two attempts / 90% success: **$0.898**.
 These assumptions need replacement with measured usage before increasing allowances.
 
-A $1 retail request leaves about $0.67 under the illustrative workload for payment
-fees, validator compute, hosting, free grants and margin; expensive requests can
-lose money. Budgeting at the pre-promotion $5/$30 rates gives about $0.45 for the
+The original $1/request proposal was replaced by owner-approved introductory
+pricing of $0.10/request (VIS-125). Under the illustrative $0.333 workload this
+subsidizes approximately $0.233 per success before payment fees and hosting.
+Future profitability adjustments must increase generation credit cost, keeping
+1,000 credits per US$1 fixed. Budgeting at the pre-promotion $5/$30 rates gives about $0.45 for the
 illustrative workload. Do not assume promotional pricing continues indefinitely.
 
 [Stripe fees](https://stripe.com/pricing) depend on merchant country, card, currency
 and settlement. As an illustration only, 2.9% + $0.30 costs $0.358 on a $2 checkout
 and $0.445 on $5. Check the actual merchant schedule; USD pricing does not imply a
 US merchant account. Taxes are additional when Stripe Tax is enabled/configured.
-Revisit conversion based on observed mean cost, failure/retry rate and actual fees.
+Revisit generation credit cost based on observed mean cost, failure/retry rate and actual fees.
 
 ## Database rollout
 
@@ -72,6 +76,29 @@ Use `grant_ai_credits`, not direct transaction inserts. The reference is an
 idempotency key: repeating the same grant is safe, reusing it with different
 values is an error. Save the exact expiry when retrying an expiring grant.
 User profile editing cannot update the exemption flag.
+
+## Credit exchange rate rollout — VIS-125
+
+Apply `supabase/migrations/20260917160000_credit_exchange_rate.sql` before deploying
+this pricing update. It preserves historical purchases and balances, records each
+purchase's quote rate and fixes refunds to remove the proportional quoted credits.
+Older app instances can still create legacy-rate quotes during rollout; new code
+explicitly records 1,000 credits/USD. Pending older checkouts retain their original
+credit amounts when fulfilled. No Stripe Product/Price changes are needed.
+
+Future generation pricing changes use the existing protected setting:
+
+```sql
+-- Replace 100 with the approved cost for future requests.
+update public.ai_credit_settings
+set generation_cost = 100, updated_at = now()
+where singleton;
+```
+
+This does not rescale balances or purchase prices. Running requests retain their
+reserved cost. Signup grants remain 2,000 credits; their generation count depends
+on the current generation cost. OpenAI automatic balance reload is an operator
+setting and is not changed by this release.
 
 ## Stripe setup
 

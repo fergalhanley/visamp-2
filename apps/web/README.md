@@ -71,7 +71,7 @@ profiles retain normal rate limits. Verified signup grants, discretionary expiry
 reservations and Stripe purchases use an allocation ledger.
 
 The editor displays available credits and links to `/account/billing` for USD
-purchases and history. US$1 buys 100 credits; presets are $5, $20 and $50, with a
+purchases and history. US$1 buys 1,000 credits; presets are $5, $20 and $50, with a
 $2 custom minimum. See [AI credits and Stripe](../../dev/ai-credits-and-stripe.md)
 for the migration, grant/exemption SQL, pricing assumptions, Stripe setup and tests.
 

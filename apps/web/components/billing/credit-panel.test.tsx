@@ -29,9 +29,9 @@ it("shows presets and quotes custom purchases with a $2 minimum", async () => {
   vi.stubGlobal("fetch", fetch);
   render(<CreditPanel />);
   await screen.findByText("500 available credits");
-  fireEvent.click(screen.getByRole("button", { name: "US$20 2,000 credits" }));
+  fireEvent.click(screen.getByRole("button", { name: "US$20 20,000 credits" }));
   expect(
-    screen.getByText("2,000 credits — 20 successful requests"),
+    screen.getByText("20,000 credits — 200 successful requests"),
   ).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Custom amount (USD)"), {
     target: { value: "1.99" },
@@ -46,7 +46,9 @@ it("shows presets and quotes custom purchases with a $2 minimum", async () => {
   fireEvent.change(screen.getByLabelText("Custom amount (USD)"), {
     target: { value: "2.01" },
   });
-  expect(screen.getByText("201 credits — 2 successful requests")).toBeTruthy();
+  expect(
+    screen.getByText("2,010 credits — 20 successful requests"),
+  ).toBeTruthy();
   fetch.mockResolvedValue({
     ok: false,
     json: async () => ({ error: "Checkout unavailable" }),

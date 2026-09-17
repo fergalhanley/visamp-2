@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import type { CreditSummary } from "@/lib/billing/server";
 import {
   CREDIT_PRESETS,
+  CREDITS_PER_USD,
   creditsForCents,
   parsePurchaseCents,
 } from "@/lib/billing/pricing";
@@ -123,7 +124,8 @@ export function CreditPanel() {
       <section className="space-y-4 rounded-xl border p-5">
         <h2 className="text-xl font-medium">Buy credits</h2>
         <p className="text-sm text-muted-foreground">
-          US$1 = 100 credits. Purchased credits never expire.
+          US$1 = {CREDITS_PER_USD.toLocaleString("en-US")} credits. Purchased
+          credits never expire.
         </p>
         <div className="flex flex-wrap gap-3">
           {CREDIT_PRESETS.map((value) => (
@@ -136,7 +138,7 @@ export function CreditPanel() {
             >
               <span className="block font-semibold">US${value}</span>
               <span className="text-sm">
-                {(value * 100).toLocaleString()} credits
+                {creditsForCents(value * 100).toLocaleString()} credits
               </span>
             </button>
           ))}

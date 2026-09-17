@@ -52,7 +52,8 @@ it("binds purchase to authenticated user and server-calculated credit amount", a
     expect.objectContaining({
       user_id: "owner",
       amount_cents: 500,
-      credits: 500,
+      credits: 5000,
+      credits_per_usd: 1000,
       livemode: false,
     }),
   );

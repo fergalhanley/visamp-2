@@ -1,7 +1,7 @@
 export const CREDIT_PRESETS = [5, 20, 50] as const;
 export const MIN_PURCHASE_CENTS = 200;
 export const MAX_PURCHASE_CENTS = 100_000;
-export const CREDITS_PER_USD = 100;
+export const CREDITS_PER_USD = 1_000;
 
 export function parsePurchaseCents(value: unknown): number | null {
   if (typeof value !== "string" || !/^\d+(\.\d{1,2})?$/.test(value))
@@ -15,5 +15,5 @@ export function parsePurchaseCents(value: unknown): number | null {
     : null;
 }
 export function creditsForCents(cents: number) {
-  return cents; // 100 credits per USD; one credit per cent, no rounding.
+  return (cents * CREDITS_PER_USD) / 100; // Ten credits per cent, no rounding.
 }

@@ -51,6 +51,7 @@ export type Database = {
         Row: {
           amount_cents: number
           created_at: string
+          credits_per_usd: number
           credits: number
           currency: string
           id: string
@@ -64,6 +65,7 @@ export type Database = {
         Insert: {
           amount_cents: number
           created_at?: string
+          credits_per_usd?: number
           credits: number
           currency?: string
           id: string
@@ -77,6 +79,7 @@ export type Database = {
         Update: {
           amount_cents?: number
           created_at?: string
+          credits_per_usd?: number
           credits?: number
           currency?: string
           id?: string
