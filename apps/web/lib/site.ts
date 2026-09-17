@@ -32,6 +32,7 @@ export const navLinks: {
   label: string;
   compact: boolean;
   external?: boolean;
+  icon?: "discord";
 }[] = [
   { href: "/player", label: "Player", compact: true },
   { href: "/creators", label: "Creators", compact: true },
@@ -41,6 +42,13 @@ export const navLinks: {
     label: "Docs",
     compact: false,
     external: true,
+  },
+  {
+    href: "https://discord.gg/exV68HvWV8",
+    label: "Join us on Discord",
+    compact: false,
+    external: true,
+    icon: "discord",
   },
   { href: "/site/news", label: "News", compact: false },
   { href: "/site/about", label: "About", compact: false },
