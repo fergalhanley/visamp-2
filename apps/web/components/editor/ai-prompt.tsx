@@ -1,30 +1,68 @@
 "use client";
 
 import { Loader2, Send } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import Link from "next/link";
+import type { CreditSummary } from "@/lib/billing/server";
+import { useEffect, useState, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
-import { AI_MODEL_OPTIONS, type AiModelKey } from "@/lib/ai/types";
 
 interface AiPromptProps {
   disabled: boolean;
   generating: boolean;
-  onSubmit: (prompt: string, model: AiModelKey) => Promise<void>;
+  onSubmit: (prompt: string) => Promise<void>;
 }
 
 export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState<AiModelKey>("anthropic");
 
+  const [credits, setCredits] = useState<CreditSummary | null>(null);
+  const [creditError, setCreditError] = useState(false);
+  useEffect(() => {
+    if (disabled) return;
+    const controller = new AbortController();
+    const refresh = () => {
+      void fetch("/api/billing", {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error();
+          return r.json();
+        })
+        .then((data) => {
+          setCredits(data);
+          setCreditError(false);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setCreditError(true);
+        });
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", refresh);
+    };
+  }, [disabled, generating]);
+  const insufficient =
+    !credits ||
+    creditError ||
+    (!credits.exempt && credits.available < credits.generationCost);
   const submit = async () => {
     const value = prompt.trim();
-    if (!value || disabled || generating) return;
-    await onSubmit(value, model);
+    if (!value || disabled || generating || insufficient) return;
+    await onSubmit(value);
     setPrompt("");
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+    if (
+      event.key !== "Enter" ||
+      event.shiftKey ||
+      event.nativeEvent.isComposing
+    )
+      return;
     event.preventDefault();
     void submit();
   };
@@ -52,30 +90,31 @@ export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
           )}
         />
         <div className="mt-2 flex items-center justify-end gap-2">
-          <label htmlFor="ai-model" className="sr-only">
-            AI model
-          </label>
-          <select
-            id="ai-model"
-            value={model}
-            onChange={(event) => setModel(event.target.value as AiModelKey)}
-            disabled={disabled || generating}
-            className={cn(
-              "h-8 rounded-md border bg-background px-2 text-xs outline-none",
-              "focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring",
-              "disabled:cursor-not-allowed disabled:opacity-50",
+          <span className="mr-auto text-xs text-muted-foreground">
+            {creditError
+              ? "Credits unavailable"
+              : credits?.exempt
+                ? "Credit-exempt account"
+                : credits
+                  ? `${credits.available.toLocaleString()} credits · ${credits.generationCost} per successful request`
+                  : disabled
+                    ? ""
+                    : "Loading credits…"}
+            {!disabled && (
+              <Link
+                href="/account/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-2 underline"
+              >
+                Buy credits
+              </Link>
             )}
-          >
-            {AI_MODEL_OPTIONS.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          </span>
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={disabled || generating || !prompt.trim()}
+            disabled={disabled || generating || insufficient || !prompt.trim()}
             aria-label="Generate code"
             title="Generate code"
             className={cn(

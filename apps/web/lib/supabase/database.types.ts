@@ -14,6 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_credit_reservations: {
+        Row: {
+          allocation_id: string
+          amount: number
+          request_id: string
+        }
+        Insert: {
+          allocation_id: string
+          amount: number
+          request_id: string
+        }
+        Update: {
+          allocation_id?: string
+          amount?: number
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_reservations_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_credit_allocations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_reservations_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "ai_generation_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_credit_purchases: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          credits: number
+          currency: string
+          id: string
+          livemode: boolean
+          paid_at: string | null
+          refunded_cents: number
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          credits: number
+          currency?: string
+          id: string
+          livemode: boolean
+          paid_at?: string | null
+          refunded_cents?: number
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          credits?: number
+          currency?: string
+          id?: string
+          livemode?: boolean
+          paid_at?: string | null
+          refunded_cents?: number
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_credit_debts: {
+        Row: {
+          amount: number
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_credit_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          expires_at: string | null
+          id: string
+          reference: string
+          remaining: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reference: string
+          remaining: number
+          source: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reference?: string
+          remaining?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       assets: {
         Row: {
   id: string; owner_id: string | null; kind: Database["public"]["Enums"]["asset_kind"];
@@ -75,18 +198,21 @@ export type Database = {
       }
       ai_credit_settings: {
         Row: {
+          grant_reference: string
           generation_cost: number
           signup_grant: number
           singleton: boolean
           updated_at: string
         }
         Insert: {
+          grant_reference?: string
           generation_cost?: number
           signup_grant?: number
           singleton?: boolean
           updated_at?: string
         }
         Update: {
+          grant_reference?: string
           generation_cost?: number
           signup_grant?: number
           singleton?: boolean
@@ -131,6 +257,8 @@ export type Database = {
       }
       ai_generation_requests: {
         Row: {
+          has_source: boolean
+          generated_source: string | null
           attempts: number
           completed_at: string | null
           created_at: string
@@ -141,6 +269,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          generated_source?: string | null
           attempts?: number
           completed_at?: string | null
           created_at?: string
@@ -151,6 +280,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          generated_source?: string | null
           attempts?: number
           completed_at?: string | null
           created_at?: string
@@ -453,6 +583,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_credit_exempt: boolean
           avatar_path: string | null
           avatar_url: string | null
           bio: string | null
@@ -465,6 +596,7 @@ export type Database = {
           vis_count: number
         }
         Insert: {
+          ai_credit_exempt?: boolean
           avatar_path?: string | null
           avatar_url?: string | null
           bio?: string | null
@@ -477,6 +609,7 @@ export type Database = {
           vis_count?: number
         }
         Update: {
+          ai_credit_exempt?: boolean
           avatar_path?: string | null
           avatar_url?: string | null
           bio?: string | null
@@ -824,6 +957,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      refund_ai_credit_purchase: {
+        Args: {
+          p_livemode: boolean
+          p_paid_cents: number
+          p_payment_intent_id: string
+          p_refunded_cents: number
+        }
+        Returns: boolean
+      }
+      fulfill_ai_credit_purchase: {
+        Args: {
+          p_amount_cents: number
+          p_currency: string
+          p_livemode: boolean
+          p_payment_intent_id: string
+          p_purchase_id: string
+          p_session_id: string
+        }
+        Returns: boolean
+      }
+      grant_ai_credits: {
+        Args: {
+          p_amount: number
+          p_expires_at?: string
+          p_reference: string
+          p_source: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      ai_available_credits: { Args: { p_user_id: string }; Returns: number }
       begin_audio_upload: {
         Args: { p_id: string; p_user_id: string; p_artist_id: string; p_licence_id: string; p_title: string; p_file_name: string; p_object_key: string; p_bytes: number; p_sha256: string }
         Returns: string
@@ -869,11 +1033,12 @@ export type Database = {
       comments_within_rate_limit: { Args: Record<PropertyKey, never>; Returns: boolean }
       complete_ai_generation: {
         Args: {
+          p_source?: string
           p_attempts: number
           p_request_id: string
           p_status: Database["public"]["Enums"]["ai_generation_request_status"]
         }
-        Returns: boolean
+        Returns: string
       }
       finalize_mp3_upload: {
         Args: { p_upload_id: string; p_user_id: string; p_master_key: string; p_media_key: string; p_duration_ms: number; p_bitrate_kbps: number; p_sha256: string; p_album: string | null; p_year: number | null }

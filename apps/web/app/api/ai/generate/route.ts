@@ -4,10 +4,11 @@ import {
   aiGenerationEnabled,
   completeAiGeneration,
 } from "@/lib/ai/guardrails";
-import { isAiModelKey, type GenerationEvent } from "@/lib/ai/types";
+import { type GenerationEvent } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function line(event: GenerationEvent) {
   return `${JSON.stringify(event)}\n`;
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let input: { prompt?: unknown; source?: unknown; visId?: unknown; model?: unknown };
+  let input: { prompt?: unknown; source?: unknown; visId?: unknown };
   try {
     input = (await request.json()) as typeof input;
   } catch {
@@ -33,26 +34,36 @@ export async function POST(request: Request) {
     input.prompt.length > 4000 ||
     typeof input.source !== "string" ||
     input.source.length > 200_000 ||
-    typeof input.visId !== "string" ||
-    !isAiModelKey(input.model)
+    typeof input.visId !== "string"
   ) {
-    return Response.json({ error: "Invalid generation request" }, { status: 400 });
+    return Response.json(
+      { error: "Invalid generation request" },
+      { status: 400 },
+    );
   }
   const prompt = input.prompt;
   const source = input.source;
   const visId = input.visId;
-  const model = input.model;
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: "Sign in to use AI generation" }, { status: 401 });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user)
+    return Response.json(
+      { error: "Sign in to use AI generation" },
+      { status: 401 },
+    );
   const { data: visualisation } = await supabase
     .from("visualisations")
     .select("id, owner_id")
     .eq("id", visId)
     .maybeSingle();
   if (!visualisation || visualisation.owner_id !== user.id)
-    return Response.json({ error: "You can only generate into your own visualisations" }, { status: 403 });
+    return Response.json(
+      { error: "You can only generate into your own visualisations" },
+      { status: 403 },
+    );
 
   let admission;
   try {
@@ -74,7 +85,7 @@ export async function POST(request: Request) {
         ? "Too many AI generations are already running"
         : admission.reason === "insufficient_credit"
           ? "You do not have enough AI credits for this generation"
-        : "AI generation rate limit reached";
+          : "AI generation rate limit reached";
     return Response.json(
       { error: message },
       {
@@ -92,14 +103,17 @@ export async function POST(request: Request) {
           controller.enqueue(encoder.encode(line(event)));
         }
       };
-      const messages: Array<{ role: "user" | "assistant"; content: string }> = [{
-        role: "user",
-        content: `Current script:\n<current_script>\n${source}\n</current_script>\n\nInstruction:\n${prompt.trim()}`,
-      }];
+      const messages: Array<{ role: "user" | "assistant"; content: string }> = [
+        {
+          role: "user",
+          content: `Current script:\n<current_script>\n${source}\n</current_script>\n\nInstruction:\n${prompt.trim()}`,
+        },
+      ];
       let closest = "";
       let diagnostic = "";
       let completedAs: "success" | "exhausted" | "error" | "aborted" = "error";
       let attemptsUsed = 0;
+      let settled = false;
       try {
         const configuredAttempts = Number(process.env.AI_ATTEMPT_BUDGET ?? 3);
         const attempts = Number.isInteger(configuredAttempts)
@@ -110,18 +124,42 @@ export async function POST(request: Request) {
             throw new DOMException("The request was cancelled", "AbortError");
           }
           attemptsUsed = attempt;
-          emit({ type: "status", message: attempt === 1 ? "Generating…" : `Retrying… (attempt ${attempt})` });
-          const raw = await callModel(model, messages, request.signal);
+          emit({
+            type: "status",
+            message:
+              attempt === 1 ? "Generating…" : `Retrying… (attempt ${attempt})`,
+          });
+          const raw = await callModel(messages, request.signal);
           closest = extractScript(raw);
-          emit({ type: "status", message: `Generated attempt ${attempt}. Checking render…` });
+          emit({
+            type: "status",
+            message: `Generated attempt ${attempt}. Checking render…`,
+          });
           const validation = await validateRender(closest, request.signal);
           if (validation.ok) {
+            if (request.signal.aborted)
+              throw new DOMException("The request was cancelled", "AbortError");
+            await completeAiGeneration(
+              admission.requestId,
+              "success",
+              attemptsUsed,
+              closest,
+            );
+            settled = true;
             completedAs = "success";
-            emit({ type: "success", source: closest, message: "Render OK. Updated the editor." });
+            emit({
+              type: "success",
+              source: closest,
+              message: "Render OK. Updated the editor.",
+            });
             return;
           }
           diagnostic = validation.diagnostic;
-          emit({ type: "status", level: "warn", message: `Validation failed (attempt ${attempt}) — ${diagnostic}` });
+          emit({
+            type: "status",
+            level: "warn",
+            message: `Validation failed (attempt ${attempt}) — ${diagnostic}`,
+          });
           messages.push({ role: "assistant", content: raw });
           messages.push({
             role: "user",
@@ -133,22 +171,28 @@ export async function POST(request: Request) {
           type: "exhausted",
           source: closest,
           diagnostics: diagnostic,
-          message: "Validation failed after all attempts. The editor was left unchanged and no credits were charged.",
+          message:
+            "Validation failed after all attempts. The editor was left unchanged and no credits were charged.",
         });
       } catch (error) {
         completedAs = request.signal.aborted ? "aborted" : "error";
         if (!request.signal.aborted) {
-          emit({ type: "error", message: error instanceof Error ? error.message : "Generation failed" });
+          emit({
+            type: "error",
+            message:
+              error instanceof Error ? error.message : "Generation failed",
+          });
         }
       } finally {
-        await completeAiGeneration(
-          admission.requestId,
-          completedAs,
-          attemptsUsed,
-        ).catch(() => {
-          // The generation result is more useful than turning a bookkeeping
-          // outage into a broken stream. Admission remains fail-closed.
-        });
+        if (!settled)
+          await completeAiGeneration(
+            admission.requestId,
+            completedAs,
+            attemptsUsed,
+          ).catch(() => {
+            // Failed/cancelled requests retain a reservation until expiry if
+            // bookkeeping is unavailable. A success is never emitted before settlement.
+          });
         try {
           controller.close();
         } catch {

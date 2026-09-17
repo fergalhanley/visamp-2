@@ -100,6 +100,7 @@ export async function completeAiGeneration(
   requestId: string,
   status: CompletionStatus,
   attempts: number,
+  source?: string,
 ): Promise<void> {
   const { data, error } = await createAdminClient().rpc(
     "complete_ai_generation",
@@ -107,10 +108,15 @@ export async function completeAiGeneration(
       p_request_id: requestId,
       p_status: status,
       p_attempts: attempts,
+      p_source: source,
     },
   );
   if (error)
     throw new Error(`Could not complete AI request record: ${error.message}`);
-  if (data !== true)
+  if (data === "credits_expired")
+    throw new Error(
+      "Your reserved credits expired during generation and there are not enough unexpired credits. No credits were charged.",
+    );
+  if (data !== "completed")
     throw new Error("AI request was no longer active at completion");
 }

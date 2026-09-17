@@ -48,48 +48,32 @@ AI_RATE_LIMIT_PER_USER=10
 AI_RATE_LIMIT_PER_IP=30
 AI_CONCURRENT_LIMIT_PER_USER=2
 
-ANTHROPIC_API_KEY=...
-ANTHROPIC_WORKSPACE_ID=... # required for identity-linked API keys
-AI_ANTHROPIC_MODEL=claude-sonnet-5
-
-OPENAI_API_KEY=...
-AI_OPENAI_MODEL=... # an OpenAI Responses API model available to the project
-
-DASHSCOPE_API_KEY=...
-AI_QWEN_MODEL=qwen3.8-max
-# Region/workspace-specific Model Studio compatible-mode URL, ending in /v1
-ALIBABA_BASE_URL=https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+OPENAI_API_KEY=
 
 AI_VALIDATOR_URL=http://validator:4318
 ```
 
-`AI_STANDARD_MODEL` remains a backwards-compatible alias for
-`AI_ANTHROPIC_MODEL`. Optional provider settings are `ANTHROPIC_BASE_URL`,
-`OPENAI_BASE_URL`, `OPENAI_ORGANIZATION`, and `OPENAI_PROJECT`.
+Generation uses OpenAI GPT-5.6 Sol through the Responses API. There is no
+provider picker or fallback. Optional settings are `OPENAI_BASE_URL`,
+`OPENAI_ORGANIZATION`, and `OPENAI_PROJECT`.
 
-Shared controls are `AI_ATTEMPT_BUDGET` (default `3`),
-`AI_MAX_OUTPUT_TOKENS` (default `8192`), `AI_MODEL_TIMEOUT_MS` (default
-`60000`), and `AI_VALIDATOR_TIMEOUT_MS` (default `20000`). Provider model IDs
-remain server configuration; the browser sends only a fixed provider key.
+Controls are `AI_ATTEMPT_BUDGET` (default `3`), `AI_MAX_OUTPUT_TOKENS`
+(default `8192`, includes reasoning), `AI_MODEL_TIMEOUT_MS` (default `60000`),
+and `AI_VALIDATOR_TIMEOUT_MS` (default `20000`).
 
 `AI_VALIDATOR_URL` must point to the private render-validator service. It must
 not be exposed to browsers or the public internet.
 
 Rate limits are enforced atomically in Postgres per authenticated user and per
-HMAC-pseudonymised client address. Credits use an append-only transaction
-ledger: admission reserves the configured cost and only a successful result is
-charged. Configure the service-only settings before enabling the feature:
+HMAC-pseudonymised client address. AI requests cost 100 credits on success, with
+automatic validation retries included. Failed requests are free. Credit-exempt
+profiles retain normal rate limits. Verified signup grants, discretionary expiry,
+reservations and Stripe purchases use an allocation ledger.
 
-```sql
-update public.ai_credit_settings
-set signup_grant = 100, generation_cost = 10, updated_at = now()
-where singleton;
-```
-
-Those numbers are examples, not recommended pricing. Keep the feature flag off
-until evals establish the real allowance and cost. Existing accounts can be
-granted credits with an `adjustment` transaction; the signup trigger applies
-the configured grant once to future accounts.
+The editor displays available credits and links to `/account/billing` for USD
+purchases and history. US$1 buys 100 credits; presets are $5, $20 and $50, with a
+$2 custom minimum. See [AI credits and Stripe](../../dev/ai-credits-and-stripe.md)
+for the migration, grant/exemption SQL, pricing assumptions, Stripe setup and tests.
 
 ## Email authentication CAPTCHA
 

@@ -17,6 +17,8 @@ export default defineConfig({
       "lib/editor/**/*.test.ts",
       "lib/visript/**/*.test.ts",
       "lib/assets/**/*.test.ts",
+      "lib/ai/**/*.test.ts",
+      "lib/billing/**/*.test.ts",
       "components/**/*.test.tsx",
     ],
     environment: "jsdom",

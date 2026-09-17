@@ -57,11 +57,7 @@
         "AI_*",
         "SOUNDCLOUD_CLIENT_ID",
         "SOUNDCLOUD_CLIENT_SECRET",
-        "ANTHROPIC_API_KEY",
-        "ANTHROPIC_WORKSPACE_ID",
         "OPENAI_API_KEY",
-        "DASHSCOPE_API_KEY",
-        "ALIBABA_BASE_URL",
         "SUPABASE_AUTH_CAPTCHA_SECRET",
         "SUPABASE_SERVICE_ROLE_KEY",
         "API_RATE_LIMIT_HMAC_KEY",
@@ -74,7 +70,11 @@
         "R2_MEDIA_BUCKET",
         "R2_MASTERS_BUCKET",
         "HOSTED_AUDIO_TEST_TRACK_ID",
-        "HOSTED_AUDIO_TEST_BASE_URL"
+        "HOSTED_AUDIO_TEST_BASE_URL",
+        "OPENAI_BASE_URL",
+        "OPENAI_ORGANIZATION",
+        "OPENAI_PROJECT",
+        "STRIPE_*"
       ]
     },
     "@visamp/docs#build": {
