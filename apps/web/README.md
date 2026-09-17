@@ -70,6 +70,14 @@ automatic validation retries included. Failed requests are free. Credit-exempt
 profiles retain normal rate limits. Verified signup grants, discretionary expiry,
 reservations and Stripe purchases use an allocation ledger.
 
+The editor log automatically scrolls to the latest message. If generation fails,
+a dialog lets the user accept the last generated attempt or return to their
+retained prompt to edit and retry. Acceptance replaces the editor document through
+its undoable edit path; it does not mark the attempt as validated or charge credits.
+When no attempt was produced, acceptance is disabled. Attempts are streamed before
+validation so the editor can recover the latest received code after a connection
+failure as well as after exhausted validation retries.
+
 The editor displays available credits and links to `/account/billing` for USD
 purchases and history. US$1 buys 1,000 credits; presets are $5, $20 and $50, with a
 $2 custom minimum. See [AI credits and Stripe](../../dev/ai-credits-and-stripe.md)

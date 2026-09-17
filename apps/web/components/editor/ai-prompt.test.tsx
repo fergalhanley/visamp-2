@@ -43,3 +43,31 @@ it.each([false, true])(
     ).toBe("/account/billing");
   },
 );
+it.each([false, true])(
+  "retains failed prompts and clears successful prompts: success=%s",
+  async (success) => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            available: 1000,
+            generationCost: 100,
+            exempt: false,
+          }),
+        }),
+    );
+    const submit = vi.fn().mockResolvedValue(success);
+    render(<AiPrompt disabled={false} generating={false} onSubmit={submit} />);
+    const input = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "Draw a star" } });
+    await waitFor(() =>
+      expect(screen.queryByText("Loading credits…")).toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Generate code" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith("Draw a star"));
+    await waitFor(() => expect(input.value).toBe(success ? "" : "Draw a star"));
+  },
+);

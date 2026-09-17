@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -34,6 +36,12 @@ export function EditorLog({
   onClear,
   onJumpToLine,
 }: EditorLogProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const viewport = scrollRef.current;
+    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+  }, [lines, collapsed]);
+
   const errorCount = lines.filter((l) => l.level === "error").length;
 
   return (
@@ -70,7 +78,7 @@ export function EditorLog({
       </header>
 
       {!collapsed && (
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 font-mono text-[11px] leading-relaxed">
+        <div ref={scrollRef} role="log" aria-label="Editor log" className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 font-mono text-[11px] leading-relaxed">
           {lines.length === 0 ? (
             <p className="text-muted-foreground">No output yet.</p>
           ) : (

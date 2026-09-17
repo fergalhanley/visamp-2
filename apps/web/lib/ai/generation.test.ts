@@ -82,3 +82,33 @@ it("insufficient credits never invoke the model", async () => {
   expect((await POST(request())).status).toBe(402);
   expect(m.call).not.toHaveBeenCalled();
 });
+it("preserves generated code when the validator cannot be reached", async () => {
+  m.validate.mockRejectedValue(new Error("fetch failed"));
+  const response = await POST(request());
+  const events = (await response.text())
+    .trim()
+    .split("\n")
+    .map((s) => JSON.parse(s));
+  expect(events).toContainEqual({
+    type: "attempt",
+    source: "render { draw::clear() }",
+  });
+  expect(events.at(-1)).toEqual({
+    type: "error",
+    source: "render { draw::clear() }",
+    message: "fetch failed",
+  });
+  expect(m.complete).toHaveBeenCalledExactlyOnceWith("request", "error", 1);
+});
+it("does not offer code when the model fails before producing an attempt", async () => {
+  m.call.mockRejectedValue(new Error("Model unavailable"));
+  const response = await POST(request());
+  const events = (await response.text())
+    .trim()
+    .split("\n")
+    .map((s) => JSON.parse(s));
+  expect(events.at(-1)).toEqual({
+    type: "error",
+    message: "Model unavailable",
+  });
+});

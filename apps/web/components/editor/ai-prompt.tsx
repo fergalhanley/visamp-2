@@ -3,17 +3,18 @@
 import { Loader2, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import type { CreditSummary } from "@/lib/billing/server";
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type Ref, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
 interface AiPromptProps {
   disabled: boolean;
   generating: boolean;
-  onSubmit: (prompt: string) => Promise<void>;
+  onSubmit: (prompt: string) => Promise<boolean | void>;
+  textareaRef?: Ref<HTMLTextAreaElement>;
 }
 
-export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
+export function AiPrompt({ disabled, generating, onSubmit, textareaRef }: AiPromptProps) {
   const [prompt, setPrompt] = useState("");
 
   const [credits, setCredits] = useState<CreditSummary | null>(null);
@@ -52,8 +53,8 @@ export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
   const submit = async () => {
     const value = prompt.trim();
     if (!value || disabled || generating || insufficient) return;
-    await onSubmit(value);
-    setPrompt("");
+    const succeeded = await onSubmit(value);
+    if (succeeded !== false) setPrompt("");
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -71,6 +72,7 @@ export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
     <div className="shrink-0 border-b bg-foreground/[0.025] p-2">
       <div>
         <textarea
+          ref={textareaRef}
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           onKeyDown={onKeyDown}

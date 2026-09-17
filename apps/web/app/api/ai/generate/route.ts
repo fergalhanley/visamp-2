@@ -131,6 +131,7 @@ export async function POST(request: Request) {
           });
           const raw = await callModel(messages, request.signal);
           closest = extractScript(raw);
+          emit({ type: "attempt", source: closest });
           emit({
             type: "status",
             message: `Generated attempt ${attempt}. Checking render…`,
@@ -179,6 +180,7 @@ export async function POST(request: Request) {
         if (!request.signal.aborted) {
           emit({
             type: "error",
+            source: closest || undefined,
             message:
               error instanceof Error ? error.message : "Generation failed",
           });

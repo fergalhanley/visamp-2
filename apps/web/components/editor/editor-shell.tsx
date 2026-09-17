@@ -141,6 +141,8 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [deleteShown, setDeleteShown] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generationFailure, setGenerationFailure] = useState<{ source: string } | null>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const preserveNextCompileLog = useRef(false);
 
   // E6.5 — debounce keystrokes into the engine.
@@ -189,7 +191,11 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
 
   const generate = useCallback(
     async (prompt: string) => {
-      if (!visualisation || generating) return;
+      if (!visualisation || generating) return false;
+      let lastAttempt = "";
+      let succeeded = false;
+      let finished = false;
+      setGenerationFailure(null);
       setGenerating(true);
       setLogCollapsed(false);
       appendLog({ level: "info", message: "Sending prompt…" });
@@ -216,24 +222,36 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           for (const raw of lines) {
             if (!raw.trim()) continue;
             const event = JSON.parse(raw) as GenerationEvent;
-            if (event.type === "status") {
+            if (event.type === "attempt") {
+              lastAttempt = event.source;
+            } else if (event.type === "status") {
               appendLog({ level: event.level ?? "info", message: event.message });
             } else if (event.type === "success") {
+              succeeded = true;
+              finished = true;
               preserveNextCompileLog.current = true;
               editorHandle.current?.replaceDocument(event.source);
               setSource(event.source);
               setLiveSource(event.source);
               appendLog({ level: "info", message: event.message });
             } else if (event.type === "exhausted") {
+              finished = true;
+              lastAttempt = event.source;
+              setGenerationFailure({ source: lastAttempt });
               appendLog({ level: "warn", message: event.message });
               if (event.diagnostics) appendLog({ level: "error", message: event.diagnostics });
             } else {
+              finished = true;
+              lastAttempt = event.source ?? lastAttempt;
+              setGenerationFailure({ source: lastAttempt });
               appendLog({ level: "error", message: event.message });
             }
           }
           if (done) break;
         }
+        if (!finished) throw new Error("Generation ended before completing");
       } catch (error) {
+        if (!succeeded) setGenerationFailure({ source: lastAttempt });
         appendLog({
           level: "error",
           message: error instanceof Error ? error.message : "Generation failed",
@@ -241,6 +259,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
       } finally {
         setGenerating(false);
       }
+      return succeeded;
     },
     [appendLog, generating, source, visualisation],
   );
@@ -601,6 +620,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             disabled={!canEdit || empty}
             generating={generating}
             onSubmit={generate}
+            textareaRef={promptRef}
           />
           <div className="flex min-h-0 flex-1 flex-col">
             <div
@@ -812,6 +832,39 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         </div>
       </div>
       )}
+
+      <AlertDialog
+        open={generationFailure !== null && !generating}
+        onOpenChange={(open) => { if (!open) setGenerationFailure(null); }}
+      >
+        <AlertDialogContent className="sm:max-w-lg" finalFocus={promptRef}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>The generation failed.</AlertDialogTitle>
+            <AlertDialogDescription>
+              Do you want to accept the last code attempt or edit the prompt and try again?
+              {!generationFailure?.source && " No code attempt is available for this request."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Edit prompt and try again</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!generationFailure?.source}
+              onClick={() => {
+                if (!generationFailure?.source) return;
+                preserveNextCompileLog.current = true;
+                editorHandle.current?.replaceDocument(generationFailure.source);
+                setSource(generationFailure.source);
+                setLiveSource(generationFailure.source);
+                setEditorTab("script");
+                appendLog({ level: "warn", message: "Accepted the last code attempt without successful validation." });
+                setGenerationFailure(null);
+              }}
+            >
+              Accept last code attempt
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={forkBlocked} onOpenChange={setForkBlocked}>
         <AlertDialogContent>
