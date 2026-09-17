@@ -90,28 +90,30 @@ export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
           )}
         />
         <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-          <span className="mr-auto min-w-0 flex-1 basis-full text-xs text-muted-foreground">
-            {creditError
-              ? "Credits unavailable"
-              : credits?.exempt
-                ? "Credit-exempt account"
-                : credits
-                  ? `${credits.available.toLocaleString()} credits · ${credits.generationCost} per successful request`
-                  : disabled
-                    ? ""
-                    : "Loading credits…"}
-          </span>
-          {!disabled && (
-            <Link
-              href="/account/billing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-emerald-400/60 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-300 transition hover:border-emerald-300 hover:bg-emerald-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Top Up Credits
-            </Link>
-          )}
+          <div className="mr-auto flex min-w-0 flex-1 items-center gap-3">
+            <span className="min-w-0 text-[13px] text-muted-foreground">
+              {creditError
+                ? "Credits unavailable"
+                : credits?.exempt
+                  ? "Credit-exempt account"
+                  : credits
+                    ? `${credits.available.toLocaleString()} credits · ${credits.generationCost} per successful request`
+                    : disabled
+                      ? ""
+                      : "Loading credits…"}
+            </span>
+            {!disabled && (
+              <Link
+                href="/account/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white bg-black px-3 text-xs font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Top Up Credits
+              </Link>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => void submit()}
