@@ -15,6 +15,10 @@ export function CreditPanel() {
   const params = useSearchParams();
   const purchaseId = params.get("purchase");
   const [summary, setSummary] = useState<CreditSummary | null>(null);
+  const [dismissedPurchase, setDismissedPurchase] = useState<string | null>(
+    null,
+  );
+  const showPurchase = Boolean(purchaseId && purchaseId !== dismissedPurchase);
   const [amount, setAmount] = useState("5");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -47,7 +51,8 @@ export function CreditPanel() {
       });
     return () => controller.abort();
   }, []);
-  const paid = summary?.purchases.some((p) => p.id === purchaseId && p.paid_at);
+  const purchase = summary?.purchases.find((p) => p.id === purchaseId);
+  const paid = Boolean(purchase?.paid_at);
   useEffect(() => {
     if (!purchaseId || paid) return;
     let count = 0;
@@ -90,13 +95,6 @@ export function CreditPanel() {
           {error}
         </p>
       )}
-      {purchaseId && (
-        <p role="status">
-          {paid
-            ? "Payment received. Your credits are ready."
-            : "Waiting for payment confirmation. Credits appear after your payment is confirmed."}
-        </p>
-      )}
       {params.has("cancelled") && (
         <p>Checkout cancelled. You can try again whenever you’re ready.</p>
       )}
@@ -121,56 +119,102 @@ export function CreditPanel() {
           Refresh balance
         </button>
       </section>
-      <section className="space-y-4 rounded-xl border p-5">
-        <h2 className="text-xl font-medium">Buy credits</h2>
-        <p className="text-sm text-muted-foreground">
-          US$1 = {CREDITS_PER_USD.toLocaleString("en-US")} credits. Purchased
-          credits never expire.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {CREDIT_PRESETS.map((value) => (
+      {showPurchase ? (
+        <section className="space-y-4 rounded-xl border border-emerald-400/40 bg-emerald-400/5 p-5">
+          <div role="status" className="space-y-3">
+            <h2 className="text-xl font-medium">
+              {paid
+                ? "Credit purchase successful"
+                : "Confirming your credit purchase"}
+            </h2>
+            {paid && purchase && summary ? (
+              <>
+                <p>
+                  You purchased {purchase.credits.toLocaleString()} credits for
+                  US${(purchase.amount_cents / 100).toFixed(2)}.
+                </p>
+                <p className="text-lg font-semibold">
+                  Total available: {summary.available.toLocaleString()} credits
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Waiting for payment confirmation. Your credits will appear here
+                once payment is confirmed.
+              </p>
+            )}
+          </div>
+          {paid && (
             <button
-              key={value}
               type="button"
-              aria-pressed={amount === String(value)}
-              onClick={() => setAmount(String(value))}
-              className="cursor-pointer rounded-lg border px-4 py-3 text-left aria-pressed:border-emerald-400 aria-pressed:bg-emerald-400/10"
+              className="cursor-pointer rounded-md bg-emerald-400 px-4 py-2 font-medium text-black"
+              onClick={() => {
+                setDismissedPurchase(purchaseId);
+                const url = new URL(window.location.href);
+                url.searchParams.delete("purchase");
+                window.history.replaceState(
+                  null,
+                  "",
+                  `${url.pathname}${url.search}${url.hash}`,
+                );
+              }}
             >
-              <span className="block font-semibold">US${value}</span>
-              <span className="text-sm">
-                {creditsForCents(value * 100).toLocaleString()} credits
-              </span>
+              Buy More Credits
             </button>
-          ))}
-        </div>
-        <label className="block space-y-2">
-          <span>Custom amount (USD)</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="block w-full rounded-md border bg-background px-3 py-2"
-            aria-describedby="credit-quote"
-          />
-        </label>
-        <p id="credit-quote" className="text-sm">
-          {cents === null
-            ? "Enter US$2–US$1,000, with up to two decimal places."
-            : `${creditsForCents(cents).toLocaleString()} credits — ${Math.floor(creditsForCents(cents) / (summary?.generationCost ?? 100))} successful requests`}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Any applicable tax is shown at checkout.
-        </p>
-        <button
-          type="button"
-          disabled={cents === null || pending || !summary}
-          onClick={() => void buy()}
-          className="cursor-pointer rounded-md bg-emerald-400 px-4 py-2 font-medium text-black disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {pending ? "Opening checkout…" : "Continue to secure checkout"}
-        </button>
-      </section>
+          )}
+        </section>
+      ) : (
+        <section className="space-y-4 rounded-xl border p-5">
+          <h2 className="text-xl font-medium">Buy credits</h2>
+          <p className="text-sm text-muted-foreground">
+            US$1 = {CREDITS_PER_USD.toLocaleString("en-US")} credits. Purchased
+            credits never expire.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {CREDIT_PRESETS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={amount === String(value)}
+                onClick={() => setAmount(String(value))}
+                className="cursor-pointer rounded-lg border px-4 py-3 text-left aria-pressed:border-emerald-400 aria-pressed:bg-emerald-400/10"
+              >
+                <span className="block font-semibold">US${value}</span>
+                <span className="text-sm">
+                  {creditsForCents(value * 100).toLocaleString()} credits
+                </span>
+              </button>
+            ))}
+          </div>
+          <label className="block space-y-2">
+            <span>Custom amount (USD)</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="block w-full rounded-md border bg-background px-3 py-2"
+              aria-describedby="credit-quote"
+            />
+          </label>
+          <p id="credit-quote" className="text-sm">
+            {cents === null
+              ? "Enter US$2–US$1,000, with up to two decimal places."
+              : `${creditsForCents(cents).toLocaleString()} credits — ${Math.floor(creditsForCents(cents) / (summary?.generationCost ?? 100))} successful requests`}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Any applicable tax is shown at checkout.
+          </p>
+          <button
+            type="button"
+            disabled={cents === null || pending || !summary}
+            onClick={() => void buy()}
+            className="cursor-pointer rounded-md bg-emerald-400 px-4 py-2 font-medium text-black disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending ? "Opening checkout…" : "Continue to secure checkout"}
+          </button>
+        </section>
+      )}
       {summary && (
         <>
           <section className="space-y-3">

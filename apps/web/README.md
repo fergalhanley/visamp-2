@@ -74,6 +74,9 @@ The editor displays available credits and links to `/account/billing` for USD
 purchases and history. US$1 buys 1,000 credits; presets are $5, $20 and $50, with a
 $2 custom minimum. See [AI credits and Stripe](../../dev/ai-credits-and-stripe.md)
 for the migration, grant/exemption SQL, pricing assumptions, Stripe setup and tests.
+After checkout, the purchase form shows a waiting panel until the matching purchase
+is confirmed by the server, then shows credits purchased and the current available
+balance. “Buy More Credits” restores the form and removes the purchase URL parameter.
 
 ## Email authentication CAPTCHA
 

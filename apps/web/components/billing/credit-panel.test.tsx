@@ -6,8 +6,9 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+const navigation = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(navigation.search),
 }));
 import { CreditPanel } from "./credit-panel";
 const summary = {
@@ -20,6 +21,8 @@ const summary = {
 };
 afterEach(() => {
   cleanup();
+  navigation.search = "";
+  window.history.replaceState(null, "", "/");
   vi.unstubAllGlobals();
 });
 it("shows presets and quotes custom purchases with a $2 minimum", async () => {
@@ -70,4 +73,89 @@ it("shows presets and quotes custom purchases with a $2 minimum", async () => {
       ).disabled,
     ).toBe(false),
   );
+});
+
+it("replaces checkout with verified purchase details and restores it on Buy More Credits", async () => {
+  navigation.search = "purchase=confirmed";
+  window.history.replaceState(null, "", "/account/billing?purchase=confirmed");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...summary,
+        available: 7000,
+        purchases: [
+          {
+            id: "confirmed",
+            credits: 5000,
+            amount_cents: 500,
+            paid_at: "2026-09-17T09:00:00Z",
+            created_at: "2026-09-17T09:00:00Z",
+            refunded_cents: 0,
+          },
+        ],
+      }),
+    }),
+  );
+  render(<CreditPanel />);
+  await screen.findByRole("heading", { name: "Credit purchase successful" });
+  expect(
+    screen.getByText("You purchased 5,000 credits for US$5.00."),
+  ).toBeTruthy();
+  expect(screen.getByText("Total available: 7,000 credits")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Continue to secure checkout" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Buy More Credits" }));
+  expect(screen.getByRole("heading", { name: "Buy credits" })).toBeTruthy();
+  expect(
+    screen.queryByRole("heading", { name: "Credit purchase successful" }),
+  ).toBeNull();
+  expect(window.location.search).toBe("");
+});
+
+it("waits for the matching purchase to be paid and shows success when the balance refresh confirms it", async () => {
+  navigation.search = "purchase=pending";
+  const purchase = {
+    id: "pending",
+    credits: 5000,
+    amount_cents: 500,
+    paid_at: null,
+    created_at: "2026-09-17T09:00:00Z",
+    refunded_cents: 0,
+  };
+  const fetch = vi
+    .fn()
+    .mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...summary,
+        purchases: [
+          purchase,
+          { ...purchase, id: "other", paid_at: "2026-09-17T09:00:00Z" },
+        ],
+      }),
+    });
+  vi.stubGlobal("fetch", fetch);
+  render(<CreditPanel />);
+  await screen.findByText("500 available credits");
+  expect(
+    screen.getByRole("heading", { name: "Confirming your credit purchase" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Continue to secure checkout" }),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Buy More Credits" })).toBeNull();
+  fetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ...summary,
+      available: 5500,
+      purchases: [{ ...purchase, paid_at: "2026-09-17T09:00:00Z" }],
+    }),
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Refresh balance" }));
+  await screen.findByRole("heading", { name: "Credit purchase successful" });
+  expect(screen.getByText("Total available: 5,500 credits")).toBeTruthy();
 });
