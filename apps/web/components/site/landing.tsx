@@ -4,7 +4,9 @@ import Image from "next/image";
 import { ArrowDown, ArrowUpRight, Eye, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VisampCanvas } from "@visamp/player";
-import { TopBar } from "@/components/chrome/top-bar";
+import { useAuth } from "@/components/auth/auth-provider";
+import { SignInDialog } from "@/components/auth/sign-in-dialog";
+import { TOP_BAR_HEIGHT, TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 
 import type { GalleryPage } from "@/lib/gallery";
@@ -20,6 +22,8 @@ export function Landing({
   heroSource: string | null;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const [signInOpen, setSignInOpen] = useState(false);
   const [page, setPage] = useState(initial);
   const [error, setError] = useState(initialError);
   const [loading, setLoading] = useState(false);
@@ -149,6 +153,24 @@ export function Landing({
       <TopBar visible={scrolled} />
       <main>
         <section className="landing-hero" aria-labelledby="landing-title">
+          {!authLoading && !user && (
+            <div
+              inert={scrolled}
+              style={{ height: TOP_BAR_HEIGHT }}
+              className={cn(
+                "absolute inset-x-0 top-0 z-20 mx-auto flex max-w-[1400px] items-center justify-end pr-4 sm:pr-8",
+                scrolled && "invisible",
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => setSignInOpen(true)}
+                className="cursor-pointer text-xs text-muted-foreground transition hover:text-foreground"
+              >
+                Log in
+              </button>
+            </div>
+          )}
           {/* The engine drawing the mark, rather than a picture of it. No
               controls and no analyser: it is scenery, not the player. Safe to
               mount here because CanvasLayer only runs on player routes, and
@@ -306,6 +328,7 @@ export function Landing({
         </section>
       </main>
       <SiteFooter />
+      {!user && <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next="/" />}
     </div>
   );
 }
