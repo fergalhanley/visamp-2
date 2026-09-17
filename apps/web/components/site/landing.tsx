@@ -167,7 +167,7 @@ export function Landing({
                 onClick={() => setSignInOpen(true)}
                 className="cursor-pointer text-xs text-muted-foreground transition hover:text-foreground"
               >
-                Log in
+                Sign In
               </button>
             </div>
           )}
