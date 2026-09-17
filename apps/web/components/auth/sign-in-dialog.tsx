@@ -76,6 +76,8 @@ export function SignInDialog({
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [accountCreated, setAccountCreated] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -107,6 +109,10 @@ export function SignInDialog({
     event.preventDefault();
     setError(null);
     setNotice(null);
+    if (mode === "sign-up" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
     setPending(true);
 
     const supabase = createClient();
@@ -121,176 +127,255 @@ export function SignInDialog({
       return;
     }
 
-    if (mode === "sign-up") {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
-          captchaToken: captchaToken!,
-        },
-      });
+    try {
+      if (mode === "sign-up") {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+            captchaToken: captchaToken!,
+          },
+        });
 
-      if (signUpError) setError(signUpError.message);
-      else setNotice("Check your email to confirm your account.");
-    } else if (mode === "reset") {
-      const resetPath = `/auth/reset-password?next=${encodeURIComponent(next)}`;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        email,
-        {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(resetPath)}`,
-          captchaToken: captchaToken!,
-        },
-      );
-      if (resetError) setError(resetError.message);
-      else setNotice("Check your email for a password reset link.");
-    } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-        options: { captchaToken: captchaToken! },
-      });
+        if (signUpError) setError(signUpError.message);
+        else {
+          setPassword("");
+          setConfirmPassword("");
+          setAccountCreated(true);
+        }
+      } else if (mode === "reset") {
+        const resetPath = `/auth/reset-password?next=${encodeURIComponent(next)}`;
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+          email,
+          {
+            redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(resetPath)}`,
+            captchaToken: captchaToken!,
+          },
+        );
+        if (resetError) setError(resetError.message);
+        else setNotice("Check your email for a password reset link.");
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken: captchaToken! },
+        });
 
-      if (signInError) setError(signInError.message);
-      else onOpenChange(false);
+        if (signInError) setError(signInError.message);
+        else onOpenChange(false);
+      }
+    } catch {
+      setError("Unable to connect. Please try again.");
+    } finally {
+      if (needsCaptcha) {
+        setCaptchaToken(null);
+        setCaptchaAttempt((value) => value + 1);
+      }
+      setPending(false);
     }
-
-    if (needsCaptcha) {
-      setCaptchaToken(null);
-      setCaptchaAttempt((value) => value + 1);
-    }
-    setPending(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) {
+          setAccountCreated(false);
+          setMode("sign-in");
+          setPassword("");
+          setConfirmPassword("");
+          setError(null);
+          setNotice(null);
+        }
+        onOpenChange(value);
+      }}
+    >
       <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "sign-in"
-              ? "Sign in to VisAmp"
-              : mode === "sign-up"
-                ? "Create an account"
-                : "Reset your password"}
-          </DialogTitle>
-          <DialogDescription>
-            Watching is anonymous. You only need an account to create, like and
-            comment.
-          </DialogDescription>
-        </DialogHeader>
+        {accountCreated ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Account created</DialogTitle>
+              <DialogDescription>
+                Check your email to confirm your account before signing in.
+              </DialogDescription>
+            </DialogHeader>
+            <Button
+              onClick={() => {
+                setAccountCreated(false);
+                setMode("sign-in");
+                onOpenChange(false);
+              }}
+            >
+              OK
+            </Button>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {mode === "sign-in"
+                  ? "Sign in to VisAmp"
+                  : mode === "sign-up"
+                    ? "Create an account"
+                    : "Reset your password"}
+              </DialogTitle>
+              <DialogDescription>
+                Watching is anonymous. You only need an account to create, like
+                and comment.
+              </DialogDescription>
+            </DialogHeader>
 
-        <div className="grid gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onClick={() => void signInWithProvider("google")}
-          >
-            <GoogleIcon />
-            Continue with Google
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onClick={() => void signInWithProvider("github")}
-          >
-            <GitHubIcon />
-            Continue with GitHub
-          </Button>
-        </div>
+            {mode === "sign-in" && (
+              <>
+                <div className="grid gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => void signInWithProvider("google")}
+                  >
+                    <GoogleIcon />
+                    Continue with Google
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => void signInWithProvider("github")}
+                  >
+                    <GitHubIcon />
+                    Continue with GitHub
+                  </Button>
+                </div>
 
-        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
+                <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  or
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+              </>
+            )}
 
-        <form onSubmit={submitEmail} className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="auth-email">Email</Label>
-            <Input
-              id="auth-email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
+            <form onSubmit={submitEmail} className="grid gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="auth-email">Email</Label>
+                <Input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
 
-          {turnstileSiteKey && (
-            <Turnstile
-              key={captchaAttempt}
-              siteKey={turnstileSiteKey}
-              onToken={setCaptchaToken}
-            />
-          )}
-          {!turnstileSiteKey && (
-            <p className="text-xs text-destructive">
-              Email authentication is unavailable. Use Google or GitHub.
-            </p>
-          )}
-          {mode !== "reset" && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="auth-password">Password</Label>
-              <Input
-                id="auth-password"
-                type="password"
-                autoComplete={
-                  mode === "sign-up" ? "new-password" : "current-password"
-                }
-                required
-                minLength={8}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
+              {mode !== "reset" && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="auth-password">Password</Label>
+                  <Input
+                    id="auth-password"
+                    type="password"
+                    autoComplete={
+                      mode === "sign-up" ? "new-password" : "current-password"
+                    }
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </div>
+              )}
+
+              {mode === "sign-up" && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="auth-confirm-password">
+                    Confirm password
+                  </Label>
+                  <Input
+                    id="auth-confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                  />
+                </div>
+              )}
+
+              {turnstileSiteKey && (
+                <Turnstile
+                  key={captchaAttempt}
+                  siteKey={turnstileSiteKey}
+                  onToken={setCaptchaToken}
+                />
+              )}
+              {!turnstileSiteKey && (
+                <p className="text-xs text-destructive">
+                  Email authentication is unavailable. Use Google or GitHub from
+                  Sign in.
+                </p>
+              )}
+              {error && (
+                <p role="alert" className="text-xs text-destructive">
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p className="text-xs text-muted-foreground">{notice}</p>
+              )}
+
+              <Button
+                type="submit"
+                disabled={pending || (needsCaptcha && !captchaToken)}
+              >
+                {mode === "sign-in"
+                  ? "Sign in"
+                  : mode === "sign-up"
+                    ? "Sign up"
+                    : "Send reset link"}
+              </Button>
+            </form>
+
+            <div className="flex justify-between gap-3 text-xs text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmPassword("");
+                  setPassword("");
+                  setMode(mode === "sign-up" ? "sign-in" : "sign-up");
+                  setCaptchaToken(null);
+                  setCaptchaAttempt((value) => value + 1);
+                  setError(null);
+                  setNotice(null);
+                }}
+                disabled={pending}
+                className={cn("cursor-pointer hover:text-foreground")}
+              >
+                {mode === "sign-up"
+                  ? "Already have an account?"
+                  : "Create account"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmPassword("");
+                  setPassword("");
+                  setMode(mode === "reset" ? "sign-in" : "reset");
+                  setCaptchaToken(null);
+                  setCaptchaAttempt((value) => value + 1);
+                  setError(null);
+                  setNotice(null);
+                }}
+                disabled={pending}
+                className={cn("cursor-pointer hover:text-foreground")}
+              >
+                {mode === "reset" ? "Back to sign in" : "Forgot password?"}
+              </button>
             </div>
-          )}
-
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          {notice && <p className="text-xs text-muted-foreground">{notice}</p>}
-
-          <Button
-            type="submit"
-            disabled={pending || (needsCaptcha && !captchaToken)}
-          >
-            {mode === "sign-in"
-              ? "Sign in"
-              : mode === "sign-up"
-                ? "Sign up"
-                : "Send reset link"}
-          </Button>
-        </form>
-
-        <div className="flex justify-between gap-3 text-xs text-muted-foreground">
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === "sign-up" ? "sign-in" : "sign-up");
-              setCaptchaToken(null);
-              setCaptchaAttempt((value) => value + 1);
-              setError(null);
-              setNotice(null);
-            }}
-            className={cn("hover:text-foreground")}
-          >
-            {mode === "sign-up" ? "Already have an account?" : "Create account"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === "reset" ? "sign-in" : "reset");
-              setCaptchaToken(null);
-              setCaptchaAttempt((value) => value + 1);
-              setError(null);
-              setNotice(null);
-            }}
-            className={cn("hover:text-foreground")}
-          >
-            {mode === "reset" ? "Back to sign in" : "Forgot password?"}
-          </button>
-        </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -14,6 +14,7 @@ export default defineConfig({
   test: {
     include: [
       "hooks/**/*.test.ts",
+      "app/auth/**/*.test.ts",
       "lib/editor/**/*.test.ts",
       "lib/visript/**/*.test.ts",
       "lib/assets/**/*.test.ts",

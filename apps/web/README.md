@@ -243,3 +243,34 @@ the latest text must be written after the throttle and survive reload. Also
 verify a failed PATCH retries, an invalid script stays blocked, and a stalled
 thumbnail upload leaves the document saved with a warning. Use a disposable
 draft/account for fault injection.
+
+## Email signup and hosted redirects
+
+Signup requires matching password/confirmation fields and a fresh CAPTCHA token.
+Successful requests replace the form with an “Account created” confirmation;
+Google/GitHub options appear only on Sign in. Failures retain the form for retry.
+
+In the production Supabase dashboard, **Authentication → URL Configuration**:
+
+- Set Site URL to `https://www.visamp.io` (never localhost for production).
+- Keep the existing `/auth/callback**` redirect entries for OAuth and recovery.
+- Add `https://www.visamp.io/auth/confirm**` and
+  `https://visamp.io/auth/confirm**` for signup confirmation, including its `next`
+  query parameter. Add `http://localhost:3000/auth/confirm**` for local testing
+  against this project if needed.
+
+The default confirmation email template uses `{{ .ConfirmationURL }}`.
+Supabase verifies that link and returns a PKCE `code` to `/auth/confirm`, which
+exchanges it for session cookies. Custom templates using `token_hash` and `type`
+are also supported. Default PKCE links must be opened in the browser that started
+signup, where the verifier is stored. Configure a verified SMTP sender domain in
+the same Resend account as the SMTP password/API key.
+
+An unapproved redirect falls back to Site URL, explaining emails pointing to
+localhost even when signup originated on production. Deploy the PKCE-capable
+confirmation route before enabling its redirect entry. Request a fresh email
+after updating settings; already-sent URLs do not change. Validate a real signup,
+confirmation and subsequent sign-in after deployment; automated tests mock Auth
+and do not send emails or create production accounts.
+
+Reference: https://supabase.com/docs/guides/auth/redirect-urls
