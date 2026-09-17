@@ -107,7 +107,7 @@ export function AiPrompt({ disabled, generating, onSubmit }: AiPromptProps) {
                 href="/account/billing"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white bg-black px-3 text-xs font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-md border border-gray-500 bg-black px-3 text-xs font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 Top Up Credits
