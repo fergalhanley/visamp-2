@@ -451,7 +451,7 @@ fn interpret_statement_kind(
     charge_execution_step()?;
     match statement {
         StatementKind::LetDecl(let_decl) => {
-            if decels.contains(&let_decl.ident) {
+            if decels.contains(&let_decl.ident) && !decels.is_read_only(&let_decl.ident) {
                 return Err(format!("Variable '{}' already declared", let_decl.ident));
             }
             let evaluated = evaluate_expression(&let_decl.expression, decels, runtime, functions)?;
@@ -464,6 +464,7 @@ fn interpret_statement_kind(
             op,
             expression,
         } => {
+            decels.check_writable(ident)?;
             let mut path = Vec::new();
             for index in indices {
                 let value = evaluate_expression(index, decels, runtime, functions)?;
@@ -504,6 +505,7 @@ fn interpret_statement_kind(
             Ok(None)
         }
         StatementKind::Assignment(assignment) => {
+            decels.check_writable(&assignment.ident)?;
             let evaluated =
                 evaluate_expression(&assignment.expression, decels, runtime, functions)?;
             if !decels.contains(&assignment.ident) {
@@ -528,7 +530,7 @@ fn interpret_statement_kind(
                 .clone();
 
             let _depth = enter_function()?;
-            let mut func_decels = Declarations::new();
+            let mut func_decels = decels.for_function();
             func_decels.push_scope();
 
             for param in &func.params {
@@ -2049,7 +2051,7 @@ fn evaluate_expression_inner(
                 .ok_or_else(|| format!("Undefined function: {}", name))?;
 
             let _depth = enter_function()?;
-            let mut func_decels = Declarations::new();
+            let mut func_decels = decels.for_function();
             func_decels.push_scope();
 
             for param in &func.params {

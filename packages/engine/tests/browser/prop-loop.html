@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Props in drawing helper loops</title>
+<link rel="icon" href="data:," />
+<pre id="result">Running…</pre>
+<div id="visamp-stage" style="width: 800px; height: 600px; background: black"></div>
+<script type="module">
+  import init, * as engine from "../../pkg-validator/visamp_2.js";
+  const frames = [];
+  window.requestAnimationFrame = (callback) => (frames.push(callback), frames.length);
+  try {
+    await init();
+    const source = await (await fetch("../fixtures/prop-loop-logo.viscript")).text();
+    const error = engine.load_script(source);
+    if (error) throw Error(error);
+    frames.shift()(performance.now());
+    const runtimeError = engine.get_last_error();
+    if (runtimeError) throw Error(runtimeError);
+    const bitmap = await createImageBitmap(await engine.capture_frame());
+    const copy = document.createElement("canvas");
+    copy.width = bitmap.width;
+    copy.height = bitmap.height;
+    const context = copy.getContext("2d");
+    context.drawImage(bitmap, 0, 0);
+    const pixels = context.getImageData(0, 0, copy.width, copy.height).data;
+    let visiblePixels = 0;
+    for (let i = 0; i < pixels.length; i += 4)
+      if (pixels[i] + pixels[i + 1] + pixels[i + 2] > 30) visiblePixels++;
+    bitmap.close();
+    if (visiblePixels < 100) throw Error("Drawing helper did not render the logo");
+    window.results = { passed: true, version: engine.compiler_version(), visiblePixels };
+  } catch (error) {
+    window.results = { passed: false, error: String(error) };
+    console.error(error);
+  }
+  document.querySelector("#result").textContent = JSON.stringify(window.results, null, 2);
+</script>

@@ -131,7 +131,8 @@ If a function doesn't explicitly return, it returns `false`.
 
 - Functions are defined at the **top level** (alongside `prop` declarations and blocks)
 - Functions can be called from `on_frame`, `render`, and other functions
-- Functions **cannot** access or modify properties directly — pass values as parameters
+- Functions can **read current property values**, including in loop bounds. Parameters and function locals can shadow property names.
+- Functions **cannot modify properties** directly. Return a value and assign it in `on_init`, `on_resize`, `on_frame`, or `render` instead. Caller-local variables are not visible unless passed as parameters.
 
 ```visript
 fn helper(x: 0.0) {

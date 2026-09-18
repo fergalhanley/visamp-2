@@ -1858,3 +1858,123 @@ fn canvas_filters_are_available_in_three_d() {
     build_ast("context 3d\nrender {\n  effect::filter::blur(radius: 4.0)\n  draw::cube()\n}\n")
         .expect("GPU filters should be valid for a WebGL-backed canvas");
 }
+
+#[test]
+fn functions_read_current_props_in_loop_bounds_and_nested_calls() {
+    let source = r#"
+prop lines = 16
+prop total = 0
+fn count_lines() {
+  let count = 0
+  for i in 0..lines { count += 1 }
+  return count
+}
+fn nested() { return count_lines() }
+on_frame {
+  total = nested()
+  lines = 3
+  total += nested()
+}
+render { draw::clear() }
+"#;
+    assert_eq!(eval_prop(source, "total"), Value::Integer(19));
+}
+
+#[test]
+fn function_parameters_and_locals_shadow_props_without_exposing_caller_locals() {
+    let source = r#"
+prop lines = 16
+prop total = 0
+fn from_prop() { return lines }
+fn parameter(lines: 2) { lines += 1 return lines + from_prop() }
+fn local() { let lines = 4 return lines + from_prop() }
+on_frame {
+  total = parameter() + local()
+  for lines in 0..1 { total += from_prop() }
+}
+render { draw::clear() }
+"#;
+    assert_eq!(eval_prop(source, "total"), Value::Integer(55));
+    assert_eq!(eval_prop(source, "lines"), Value::Integer(16));
+    let error = expect_runtime_error("prop out = 0\nfn read_local() { return secret }\non_frame { let secret = 3 out = read_local() }\nrender {}\n");
+    assert!(error.contains("Undefined identifier: secret"), "{error}");
+}
+
+#[test]
+fn functions_cannot_silently_write_inherited_props() {
+    for write in [
+        "lines = 2",
+        "lines += 1",
+        "lines++",
+        "values[0] = 2",
+        "values[0] += 1",
+    ] {
+        for call in ["change()", "let result = change()"] {
+            let source = format!("prop lines = 16\nprop values = [1]\nfn change() {{ {write} return 0 }}\non_frame {{ {call} }}\nrender {{}}\n");
+            let error = expect_runtime_error(&source);
+            assert!(
+                error.contains("read-only inside functions"),
+                "{write} / {call}: {error}"
+            );
+        }
+    }
+}
+
+#[test]
+fn drawing_helpers_use_props_for_range_start_end_and_step() {
+    use std::cell::RefCell;
+    use visamp_2::interpreter::{interpret_render_block, Runtime, Target};
+    use visamp_2::model::Model;
+    use visamp_2::scene::Scene;
+    let script = build_ast(
+        r#"
+context 3d
+prop first = 1
+prop lines = 16
+prop stride = 3
+fn draw_row() { for i in first..lines step stride { draw::cube(x: i) } }
+fn draw_logo() { for i in 0..4 { draw_row() } }
+render { draw_logo() }
+"#,
+    )
+    .unwrap();
+    let mut model = Model::from_script(&script);
+    let scene = RefCell::new(Scene::default());
+    let filters = RefCell::new(Vec::new());
+    interpret_render_block(
+        &model.blocks[0],
+        &mut model.decels,
+        Target::scene(&scene, &filters),
+        &Runtime::new(),
+        &model.functions,
+    )
+    .unwrap();
+    assert_eq!(scene.borrow().commands.len(), 20);
+}
+
+#[test]
+fn reported_logo_uses_props_inside_nested_drawing_helper_loops() {
+    use visamp_2::interpreter::{interpret_event_block, interpret_render_block, Runtime, Target};
+    use visamp_2::model::Model;
+    let source = include_str!("fixtures/prop-loop-logo.viscript");
+    let script = build_ast(source).unwrap();
+    let mut model = Model::from_script(&script);
+    let runtime = Runtime::new();
+    for block in &model.blocks {
+        if block.block_type == BlockType::Render {
+            interpret_render_block(
+                block,
+                &mut model.decels,
+                Target::none(),
+                &runtime,
+                &model.functions,
+            )
+            .unwrap();
+        } else {
+            interpret_event_block(block, &mut model.decels, &runtime, &model.functions).unwrap();
+        }
+    }
+    assert_eq!(model.decels.global("lines"), Some(&Value::Integer(16)));
+    assert!(matches!(model.decels.global("size"), Some(Value::Float(size)) if *size > 0.0));
+    assert_eq!(model.decels.depth(), 1);
+}

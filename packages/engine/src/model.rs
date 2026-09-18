@@ -532,11 +532,38 @@ pub struct Declarations {
     slots: Vec<(Rc<str>, Value)>,
     /// Index into `slots` where each open scope begins.
     marks: Vec<usize>,
+    /// Function calls inherit property values, but cannot write the caller's state.
+    read_only_globals: usize,
 }
 
 impl Declarations {
     pub fn new() -> Self {
         Declarations::default()
+    }
+
+    /// Start a function with the current properties, never the caller's locals.
+    pub fn for_function(&self) -> Self {
+        let end = self.marks.get(1).copied().unwrap_or(self.slots.len());
+        Self {
+            slots: self.slots[..end].to_vec(),
+            marks: vec![0],
+            read_only_globals: end,
+        }
+    }
+
+    pub fn is_read_only(&self, name: &str) -> bool {
+        self.slots
+            .iter()
+            .rposition(|(slot, _)| &**slot == name)
+            .is_some_and(|index| index < self.read_only_globals)
+    }
+
+    pub fn check_writable(&self, name: &str) -> Result<(), String> {
+        if self.is_read_only(name) {
+            Err(format!("Property '{name}' is read-only inside functions; update it in a lifecycle or render block"))
+        } else {
+            Ok(())
+        }
     }
 
     pub fn push_scope(&mut self) {

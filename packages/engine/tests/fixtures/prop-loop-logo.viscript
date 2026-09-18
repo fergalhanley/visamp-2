@@ -1,0 +1,36 @@
+prop size = 0.0
+prop lines = 16
+
+on_frame {}
+
+fn cal_size() {
+  return math::min(a: $WIDTH, b: $HEIGHT) / 2.2
+}
+on_resize { size = cal_size() }
+on_init { size = cal_size() }
+
+fn draw_logo() {
+  let EDGES = [
+    [-0.5,  0.5,  0.0, -0.5],
+    [ 0.0, -0.5,  0.5,  0.5],
+    [-0.5, -0.5,  0.0,  0.5],
+    [ 0.0,  0.5,  0.5, -0.5],
+  ]
+  let xoff = $WIDTH / 2
+  let yoff = $HEIGHT / 3
+  for i in 0..4 {
+    let edge = EDGES[i]
+    for i in 0..lines {
+      let x1 = size * (edge[0] / lines * i) + xoff
+      let y1 = size * (edge[1] / lines * i) + yoff
+      let x2 = size * (edge[2] / lines * i) + xoff
+      let y2 = size * (edge[3] / lines * i) + yoff
+      draw::line(x1: x1, y1: y1, x2: x2, y2: y2, stroke_width: 1.0)
+    }
+  }
+}
+render {
+  effect::filter::contrast(amount: 3.0)
+  draw::rect(x: 0, y: 0, width: $WIDTH, height: $HEIGHT, color: color::rgb())
+  draw_logo()
+}
