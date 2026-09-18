@@ -53,8 +53,8 @@ OPENAI_API_KEY=
 AI_VALIDATOR_URL=http://validator:4318
 ```
 
-Generation uses OpenAI through the Responses API: GPT-5.6 Sol first, then
-GPT-6 Astra on a model or code-validation failure (two attempts maximum). A
+Generation uses GPT-6 Astra through the OpenAI Responses API, with one automatic
+retry on a model or code-validation failure (two attempts maximum). A
 validator connection failure stops the initial request because changing the code
 cannot repair the validator service. There is no provider picker. Optional settings are `OPENAI_BASE_URL`,
 `OPENAI_ORGANIZATION`, and `OPENAI_PROJECT`.

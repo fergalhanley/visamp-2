@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
-it("uses Sol regardless of obsolete model settings", async () => {
+it("uses Astra regardless of obsolete model settings", async () => {
   vi.stubEnv("OPENAI_API_KEY", "test-key");
   vi.stubEnv("AI_OPENAI_MODEL", "obsolete-model");
   const fetch = vi.fn().mockResolvedValue(
@@ -22,7 +22,7 @@ it("uses Sol regardless of obsolete model settings", async () => {
     "render {}",
   );
   const body = JSON.parse(fetch.mock.calls[0]![1].body);
-  expect(body.model).toBe("gpt-5.6-sol");
+  expect(body.model).toBe("gpt-6-astra");
   expect(body.store).toBe(false);
   expect(fetch.mock.calls[0]![0]).toBe("https://api.openai.com/v1/responses");
 });

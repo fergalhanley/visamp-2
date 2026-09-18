@@ -131,22 +131,22 @@ it("does not offer code when the model fails before producing an attempt", async
   });
 });
 
-it("uses Sol then Astra, capped at two regardless of legacy attempt settings", async () => {
+it("uses Astra with only one automatic retry", async () => {
   m.validate.mockResolvedValue({ ok: false, diagnostic: "Unknown function" });
   const response = await POST(request());
   await response.text();
   expect(m.call.mock.calls.map((args) => args[2])).toEqual([
-    "gpt-5.6-sol",
+    "gpt-6-astra",
     "gpt-6-astra",
   ]);
   expect(m.charge).not.toHaveBeenCalled();
 });
-it("falls back to Astra after a Sol provider failure", async () => {
+it("retries Astra once after a provider failure", async () => {
   m.call.mockRejectedValueOnce(new Error("Unavailable"));
   const response = await POST(request());
   expect(await response.text()).toContain('"type":"success"');
   expect(m.call.mock.calls.map((args) => args[2])).toEqual([
-    "gpt-5.6-sol",
+    "gpt-6-astra",
     "gpt-6-astra",
   ]);
 });

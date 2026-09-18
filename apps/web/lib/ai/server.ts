@@ -106,7 +106,7 @@ function timedSignal(signal: AbortSignal | undefined, timeoutMs: number) {
 export async function callModel(
   messages: ConversationMessage[],
   signal?: AbortSignal,
-  model: "gpt-5.6-sol" | "gpt-6-astra" = "gpt-5.6-sol",
+  model: "gpt-6-astra" = "gpt-6-astra",
 ) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

@@ -2,7 +2,7 @@
 
 ## Product rules
 
-- Initial requests use GPT-5.6 Sol followed by GPT-6 Astra on model/code failure,
+- Initial requests use GPT-6 Astra with one automatic retry on model/code failure,
   capped at two attempts. There is no provider picker.
 - A technically successful request costs 100 credits, including validation retries.
   Initial-request failure, cancellation and exhausted retries do not consume credits.
@@ -25,6 +25,9 @@
   signup credits suppress duplicate grants. Existing verified users are not backfilled.
 
 ## Initial price estimate (17 September 2026)
+
+Historical Sol estimate: generation switched to Astra on 18 September. These
+figures are not an estimate of the current Astra workload.
 
 This is an estimate, not a measured production cost or guaranteed margin.
 [OpenAI lists Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol) at
@@ -124,8 +127,8 @@ The billing history displays the debit even when the repair failed.
 
 The old `AI_ATTEMPT_BUDGET` environment setting is ignored: initial requests have
 at most two model calls; explicit repairs have exactly one. Model/provider errors
-can fall back to Astra, but a validator connectivity error aborts without another
-model call. Both model IDs are documented in the [OpenAI model catalog](https://developers.openai.com/api/docs/models).
+can retry once on Astra, but a validator connectivity error aborts without another
+model call. Astra is documented in the [OpenAI model catalog](https://developers.openai.com/api/docs/models).
 
 Verification: `supabase/tests/paid_ai_repairs.sql`, existing credit ledger tests,
 web API/component tests and desktop/mobile dialog checks. Run SQL tests only against

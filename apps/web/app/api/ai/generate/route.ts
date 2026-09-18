@@ -160,11 +160,11 @@ export async function POST(request: Request) {
             message: repair
               ? "Trying to fix with GPT-6 Astra…"
               : attempt === 1
-                ? "Generating with GPT-5.6 Sol…"
+                ? "Generating with GPT-6 Astra…"
                 : "Retrying with GPT-6 Astra… (attempt 2 of 2)",
           });
           let raw: string;
-          const model = repair || attempt === 2 ? "gpt-6-astra" : "gpt-5.6-sol";
+          const model = "gpt-6-astra";
           try {
             raw = await callModel(messages, request.signal, model);
           } catch (error) {
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
             emit({
               type: "status",
               level: "warn",
-              message: "The first model attempt failed. Trying GPT-6 Astra…",
+              message: "The first model attempt failed. Retrying once with GPT-6 Astra…",
             });
             continue;
           }
