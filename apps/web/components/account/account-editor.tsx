@@ -4,6 +4,7 @@ import { Loader2, LogOut, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { AccountCreditRow } from "@/components/account/account-credit-row";
+import { AccountAnalytics } from "@/components/account/account-analytics";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { profileAvatarUrl } from "@/lib/storage-urls";
@@ -188,6 +189,7 @@ export function AccountEditor() {
         </form>
 
         <AccountCreditRow key={user.id} />
+        <AccountAnalytics />
 
         <button
           type="button"

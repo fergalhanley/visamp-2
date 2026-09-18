@@ -180,8 +180,12 @@ configuration, not Mixpanel account credentials. No additional application secre
 are needed for ingestion. `next.config.ts` embeds Vercel's deployment environment
 and commit SHA; an ordinary local production build still selects staging.
 
-The consent dialog is available on first visit, in the site footer and in the
+The bottom consent banner is available on first visit, in the site footer and in the
 navigation menu (including player/editor routes). Decline clears SDK persistence.
+The account page also provides a Usage analytics on/off control with immediate
+browser withdrawal and retry feedback if server synchronisation fails. This is a
+browser preference, not an account-wide setting. First-visit analytics remains off
+until explicitly accepted; signed-out visitors retain footer/menu preferences.
 Server consent uses a separate HttpOnly receipt. On browser startup, an accepted
 preference synchronises its environment with the server before starting the SDK.
 Re-accepting an existing preference preserves its pending outcomes. Withdrawal

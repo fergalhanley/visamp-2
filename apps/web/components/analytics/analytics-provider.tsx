@@ -1,16 +1,10 @@
 "use client";
+/* eslint-disable @next/next/no-html-link-for-pages -- full navigation resets the singleton WASM canvas when opening site policy pages */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { observePlayback } from "@/lib/analytics/playback";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   consent,
   consentKey,
@@ -90,20 +84,25 @@ export function AnalyticsProvider() {
       void pageViewed(path);
     });
   };
+  if (!(open ?? choice === null)) return null;
   return (
-    <Dialog open={open ?? choice === null} onOpenChange={setOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Help improve VisAmp?</DialogTitle>
-          <DialogDescription>
+    <section
+      aria-labelledby="analytics-consent-heading"
+      aria-describedby="analytics-consent-description"
+      className="fixed inset-x-0 bottom-0 z-50 border-t bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-lg sm:p-6"
+    >
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-2xl">
+          <h2 id="analytics-consent-heading" className="text-sm font-semibold">Help improve VisAmp?</h2>
+          <p id="analytics-consent-description" className="mt-1 text-sm text-muted-foreground">
             Allow optional usage analytics to help us understand listening and
             creation. We use Mixpanel in the US. We don’t send your code,
             prompts or audio. You can change this choice in Analytics
-            preferences.
-          </DialogDescription>
-        </DialogHeader>
-        {error && <p role="alert">{error}</p>}
-        <div className="flex flex-wrap gap-2">
+            preferences or on your account page. <a href="/site/privacy-policy" className="underline underline-offset-4">Privacy policy</a>
+          </p>
+          {error && <p role="alert" className="mt-2 text-sm">{error}</p>}
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Button
             disabled={saving}
             variant="outline"
@@ -111,11 +110,11 @@ export function AnalyticsProvider() {
           >
             Decline analytics
           </Button>
-          <Button disabled={saving} onClick={() => choose(true)}>
+          <Button variant="outline" disabled={saving} onClick={() => choose(true)}>
             Allow analytics
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </section>
   );
 }
