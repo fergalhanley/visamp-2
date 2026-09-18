@@ -55,7 +55,7 @@ export function AccountCreditRow() {
         href="/account/billing"
         className="inline-flex cursor-pointer items-center justify-center rounded-md border border-emerald-500 px-4 py-2 text-sm text-emerald-400 transition hover:bg-emerald-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
       >
-        Credits &amp; billing
+        Go to Credits &amp; Billing
       </Link>
     </div>
   );

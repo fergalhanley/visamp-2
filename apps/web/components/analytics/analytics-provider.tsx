@@ -103,15 +103,15 @@ export function AnalyticsProvider() {
           {error && <p role="alert" className="mt-2 text-sm">{error}</p>}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button className="site-button primary" disabled={saving} onClick={() => choose(true)}>
+            Allow analytics
+          </Button>
           <Button
-            disabled={saving}
-            variant="outline"
-            onClick={() => choose(false)}
+              disabled={saving}
+              variant="outline"
+              onClick={() => choose(false)}
           >
             Decline analytics
-          </Button>
-          <Button variant="outline" disabled={saving} onClick={() => choose(true)}>
-            Allow analytics
           </Button>
         </div>
       </div>

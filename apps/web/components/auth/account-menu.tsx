@@ -77,16 +77,18 @@ export function AccountMenu() {
             aria-label="Open account menu"
             className="transition hover:text-foreground"
           >
-          <Avatar className="h-6 w-6">
-            {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
-            <AvatarFallback className="text-[10px]">{initial}</AvatarFallback>
-          </Avatar>
+          <a href="/account">
+            <Avatar className="h-10 w-10">
+              {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
+              <AvatarFallback className="text-[10px]">{initial}</AvatarFallback>
+            </Avatar>
+          </a>
           </DropdownMenuTrigger>
           {/* The avatar alone identifies the account on a narrow bar, where
               the name is the first thing there is no room for. */}
           <a
             href="/account"
-            className="hidden max-w-24 truncate transition hover:text-foreground sm:inline"
+            className="hidden max-w-24 text-lg truncate transition hover:text-foreground sm:inline"
           >
             {name}
           </a>

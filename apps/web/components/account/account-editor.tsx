@@ -191,15 +191,17 @@ export function AccountEditor() {
         <AccountCreditRow key={user.id} />
         <AccountAnalytics />
 
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          disabled={saving}
-          className="mt-4 flex cursor-pointer items-center gap-2 rounded-md border border-red-500 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <LogOut aria-hidden="true" className="h-4 w-4" />
-          Log out
-        </button>
+        <div className="flex justify-end gap-5">
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            disabled={saving}
+            className="mt-4 flex cursor-pointer items-center gap-2 rounded-md border border-red-500 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <LogOut aria-hidden="true" className="h-4 w-4" />
+            Log out of VisAmp
+          </button>
+        </div>
       </div>
     </main>
   );

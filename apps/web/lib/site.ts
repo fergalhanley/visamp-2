@@ -36,7 +36,7 @@ export const navLinks: {
 }[] = [
   { href: "/player", label: "Player", compact: true },
   { href: "/creators", label: "Creators", compact: true },
-  { href: "/upload", label: "Upload Your Music", compact: false },
+  { href: "/upload", label: "Upload Music", compact: false },
   {
     href: process.env.NEXT_PUBLIC_DOCS_URL || "https://docs.visamp.io",
     label: "Docs",
@@ -45,7 +45,7 @@ export const navLinks: {
   },
   {
     href: "https://discord.gg/exV68HvWV8",
-    label: "Join us on Discord",
+    label: "Join Discord",
     compact: false,
     external: true,
     icon: "discord",
