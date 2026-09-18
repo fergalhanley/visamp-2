@@ -6,6 +6,7 @@ import { permanentRedirect } from "next/navigation";
 import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { loadArtist, type ArtistProfile } from "@/lib/artists/server";
+import { publicMetadata } from "@/lib/seo";
 
 /** `music_artists_slug_format`. Anything else cannot be an artist. */
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -28,10 +29,8 @@ export async function generateMetadata({
   const artist = await loadArtist(handle);
   if (!artist) return { title: "Not found" };
 
-  return {
-    title: artist.name,
-    description: artist.bio ?? `Music by ${artist.name} on VisAmp.`,
-  };
+  return publicMetadata(`/artists/${encodeURIComponent(artist.slug)}`, artist.name,
+    artist.bio || `Music by ${artist.name} on VisAmp.`);
 }
 
 function duration(ms: number): string {

@@ -30,10 +30,10 @@ interface Gallery {
  * work itself — one narrow query over two columns, rather than a migration for
  * a number only this page reads.
  */
-export function useCreatorGallery(): Gallery {
+export function useCreatorGallery(initialCreator?: CreatorStats): Gallery {
   const [state, setState] = useState<Gallery>({
-    items: [],
-    loading: true,
+    items: initialCreator ? [initialCreator] : [],
+    loading: !initialCreator,
     error: null,
   });
 
@@ -64,14 +64,17 @@ export function useCreatorGallery(): Gallery {
         );
       }
 
+      const items = (profiles.data ?? []).map((profile) => ({
+        id: profile.id,
+        creator: creatorFromProfile(profile),
+        visCount: profile.vis_count,
+        views: profile.total_views,
+        likes: likesByOwner.get(profile.id) ?? 0,
+      }));
+      // The linked creator may be outside the directory's top 200.
+      if (initialCreator && !items.some(row => row.id === initialCreator.id)) items.push(initialCreator);
       setState({
-        items: (profiles.data ?? []).map((profile) => ({
-          id: profile.id,
-          creator: creatorFromProfile(profile),
-          visCount: profile.vis_count,
-          views: profile.total_views,
-          likes: likesByOwner.get(profile.id) ?? 0,
-        })),
+        items,
         loading: false,
         error: profiles.error?.message ?? work.error?.message ?? null,
       });
@@ -80,7 +83,7 @@ export function useCreatorGallery(): Gallery {
     return () => {
       live = false;
     };
-  }, []);
+  }, [initialCreator]);
 
   return state;
 }
@@ -89,12 +92,12 @@ export function useCreatorGallery(): Gallery {
  * One creator's public work, newest first. Loaded per selection rather than all
  * at once, because each row carries its whole script.
  */
-export function useCreatorWork(ownerId: string | null): {
+export function useCreatorWork(ownerId: string | null, initial?: { ownerId: string; items: Visualisation[] }): {
   items: Visualisation[];
   loading: boolean;
 } {
   const [state, setState] = useState<{ ownerId: string; items: Visualisation[] } | null>(
-    null,
+    initial ?? null,
   );
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import { CreditPanel } from "@/components/billing/credit-panel";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
-export const metadata = { title: "Credits & billing" };
+export const metadata = { robots: { index: false, follow: true }, title: "Credits & billing" };
 export default async function BillingPage() {
   const db = await createClient();
   const {

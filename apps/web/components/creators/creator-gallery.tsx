@@ -54,8 +54,12 @@ function sortCreators(items: CreatorStats[], by: Sort): CreatorStats[] {
  * canvas cannot be mounted at the same time; `SessionShell` stands the player
  * down here, and getting in and out is a full page load.
  */
-export function CreatorGallery({ initialUsername = null }: { initialUsername?: string | null }) {
-  const { items, loading, error } = useCreatorGallery();
+export function CreatorGallery({ initialUsername = null, initialCreator, initialWork }: {
+  initialUsername?: string | null;
+  initialCreator?: CreatorStats;
+  initialWork?: Visualisation[];
+}) {
+  const { items, loading, error } = useCreatorGallery(initialCreator);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("views");
 
@@ -83,7 +87,8 @@ export function CreatorGallery({ initialUsername = null }: { initialUsername?: s
   const activeCreator =
     creators.find((row) => row.creator.username === pickedCreator) ?? creators[0] ?? null;
 
-  const { items: work, loading: workLoading } = useCreatorWork(activeCreator?.id ?? null);
+  const { items: work, loading: workLoading } = useCreatorWork(activeCreator?.id ?? null,
+    initialCreator && initialWork ? { ownerId: initialCreator.id, items: initialWork } : undefined);
   const activeVis: Visualisation | null =
     work.find((vis) => vis.id === pickedVis) ?? work[0] ?? null;
 
@@ -136,10 +141,12 @@ export function CreatorGallery({ initialUsername = null }: { initialUsername?: s
 
                 return (
                   <div key={row.id} className="border-b last:border-b-0">
-                    <button
-                      type="button"
+                    <a
+                      href={`/creators/${encodeURIComponent(row.creator.username)}`}
                       aria-expanded={expanded}
-                      onClick={() => {
+                      onClick={(event) => {
+                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
                         setPickedCreator(row.creator.username);
                         window.history.pushState(
                           {},
@@ -182,7 +189,7 @@ export function CreatorGallery({ initialUsername = null }: { initialUsername?: s
                         )}
                         aria-hidden
                       />
-                    </button>
+                    </a>
 
                     {expanded && (
                       <div className="bg-foreground/[0.025] py-1">
@@ -196,10 +203,14 @@ export function CreatorGallery({ initialUsername = null }: { initialUsername?: s
                           </p>
                         ) : (
                           work.map((vis) => (
-                            <button
+                            <a
                               key={vis.id}
-                              type="button"
-                              onClick={() => setPickedVis(vis.id)}
+                              href={`/vis/${vis.id}`}
+                              onClick={(event) => {
+                                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                                event.preventDefault();
+                                setPickedVis(vis.id);
+                              }}
                               className={cn(
                                 "flex w-full cursor-pointer items-center gap-3 py-2 pl-16 pr-4 text-left transition",
                                 vis.id === activeVis?.id
@@ -219,7 +230,7 @@ export function CreatorGallery({ initialUsername = null }: { initialUsername?: s
                                   {formatCount(vis.likeCount)} likes
                                 </p>
                               </div>
-                            </button>
+                            </a>
                           ))
                         )}
                       </div>

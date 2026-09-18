@@ -196,14 +196,14 @@ export function Landing({
               />
             </div>
             <h1 id="landing-title" className="sr-only">
-              A VISION OF MUSIC
+              VisAmp music visualizer — discover, play and create
             </h1>
             <p className="hero-tagline" aria-hidden="true">
               A VISION OF MUSIC
             </p>
             <p className="hero-description">
-              Turn up the sound. Get lost in the visuals.
-              <br />A world of music and motion, made by you.
+              A music visualizer made by a creative community.
+              <br />Play local audio, SoundCloud and hosted music with visuals you can discover and create in your browser.
             </p>
             <div className="hero-actions">
               <a className="site-button primary" href="/player">

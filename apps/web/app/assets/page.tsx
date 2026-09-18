@@ -2,7 +2,7 @@ import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { AssetLibrary } from "@/components/assets/asset-library";
 
-export const metadata = { title: "Assets" };
+export const metadata = { robots: { index: false, follow: true }, title: "Assets" };
 
 export default function AssetsPage() {
   return (

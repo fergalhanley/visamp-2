@@ -1,17 +1,14 @@
-import type { Metadata } from "next";
+import { publicMetadata } from "@/lib/seo";
 
 import { CreatorGallery } from "@/components/creators/creator-gallery";
 
-export const metadata: Metadata = {
-  title: "Creators",
-  description: "Everyone building visualisations on VisAmp, and what they made.",
-};
+export const metadata = publicMetadata("/creators", "Visualisation Creators", "Explore the creators building music visualisations on VisAmp and discover their published work.");
 
 /**
  * E3.7 — the creator gallery, replacing the V panel's Creators tab.
  *
- * A client page throughout: the columns filter, sort and select against each
- * other, and the preview is the live engine rather than a picture of one.
+ * The directory loads interactively. Selected creator routes also seed this
+ * gallery server-side so their profile and public work are crawlable.
  */
 export default function CreatorsPage() {
   return <CreatorGallery />;

@@ -1,7 +1,7 @@
 import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { ArtistManager } from "@/components/audio/artist-manager";
-export const metadata = {
+export const metadata = { robots: { index: false, follow: true },
   title: "My artists",
   description: "Manage your artists, music and artwork on VisAmp.",
 };

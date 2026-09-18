@@ -3,16 +3,19 @@ import Link from "next/link";
 import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { sitePages } from "@/lib/site";
+import { publicMetadata, publicSitePages, noIndex } from "@/lib/seo";
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return {
-    title:
-      sitePages.find((page) => page.slug === slug)?.title ?? "Page not found",
-  };
+  const page = sitePages.find((page) => page.slug === slug);
+  if (!page) notFound();
+  const description = publicSitePages[slug];
+  return description
+    ? publicMetadata(`/site/${slug}`, page.title, description)
+    : { title: page.title, robots: noIndex };
 }
 export default async function SitePage({
   params,

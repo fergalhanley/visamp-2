@@ -5,13 +5,15 @@ import { notFound } from "next/navigation";
 import { VisSync } from "@/components/shell/vis-sync";
 import { createClient } from "@/lib/supabase/server";
 import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
+import { cache } from "react";
+import { publicMetadata, noIndex } from "@/lib/seo";
 
 /**
  * RLS decides what is visible: public to anyone, private only to
  * its owner. A miss is therefore both "no such id" and "not yours", which is
  * exactly E7.6's requirement that private returns 404 to non-owners.
  */
-async function loadVisualisation(id: string) {
+const loadVisualisation = cache(async (id: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("visualisations")
@@ -20,7 +22,7 @@ async function loadVisualisation(id: string) {
     .maybeSingle();
 
   return data ? visualisationFromRow(data, creatorFromProfile(data.profiles)) : null;
-}
+});
 
 /** E7.4 — shared links unfurl with the visualisation's own title and artwork. */
 export async function generateMetadata({
@@ -28,26 +30,13 @@ export async function generateMetadata({
 }: PageProps<"/vis/[id]">): Promise<Metadata> {
   const { id } = await params;
   const vis = await loadVisualisation(id);
-  if (!vis) return { title: "Not found" };
+  if (!vis) notFound();
+  if (vis.visibility !== "public") return { title: "Private visualisation", robots: noIndex };
 
   const title = `${vis.title} by ${vis.creator.username}`;
 
-  return {
-    title: vis.title,
-    description: vis.description,
-    openGraph: {
-      title,
-      description: vis.description,
-      type: "video.other",
-      images: vis.thumbUrl ? [vis.thumbUrl] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description: vis.description,
-      images: vis.thumbUrl ? [vis.thumbUrl] : undefined,
-    },
-  };
+  return publicMetadata(`/vis/${vis.id}`, title,
+    vis.description || `Play ${vis.title}, a music visualisation by ${vis.creator.username}, on VisAmp.`, vis.thumbUrl);
 }
 
 /**

@@ -1,6 +1,12 @@
 import { Landing } from "@/components/site/landing";
 import { getGalleryPage, type GalleryPage } from "@/lib/gallery";
 import { getLandingHeroSource } from "@/lib/landing-hero";
+import { publicMetadata, SITE_DESCRIPTION } from "@/lib/seo";
+
+export const metadata = {
+  ...publicMetadata("/", "VisAmp — Music Visualizer & Creative Community", SITE_DESCRIPTION),
+  title: { absolute: "VisAmp — Music Visualizer & Creative Community" },
+};
 
 export default async function Home() {
   let initial: GalleryPage = { items: [], next: null };

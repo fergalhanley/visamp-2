@@ -1,13 +1,10 @@
-import type { Metadata } from "next";
+import { publicMetadata } from "@/lib/seo";
 
 import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { listPublicArtists } from "@/lib/artists/server";
 
-export const metadata: Metadata = {
-  title: "Artists",
-  description: "The musicians whose work you can hear on VisAmp.",
-};
+export const metadata = publicMetadata("/artists", "Music Artists", "Discover independent music artists and listen to their hosted tracks with VisAmp visualisations.");
 
 /**
  * VIS-6 gave "artist" to music acts; the visualisation creators this route used

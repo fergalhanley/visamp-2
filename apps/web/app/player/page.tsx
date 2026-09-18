@@ -1,7 +1,8 @@
+import { publicMetadata } from "@/lib/seo";
 import { SessionSeed } from "@/components/shell/session-seed";
 import { createClient } from "@/lib/supabase/server";
 import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
-export const metadata = { title: "Player" };
+export const metadata = publicMetadata("/player", "Music Visualizer Player", "Play local audio, SoundCloud and hosted music with community-made visualisations in the VisAmp browser player.");
 export default async function PlayerPage() {
   const db = await createClient();
   const { data } = await db

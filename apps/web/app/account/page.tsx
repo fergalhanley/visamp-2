@@ -4,6 +4,7 @@ import { AccountEditor } from "@/components/account/account-editor";
 import { TopBar } from "@/components/chrome/top-bar";
 
 export const metadata: Metadata = {
+  robots: { index: false, follow: true },
   title: "Account",
   description: "Manage your VisAmp artist profile.",
 };

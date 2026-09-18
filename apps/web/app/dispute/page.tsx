@@ -3,6 +3,7 @@ import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 
 export const metadata: Metadata = {
+  robots: { index: false, follow: true },
   title: "Dispute an artist claim",
   description: "How to contact VisAmp about an artist name claimed by someone else.",
 };

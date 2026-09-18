@@ -1,7 +1,7 @@
 import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { UploadForm } from "@/components/audio/upload-form";
-export const metadata = { title: "Upload music" };
+export const metadata = { robots: { index: false, follow: true }, title: "Upload music" };
 export default async function UploadPage({
   searchParams,
 }: {
