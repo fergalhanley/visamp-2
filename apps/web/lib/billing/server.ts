@@ -28,7 +28,7 @@ export async function creditSummary(userId: string) {
         .limit(50),
       db
         .from("ai_generation_requests")
-        .select("id, status, credit_cost, created_at, has_source")
+        .select("id, status, credit_cost, created_at, has_source, repair_charged")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(50),

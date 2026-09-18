@@ -8,15 +8,22 @@ import { useEffect, useState, type Ref, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 
 interface AiPromptProps {
+  prompt: string;
+  onPromptChange: (value: string) => void;
   disabled: boolean;
   generating: boolean;
   onSubmit: (prompt: string) => Promise<boolean | void>;
   textareaRef?: Ref<HTMLTextAreaElement>;
 }
 
-export function AiPrompt({ disabled, generating, onSubmit, textareaRef }: AiPromptProps) {
-  const [prompt, setPrompt] = useState("");
-
+export function AiPrompt({
+  prompt,
+  onPromptChange,
+  disabled,
+  generating,
+  onSubmit,
+  textareaRef,
+}: AiPromptProps) {
   const [credits, setCredits] = useState<CreditSummary | null>(null);
   const [creditError, setCreditError] = useState(false);
   useEffect(() => {
@@ -54,7 +61,7 @@ export function AiPrompt({ disabled, generating, onSubmit, textareaRef }: AiProm
     const value = prompt.trim();
     if (!value || disabled || generating || insufficient) return;
     const succeeded = await onSubmit(value);
-    if (succeeded !== false) setPrompt("");
+    if (succeeded !== false) onPromptChange("");
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -74,7 +81,7 @@ export function AiPrompt({ disabled, generating, onSubmit, textareaRef }: AiProm
         <textarea
           ref={textareaRef}
           value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
+          onChange={(event) => onPromptChange(event.target.value)}
           onKeyDown={onKeyDown}
           disabled={disabled || generating}
           rows={3}

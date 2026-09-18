@@ -108,7 +108,7 @@ export function CreditPanel() {
         <p className="text-sm text-muted-foreground">
           {summary?.exempt
             ? "Your account is exempt from AI credit charges."
-            : `${summary?.generationCost ?? 100} credits per successful AI request. Automatic retries are included; failed requests are free.`}
+            : `${summary?.generationCost ?? 100} credits per successful AI request. One automatic retry is included; failed initial requests are free. Try to fix costs one request, even if it fails.`}
         </p>
         <button
           type="button"
@@ -276,7 +276,9 @@ export function CreditPanel() {
                 className="flex justify-between gap-4 border-b py-2 text-sm"
               >
                 <span>
-                  {new Date(u.created_at).toLocaleString()} · {u.status}
+                  {new Date(u.created_at).toLocaleString()} ·{" "}
+                  {u.repair_charged ? "Repair · " : ""}
+                  {u.status}
                   {u.has_source && (
                     <a
                       className="ml-2 underline"
@@ -288,7 +290,7 @@ export function CreditPanel() {
                   )}
                 </span>
                 <span>
-                  {u.status === "success"
+                  {u.status === "success" || u.repair_charged
                     ? `${u.credit_cost} credits`
                     : u.status === "running"
                       ? `${u.credit_cost} reserved`

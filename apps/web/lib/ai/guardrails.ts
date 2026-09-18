@@ -120,3 +120,30 @@ export async function completeAiGeneration(
   if (data !== "completed")
     throw new Error("AI request was no longer active at completion");
 }
+
+/** Charge explicit repair attempts before invoking the model, regardless of outcome. */
+export async function chargeAiRepair(
+  requestId: string,
+  expectedCost: number,
+): Promise<void> {
+  const { data, error } = await createAdminClient().rpc("charge_ai_repair", {
+    p_request_id: requestId,
+    p_expected_cost: expectedCost,
+  });
+  if (error)
+    throw new Error(
+      "Could not start the paid repair. No repair was attempted.",
+    );
+  if (data === "already_charged")
+    throw new Error(
+      "This repair was already charged. No additional repair was started.",
+    );
+  if (data === "price_changed")
+    throw new Error(
+      "The credit cost changed. Please review the updated cost and try again. No credits were charged.",
+    );
+  if (data !== "charged")
+    throw new Error(
+      "Your reserved credits are no longer available. No repair was attempted and no credits were charged.",
+    );
+}

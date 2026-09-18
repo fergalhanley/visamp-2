@@ -260,6 +260,7 @@ export type Database = {
       }
       ai_generation_requests: {
         Row: {
+          repair_charged: boolean
           has_source: boolean
           generated_source: string | null
           attempts: number
@@ -272,6 +273,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          repair_charged?: boolean
           generated_source?: string | null
           attempts?: number
           completed_at?: string | null
@@ -283,6 +285,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          repair_charged?: boolean
           generated_source?: string | null
           attempts?: number
           completed_at?: string | null
@@ -1034,6 +1037,10 @@ export type Database = {
         Returns: number
       }
       comments_within_rate_limit: { Args: Record<PropertyKey, never>; Returns: boolean }
+      charge_ai_repair: {
+        Args: { p_request_id: string; p_expected_cost: number }
+        Returns: string
+      }
       complete_ai_generation: {
         Args: {
           p_source?: string

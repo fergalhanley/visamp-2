@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { useEffect, type MutableRefObject } from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -46,11 +47,25 @@ vi.mock("@/hooks/use-editor-autosave", () => ({
   }),
 }));
 vi.mock("@/components/editor/code-editor", () => ({
-  CodeEditor: ({ handleRef }: { handleRef: MutableRefObject<unknown> }) => {
+  CodeEditor: ({
+    handleRef,
+    initialValue,
+    onChange,
+  }: {
+    handleRef?: MutableRefObject<unknown>;
+    initialValue: string;
+    onChange: (value: string) => void;
+  }) => {
     useEffect(() => {
-      handleRef.current = { replaceDocument: m.replace };
+      if (handleRef) handleRef.current = { replaceDocument: m.replace };
     }, [handleRef]);
-    return null;
+    return handleRef ? null : (
+      <textarea
+        aria-label="Code attempt"
+        defaultValue={initialValue}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
   },
 }));
 import { EditorShell } from "./editor-shell";
@@ -108,7 +123,7 @@ it.each(["exhausted", "error", "interrupted"])(
     await generate(events);
     expect(m.replace).not.toHaveBeenCalled();
     fireEvent.click(
-      screen.getByRole("button", { name: "Accept last code attempt" }),
+      screen.getByRole("button", { name: "Accept code attempt · Free" }),
     );
     expect(m.replace).toHaveBeenCalledExactlyOnceWith("candidate");
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
@@ -123,9 +138,7 @@ it("returns to the retained prompt without changing the script", async () => {
       diagnostics: "Invalid",
     },
   ]);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Edit prompt and try again" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Edit prompt · Free" }));
   await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   const prompt = screen.getByRole("textbox", {
     name: "Describe a change to this visualisation",
@@ -134,14 +147,100 @@ it("returns to the retained prompt without changing the script", async () => {
   await waitFor(() => expect(document.activeElement).toBe(prompt));
   expect(m.replace).not.toHaveBeenCalled();
 });
-it("disables acceptance when no attempt exists", async () => {
+it("offers only OK when no attempt exists and retains the prompt", async () => {
   await generate([{ type: "error", message: "Model unavailable" }]);
+  expect(screen.queryByRole("button", { name: /Accept code/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Try to fix/ })).toBeNull();
+  expect(screen.getByText(/No code is available/)).toBeTruthy();
+  expect(
+    within(screen.getByRole("alertdialog")).getByText("Model unavailable"),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(
     (
-      screen.getByRole("button", {
-        name: "Accept last code attempt",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
-  expect(screen.getByText(/No code attempt is available/)).toBeTruthy();
+      screen.getByRole("textbox", {
+        name: "Describe a change to this visualisation",
+      }) as HTMLTextAreaElement
+    ).value,
+  ).toBe("Draw a star");
+});
+it("cancels the prompt without accepting code", async () => {
+  await generate([
+    {
+      type: "exhausted",
+      source: "candidate",
+      diagnostics: "Unknown function",
+      message: "Failed",
+    },
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel prompt · Free" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(
+    (
+      screen.getByRole("textbox", {
+        name: "Describe a change to this visualisation",
+      }) as HTMLTextAreaElement
+    ).value,
+  ).toBe("");
+  expect(m.replace).not.toHaveBeenCalled();
+});
+it("accepts edits made inside the failure dialog", async () => {
+  await generate([
+    {
+      type: "exhausted",
+      source: "candidate",
+      diagnostics: "Unknown function",
+      message: "Failed",
+    },
+  ]);
+  expect(
+    within(screen.getByRole("alertdialog")).getByText(/Unknown function/),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByRole("textbox", { name: "Code attempt" }), {
+    target: { value: "edited candidate" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Accept code attempt · Free" }),
+  );
+  expect(m.replace).toHaveBeenCalledExactlyOnceWith("edited candidate");
+});
+it("sends the edited code, diagnostic, original prompt and disclosed price to repair", async () => {
+  await generate([
+    {
+      type: "exhausted",
+      source: "candidate",
+      diagnostics: "Unknown function",
+      message: "Failed",
+    },
+  ]);
+  await waitFor(() =>
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Try to fix · 100 credits",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false),
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "Code attempt" }), {
+    target: { value: "edited candidate" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Try to fix · 100 credits" }),
+  );
+  await screen.findByRole("alertdialog");
+  const calls = vi
+    .mocked(fetch)
+    .mock.calls.filter(([url]) => url === "/api/ai/generate");
+  expect(calls).toHaveLength(2);
+  expect(JSON.parse(calls[1]![1]!.body as string)).toEqual({
+    prompt: "Draw a star",
+    source: "edited candidate",
+    visId: "vis",
+    mode: "repair",
+    diagnostics: "Unknown function\n\nFailed",
+    expectedCost: 100,
+  });
+  expect(m.replace).not.toHaveBeenCalled();
 });

@@ -53,11 +53,14 @@ OPENAI_API_KEY=
 AI_VALIDATOR_URL=http://validator:4318
 ```
 
-Generation uses OpenAI GPT-5.6 Sol through the Responses API. There is no
-provider picker or fallback. Optional settings are `OPENAI_BASE_URL`,
+Generation uses OpenAI through the Responses API: GPT-5.6 Sol first, then
+GPT-6 Astra on a model or code-validation failure (two attempts maximum). A
+validator connection failure stops the initial request because changing the code
+cannot repair the validator service. There is no provider picker. Optional settings are `OPENAI_BASE_URL`,
 `OPENAI_ORGANIZATION`, and `OPENAI_PROJECT`.
 
-Controls are `AI_ATTEMPT_BUDGET` (default `3`), `AI_MAX_OUTPUT_TOKENS`
+The attempt limit is fixed; legacy `AI_ATTEMPT_BUDGET` values are ignored.
+Controls are `AI_MAX_OUTPUT_TOKENS`
 (default `8192`, includes reasoning), `AI_MODEL_TIMEOUT_MS` (default `60000`),
 and `AI_VALIDATOR_TIMEOUT_MS` (default `20000`).
 
@@ -66,15 +69,23 @@ not be exposed to browsers or the public internet.
 
 Rate limits are enforced atomically in Postgres per authenticated user and per
 HMAC-pseudonymised client address. AI requests cost 100 credits on success, with
-automatic validation retries included. Failed requests are free. Credit-exempt
+one automatic retry included. Failed initial requests are free. Explicit
+“Try to fix” requests run once on GPT-6 Astra and charge one generation cost
+before the model call, whether the repair succeeds, fails, or disconnects. Credit-exempt
 profiles retain normal rate limits. Verified signup grants, discretionary expiry,
 reservations and Stripe purchases use an allocation ledger.
 
 The editor log automatically scrolls to the latest message. If generation fails,
-a dialog lets the user accept the last generated attempt or return to their
-retained prompt to edit and retry. Acceptance replaces the editor document through
-its undoable edit path; it does not mark the attempt as validated or charge credits.
-When no attempt was produced, acceptance is disabled. Attempts are streamed before
+a responsive dialog shows the diagnostic and an editable code attempt. Edit prompt
+retains the prompt and discards the attempt; Accept code attempt installs the edited
+candidate through the undoable editor path; Cancel prompt clears the prompt and
+discards the attempt. These actions are free. Try to fix discloses the current price
+and submits the edited candidate, diagnostic and original prompt for a single paid
+repair. Insufficient or unavailable credit information disables repair only.
+When no attempt was produced, the dialog explains the total failure and offers only
+OK, retaining the prompt. Errors are logged server-side with the request ID.
+Apply `supabase/migrations/20260918010000_paid_ai_repairs.sql` to the app's database
+before running this version (including a local web app using hosted Supabase). Attempts are streamed before
 validation so the editor can recover the latest received code after a connection
 failure as well as after exhausted validation retries.
 

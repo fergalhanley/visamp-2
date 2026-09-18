@@ -33,6 +33,7 @@ import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { barButton, barButtonBlue, barLabel } from "@/components/chrome/bar-button";
 import { CreateVisButton } from "@/components/chrome/create-vis-button";
 import { TopBar } from "@/components/chrome/top-bar";
+import { GenerationFailureDialog, type GenerationFailure } from "@/components/editor/generation-failure-dialog";
 import { AiPrompt } from "@/components/editor/ai-prompt";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
@@ -56,7 +57,7 @@ import { useAnalyser } from "@/hooks/use-analyser";
 import { publicStorageUrl } from "@/lib/storage-urls";
 import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import { useFullscreen } from "@/hooks/use-fullscreen";
-import type { GenerationEvent } from "@/lib/ai/types";
+import type { GenerationEvent, RepairAttempt } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -141,7 +142,9 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [deleteShown, setDeleteShown] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [generationFailure, setGenerationFailure] = useState<{ source: string } | null>(null);
+  const [generationFailure, setGenerationFailure] = useState<GenerationFailure | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const generationInFlight = useRef(false);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const preserveNextCompileLog = useRef(false);
 
@@ -190,9 +193,11 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   }, [liveSource]);
 
   const generate = useCallback(
-    async (prompt: string) => {
-      if (!visualisation || generating) return false;
-      let lastAttempt = "";
+    async (prompt: string, repair?: RepairAttempt) => {
+      if (!visualisation || generationInFlight.current) return false;
+      generationInFlight.current = true;
+      let lastAttempt = repair?.source ?? "";
+      let lastDiagnostic = "";
       let succeeded = false;
       let finished = false;
       setGenerationFailure(null);
@@ -204,7 +209,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         const response = await fetch("/api/ai/generate", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ prompt, source, visId: visualisation.id }),
+          body: JSON.stringify({ prompt, source: repair?.source ?? source, visId: visualisation.id, ...(repair ? { mode: "repair", diagnostics: repair.diagnostics, expectedCost: repair.expectedCost } : {}) }),
         });
         if (!response.ok || !response.body) {
           const payload = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -225,10 +230,12 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             if (event.type === "attempt") {
               lastAttempt = event.source;
             } else if (event.type === "status") {
+              if (event.level === "warn" || event.level === "error") lastDiagnostic = event.message;
               appendLog({ level: event.level ?? "info", message: event.message });
             } else if (event.type === "success") {
               succeeded = true;
               finished = true;
+              setPrompt("");
               preserveNextCompileLog.current = true;
               editorHandle.current?.replaceDocument(event.source);
               setSource(event.source);
@@ -237,13 +244,13 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             } else if (event.type === "exhausted") {
               finished = true;
               lastAttempt = event.source;
-              setGenerationFailure({ source: lastAttempt });
+              setGenerationFailure({ source: lastAttempt, diagnostics: [event.diagnostics, event.message].filter(Boolean).join("\n\n") });
               appendLog({ level: "warn", message: event.message });
               if (event.diagnostics) appendLog({ level: "error", message: event.diagnostics });
             } else {
               finished = true;
               lastAttempt = event.source ?? lastAttempt;
-              setGenerationFailure({ source: lastAttempt });
+              setGenerationFailure({ source: lastAttempt, diagnostics: [event.diagnostics, event.message].filter(Boolean).join("\n\n") });
               appendLog({ level: "error", message: event.message });
             }
           }
@@ -251,17 +258,18 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         }
         if (!finished) throw new Error("Generation ended before completing");
       } catch (error) {
-        if (!succeeded) setGenerationFailure({ source: lastAttempt });
+        if (!succeeded) setGenerationFailure({ source: lastAttempt, diagnostics: [lastDiagnostic, error instanceof Error ? error.message : "Generation failed"].filter(Boolean).join("\n\n") });
         appendLog({
           level: "error",
           message: error instanceof Error ? error.message : "Generation failed",
         });
       } finally {
+        generationInFlight.current = false;
         setGenerating(false);
       }
       return succeeded;
     },
-    [appendLog, generating, source, visualisation],
+    [appendLog, source, visualisation],
   );
 
   const onLog = useCallback(
@@ -617,6 +625,8 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
       <div ref={splitRef} className="flex min-h-0 flex-1">
         <div style={{ width: `${ratio}%` }} className="flex min-w-0 flex-col">
           <AiPrompt
+            prompt={prompt}
+            onPromptChange={setPrompt}
             disabled={!canEdit || empty}
             generating={generating}
             onSubmit={generate}
@@ -833,38 +843,24 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
       </div>
       )}
 
-      <AlertDialog
-        open={generationFailure !== null && !generating}
-        onOpenChange={(open) => { if (!open) setGenerationFailure(null); }}
-      >
-        <AlertDialogContent className="sm:max-w-lg" finalFocus={promptRef}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>The generation failed.</AlertDialogTitle>
-            <AlertDialogDescription>
-              Do you want to accept the last code attempt or edit the prompt and try again?
-              {!generationFailure?.source && " No code attempt is available for this request."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Edit prompt and try again</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!generationFailure?.source}
-              onClick={() => {
-                if (!generationFailure?.source) return;
-                preserveNextCompileLog.current = true;
-                editorHandle.current?.replaceDocument(generationFailure.source);
-                setSource(generationFailure.source);
-                setLiveSource(generationFailure.source);
-                setEditorTab("script");
-                appendLog({ level: "warn", message: "Accepted the last code attempt without successful validation." });
-                setGenerationFailure(null);
-              }}
-            >
-              Accept last code attempt
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {generationFailure && !generating && (
+        <GenerationFailureDialog
+          failure={generationFailure}
+          promptRef={promptRef}
+          onEdit={() => setGenerationFailure(null)}
+          onCancel={() => { setGenerationFailure(null); setPrompt(""); }}
+          onRepair={(attempt) => { void generate(prompt, attempt); }}
+          onAccept={(attempt) => {
+            preserveNextCompileLog.current = true;
+            editorHandle.current?.replaceDocument(attempt);
+            setSource(attempt);
+            setLiveSource(attempt);
+            setEditorTab("script");
+            appendLog({ level: "warn", message: "Accepted the code attempt without successful validation." });
+            setGenerationFailure(null);
+          }}
+        />
+      )}
 
       <AlertDialog open={forkBlocked} onOpenChange={setForkBlocked}>
         <AlertDialogContent>

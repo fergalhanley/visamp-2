@@ -6,7 +6,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { useState, type ComponentProps } from "react";
 import { AiPrompt } from "./ai-prompt";
+function Prompt(
+  props: Omit<ComponentProps<typeof AiPrompt>, "prompt" | "onPromptChange">,
+) {
+  const [prompt, setPrompt] = useState("");
+  return <AiPrompt {...props} prompt={prompt} onPromptChange={setPrompt} />;
+}
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -22,7 +29,7 @@ it.each([false, true])(
       }),
     );
     const submit = vi.fn().mockResolvedValue(undefined);
-    render(<AiPrompt disabled={false} generating={false} onSubmit={submit} />);
+    render(<Prompt disabled={false} generating={false} onSubmit={submit} />);
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "Draw a star" },
     });
@@ -48,19 +55,17 @@ it.each([false, true])(
   async (success) => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          json: async () => ({
-            available: 1000,
-            generationCost: 100,
-            exempt: false,
-          }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          available: 1000,
+          generationCost: 100,
+          exempt: false,
         }),
+      }),
     );
     const submit = vi.fn().mockResolvedValue(success);
-    render(<AiPrompt disabled={false} generating={false} onSubmit={submit} />);
+    render(<Prompt disabled={false} generating={false} onSubmit={submit} />);
     const input = screen.getByRole("textbox") as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "Draw a star" } });
     await waitFor(() =>

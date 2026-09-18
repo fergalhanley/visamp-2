@@ -3,6 +3,7 @@ import {
   admitAiGeneration,
   aiGenerationEnabled,
   completeAiGeneration,
+  chargeAiRepair,
 } from "@/lib/ai/guardrails";
 import { type GenerationEvent } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +23,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let input: { prompt?: unknown; source?: unknown; visId?: unknown };
+  let input: {
+    prompt?: unknown;
+    source?: unknown;
+    visId?: unknown;
+    mode?: unknown;
+    diagnostics?: unknown;
+    expectedCost?: unknown;
+  };
   try {
     input = (await request.json()) as typeof input;
   } catch {
@@ -34,13 +42,24 @@ export async function POST(request: Request) {
     input.prompt.length > 4000 ||
     typeof input.source !== "string" ||
     input.source.length > 200_000 ||
-    typeof input.visId !== "string"
+    typeof input.visId !== "string" ||
+    (input.mode !== undefined &&
+      input.mode !== "generate" &&
+      input.mode !== "repair") ||
+    (input.mode === "repair" &&
+      (!input.source.trim() ||
+        typeof input.diagnostics !== "string" ||
+        input.diagnostics.length > 16000 ||
+        typeof input.expectedCost !== "number" ||
+        !Number.isSafeInteger(input.expectedCost) ||
+        input.expectedCost < 0))
   ) {
     return Response.json(
       { error: "Invalid generation request" },
       { status: 400 },
     );
   }
+  const repair = input.mode === "repair";
   const prompt = input.prompt;
   const source = input.source;
   const visId = input.visId;
@@ -109,16 +128,28 @@ export async function POST(request: Request) {
           content: `Current script:\n<current_script>\n${source}\n</current_script>\n\nInstruction:\n${prompt.trim()}`,
         },
       ];
-      let closest = "";
+      if (repair)
+        messages.push({
+          role: "user",
+          content: `Repair this code attempt. Its previous error was:\n${input.diagnostics}\nThe user may have edited the code since that error. Return the complete corrected script only.`,
+        });
+      let closest = repair ? source : "";
       let diagnostic = "";
       let completedAs: "success" | "exhausted" | "error" | "aborted" = "error";
       let attemptsUsed = 0;
       let settled = false;
+      let repairCharged = false;
       try {
-        const configuredAttempts = Number(process.env.AI_ATTEMPT_BUDGET ?? 3);
-        const attempts = Number.isInteger(configuredAttempts)
-          ? Math.min(10, Math.max(1, configuredAttempts))
-          : 3;
+        if (request.signal.aborted)
+          throw new DOMException("The request was cancelled", "AbortError");
+        if (repair) {
+          await chargeAiRepair(
+            admission.requestId,
+            input.expectedCost as number,
+          );
+          repairCharged = true;
+        }
+        const attempts = repair ? 1 : 2;
         for (let attempt = 1; attempt <= attempts; attempt += 1) {
           if (request.signal.aborted) {
             throw new DOMException("The request was cancelled", "AbortError");
@@ -126,10 +157,25 @@ export async function POST(request: Request) {
           attemptsUsed = attempt;
           emit({
             type: "status",
-            message:
-              attempt === 1 ? "Generating…" : `Retrying… (attempt ${attempt})`,
+            message: repair
+              ? "Trying to fix with GPT-6 Astra…"
+              : attempt === 1
+                ? "Generating with GPT-5.6 Sol…"
+                : "Retrying with GPT-6 Astra… (attempt 2 of 2)",
           });
-          const raw = await callModel(messages, request.signal);
+          let raw: string;
+          const model = repair || attempt === 2 ? "gpt-6-astra" : "gpt-5.6-sol";
+          try {
+            raw = await callModel(messages, request.signal, model);
+          } catch (error) {
+            if (request.signal.aborted || attempt === attempts) throw error;
+            emit({
+              type: "status",
+              level: "warn",
+              message: "The first model attempt failed. Trying GPT-6 Astra…",
+            });
+            continue;
+          }
           closest = extractScript(raw);
           emit({ type: "attempt", source: closest });
           emit({
@@ -168,21 +214,36 @@ export async function POST(request: Request) {
           });
         }
         completedAs = "exhausted";
+        await completeAiGeneration(
+          admission.requestId,
+          completedAs,
+          attemptsUsed,
+          repair ? closest : undefined,
+        );
+        settled = true;
         emit({
           type: "exhausted",
           source: closest,
           diagnostics: diagnostic,
-          message:
-            "Validation failed after all attempts. The editor was left unchanged and no credits were charged.",
+          message: repair
+            ? "The repair failed validation. The repair attempt was charged; the editor was left unchanged."
+            : "Validation failed after both attempts. The editor was left unchanged and no credits were charged.",
         });
       } catch (error) {
         completedAs = request.signal.aborted ? "aborted" : "error";
+        console.error("AI generation failed", {
+          requestId: admission.requestId,
+          repair,
+          message: error instanceof Error ? error.message : "Generation failed",
+        });
         if (!request.signal.aborted) {
           emit({
             type: "error",
+            diagnostics: diagnostic || undefined,
             source: closest || undefined,
             message:
-              error instanceof Error ? error.message : "Generation failed",
+              (error instanceof Error ? error.message : "Generation failed") +
+              (repairCharged ? " The repair attempt was charged." : ""),
           });
         }
       } finally {
@@ -191,6 +252,7 @@ export async function POST(request: Request) {
             admission.requestId,
             completedAs,
             attemptsUsed,
+            repairCharged ? closest : undefined,
           ).catch(() => {
             // Failed/cancelled requests retain a reservation until expiry if
             // bookkeeping is unavailable. A success is never emitted before settlement.

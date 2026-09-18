@@ -22,3 +22,20 @@ it("reports expired credits as a clear no-charge failure", async () => {
     completeAiGeneration("id", "success", 1, "render {}"),
   ).rejects.toThrow("No credits were charged");
 });
+it("passes the displayed repair quote to the protected charge RPC", async () => {
+  const { chargeAiRepair } = await import("./guardrails");
+  rpc.mockResolvedValue({ data: "charged", error: null });
+  await chargeAiRepair("repair-id", 100);
+  expect(rpc).toHaveBeenLastCalledWith("charge_ai_repair", {
+    p_request_id: "repair-id",
+    p_expected_cost: 100,
+  });
+});
+it.each(["already_charged", "inactive", "credits_expired", "price_changed"])(
+  "rejects repair admission when the charge returns %s",
+  async (result) => {
+    const { chargeAiRepair } = await import("./guardrails");
+    rpc.mockResolvedValue({ data: result, error: null });
+    await expect(chargeAiRepair("repair-id", 100)).rejects.toThrow();
+  },
+);

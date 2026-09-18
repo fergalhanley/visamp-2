@@ -12,13 +12,11 @@ afterEach(() => {
 it("uses Sol regardless of obsolete model settings", async () => {
   vi.stubEnv("OPENAI_API_KEY", "test-key");
   vi.stubEnv("AI_OPENAI_MODEL", "obsolete-model");
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(
-      Response.json({
-        output: [{ content: [{ type: "output_text", text: "render {}" }] }],
-      }),
-    );
+  const fetch = vi.fn().mockResolvedValue(
+    Response.json({
+      output: [{ content: [{ type: "output_text", text: "render {}" }] }],
+    }),
+  );
   vi.stubGlobal("fetch", fetch);
   expect(await callModel([{ role: "user", content: "Draw waves" }])).toBe(
     "render {}",
@@ -40,4 +38,14 @@ it("reports unavailable OpenAI with no fallback request", async () => {
     callModel([{ role: "user", content: "Draw waves" }]),
   ).rejects.toThrow("Unavailable");
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("uses GPT-6 Astra when explicitly selected for repair", async () => {
+  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(Response.json({ output_text: "render {}" }));
+  vi.stubGlobal("fetch", fetch);
+  await callModel([{ role: "user", content: "Fix" }], undefined, "gpt-6-astra");
+  expect(JSON.parse(fetch.mock.calls[0]![1].body).model).toBe("gpt-6-astra");
 });

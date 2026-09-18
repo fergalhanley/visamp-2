@@ -106,9 +106,9 @@ function timedSignal(signal: AbortSignal | undefined, timeoutMs: number) {
 export async function callModel(
   messages: ConversationMessage[],
   signal?: AbortSignal,
+  model: "gpt-5.6-sol" | "gpt-6-astra" = "gpt-5.6-sol",
 ) {
   const apiKey = process.env.OPENAI_API_KEY;
-  const model = "gpt-5.6-sol";
   if (!apiKey) {
     throw new Error("ChatGPT generation is not configured (OPENAI_API_KEY)");
   }

@@ -125,18 +125,16 @@ it("waits for the matching purchase to be paid and shows success when the balanc
     created_at: "2026-09-17T09:00:00Z",
     refunded_cents: 0,
   };
-  const fetch = vi
-    .fn()
-    .mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        ...summary,
-        purchases: [
-          purchase,
-          { ...purchase, id: "other", paid_at: "2026-09-17T09:00:00Z" },
-        ],
-      }),
-    });
+  const fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ...summary,
+      purchases: [
+        purchase,
+        { ...purchase, id: "other", paid_at: "2026-09-17T09:00:00Z" },
+      ],
+    }),
+  });
   vi.stubGlobal("fetch", fetch);
   render(<CreditPanel />);
   await screen.findByText("500 available credits");
@@ -158,4 +156,37 @@ it("waits for the matching purchase to be paid and shows success when the balanc
   fireEvent.click(screen.getByRole("button", { name: "Refresh balance" }));
   await screen.findByRole("heading", { name: "Credit purchase successful" });
   expect(screen.getByText("Total available: 5,500 credits")).toBeTruthy();
+});
+it("shows a failed repair as charged and a failed initial request as free", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...summary,
+        usage: [
+          {
+            id: "repair",
+            status: "error",
+            repair_charged: true,
+            credit_cost: 100,
+            created_at: "2026-09-18T00:00:00Z",
+            has_source: false,
+          },
+          {
+            id: "initial",
+            status: "error",
+            repair_charged: false,
+            credit_cost: 100,
+            created_at: "2026-09-18T00:00:00Z",
+            has_source: false,
+          },
+        ],
+      }),
+    }),
+  );
+  render(<CreditPanel />);
+  await screen.findByText("100 credits");
+  expect(screen.getByText(/Repair · error/)).toBeTruthy();
+  expect(screen.getByText("No charge")).toBeTruthy();
 });

@@ -2,9 +2,13 @@
 
 ## Product rules
 
-- OpenAI GPT-5.6 Sol is the sole generator. No provider picker or fallback.
+- Initial requests use GPT-5.6 Sol followed by GPT-6 Astra on model/code failure,
+  capped at two attempts. There is no provider picker.
 - A technically successful request costs 100 credits, including validation retries.
-  Failure, cancellation and exhausted retries do not consume credits. Undo does not refund.
+  Initial-request failure, cancellation and exhausted retries do not consume credits.
+  Explicit Try to fix runs once on GPT-6 Astra and charges one generation cost before
+  calling the model, even on failure or cancellation. Edit/accept/cancel recovery
+  actions are free. Undo does not refund.
 - Protected `profiles.ai_credit_exempt` skips credit requirements and charges. It does
   not skip authentication, ownership, rate limits or concurrency limits.
 - US$1 purchases 1,000 credits. Presets: $5 / 5,000, $20 / 20,000, $50 / 50,000.
@@ -99,6 +103,33 @@ This does not rescale balances or purchase prices. Running requests retain their
 reserved cost. Signup grants remain 2,000 credits; their generation count depends
 on the current generation cost. OpenAI automatic balance reload is an operator
 setting and is not changed by this release.
+
+## Paid repair rollout — VIS-128
+
+Apply `supabase/migrations/20260918010000_paid_ai_repairs.sql` before deploying the
+matching web code. It adds `repair_charged` and a service-role-only `charge_ai_repair`
+RPC, preserving the existing completion signature. Initial requests retain their
+successful-request billing behavior. No balance changes occur during migration.
+
+Repair admission reserves the full current generation cost and retains auth,
+ownership, rate, concurrency and exemption checks. Before the provider call,
+`charge_ai_repair` locks the user/request, verifies the displayed cost against the
+reserved quote, consumes unexpired reservations once, and records the debit. An
+expired reservation or stale quote rejects the repair without calling the provider.
+The consumed reservation is removed so it cannot subtract from the balance twice.
+Completion keeps the actual outcome and never charges again. A failure or abandoned
+request remains charged; credit-exempt requests record repair usage with no debit.
+Failed repair code is available through the existing owner-only result download.
+The billing history displays the debit even when the repair failed.
+
+The old `AI_ATTEMPT_BUDGET` environment setting is ignored: initial requests have
+at most two model calls; explicit repairs have exactly one. Model/provider errors
+can fall back to Astra, but a validator connectivity error aborts without another
+model call. Both model IDs are documented in the [OpenAI model catalog](https://developers.openai.com/api/docs/models).
+
+Verification: `supabase/tests/paid_ai_repairs.sql`, existing credit ledger tests,
+web API/component tests and desktop/mobile dialog checks. Run SQL tests only against
+a disposable/local database; each test rolls back its fixture changes.
 
 ## Stripe setup
 
