@@ -1,4 +1,5 @@
 "use client";
+import { completeAnalyticsLogout } from "@/lib/analytics/client";
 
 import type { User } from "@supabase/supabase-js";
 import {
@@ -58,7 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") completeAnalyticsLogout();
       setUser(session?.user ?? null);
       setLoading(false);
     });

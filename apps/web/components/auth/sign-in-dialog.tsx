@@ -1,4 +1,5 @@
 "use client";
+import { track, beginAnalyticsAuthFlow } from "@/lib/analytics/client";
 
 import { useState } from "react";
 
@@ -91,6 +92,7 @@ export function SignInDialog({
     setPending(true);
 
     const supabase = createClient();
+    beginAnalyticsAuthFlow();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -129,6 +131,7 @@ export function SignInDialog({
 
     try {
       if (mode === "sign-up") {
+        track("signup_started", { method: "email" });
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -163,7 +166,7 @@ export function SignInDialog({
         });
 
         if (signInError) setError(signInError.message);
-        else onOpenChange(false);
+        else { track("login_completed", { method: "email" }); onOpenChange(false); }
       }
     } catch {
       setError("Unable to connect. Please try again.");

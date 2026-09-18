@@ -1,7 +1,8 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
 import { VisampCanvas } from "@visamp/player";
-import { useEffect, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useEffect, type PointerEvent as ReactPointerEvent } from "react";
 import { preloadSourceAssets } from "@/lib/assets/client";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,6 +22,7 @@ export function CanvasLayer() {
   const context = useSessionStore((s) => s.context);
   const shuffle = useSessionStore((s) => s.shuffleVis);
   const source = current.source;
+  const reported = useRef<string | null>(null);
   const { assets, preparation } = useVisualisationAssets(source, current.id);
   const index = context.findIndex((vis) => vis.id === current.id);
   const nextSource =
@@ -57,6 +59,12 @@ export function CanvasLayer() {
       onDoubleClick={toggleFullscreen}
     >
       <VisampCanvas
+        onCompileResult={(result) => {
+          if (result.ok && reported.current !== current.id) {
+            reported.current = current.id;
+            track("visualisation_loaded", { visualisation_id: current.id });
+          }
+        }}
         interactive
         source={source}
         assets={assets}

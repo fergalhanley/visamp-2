@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 
 import { GitFork, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -63,6 +64,7 @@ async function insertFork(visId: string, ownerId: string): Promise<string | null
   if (error || !data) return error?.message ?? "Could not fork";
 
   // Hard navigation: the editor needs a fresh document to claim the engine.
+  track("visualisation_forked", { visualisation_id: data.id, source_id: visId });
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   window.location.href = `/edit/${data.id}`;
   return null;

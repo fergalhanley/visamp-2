@@ -1,3 +1,4 @@
+import { scheduleAnalyticsFlush } from "@/lib/analytics/server";
 import "server-only";
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -32,6 +33,7 @@ export async function fulfillCreditEvent(
       p_livemode: session.livemode,
     });
     if (result.error) throw result.error;
+    scheduleAnalyticsFlush();
   } else if (event.type === "charge.refunded") {
     const charge = event.data.object;
     if (!charge.metadata.purchase_id) return;

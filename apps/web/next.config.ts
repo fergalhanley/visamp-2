@@ -9,6 +9,10 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
   : null;
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_ANALYTICS_DEPLOYMENT: process.env.VERCEL_ENV ?? "development",
+    NEXT_PUBLIC_ANALYTICS_RELEASE: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+  },
   // @visamp/player ships TypeScript source; Next compiles it in-place.
   transpilePackages: ["@visamp/player"],
 

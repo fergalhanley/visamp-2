@@ -1,3 +1,4 @@
+import { serverEvent } from "@/lib/analytics/server";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { STARTER_SOURCE } from "@/lib/visript/starter";
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  await serverEvent(request, user.id, "visualisation_created", { visualisation_id: data.id, method: "editor" }, `visualisation-created:${data.id}`);
   // 303 so the browser follows with GET rather than repeating the POST.
   return NextResponse.redirect(`${origin}/edit/${data.id}`, { status: 303 });
 }

@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 
 import { AudioLines } from "lucide-react";
 import Image from "next/image";
@@ -58,7 +59,7 @@ export function VisTile({ vis, active, onSelect, owned, onChanged }: VisTileProp
     >
       <button
         type="button"
-        onClick={onSelect}
+        onClick={() => { track("content_selected", { content_type: "visualisation", content_id: vis.id, source_panel: "visual" }); onSelect(); }}
         onMouseEnter={preload}
         onMouseLeave={cancelPreload}
         onFocus={preload}

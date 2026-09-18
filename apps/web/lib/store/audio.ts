@@ -1,4 +1,5 @@
 "use client";
+import { track as trackAnalytics } from "@/lib/analytics/client";
 
 import { create } from "zustand";
 
@@ -616,6 +617,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   playHostedSelection: async (id, tracks, page) => {
+    trackAnalytics("content_selected", { content_type: "track", content_id: id, source_panel: "audio", position: tracks.findIndex(t => t.id === id) });
     const index = tracks.findIndex((track) => track.id === id);
     if (index < 0) return;
     hostedCatalogueToken += 1;
@@ -1013,6 +1015,7 @@ export function wireAudioEvents(): void {
     onTimeUpdate: (position, duration) =>
       useAudioStore.setState({ position, duration }),
     onEnded: () => {
+      window.dispatchEvent(new Event("visamp:audio-ended"));
       cancelHostedTimers();
       void useAudioStore.getState().nextTrack();
 

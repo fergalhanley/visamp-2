@@ -1,4 +1,5 @@
 // @vitest-environment node
+vi.mock("@/lib/analytics/server", () => ({ serverEvent: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { GET } from "./route";

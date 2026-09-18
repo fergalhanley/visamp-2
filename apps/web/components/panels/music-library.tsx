@@ -1,4 +1,5 @@
 "use client";
+import { track as trackAnalytics } from "@/lib/analytics/client";
 import { Heart, ListPlus, Search, X, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
@@ -153,6 +154,7 @@ export function MusicLibrary() {
     }
   }
   function choose(next: Context) {
+    if (next) trackAnalytics("content_selected", { content_type: next.type, content_id: next.id, source_panel: "audio" });
     setContext(next);
     setQuery("");
     setSearch("");

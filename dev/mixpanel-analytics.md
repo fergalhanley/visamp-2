@@ -171,3 +171,97 @@ VIS-33 verification. Repository tests alone do not satisfy that acceptance crite
 Implementation references: [browser SDK](https://docs.mixpanel.com/docs/tracking-methods/sdks/javascript),
 [identity](https://docs.mixpanel.com/docs/tracking-methods/id-management/identifying-users-simplified),
 [event deduplication](https://docs.mixpanel.com/reference/event-deduplication).
+
+## VIS-33 integration and operation
+
+The web integration uses `mixpanel-browser` and the two owner-supplied US project
+identifiers in `apps/web/lib/analytics/config.ts`. These ingestion tokens are public
+configuration, not Mixpanel account credentials. No additional application secrets
+are needed for ingestion. `next.config.ts` embeds Vercel's deployment environment
+and commit SHA; an ordinary local production build still selects staging.
+
+The consent dialog is available on first visit, in the site footer and in the
+navigation menu (including player/editor routes). Decline clears SDK persistence.
+Server consent uses a separate HttpOnly receipt. On browser startup, an accepted
+preference synchronises its environment with the server before starting the SDK.
+Re-accepting an existing preference preserves its pending outcomes. Withdrawal
+revokes the receipt and deletes unsent outcomes; failed preference writes are shown
+with a retry message. Already transmitted events are not retroactively deleted.
+
+For automated production-host checks, set
+`sessionStorage["visamp.analytics.environment"] = "staging"` before initialisation;
+WebDriver sessions also select staging automatically. Use isolated browser storage.
+No identity-based exclusion is applied to Fergal or other real production users.
+
+### Server delivery
+
+Apply only `supabase/migrations/20260918130000_analytics_outbox.sql`. It adds
+service-role-only consent, operation-context and outbox tables plus a private RPC.
+It does not alter existing business tables or grants. The migration has been
+applied individually to the shared hosted database and recorded in migration
+history. Do not bulk-push older migrations: hosted history remains incomplete.
+
+Requests associate their verified user, operation ID and receipt with accepted
+AI, upload and checkout operations. Reconciliation reads terminal business state;
+Stripe purchase events require `paid_at` set by the existing verified fulfillment
+flow. Internal AI retries do not create extra requested events. Outcome IDs and
+original timestamps remain stable across retries. Failed paid repairs report their
+actual charged credits. Upload completion requires a live track.
+
+Delivery runs after relevant requests and via `/api/analytics/flush`, protected by
+`CRON_SECRET`. The daily 05:00 UTC Vercel cron retries outstanding outcomes; during
+outages reports can lag until that retry. Local flushes cannot send production
+outbox entries. API/SDK failures never change a business operation's success.
+A failure to store the initial analytics context can still lose that operation's
+analytics; business records remain authoritative for money and credit balances.
+
+### Coverage and interpretation
+
+The event schema is in `lib/analytics/events.ts`; producers are explicit calls in
+auth, player, library, editor, upload and billing flows. Event properties are
+allowlisted, and SDK URL/referrer/campaign enrichment is disabled. Campaign
+attribution is deliberately absent until reviewed campaign values are configured;
+no arbitrary campaign query values are transmitted.
+
+Listening summaries are incremental and capped when timers stall. They exclude
+microphone, silent, paused, muted and zero-volume playback. Background audible
+playback counts. Seek position is never used as elapsed listening time. A lost
+browser request can undercount activity. `visualisation_loaded` currently means
+successful source activation/compilation in the player, not proof that every
+subsequent animation frame succeeds. Save events are coalesced per document with
+a best-effort final flush. Recovery choice events omit code and diagnostics.
+
+Optional enrichment from the dictionary (editing duration, campaign attribution,
+artwork/album flags, and recovery-to-request correlation) is not emitted by this
+initial integration. These fields are not needed for the seven beta dashboard
+metrics. Do not build reports that assume they are populated.
+
+### Dashboard setup and acceptance still requiring Mixpanel access
+
+Project ingestion tokens cannot read events, manage boards, or verify saved report
+results. Connect the Mixpanel MCP client with access to both projects to finish
+that acceptance step. Enabling MCP in the Mixpanel project alone does not expose
+tools in an already-running Codex session.
+
+Create equivalent **VisAmp beta usage** boards in staging and production, with UTC
+reporting days and the matching `environment` filter. Use the report definitions
+above: listeners/listening time and creators side by side; returning-user and
+listener/creator retention; AI outcomes; distinct published visualisations;
+distinct completed uploads; and distinct paid checkouts plus USD purchase totals.
+Use sum of `listened_seconds` (not event count) for listening time, distinct entity
+IDs for upload/publication/purchase totals, and exclude `analytics_verification`
+from product reports. Respect the 30-second listener qualification when defining
+cohorts; a page view alone does not make an active listener or creator.
+
+Staging ingestion was accepted by the US endpoint (HTTP 200, status 1) using event
+`analytics_verification`, insert ID `VIS-33-staging-ingestion-20260918`. Browser
+inspection confirmed a staging `page_viewed` payload with no raw URL/query string,
+no SDK persistence before consent, removal after decline and restoration after
+re-acceptance. Live dashboard counts, identity merge inspection inside Mixpanel,
+and real production ingestion after the authorised release remain pending.
+
+Checks: targeted Vitest coverage for environment isolation, consent, identity,
+property filtering, listening segments, outbox retries and withdrawal; existing
+editor, generation, billing and library regression suites; TypeScript, lint,
+production webpack build; desktop/mobile browser checks. Database assertions in
+`supabase/tests/analytics_outbox.sql` run inside a rollback transaction.

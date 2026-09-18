@@ -1,3 +1,4 @@
+import { serverEvent } from "@/lib/analytics/server";
 import { processHostedAudioDeletions } from "@/lib/hosted-audio/deletions";
 import {
   boundedText,
@@ -98,6 +99,7 @@ export async function DELETE(
     });
     if (error?.code === "42501") throw new MusicError(404, "Track not found.");
     if (error) throw error;
+    await serverEvent(request, userId!, "track_removed", { track_id: id }, `track-removed:${id}`);
     // Withdrawal is committed. Failed physical deletes remain in the retryable outbox.
     await processHostedAudioDeletions({ trackId: id }).catch((error) =>
       console.error("[track-removal]", error),

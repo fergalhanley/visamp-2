@@ -1,3 +1,4 @@
+import { registerOperation, serverEvent, scheduleAnalyticsFlush } from "@/lib/analytics/server";
 import { callModel, extractScript, validateRender } from "@/lib/ai/server";
 import {
   admitAiGeneration,
@@ -114,6 +115,8 @@ export async function POST(request: Request) {
     );
   }
 
+  await registerOperation(request, user.id, admission.requestId, "generation", repair ? "repair" : "generate");
+  await serverEvent(request, user.id, "generation_requested", { request_id: admission.requestId, mode: repair ? "repair" : "generate", model: "gpt-6-astra" }, `generation-requested:${admission.requestId}`);
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -257,6 +260,7 @@ export async function POST(request: Request) {
             // Failed/cancelled requests retain a reservation until expiry if
             // bookkeeping is unavailable. A success is never emitted before settlement.
           });
+        scheduleAnalyticsFlush();
         try {
           controller.close();
         } catch {

@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 
 import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -38,6 +39,7 @@ export function CreateVisButton({ className }: { className?: string }) {
   }, [user]);
 
   const onClick = (event: React.MouseEvent) => {
+    track("cta_clicked", { cta: "create_visualisation", placement: "top_bar" });
     if (loading) {
       event.preventDefault();
       return;

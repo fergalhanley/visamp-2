@@ -1,4 +1,6 @@
 "use client";
+import { confirmedSave, flushConfirmedSave } from "@/lib/analytics/editor";
+import { track } from "@/lib/analytics/client";
 
 import { useRouter } from "next/navigation";
 
@@ -343,6 +345,19 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
     [visualisation],
   );
 
+  const analyticsVisibility = useRef(visualisation?.visibility ?? "private");
+  const analyticsOpened = useRef<string | null>(null);
+  useEffect(() => {
+    if (visualisation?.id && analyticsOpened.current !== visualisation.id) {
+      analyticsOpened.current = visualisation.id;
+      track("editor_opened", { visualisation_id: visualisation.id });
+    }
+    if (!visualisation?.id) return;
+    const id = visualisation.id;
+    const flush = () => flushConfirmedSave(id);
+    window.addEventListener("pagehide", flush);
+    return () => { flush(); window.removeEventListener("pagehide", flush); };
+  }, [visualisation?.id]);
   const persist = useCallback(
     async (snapshot: EditorSnapshot, signal: AbortSignal) => {
       if (!visualisation) throw new Error("No visualisation open.");
@@ -362,6 +377,9 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           // Direct Supabase writes do not invalidate Next's history cache.
           // Refresh the server snapshot without replacing the live editor buffer.
           // Do this before thumbnail work, which can fail or outlive navigation.
+          if (document.visibility === "public" && analyticsVisibility.current !== "public") track("visualisation_published", { visualisation_id: visualisation.id });
+          analyticsVisibility.current = document.visibility;
+          confirmedSave(visualisation.id, document.visibility);
           router.refresh();
         },
         async (thumbnailSignal) => {
@@ -477,6 +495,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         .single();
 
       if (error || !data) throw new Error(error?.message ?? "Could not fork");
+      track("visualisation_forked", { visualisation_id: data.id, source_id: visualisation.id });
 
       // Hard navigation: the editor needs a fresh document to claim the engine.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination

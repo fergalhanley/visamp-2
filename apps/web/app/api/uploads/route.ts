@@ -1,3 +1,4 @@
+import { registerOperation, serverEvent } from "@/lib/analytics/server";
 import { randomUUID } from "node:crypto";
 import { signMasterUpload } from "@/lib/hosted-audio/r2";
 import {
@@ -180,6 +181,8 @@ export async function POST(request: Request) {
         );
       throw admission.error;
     }
+    await registerOperation(request, userId, id, "upload");
+    await serverEvent(request, userId, "track_upload_started", { upload_id: id, artist_id: artistId, bytes }, `upload-started:${id}`);
     const current = await db
       .from("audio_uploads")
       .select("status,track_id")

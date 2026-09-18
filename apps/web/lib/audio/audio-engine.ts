@@ -347,6 +347,11 @@ class AudioEngine {
     );
   }
 
+  /** Analytics listening time excludes muted/zero-volume playback. */
+  isMediaAudible(): boolean {
+    return this.isMediaActuallyPlaying() && Boolean(this.element && !this.element.muted && this.element.volume > 0);
+  }
+
   /** Detach any media playback without tearing down the context. */
   stopFiles(): void {
     this.resetDetection();

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
+import { AnalyticsProvider } from "@/components/analytics/analytics-provider";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { EdgeGlyphs } from "@/components/chrome/edge-glyphs";
 import { TopBar } from "@/components/chrome/top-bar";
@@ -27,6 +28,7 @@ export function SessionShell({ children }: { children: ReactNode }) {
   const isPlayer = pathname === "/player" || pathname.startsWith("/vis/");
   return (
     <AuthProvider>
+      <AnalyticsProvider />
       {isPlayer ? <PlayerSession>{children}</PlayerSession> : children}
     </AuthProvider>
   );

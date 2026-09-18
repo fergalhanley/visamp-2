@@ -1,3 +1,4 @@
+import { scheduleAnalyticsFlush } from "@/lib/analytics/server";
 import { prepareMp3Upload } from "@/lib/hosted-audio/r2";
 import { InvalidAudioError } from "@/lib/hosted-audio/inspect-mp3";
 import {
@@ -132,6 +133,7 @@ export async function POST(
       }
       throw result.error;
     }
+    scheduleAnalyticsFlush();
     return completed(result.data);
   } catch (error) {
     return uploadError(error);

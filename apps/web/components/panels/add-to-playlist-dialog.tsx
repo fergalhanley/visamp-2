@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 
 import { Check, ListPlus, Loader2, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -118,6 +119,7 @@ export function AddToPlaylistDialog({
 
     if (insertError) setError(insertError.message);
     else {
+      track("playlist_item_changed", { playlist_type: "visual", playlist_id: playlistId, content_id: vis.id, action: "added" });
       window.dispatchEvent(new Event("visamp:playlists-changed"));
       await reload();
     }
@@ -144,6 +146,7 @@ export function AddToPlaylistDialog({
       return;
     }
 
+    track("playlist_created", { playlist_type: "visual", playlist_id: data.id });
     setNewTitle("");
     setBusy(null);
     await add(data.id);

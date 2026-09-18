@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 
 import { useEffect, useState, type RefObject } from "react";
 import { CodeEditor } from "@/components/editor/code-editor";
@@ -116,7 +117,7 @@ export function GenerationFailureDialog({
               <AlertDialogAction
                 variant="outline"
                 className={actionClass}
-                onClick={onEdit}
+                onClick={() => { track("generation_recovery_selected", { choice: hasAttempt ? "edit" : "acknowledge" }); onEdit(); }}
               >
                 Edit prompt · Free
               </AlertDialogAction>
@@ -124,7 +125,7 @@ export function GenerationFailureDialog({
                 variant="outline"
                 className={actionClass}
                 disabled={!source.trim()}
-                onClick={() => onAccept(source)}
+                onClick={() => { track("generation_recovery_selected", { choice: "accept" }); onAccept(source); }}
               >
                 Accept code attempt · Free
               </AlertDialogAction>
@@ -132,12 +133,14 @@ export function GenerationFailureDialog({
                 className={actionClass}
                 disabled={!canRepair}
                 onClick={() => {
-                  if (canRepair && cost !== null)
+                  if (canRepair && cost !== null) {
+                    track("generation_recovery_selected", { choice: "fix" });
                     onRepair({
                       source,
                       diagnostics: failure.diagnostics,
                       expectedCost: cost,
                     });
+                  }
                 }}
               >
                 Try to fix
@@ -146,7 +149,7 @@ export function GenerationFailureDialog({
               <AlertDialogAction
                 variant="outline"
                 className={actionClass}
-                onClick={onCancel}
+                onClick={() => { track("generation_recovery_selected", { choice: "cancel" }); onCancel(); }}
               >
                 Cancel prompt · Free
               </AlertDialogAction>
@@ -154,7 +157,7 @@ export function GenerationFailureDialog({
           </>
         ) : (
           <div className="flex justify-end border-t pt-4">
-            <AlertDialogAction onClick={onEdit}>OK</AlertDialogAction>
+            <AlertDialogAction onClick={() => { track("generation_recovery_selected", { choice: hasAttempt ? "edit" : "acknowledge" }); onEdit(); }}>OK</AlertDialogAction>
           </div>
         )}
       </AlertDialogContent>

@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Requests are tied to their filter key; stale pages never replace new results. */
@@ -38,6 +39,7 @@ export function useMusicPages<T extends { id: string }>(
         if (!response.ok)
           throw new Error(data.error ?? "Could not load music.");
         if (token !== generation.current) return;
+        if (replace && new URL(url, location.origin).searchParams.get("q")) track("search_performed", { content_type: field, result_count: data[field].length, source_panel: "audio" });
         setState((s) => {
           const items = replace ? data[field] : [...s.items, ...data[field]];
           return {

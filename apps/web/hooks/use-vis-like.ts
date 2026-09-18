@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -136,6 +137,7 @@ export function useVisLike(): VisLike {
         console.warn("[visamp] like not saved:", result.error);
         return;
       }
+      if (result.counted) track("favourite_changed", { content_type: "visualisation", content_id: pending, action: "added" });
       if (result.counted) useSessionStore.getState().countLike(pending, 1);
       setKnown({ key: `${user.id}:${pending}`, liked: true });
       window.dispatchEvent(new Event("visamp:likes-changed"));
@@ -174,6 +176,7 @@ export function useVisLike(): VisLike {
 
       // Right state, but this call did not put it there — so the optimistic
       // bump was counting a row that was already there (or already gone).
+      if (result.counted) track("favourite_changed", { content_type: "visualisation", content_id: id, action: next ? "added" : "removed" });
       if (!result.counted) useSessionStore.getState().countLike(id, undo);
       window.dispatchEvent(new Event("visamp:likes-changed"));
     });

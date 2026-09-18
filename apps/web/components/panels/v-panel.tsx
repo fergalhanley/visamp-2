@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { useChromeStore } from "@/lib/store/chrome";
@@ -102,6 +103,12 @@ export function VPanel() {
     [publicVis, needle],
   );
 
+  const searchCount = activeTab === "mine" ? myFiltered.length : activeTab === "favourites" ? favouritesFiltered.length : visualisations.length;
+  useEffect(() => {
+    if (!needle || activeTab === "playlists") return;
+    const timer = setTimeout(() => track("search_performed", { content_type: "visualisation", result_count: searchCount, source_panel: "visual" }), 300);
+    return () => clearTimeout(timer);
+  }, [needle, activeTab, searchCount]);
   return (
     <Panel side="v" label="Browse">
       {/* E3.1 — the mark, the Artists link and the account control used to

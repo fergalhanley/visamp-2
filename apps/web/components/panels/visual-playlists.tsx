@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@/lib/analytics/client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { creatorFromProfile, visualisationFromRow } from "@/lib/visualisations";
@@ -98,10 +99,11 @@ export function VisualPlaylists({
     setBusy(true);
     setError("");
     try {
-      const { error } = await createClient()
+      const { data, error } = await createClient()
         .from("playlists")
-        .insert({ owner_id: userId, title: title.trim() });
+        .insert({ owner_id: userId, title: title.trim() }).select("id").single();
       if (error) throw error;
+      track("playlist_created", { playlist_type: "visual", playlist_id: data?.id });
       setTitle("");
       setVersion((v) => v + 1);
     } catch (e) {

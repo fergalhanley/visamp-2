@@ -1,3 +1,4 @@
+import { serverEvent } from "@/lib/analytics/server";
 import {
   sameOrigin,
   uploadError,
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
     // to read.
     if (error) {
       if (error.code === "23505" && error.message === "This artist name has already been claimed.") {
+        await serverEvent(request, userId, "artist_name_conflict");
         let artist: { name?: unknown; slug?: unknown } | null = null;
         try { artist = JSON.parse(error.details); } catch { /* Do not expose raw database details. */ }
         if (artist && typeof artist.name === "string" && typeof artist.slug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(artist.slug)) {
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
       return Response.json({ error: readable }, { status: 409 });
     }
 
+    await serverEvent(request, userId, "artist_created", { artist_id: data.id }, `artist-created:${data.id}`);
     return Response.json(
       { artist: { id: data.id, name: data.name, slug: data.slug } },
       { headers: { "Cache-Control": "private, no-store" } },

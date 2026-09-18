@@ -1,3 +1,4 @@
+import { registerOperation, serverEvent } from "@/lib/analytics/server";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
         livemode,
       });
     if (error) throw error;
+    await registerOperation(request, user.id, id, "purchase");
     const session = await stripe.checkout.sessions.create(
       {
         mode: "payment",
@@ -81,8 +83,10 @@ export async function POST(request: Request) {
       .update({ stripe_session_id: session.id })
       .eq("id", id);
     if (saved.error) throw saved.error;
+    await serverEvent(request, user.id, "checkout_started", { checkout_id: session.id, amount_cents: cents, currency: "usd", credits }, `checkout:${session.id}`);
     return Response.json({ url: session.url });
   } catch (error) {
+    await serverEvent(request, user.id, "checkout_failed", { failure_category: "checkout_unavailable" });
     console.error(
       "Credit checkout failed",
       error instanceof Error ? error.message : "Database error",

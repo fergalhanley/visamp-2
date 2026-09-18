@@ -1,3 +1,4 @@
+import { serverEvent } from "@/lib/analytics/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { error } = code
+  const { data, error } = code
     ? await supabase.auth.exchangeCodeForSession(code)
     : await supabase.auth.verifyOtp({ type: type!, token_hash: tokenHash! });
 
@@ -36,5 +37,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (data?.user) {
+    const method = data.user.app_metadata.provider === "google" ? "google" : data.user.app_metadata.provider === "github" ? "github" : "email";
+    if (type !== "recovery") await serverEvent(request, data.user.id, "login_completed", { method });
+    if (type === "signup" || (code && !safeNext.startsWith("/auth/reset-password")))
+      await serverEvent(request, data.user.id, "signup_completed", { method: "email" }, `signup:${data.user.id}`);
+  }
   return NextResponse.redirect(`${origin}${safeNext}`);
 }

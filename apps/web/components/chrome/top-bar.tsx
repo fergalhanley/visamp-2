@@ -161,7 +161,7 @@ export function TopBar({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Open navigation"
-              className="cursor-pointer text-muted-foreground transition hover:text-foreground xl:hidden"
+              className="cursor-pointer text-muted-foreground transition hover:text-foreground"
             >
               <Menu className="h-5 w-5" />
             </DropdownMenuTrigger>
@@ -184,6 +184,7 @@ export function TopBar({
                   {link.external && <span className="sr-only"> (new tab)</span>}
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuItem onClick={() => window.dispatchEvent(new Event("visamp:analytics-preferences"))}>Analytics preferences</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
