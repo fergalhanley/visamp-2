@@ -1002,6 +1002,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Tables"]["audio_uploads"]["Row"][]
       }
+      music_artist_name_key: {
+        Args: { p_name: string }
+        Returns: string
+      }
       claim_music_artist: {
         Args: { p_user_id: string; p_name: string }
         Returns: Database["public"]["Tables"]["music_artists"]["Row"]

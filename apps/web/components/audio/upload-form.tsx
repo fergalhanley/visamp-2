@@ -11,6 +11,7 @@ import {
   createFileHasher,
   runUploadQueue,
 } from "@/lib/hosted-audio/upload-queue";
+import { ClaimArtistForm, type UploadArtist } from "./claim-artist-form";
 import { TrackPreview } from "./track-preview";
 import { AccountMenu } from "@/components/auth/account-menu";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -22,7 +23,7 @@ import {
 } from "@/lib/hosted-audio/read-tags";
 
 type UploadData = {
-  artists: { id: string; name: string; slug: string }[];
+  artists: UploadArtist[];
   remainingToday: number;
   uploads: {
     id: string;
@@ -47,6 +48,7 @@ interface Row {
   title: string;
   tags: TrackTags | null;
   uploadId: string;
+  artistId: string | null;
   admitted: boolean;
   transferred: boolean;
   trackId: string | null;
@@ -90,6 +92,7 @@ function UserUploads() {
   const [data, setData] = useState<UploadData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [artistId, setArtistId] = useState("");
+  const [addingArtist, setAddingArtist] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [running, setRunning] = useState(false);
@@ -102,13 +105,15 @@ function UserUploads() {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const active = useRef(true);
   const seq = useRef(0);
+  const refreshSequence = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestSequence = ++refreshSequence.current;
     try {
       const response = await fetch("/api/uploads", { cache: "no-store" });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      if (active.current) {
+      if (active.current && requestSequence === refreshSequence.current) {
         setData(result);
         setError(null);
       }
@@ -168,6 +173,7 @@ function UserUploads() {
         key: `${Date.now()}-${seq.current}`,
         file,
         uploadId: crypto.randomUUID(),
+        artistId: null,
         admitted: false,
         transferred: false,
         trackId: null,
@@ -212,7 +218,9 @@ function UserUploads() {
   async function uploadRow(row: Row, artist: string) {
     if (!active.current || cancelled.current.has(row.key))
       throw new Error("Upload cancelled.");
+    const uploadArtist = row.artistId ?? artist;
     patch(row.key, {
+      artistId: uploadArtist,
       state: "preparing",
       error: null,
       percent: row.transferred ? 100 : 0,
@@ -228,7 +236,7 @@ function UserUploads() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: row.title.trim(),
-        artistId: artist,
+        artistId: uploadArtist,
         fileName: row.file.name,
         bytes: row.file.size,
         sha256,
@@ -379,7 +387,18 @@ function UserUploads() {
       </div>
     );
 
-  if (!data.artists.length) return <ClaimArtistForm onClaimed={refresh} />;
+  if (!data.artists.length || addingArtist) return (
+    <ClaimArtistForm
+      onClaimed={(artist) => {
+        refreshSequence.current += 1;
+        setData((current) => current ? { ...current, artists: [...current.artists.filter((item) => item.id !== artist.id), artist].sort((a, b) => a.name.localeCompare(b.name)) } : current);
+        setArtistId(artist.id);
+        setAgreed(false);
+        setAddingArtist(false);
+      }}
+      onCancel={data.artists.length ? () => setAddingArtist(false) : undefined}
+    />
+  );
 
   const selected = artistId || data.artists[0]!.id;
 
@@ -400,26 +419,23 @@ function UserUploads() {
   return (
     <>
       <form onSubmit={start} className="site-form">
-        {data.artists.length > 1 ? (
-          <label>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="min-w-0 flex-1">
             Artist
             <select
               value={selected}
-              onChange={(event) => setArtistId(event.target.value)}
+              onChange={(event) => { setArtistId(event.target.value); setAgreed(false); }}
               disabled={running}
             >
               {data.artists.map((artist) => (
-                <option key={artist.id} value={artist.id}>
-                  {artist.name}
-                </option>
+                <option key={artist.id} value={artist.id}>{artist.name}</option>
               ))}
             </select>
           </label>
-        ) : (
-          <p>
-            Uploading as <strong>{data.artists[0]!.name}</strong>.
-          </p>
-        )}
+          <button type="button" className="site-button secondary" disabled={running} onClick={() => setAddingArtist(true)}>
+            Add artist
+          </button>
+        </div>
 
         {/* The button inside is the accessible control; this is only a drop target. */}
         <div
@@ -679,76 +695,5 @@ function UserUploads() {
         )}
       </section>
     </>
-  );
-}
-
-/**
- * VIS-83 — the way in. This used to say an admin had to link your account
- * before you could do anything, which was a dead end reached by everybody who
- * had just signed up to upload music.
- *
- * Claiming links the uploader to an artist; the accepted agreement authorizes
- * publication as soon as each recording has been verified.
- */
-function ClaimArtistForm({ onClaimed }: { onClaimed: () => Promise<void> }) {
-  const [name, setName] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (pending) return;
-
-    setPending(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/uploads/artist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
-      // Straight into the upload form, which the refreshed artist list unlocks.
-      await onClaimed();
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not create your artist.",
-      );
-      setPending(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="site-form">
-      <h2>What do you release under?</h2>
-      <p>
-        Your artist name is what listeners see beside your tracks. You can start
-        uploading straight away. Accept the upload agreement and your music
-        becomes available as soon as each upload is verified.
-      </p>
-      <label>
-        Artist name
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={120}
-          required
-          disabled={pending}
-          placeholder="e.g. Deep Fixation"
-          autoComplete="off"
-        />
-      </label>
-      {error && <p role="alert">{error}</p>}
-      <button
-        className="site-button primary"
-        type="submit"
-        disabled={pending || !name.trim()}
-      >
-        {pending ? "Creating…" : "Create artist profile"}
-      </button>
-    </form>
   );
 }

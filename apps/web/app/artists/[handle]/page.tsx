@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { TrackPreview } from "@/components/audio/track-preview";
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter } from "@/components/site/site-footer";
@@ -9,25 +10,11 @@ import { loadArtist, type ArtistProfile } from "@/lib/artists/server";
 /** `music_artists_slug_format`. Anything else cannot be an artist. */
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/**
- * Resolve as an artist first, then fall back to the legacy creator link.
- *
- * VIS-6 split the namespace, and `/artists/<handle>` is the one path where the
- * two senses of "artist" still meet. Three outcomes, and the difference between
- * the last two matters:
- *
- * - a slug the viewer may see: the artist page;
- * - a slug that is nobody's artist: an old `/artists/<username>` creator link,
- *   redirected to its new home;
- * - a slug that *is* an artist the viewer may not see: 404, not a redirect.
- *   Sending it to `/creators` would be a worse lie, and no more private —
- *   the claim flow already discloses which slugs are taken by suffixing.
- */
+/** Resolve artist names before the legacy creator URL fallback. */
 async function resolve(handle: string): Promise<ArtistProfile> {
   const artist = SLUG.test(handle) ? await loadArtist(handle) : null;
 
   if (!artist) permanentRedirect(`/creators/${encodeURIComponent(handle)}`);
-  if (!artist.isPublic && !artist.viewerIsClaimant) notFound();
 
   return artist;
 }
@@ -39,14 +26,11 @@ export async function generateMetadata({
   if (!SLUG.test(handle)) return { title: "Not found" };
 
   const artist = await loadArtist(handle);
-  if (!artist || (!artist.isPublic && !artist.viewerIsClaimant))
-    return { title: "Not found" };
+  if (!artist) return { title: "Not found" };
 
   return {
     title: artist.name,
     description: artist.bio ?? `Music by ${artist.name} on VisAmp.`,
-    // A page only its claimant can see must not be indexed if it ever leaks.
-    robots: artist.isPublic ? undefined : { index: false, follow: false },
   };
 }
 
@@ -65,13 +49,6 @@ export default async function ArtistPage({
     <div className="site-page">
       <TopBar />
       <main className="site-content max-w-3xl">
-        {!artist.isPublic && (
-          <p className="site-badge">
-            Only you can see this — your page goes live with your first approved
-            track
-          </p>
-        )}
-
         <div className="mt-6 flex flex-wrap items-center gap-6">
           {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URL; next/image cannot use a remote loader here */}
           <img
@@ -144,14 +121,13 @@ export default async function ArtistPage({
           <div className="gallery-empty">
             <h3>Nothing live yet.</h3>
             <p>
-              Upload your MP3s and accept the upload agreement. Each track
-              appears here as soon as its upload is verified.
+              This artist hasn’t published any music yet.
             </p>
-            <a className="site-button secondary" href="/upload">
-              Upload music
-            </a>
           </div>
         )}
+        <p className="mt-10 text-sm">
+          Is this your artist name? <Link href="/dispute">Dispute this artist claim</Link>.
+        </p>
       </main>
       <SiteFooter />
     </div>

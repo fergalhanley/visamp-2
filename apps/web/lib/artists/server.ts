@@ -4,7 +4,6 @@ import { signMediaObject } from "@/lib/hosted-audio/r2";
 import { listHostedTracks } from "@/lib/hosted-audio/server";
 import type { HostedTrackSummary } from "@/lib/hosted-audio/types";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 
 /**
  * VIS-6 — an artist is the music act, not the person. It may have no account
@@ -24,10 +23,7 @@ export interface ArtistProfile {
    * work is all private.
    */
   creatorUsername: string | null;
-  /** Whether anyone but the claimant may see this page. */
-  isPublic: boolean;
-  /** Whether the viewer is the claimant, and so may see it regardless. */
-  viewerIsClaimant: boolean;
+
 }
 
 export interface ArtistCard {
@@ -60,24 +56,7 @@ async function avatarUrl(key: string | null): Promise<string | null> {
   }
 }
 
-async function viewerId(): Promise<string | null> {
-  const { data } = await (await createClient()).auth.getUser();
-  return data.user?.id ?? null;
-}
-
-/**
- * VIS-84 — an artist page is public once the artist has something anyone can
- * actually listen to, and before that is visible only to its claimant.
- *
- * Derived rather than stored, so there is no second source of truth to fall out
- * of step with the tracks themselves. "Live" here means what `listHostedTracks`
- * means by it — status `live` *and* a licence that still grants playback — so a
- * page never goes public with nothing playable on it.
- *
- * This is what makes unverified self-serve claiming safe: a claim grants the
- * ability to upload, not a public identity, because the page appears on the
- * first verified upload under the accepted agreement.
- */
+/** Full artist profiles are public immediately, even before music is live. */
 export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
   const { data: artist, error } = await admin()
     .from("music_artists")
@@ -89,20 +68,10 @@ export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
   if (!artist) return null;
 
   const tracks = await listHostedTracks(artist.slug);
-  const isPublic = tracks.length > 0;
-
-  // Returned either way, so the caller can tell "no such artist" from "not
-  // yours to see" — the first is somebody's old creator link and redirects,
-  // the second is a 404.
-  const viewer = isPublic ? null : await viewerId();
-  const viewerIsClaimant = Boolean(
-    artist.claimed_by && viewer && viewer === artist.claimed_by,
-  );
-
   // Only worth linking when there is something at the other end. A claimant
   // with no public visualisations has a creator profile that would 404.
   let creatorUsername: string | null = null;
-  if (artist.claimed_by && isPublic) {
+  if (artist.claimed_by) {
     const { data: profile } = await admin()
       .from("profiles")
       .select("username, vis_count")
@@ -121,17 +90,14 @@ export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
     avatarUrl: await avatarUrl(artist.avatar_key),
     tracks,
     creatorUsername,
-    isPublic,
-    viewerIsClaimant,
   };
 }
 
 /**
  * Every artist with something playable, busiest first.
  *
- * Built from the tracks rather than from `music_artists`, because "has a live
- * track" is the only thing that makes an artist public and the track list
- * already applies the licence check. Artists with nothing live are absent by
+ * Built from the tracks rather than from `music_artists`, because this directory
+ * lists playable music and the track list already applies the licence check. Artists with nothing live are absent by
  * construction rather than by a filter that could be forgotten.
  */
 export async function listPublicArtists(): Promise<ArtistCard[]> {

@@ -15,7 +15,7 @@ begin;
 create or replace function pg_temp.check(p_condition boolean, p_description text)
 returns void language plpgsql as $$
 begin
-  if not p_condition then
+  if p_condition is distinct from true then
     raise exception 'FAILED: %', p_description;
   end if;
   raise notice 'ok — %', p_description;
@@ -62,17 +62,38 @@ begin
     v_first.claimed_by = 'aaaaaaaa-0000-4000-8000-000000000001',
     'the claimant owns the artist');
 
-  -- VIS-7 — one self-claimed artist per user for now.
+  -- VIS-130 replaces the temporary one-artist restriction.
+  v_second := public.claim_music_artist('aaaaaaaa-0000-4000-8000-000000000001', 'Second Act');
+  perform pg_temp.check(v_second.id<>v_first.id and v_second.claimed_by=v_first.claimed_by,
+    'one user may claim multiple artists');
+  v_third := public.claim_music_artist('aaaaaaaa-0000-4000-8000-000000000001', ' deep  FIXATION ');
+  perform pg_temp.check(v_third.id=v_first.id, 'same-owner repeats return the existing artist');
   perform pg_temp.check(
-    pg_temp.claim_error('aaaaaaaa-0000-4000-8000-000000000001', 'Second Act')
-      = 'You already have an artist profile.',
-    'a second self-claim is refused');
-
-  -- Two people may release under the same name; the web address disambiguates.
-  v_second := public.claim_music_artist(
-    'aaaaaaaa-0000-4000-8000-000000000002', 'Deep Fixation');
-  perform pg_temp.check(v_second.slug = 'deep-fixation-2', 'a taken slug takes a suffix');
-  perform pg_temp.check(v_second.name = 'Deep Fixation', 'the display name may repeat');
+    pg_temp.claim_error('aaaaaaaa-0000-4000-8000-000000000002', 'DEEP fixation')
+      = 'This artist name has already been claimed.', 'case-insensitive duplicate by another user is refused');
+  perform pg_temp.check(
+    pg_temp.claim_error('aaaaaaaa-0000-4000-8000-000000000002', E'Deep\tFixation')
+      = 'This artist name has already been claimed.', 'whitespace-normalized duplicate is refused');
+  -- Distinct display names may normalize to the same URL slug.
+  v_second := public.claim_music_artist('aaaaaaaa-0000-4000-8000-000000000002', 'Deep-Fixation');
+  perform pg_temp.check(v_second.slug='deep-fixation-2', 'distinct name with colliding slug gets a suffix');
+  begin
+    insert into public.music_artists(name,slug) values('deep fixation','distinct-url');
+    raise exception 'FAILED: direct duplicate insert accepted';
+  exception when unique_violation then
+    raise notice 'ok — unique index prevents direct duplicate names';
+  end;
+  begin
+    perform public.claim_music_artist('aaaaaaaa-0000-4000-8000-000000000002', 'Deep Fixation');
+    raise exception 'FAILED: duplicate accepted';
+  exception when unique_violation then
+    declare v_detail text;
+    begin
+      get stacked diagnostics v_detail = pg_exception_detail;
+      perform pg_temp.check((v_detail::jsonb)->>'slug'='deep-fixation', 'conflict includes the existing artist link');
+      perform pg_temp.check(not (v_detail::jsonb ? 'claimed_by'), 'conflict does not expose claimant identity');
+    end;
+  end;
 
   -- A name with nothing usable in it still has to produce a valid slug rather
   -- than failing the format check.

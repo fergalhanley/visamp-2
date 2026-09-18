@@ -8,18 +8,7 @@ import { readableRpcError } from "@/lib/hosted-audio/rpc-errors";
 /** Matches the column bound; the RPC re-checks, this only saves a round trip. */
 const MAX_NAME = 120;
 
-/**
- * VIS-83 — create the caller's own artist and claim it, so uploading no longer
- * waits on an admin running SQL.
- *
- * Deliberately unverified. A claim grants an upload capability, not a public
- * identity: the artist's page stays private to its claimant until the artist
- * has a live track, which needs the licence an admin still activates by hand.
- *
- * `music_artists` is revoked from `authenticated`, so the insert goes through
- * `claim_music_artist` as `service_role` — the same shape as `begin_audio_upload`,
- * where the server establishes who the user is and the function does the rest.
- */
+/** The authenticated server owns claim identity; artist names are unique in SQL. */
 export async function POST(request: Request) {
   try {
     sameOrigin(request);
@@ -49,6 +38,13 @@ export async function POST(request: Request) {
     // function did not raise on purpose is infrastructure, and is not theirs
     // to read.
     if (error) {
+      if (error.code === "23505" && error.message === "This artist name has already been claimed.") {
+        let artist: { name?: unknown; slug?: unknown } | null = null;
+        try { artist = JSON.parse(error.details); } catch { /* Do not expose raw database details. */ }
+        if (artist && typeof artist.name === "string" && typeof artist.slug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(artist.slug)) {
+          return Response.json({ error: error.message, code: "artist_name_claimed", artist: { name: artist.name, slug: artist.slug } }, { status: 409, headers: { "Cache-Control": "private, no-store" } });
+        }
+      }
       const readable = readableRpcError(error);
       if (!readable) throw error;
       return Response.json({ error: readable }, { status: 409 });
