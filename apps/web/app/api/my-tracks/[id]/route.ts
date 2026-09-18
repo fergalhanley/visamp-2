@@ -1,3 +1,4 @@
+import { processHostedAudioDeletions } from "@/lib/hosted-audio/deletions";
 import {
   boundedText,
   musicBody,
@@ -77,6 +78,31 @@ export async function POST(
       throw error ?? new MusicError(404, "Editable track not found.");
     }
     return musicResponse({ ok: true });
+  } catch (error) {
+    return musicError(error);
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await musicBody(request);
+    const { id } = await params;
+    if (!UUID.test(id)) throw new MusicError(404, "Track not found.");
+    const { db, userId } = await musicIdentity();
+    const { error } = await db.rpc("withdraw_owned_track", {
+      p_track_id: id,
+      p_user_id: userId!,
+    });
+    if (error?.code === "42501") throw new MusicError(404, "Track not found.");
+    if (error) throw error;
+    // Withdrawal is committed. Failed physical deletes remain in the retryable outbox.
+    await processHostedAudioDeletions({ trackId: id }).catch((error) =>
+      console.error("[track-removal]", error),
+    );
+    return musicResponse({ removed: true });
   } catch (error) {
     return musicError(error);
   }

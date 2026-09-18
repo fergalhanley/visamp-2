@@ -352,27 +352,23 @@ export function VisampCanvas({
                 : {}),
             }}
           >
-            <div
-              role={
-                assetStatus === "error" || activationError ? "alert" : "status"
-              }
-              style={{
-                pointerEvents: "auto",
-                maxWidth: "90%",
-                padding: "12px 16px",
-                borderRadius: 8,
-                color: "white",
-                background: "rgba(0,0,0,.8)",
-                fontSize: 14,
-              }}
-              onClick={(event) => event.stopPropagation()}
-              onDoubleClick={(event) => event.stopPropagation()}
-              onPointerDown={(event) => event.stopPropagation()}
-            >
-              {assetStatus === "loading"
-                ? "Loading assets…"
-                : "Could not load visualisation assets."}
-              {assetStatus !== "loading" && (
+            {(assetStatus !== "loading" || activationError) && (
+              <div
+                role="alert"
+                style={{
+                  pointerEvents: "auto",
+                  maxWidth: "90%",
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  color: "white",
+                  background: "rgba(0,0,0,.8)",
+                  fontSize: 14,
+                }}
+                onClick={(event) => event.stopPropagation()}
+                onDoubleClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                Could not load visualisation assets.
                 <>
                   <p style={{ overflowWrap: "anywhere" }}>
                     {activationError || assetPreparation?.missing.join(", ")}
@@ -388,8 +384,8 @@ export function VisampCanvas({
                     Retry
                   </button>
                 </>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>

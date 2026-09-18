@@ -80,7 +80,7 @@ export function ClaimArtistForm({ onClaimed, onCancel }: {
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-wrap">
             <AlertDialogCancel>Choose another name</AlertDialogCancel>
-            {conflict && <Link className="site-button secondary" href={`/artists/${encodeURIComponent(conflict.slug)}`}>View artist</Link>}
+            {conflict && <Link className="site-button secondary" href={`/artists/${encodeURIComponent(conflict.slug)}`} target="_blank" rel="noopener noreferrer">View artist</Link>}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -16,11 +16,9 @@ export async function GET(request: Request) {
     const trackId = new URL(request.url).searchParams.get("track");
     if (trackId && !UUID.test(trackId))
       throw new MusicError(400, "Invalid track.");
-    const { data, error } = await db
-      .from("music_playlists")
-      .select("id,title")
-      .eq("owner_id", userId!)
-      .order("created_at", { ascending: false });
+    const { data, error } = await db.rpc("music_playlist_summaries", {
+      p_user_id: userId!,
+    });
     if (error) throw error;
     const ids = (data ?? []).map((p) => p.id);
     const members =
@@ -34,7 +32,9 @@ export async function GET(request: Request) {
     if (members.error) throw members.error;
     return musicResponse({
       playlists: (data ?? []).map((p) => ({
-        ...p,
+        id: p.id,
+        title: p.title,
+        trackCount: p.track_count,
         contains: members.data?.some((m) => m.playlist_id === p.id) ?? false,
       })),
     });

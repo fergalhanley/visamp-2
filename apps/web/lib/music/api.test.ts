@@ -7,12 +7,16 @@ const m = vi.hoisted(() => ({
   rpc: vi.fn(),
   image: vi.fn(),
   rate: vi.fn(),
+  deletions: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ auth: { getUser: m.user } }),
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ from: m.from, rpc: m.rpc }),
+}));
+vi.mock("@/lib/hosted-audio/deletions", () => ({
+  processHostedAudioDeletions: m.deletions,
 }));
 vi.mock("@/lib/music/artwork", () => ({ uploadArtwork: m.image }));
 vi.mock("@/lib/rate-limit", () => ({ checkApiRateLimit: m.rate }));
@@ -22,7 +26,10 @@ import {
   PATCH as artist,
   POST as artistImage,
 } from "@/app/api/my-artists/[id]/route";
-import { PATCH as track } from "@/app/api/my-tracks/[id]/route";
+import {
+  PATCH as track,
+  DELETE as removeTrack,
+} from "@/app/api/my-tracks/[id]/route";
 const owner = "11111111-1111-4111-8111-111111111111";
 const id = "22222222-2222-4222-8222-222222222222";
 function query(result: unknown) {
@@ -56,6 +63,7 @@ function request(path: string, body: unknown, method = "POST") {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  m.deletions.mockResolvedValue({ completed: 1, failed: 0 });
   m.user.mockResolvedValue({ data: { user: { id: owner } }, error: null });
   m.rate.mockResolvedValue({ allowed: true });
   m.rpc.mockResolvedValue({
@@ -198,4 +206,26 @@ it("rejects unsafe website URLs", async () => {
   );
   expect(response.status).toBe(400);
   expect(q.update).not.toHaveBeenCalled();
+});
+
+it("withdraws tracks using the authenticated owner and processes queued assets", async () => {
+  const response = await removeTrack(
+    request(`/api/my-tracks/${id}`, { userId: id }, "DELETE"),
+    { params: Promise.resolve({ id }) },
+  );
+  expect(response.status).toBe(200);
+  expect(m.rpc).toHaveBeenCalledWith("withdraw_owned_track", {
+    p_track_id: id,
+    p_user_id: owner,
+  });
+  expect(m.deletions).toHaveBeenCalledWith({ trackId: id });
+});
+it("cannot remove another owner's track or delete its assets", async () => {
+  m.rpc.mockResolvedValue({ error: { code: "42501" } });
+  const response = await removeTrack(
+    request(`/api/my-tracks/${id}`, {}, "DELETE"),
+    { params: Promise.resolve({ id }) },
+  );
+  expect(response.status).toBe(404);
+  expect(m.deletions).not.toHaveBeenCalled();
 });

@@ -18,7 +18,7 @@ export function MusicPlaylistDialog({
   close: () => void;
 }) {
   const [playlists, setPlaylists] = useState<
-    { id: string; title: string; contains: boolean }[]
+    { id: string; title: string; trackCount: number; contains: boolean }[]
   >([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
@@ -53,7 +53,10 @@ export function MusicPlaylistDialog({
           playlist: { id: string; title: string };
         }>("/api/music/collections", { action: "create", title });
         playlistId = playlist.id;
-        setPlaylists((items) => [{ ...playlist, contains: false }, ...items]);
+        setPlaylists((items) => [
+          { ...playlist, trackCount: 0, contains: false },
+          ...items,
+        ]);
         setTitle("");
         collectionChanged();
       }
@@ -94,7 +97,8 @@ export function MusicPlaylistDialog({
                   onClick={() => void add(p.id)}
                   className="w-full rounded px-2 py-2 text-left text-sm hover:bg-foreground/10 disabled:opacity-50"
                 >
-                  {p.title}
+                  {p.title} - {p.trackCount}{" "}
+                  {p.trackCount === 1 ? "track" : "tracks"}
                   {p.contains ? " · Added" : ""}
                 </button>
               </li>

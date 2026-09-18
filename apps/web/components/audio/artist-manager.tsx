@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { ClaimArtistForm } from "./claim-artist-form";
@@ -237,7 +244,12 @@ function ArtistDetails({
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2>Artist profile</h2>
-          <Link href={`/artists/${artist.slug}`} className="text-sm underline">
+          <Link
+            href={`/artists/${artist.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm underline"
+          >
             View public profile
           </Link>
         </div>
@@ -285,7 +297,18 @@ function ArtistDetails({
       </form>
       <h2 className="mt-10">Tracks & artwork</h2>
       {tracks.items.map((track) => (
-        <TrackDetails key={track.id} track={track} />
+        <TrackDetails
+          key={track.id}
+          track={track}
+          artistId={artist.id}
+          onRemoved={() =>
+            tracks.updateItems((items) =>
+              items.map((item) =>
+                item.id === track.id ? { ...item, status: "withdrawn" } : item,
+              ),
+            )
+          }
+        />
       ))}
       {!tracks.loading && !tracks.items.length && !tracks.error && (
         <p>
@@ -309,7 +332,16 @@ function ArtistDetails({
     </>
   );
 }
-function TrackDetails({ track }: { track: Track }) {
+function TrackDetails({
+  track,
+  artistId,
+  onRemoved,
+}: {
+  track: Track;
+  artistId: string;
+  onRemoved: () => void;
+}) {
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [title, setTitle] = useState(track.title);
   const [album, setAlbum] = useState(track.album ?? "");
   const [busy, setBusy] = useState(false);
@@ -327,6 +359,21 @@ function TrackDetails({ track }: { track: Track }) {
       setMessage("Track saved.");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Could not save track.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove() {
+    setBusy(true);
+    setMessage("");
+    try {
+      await musicRequest(`/api/my-tracks/${track.id}`, {}, "DELETE");
+      onRemoved();
+      setConfirmRemove(false);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not remove track.",
+      );
     } finally {
       setBusy(false);
     }
@@ -374,8 +421,59 @@ function TrackDetails({ track }: { track: Track }) {
           >
             {busy ? "Saving…" : "Save track"}
           </button>
-          {message && <p role="status">{message}</p>}
+          <button
+            type="button"
+            disabled={busy}
+            className="site-button secondary text-destructive"
+            onClick={() => setConfirmRemove(true)}
+          >
+            Remove track
+          </button>
+          {message && !confirmRemove && <p role="status">{message}</p>}
+          <Dialog
+            open={confirmRemove}
+            onOpenChange={(open) => {
+              if (!busy) setConfirmRemove(open);
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Remove {track.title}?</DialogTitle>
+                <DialogDescription>
+                  This track will no longer be available to listeners and will
+                  be removed from favourites and playlists. You can upload the
+                  recording again afterwards.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="site-button secondary"
+                  onClick={() => setConfirmRemove(false)}
+                >
+                  Keep track
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="site-button secondary text-destructive"
+                  onClick={() => void remove()}
+                >
+                  {busy ? "Removing…" : "Remove track"}
+                </button>
+              </div>
+              {message && <p role="alert">{message}</p>}
+            </DialogContent>
+          </Dialog>
         </>
+      ) : track.status === "withdrawn" ? (
+        <p>
+          Removed.{" "}
+          <Link className="underline" href={`/upload?artist=${artistId}`}>
+            Re-upload track
+          </Link>
+        </p>
       ) : (
         <p>This track is not currently editable.</p>
       )}

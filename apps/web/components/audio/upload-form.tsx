@@ -47,6 +47,9 @@ interface Row {
   file: File;
   title: string;
   tags: TrackTags | null;
+  album: string;
+  albumEdited: boolean;
+  artwork: File | null;
   uploadId: string;
   artistId: string | null;
   admitted: boolean;
@@ -75,7 +78,11 @@ const rowLabel: Record<RowState, string> = {
   failed: "Failed",
 };
 
-export function UploadForm() {
+export function UploadForm({
+  initialArtistId = "",
+}: {
+  initialArtistId?: string;
+}) {
   const { user, loading } = useAuth();
   if (loading) return <p className="mt-8">Checking your account…</p>;
   if (!user)
@@ -86,12 +93,12 @@ export function UploadForm() {
         <AccountMenu />
       </div>
     );
-  return <UserUploads key={user.id} />;
+  return <UserUploads key={user.id} initialArtistId={initialArtistId} />;
 }
-function UserUploads() {
+function UserUploads({ initialArtistId }: { initialArtistId: string }) {
   const [data, setData] = useState<UploadData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [artistId, setArtistId] = useState("");
+  const [artistId, setArtistId] = useState(initialArtistId);
   const [addingArtist, setAddingArtist] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [agreed, setAgreed] = useState(false);
@@ -180,6 +187,9 @@ function UserUploads() {
         trackStatus: null,
         title: titleFromFileName(file.name),
         tags: null,
+        album: "",
+        albumEdited: false,
+        artwork: null,
         state: "queued",
         percent: 0,
         error: null,
@@ -201,6 +211,9 @@ function UserUploads() {
             ? {
                 ...existing,
                 tags,
+                album: existing.albumEdited
+                  ? existing.album
+                  : (tags.album ?? ""),
                 // Only overwrite the fallback title, never something typed.
                 title:
                   existing.title === titleFromFileName(row.file.name) &&
@@ -248,7 +261,10 @@ function UserUploads() {
     const started = await response.json();
     if (!response.ok) throw new Error(started.error);
     patch(row.key, { admitted: true });
-    if (started.status === "completed") return finishRow(row);
+    if (started.status === "completed") {
+      patch(row.key, { transferred: true });
+      return finishRow(row);
+    }
     if (!active.current || cancelled.current.has(row.key)) {
       await cancelRow(row);
       throw new Error("Upload cancelled.");
@@ -309,6 +325,33 @@ function UserUploads() {
     if (result.status !== "completed")
       throw new Error("Upload is not complete. Please retry.");
     patch(row.key, {
+      trackId: result.trackId,
+      trackStatus: result.trackStatus,
+    });
+    if (!active.current || cancelled.current.has(row.key)) return;
+    try {
+      if (row.albumEdited || row.tags?.album) {
+        const details = await fetch(`/api/my-tracks/${result.trackId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: row.title, album: row.album }),
+        });
+        if (!details.ok) throw new Error((await details.json()).error);
+      }
+      if (row.artwork) {
+        const artwork = await fetch(`/api/my-tracks/${result.trackId}`, {
+          method: "POST",
+          headers: { "Content-Type": row.artwork.type },
+          body: row.artwork,
+        });
+        if (!artwork.ok) throw new Error((await artwork.json()).error);
+      }
+    } catch (cause) {
+      throw new Error(
+        `Music uploaded, but its details could not be saved. Retry to finish without uploading the MP3 again. ${cause instanceof Error ? cause.message : ""}`,
+      );
+    }
+    patch(row.key, {
       state: "done",
       trackId: result.trackId,
       trackStatus: result.trackStatus,
@@ -332,7 +375,8 @@ function UserUploads() {
 
   async function uploadRows(pending: Row[]) {
     if (busy.current || !data || !agreed || !pending.length) return;
-    const artist = artistId || data.artists[0]?.id;
+    const artist =
+      data.artists.find((a) => a.id === artistId)?.id || data.artists[0]?.id;
     if (!artist) return;
     if (pending.some((row) => !row.title.trim())) {
       setNotice("Every track needs a title before it can be uploaded.");
@@ -387,20 +431,35 @@ function UserUploads() {
       </div>
     );
 
-  if (!data.artists.length || addingArtist) return (
-    <ClaimArtistForm
-      onClaimed={(artist) => {
-        refreshSequence.current += 1;
-        setData((current) => current ? { ...current, artists: [...current.artists.filter((item) => item.id !== artist.id), artist].sort((a, b) => a.name.localeCompare(b.name)) } : current);
-        setArtistId(artist.id);
-        setAgreed(false);
-        setAddingArtist(false);
-      }}
-      onCancel={data.artists.length ? () => setAddingArtist(false) : undefined}
-    />
-  );
+  if (!data.artists.length || addingArtist)
+    return (
+      <ClaimArtistForm
+        onClaimed={(artist) => {
+          refreshSequence.current += 1;
+          setData((current) =>
+            current
+              ? {
+                  ...current,
+                  artists: [
+                    ...current.artists.filter((item) => item.id !== artist.id),
+                    artist,
+                  ].sort((a, b) => a.name.localeCompare(b.name)),
+                }
+              : current,
+          );
+          setArtistId(artist.id);
+          setAgreed(false);
+          setAddingArtist(false);
+        }}
+        onCancel={
+          data.artists.length ? () => setAddingArtist(false) : undefined
+        }
+      />
+    );
 
-  const selected = artistId || data.artists[0]!.id;
+  const selected =
+    data.artists.find((artist) => artist.id === artistId)?.id ||
+    data.artists[0]!.id;
 
   const queued = rows.filter((row) => row.state !== "done").length;
   const uploaded = rows.filter(
@@ -424,15 +483,25 @@ function UserUploads() {
             Artist
             <select
               value={selected}
-              onChange={(event) => { setArtistId(event.target.value); setAgreed(false); }}
+              onChange={(event) => {
+                setArtistId(event.target.value);
+                setAgreed(false);
+              }}
               disabled={running}
             >
               {data.artists.map((artist) => (
-                <option key={artist.id} value={artist.id}>{artist.name}</option>
+                <option key={artist.id} value={artist.id}>
+                  {artist.name}
+                </option>
               ))}
             </select>
           </label>
-          <button type="button" className="site-button secondary" disabled={running} onClick={() => setAddingArtist(true)}>
+          <button
+            type="button"
+            className="site-button secondary"
+            disabled={running}
+            onClick={() => setAddingArtist(true)}
+          >
             Add artist
           </button>
         </div>
@@ -520,6 +589,50 @@ function UserUploads() {
                         }
                         className="w-full"
                       />
+                      <label className="block mt-2 text-xs">
+                        Album (optional)
+                        <input
+                          aria-label={`Album for ${row.file.name}`}
+                          value={row.album}
+                          maxLength={200}
+                          disabled={running || row.state === "done"}
+                          onChange={(event) =>
+                            patch(row.key, {
+                              album: event.target.value,
+                              albumEdited: true,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="block mt-2 text-xs">
+                        Artwork (JPEG, PNG or WebP, up to 4 MB)
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          aria-label={`Artwork for ${row.file.name}`}
+                          disabled={running || row.state === "done"}
+                          onChange={(event) => {
+                            const artwork = event.target.files?.[0] ?? null;
+                            if (
+                              artwork &&
+                              (artwork.size > 4 * 1024 * 1024 ||
+                                ![
+                                  "image/jpeg",
+                                  "image/png",
+                                  "image/webp",
+                                ].includes(artwork.type))
+                            ) {
+                              setNotice(
+                                "Choose a JPEG, PNG or WebP image up to 4 MB.",
+                              );
+                              event.target.value = "";
+                              patch(row.key, { artwork: null });
+                              return;
+                            }
+                            patch(row.key, { artwork });
+                          }}
+                        />
+                      </label>
                       {row.tags?.artist && (
                         <small>
                           {row.tags.artist}

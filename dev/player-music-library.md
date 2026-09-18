@@ -54,3 +54,26 @@ fully represented in hosted migration history, so do not bulk-push them.
 isolation and licence gating in a rollback-only local transaction. Web tests
 cover ownership, mutation origin checks, image validation, stale page races,
 playback continuation and artist/playlist panel navigation.
+
+## Player and upload follow-up (VIS-132)
+
+The default visualisation transition mode is Per track. Music artist profile links
+open in a separate tab to preserve playback. Favourites change immediately and
+restore their previous state with an error if the save fails. Playlist labels count
+saved memberships in SQL (including members temporarily unavailable due to licensing).
+Explicit track removal clears its favourites and playlist memberships.
+
+Upload rows support an optional album override and JPEG/PNG/WebP artwork up to 4 MB.
+After MP3 finalisation, the existing owner-scoped detail and image endpoints save
+these fields. A failed detail/image save leaves the completed upload retryable;
+Retry reuses its track and never transfers the MP3 again. A track may be playable
+before its optional artwork finishes saving.
+
+My artists offers confirmed removal and a re-upload link preselecting the artist.
+Removal uses a service-only owner-checking RPC, permanently withdraws the old track,
+and queues public assets for deletion through the existing outbox. Masters and the
+audit tombstone are retained. The SHA-256 uniqueness constraint now applies only to
+non-withdrawn recordings, allowing the same bytes to be uploaded under a new track
+identity after removal, while still rejecting simultaneous active duplicates.
+Migration: `20260918060000_track_removal.sql`. SQL regression:
+`supabase/tests/track_removal.sql` (transaction rollback, no persistent fixtures).

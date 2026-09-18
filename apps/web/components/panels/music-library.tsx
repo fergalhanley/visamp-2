@@ -1,13 +1,5 @@
 "use client";
-import {
-  Heart,
-  ListPlus,
-  Play,
-  Search,
-  X,
-  Volume2,
-  Loader2,
-} from "lucide-react";
+import { Heart, ListPlus, Search, X, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -34,9 +26,9 @@ export function MusicLibrary() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [target, setTarget] = useState<HostedTrackSummary | null>(null);
-  const [playlists, setPlaylists] = useState<{ id: string; title: string }[]>(
-    [],
-  );
+  const [playlists, setPlaylists] = useState<
+    { id: string; title: string; trackCount: number }[]
+  >([]);
   const [playlistLoaded, setPlaylistLoaded] = useState("");
   const playlistKey = `${user?.id}|${version}`;
   const playlistLoading = playlistLoaded !== playlistKey;
@@ -46,9 +38,6 @@ export function MusicLibrary() {
   const kind = useAudioStore((s) => s.kind);
   const current = useAudioStore(
     (s) => s.hostedTracks[s.currentIndex]?.hostedTrackId,
-  );
-  const loadingTrack = useAudioStore(
-    (s) => s.hostedTracks[s.pendingIndex]?.hostedTrackId,
   );
   const playing = useAudioStore((s) => s.isPlaying);
   const playbackError = useAudioStore((s) => s.hostedError);
@@ -115,18 +104,23 @@ export function MusicLibrary() {
     }
     setPending(id);
     setError("");
+    const previousIndex = tracks.items.findIndex((t) => t.id === body.trackId);
+    const previous = tracks.items[previousIndex];
+    if (body.action === "favourite") {
+      tracks.updateItems((items) =>
+        tab === "favourites" && body.value === false
+          ? items.filter((t) => t.id !== body.trackId)
+          : items.map((t) =>
+              t.id === body.trackId
+                ? { ...t, favourite: Boolean(body.value) }
+                : t,
+            ),
+      );
+    }
     try {
       await musicRequest("/api/music/collections", body);
       if (body.action === "favourite") {
-        tracks.updateItems((items) =>
-          tab === "favourites" && body.value === false
-            ? items.filter((t) => t.id !== body.trackId)
-            : items.map((t) =>
-                t.id === body.trackId
-                  ? { ...t, favourite: Boolean(body.value) }
-                  : t,
-              ),
-        );
+        // Keep the optimistic state until the next library refresh.
       } else if (body.action === "remove") {
         tracks.updateItems((items) =>
           items.filter((t) => t.id !== body.trackId),
@@ -136,6 +130,23 @@ export function MusicLibrary() {
       }
       return true;
     } catch (e) {
+      if (body.action === "favourite" && previous) {
+        tracks.updateItems((items) => {
+          if (items.some((t) => t.id === previous.id))
+            return items.map((t) =>
+              t.id === previous.id
+                ? { ...t, favourite: previous.favourite }
+                : t,
+            );
+          const restored = [...items];
+          restored.splice(
+            Math.min(previousIndex, restored.length),
+            0,
+            previous,
+          );
+          return restored;
+        });
+      }
       setError(e instanceof Error ? e.message : "Could not update library.");
     } finally {
       setPending(null);
@@ -206,7 +217,7 @@ export function MusicLibrary() {
         )}
         <a
           href="/my-artists"
-          className="text-xs text-muted-foreground underline"
+          className="block text-right text-xs text-muted-foreground underline"
         >
           Manage my artists & music
         </a>
@@ -255,6 +266,8 @@ export function MusicLibrary() {
                 </button>
                 <a
                   href={`/artists/${a.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="shrink-0 text-xs text-muted-foreground underline"
                 >
                   Profile
@@ -327,7 +340,8 @@ export function MusicLibrary() {
                 }
                 className="block w-full truncate px-4 py-3 text-left text-sm hover:bg-foreground/5"
               >
-                {p.title}
+                {p.title} - {p.trackCount}{" "}
+                {p.trackCount === 1 ? "track" : "tracks"}
               </button>
             ))}
             {!playlistLoading && !playlistError && !visiblePlaylists.length && (
@@ -342,7 +356,7 @@ export function MusicLibrary() {
               <div
                 key={track.id}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2",
+                  "flex cursor-pointer items-center gap-2 px-4 py-2 [&_button]:cursor-pointer",
                   kind === "hosted" && current === track.id
                     ? "bg-foreground/10"
                     : "hover:bg-foreground/5",
@@ -367,15 +381,6 @@ export function MusicLibrary() {
                     alt=""
                     className="h-full w-full object-cover"
                   />
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
-                    {kind === "hosted" && loadingTrack === track.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : kind === "hosted" && current === track.id && playing ? (
-                      <Volume2 className="h-4 w-4" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                  </span>
                 </button>
                 <div className="min-w-0 flex-1">
                   <button
@@ -394,11 +399,19 @@ export function MusicLibrary() {
                   </button>
                   <a
                     href={`/artists/${track.artistSlug}`}
-                    className="block truncate text-[11px] text-muted-foreground hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block max-w-full truncate align-middle text-[11px] text-muted-foreground hover:underline"
                   >
                     {track.artist}
                   </a>
                 </div>
+                {kind === "hosted" && current === track.id && playing && (
+                  <Volume2
+                    aria-label="Playing"
+                    className="h-4 w-4 shrink-0 text-primary"
+                  />
+                )}
                 <button
                   type="button"
                   aria-label={`${track.favourite ? "Unfavourite" : "Favourite"} ${track.title}`}

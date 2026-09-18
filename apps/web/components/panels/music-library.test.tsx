@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -8,6 +9,7 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   play: vi.fn(),
+  playing: false,
   user: { id: "owner" } as { id: string } | null,
 }));
 vi.mock("@/components/auth/auth-provider", () => ({
@@ -20,11 +22,11 @@ vi.mock("@/lib/store/audio", () => ({
   useAudioStore: Object.assign(
     (select: (s: unknown) => unknown) =>
       select({
-        kind: "silent",
-        hostedTracks: [],
-        currentIndex: -1,
+        kind: "hosted",
+        hostedTracks: [{ hostedTrackId: "track" }],
+        currentIndex: 0,
         pendingIndex: -1,
-        isPlaying: false,
+        isPlaying: mocks.playing,
         hostedError: null,
       }),
     { getState: () => ({ playHostedSelection: mocks.play }) },
@@ -42,6 +44,7 @@ const track = {
 beforeEach(() => {
   mocks.user = { id: "owner" };
   mocks.play.mockReset();
+  mocks.playing = false;
 });
 afterEach(() => {
   cleanup();
@@ -58,7 +61,9 @@ function mockFetch() {
             nextOffset: null,
           }
         : url.includes("collections")
-          ? { playlists: [{ id: "playlist", title: "Evening" }] }
+          ? {
+              playlists: [{ id: "playlist", title: "Evening", trackCount: 17 }],
+            }
           : { tracks: [track], nextOffset: null },
     ),
   );
@@ -103,7 +108,9 @@ it("playlist selection loads that playlist on the Tracks tab", async () => {
   const fetch = mockFetch();
   render(<MusicLibrary />);
   fireEvent.click(screen.getByRole("button", { name: "playlists" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Evening" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Evening - 17 tracks" }),
+  );
   await waitFor(() =>
     expect(
       fetch.mock.calls.some(([url]) => url.includes("playlist=playlist")),
@@ -143,4 +150,71 @@ it("asks guests to sign in without requesting private collections", async () => 
   expect(
     fetch.mock.calls.some(([url]) => url.includes("favourites=true")),
   ).toBe(false);
+});
+
+it("updates favourites before saving, then restores them if saving fails", async () => {
+  let finish!: (r: Response) => void;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string) =>
+      url.includes("collections")
+        ? new Promise<Response>((resolve) => {
+            finish = resolve;
+          })
+        : Promise.resolve(Response.json({ tracks: [track], nextOffset: null })),
+    ),
+  );
+  render(<MusicLibrary />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Favourite First Song" }),
+  );
+  expect(
+    screen
+      .getByRole("button", { name: "Unfavourite First Song" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  await act(async () =>
+    finish(Response.json({ error: "Save failed" }, { status: 503 })),
+  );
+  expect(
+    await screen.findByRole("button", { name: "Favourite First Song" }),
+  ).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain("Save failed");
+});
+it("opens artist profiles separately and keeps the link sized to its text", async () => {
+  mockFetch();
+  render(<MusicLibrary />);
+  const link = await screen.findByRole("link", { name: "First Artist" });
+  expect(link.getAttribute("target")).toBe("_blank");
+  expect(link.className).toContain("inline-block");
+  expect(
+    screen
+      .getByRole("button", { name: "Play First Song" })
+      .querySelector("svg"),
+  ).toBeNull();
+});
+
+it("shows the playing indicator beside the heart only during playback", async () => {
+  mockFetch();
+  const view = render(<MusicLibrary />);
+  await screen.findByRole("button", { name: "Favourite First Song" });
+  expect(screen.queryByLabelText("Playing")).toBeNull();
+  mocks.playing = true;
+  view.rerender(<MusicLibrary />);
+  expect(screen.getByLabelText("Playing").nextElementSibling).toBe(screen.getByRole("button", { name: "Favourite First Song" }));
+  mocks.playing = false;
+  view.rerender(<MusicLibrary />);
+  expect(screen.queryByLabelText("Playing")).toBeNull();
+});
+it("removes an unfavourited row immediately and restores it on save failure", async () => {
+  let finish!: (r: Response) => void;
+  vi.stubGlobal("fetch", vi.fn((url: string) => url.includes("collections")
+    ? new Promise<Response>((resolve) => { finish = resolve; })
+    : Promise.resolve(Response.json({ tracks: [{ ...track, favourite: true }], nextOffset: null }))));
+  render(<MusicLibrary />);
+  fireEvent.click(screen.getByRole("button", { name: "favourites" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Unfavourite First Song" }));
+  expect(screen.queryByRole("button", { name: "Play First Song" })).toBeNull();
+  await act(async () => finish(Response.json({ error: "Save failed" }, { status: 503 })));
+  expect(await screen.findByRole("button", { name: "Unfavourite First Song" })).toBeTruthy();
 });

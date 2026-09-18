@@ -59,7 +59,7 @@ it("holds playback during preparation, then registers before init; diagnoses and
   );
   expect(engine.load_script).not.toHaveBeenCalled();
   expect(engine.clear_assets).not.toHaveBeenCalled();
-  expect(view.getByRole("status").textContent).toContain("Loading assets");
+  expect(view.queryByRole("status")).toBeNull();
   expect(compile).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
   view.rerender(
     <VisampCanvas

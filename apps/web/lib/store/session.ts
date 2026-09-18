@@ -82,7 +82,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   chosen: false,
   context: VISUALISATIONS,
 
-  mode: "manual",
+  mode: "track-audio",
   intervalSec: 30,
   shuffleVis: false,
   shuffleTracks: false,

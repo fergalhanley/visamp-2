@@ -1159,6 +1159,14 @@ export type Database = {
         Args: { p_source: string }
         Returns: string[]
       }
+      music_playlist_summaries: {
+        Args: { p_user_id: string }
+        Returns: { id: string; title: string; track_count: number }[]
+      }
+      withdraw_owned_track: {
+        Args: { p_track_id: string; p_user_id: string }
+        Returns: undefined
+      }
       withdraw_hosted_track: {
         Args: { p_delete_master?: boolean; p_track_id: string }
         Returns: undefined
