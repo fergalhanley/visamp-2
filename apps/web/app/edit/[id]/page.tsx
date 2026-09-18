@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-import { EditorShell } from "@/components/editor/editor-shell";
-import { createClient } from "@/lib/supabase/server";
+import { EditorDocument } from "@/components/editor/editor-document";
 
 export const metadata: Metadata = {
   title: "Editor",
@@ -20,22 +19,5 @@ export const metadata: Metadata = {
  */
 export default async function EditorPage({ params }: PageProps<"/edit/[id]">) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: visualisation } = await supabase
-    .from("visualisations")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  return (
-    <EditorShell
-      visualisation={visualisation}
-      canEdit={Boolean(user && visualisation && visualisation.owner_id === user.id)}
-    />
-  );
+  return <EditorDocument id={id} />;
 }
