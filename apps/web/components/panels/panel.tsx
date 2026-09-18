@@ -98,7 +98,7 @@ export function Panel({ side, label, children }: PanelProps) {
         onFocusCapture={onFocusCapture}
         onBlurCapture={onBlurCapture}
         className={cn(
-          "visamp-surface fixed inset-x-0 bottom-0 z-40 flex max-h-[75vh] flex-col",
+          "visamp-surface fixed inset-x-0 bottom-0 z-[45] flex h-[75dvh] flex-col",
           "rounded-t-2xl border-t transition-transform duration-300 ease-out",
           open ? "translate-y-0" : "translate-y-full",
         )}
@@ -111,7 +111,7 @@ export function Panel({ side, label, children }: PanelProps) {
         >
           <div className="h-1 w-10 rounded-full bg-foreground/25" />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}
         </div>
       </aside>
@@ -126,7 +126,7 @@ export function Panel({ side, label, children }: PanelProps) {
       onFocusCapture={onFocusCapture}
       onBlurCapture={onBlurCapture}
       className={cn(
-        "visamp-surface fixed z-40 flex w-[22rem] flex-col",
+        "visamp-surface fixed z-[45] flex w-1/3 min-w-[200px] flex-col",
         // `translate` rather than `transform`: the slide utilities set the
         // standalone property, which an explicit list has to name itself —
         // `transition-transform` covered it, an arbitrary list does not.

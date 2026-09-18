@@ -19,6 +19,7 @@ export default defineConfig({
       "lib/visript/**/*.test.ts",
       "lib/assets/**/*.test.ts",
       "lib/artists/**/*.test.ts",
+      "lib/music/**/*.test.ts",
       "lib/ai/**/*.test.ts",
       "lib/billing/**/*.test.ts",
       "components/**/*.test.tsx",

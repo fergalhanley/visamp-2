@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { MusicLibrary } from "./music-library";
 import { Panel } from "@/components/panels/panel";
 import { useAudioLevel } from "@/hooks/use-audio-level";
 import {
@@ -41,7 +42,7 @@ const SOURCES: { value: SourceTab; label: string; icon: typeof Cloud }[] = [
 /** Which tab to show for the current audio source. */
 function tabForKind(kind: AudioSourceKind): SourceTab {
   if (kind === "mic") return "mic";
-  if (kind === "hosted") return "hosted";
+  if (kind === "hosted" || kind === "silent") return "hosted";
   if (kind === "soundcloud") return "soundcloud";
   return "files";
 }
@@ -113,9 +114,6 @@ export function APanel() {
   const scTracks = useAudioStore((s) => s.soundcloudTracks);
   const scLoading = useAudioStore((s) => s.soundcloudLoading);
   const scError = useAudioStore((s) => s.soundcloudError);
-  const hostedTracks = useAudioStore((s) => s.hostedTracks);
-  const hostedLoading = useAudioStore((s) => s.hostedLoading);
-  const hostedError = useAudioStore((s) => s.hostedError);
 
   const enableMic = useAudioStore((s) => s.enableMic);
   const disableMic = useAudioStore((s) => s.disableMic);
@@ -132,8 +130,6 @@ export function APanel() {
   const setUrl = useAudioStore((s) => s.setSoundcloudUrl);
   const selectSoundcloudSource = useAudioStore((s) => s.selectSoundcloudSource);
   const selectFilesSource = useAudioStore((s) => s.selectFilesSource);
-  const loadHostedCatalogue = useAudioStore((s) => s.loadHostedCatalogue);
-  const selectHostedSource = useAudioStore((s) => s.selectHostedSource);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const fsa = useSupportsFileSystemAccess();
@@ -158,9 +154,7 @@ export function APanel() {
       if (scTracks.length > 0) selectSoundcloudSource();
     } else {
       if (micLive) disableMic();
-      selectHostedSource();
-      if (hostedTracks.length === 0 && !hostedLoading)
-        void loadHostedCatalogue();
+      // Browsing hosted music does not replace the current playback queue.
     }
   };
 
@@ -174,7 +168,7 @@ export function APanel() {
       </header>
 
       <div className="shrink-0 border-b px-4 py-3">
-        <div className="grid grid-cols-4 gap-1 rounded-lg bg-foreground/5 p-1">
+        <div className="grid grid-cols-2 gap-1 min-[1200px]:grid-cols-4 rounded-lg bg-foreground/5 p-1">
           {SOURCES.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
@@ -195,81 +189,7 @@ export function APanel() {
         </div>
       </div>
 
-      {activeTab === "hosted" && (
-        <section className="flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
-            <div>
-              <h3 className="text-xs font-medium">VisAmp music</h3>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Music hosted with permission from the artists.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void loadHostedCatalogue()}
-              disabled={hostedLoading}
-              aria-label="Refresh VisAmp music"
-              className="text-muted-foreground transition hover:text-foreground disabled:opacity-40"
-            >
-              <RefreshCw
-                className={cn("h-3.5 w-3.5", hostedLoading && "animate-spin")}
-              />
-            </button>
-          </div>
-
-          {hostedError && (
-            <p className="px-4 pb-2 text-xs text-destructive">{hostedError}</p>
-          )}
-
-          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
-            {hostedTracks.length === 0 ? (
-              <li className="px-4 py-2 text-xs text-muted-foreground">
-                {hostedLoading
-                  ? "Loading VisAmp music…"
-                  : "No hosted tracks are live yet."}
-              </li>
-            ) : (
-              hostedTracks.map((track, index) => {
-                const active = kind === "hosted" && index === currentIndex;
-                const loading = kind === "hosted" && index === pendingIndex;
-                return (
-                  <li
-                    key={track.id}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-1.5 transition",
-                      !(active || loading) && "hover:bg-foreground/5",
-                      (active || loading) && "bg-foreground/10",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => void playIndex(index)}
-                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
-                    >
-                      <TrackStatus
-                        loading={loading}
-                        current={active}
-                        playing={isPlaying}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-xs">
-                          {track.name}
-                        </span>
-                        <span className="block truncate text-[11px] text-muted-foreground">
-                          {track.artist}
-                        </span>
-                      </span>
-                    </button>
-                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                      {formatDuration(track.durationMs)}
-                    </span>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </section>
-      )}
+      {activeTab === "hosted" && <MusicLibrary />}
 
       {activeTab === "soundcloud" && (
         <section className="flex min-h-0 flex-1 flex-col">

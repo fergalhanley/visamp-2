@@ -117,7 +117,10 @@ export function AddToPlaylistDialog({
     });
 
     if (insertError) setError(insertError.message);
-    else await reload();
+    else {
+      window.dispatchEvent(new Event("visamp:playlists-changed"));
+      await reload();
+    }
 
     setBusy(null);
   };

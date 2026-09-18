@@ -1,5 +1,8 @@
 "use client";
 
+import { SignInDialog } from "@/components/auth/sign-in-dialog";
+import { useChromeStore } from "@/lib/store/chrome";
+import { VisualPlaylists } from "./visual-playlists";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -15,17 +18,24 @@ import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 64;
 
-type Tab = "visualisations" | "mine" | "favourites";
+type Tab = "visualisations" | "mine" | "favourites" | "playlists";
 
 const TAB_LABELS: Record<Tab, string> = {
   visualisations: "Visualisations",
   mine: "My Visualisations",
   favourites: "Favourites",
+  playlists: "Playlists",
 };
 
 export function VPanel() {
   const [tab, setTab] = useState<Tab>("visualisations");
   const [query, setQuery] = useState("");
+  const [signIn, setSignIn] = useState(false);
+  useEffect(() => {
+    if (!signIn) return;
+    useChromeStore.getState().setPinned("v", true);
+    return () => useChromeStore.getState().setPinned("v", false);
+  }, [signIn]);
 
   const currentId = useSessionStore((s) => s.current.id);
   const select = useSessionStore((s) => s.select);
@@ -60,8 +70,8 @@ export function VPanel() {
   // The tab only exists while signed in; falling back keeps the panel sane if
   // someone signs out while looking at it.
   const tabs: Tab[] = user
-    ? ["visualisations", "mine", "favourites"]
-    : ["visualisations"];
+    ? ["visualisations", "mine", "favourites", "playlists"]
+    : ["visualisations", "playlists"];
   const activeTab: Tab = tabs.includes(tab) ? tab : "visualisations";
 
   const myFiltered = useMemo(() => {
@@ -112,7 +122,7 @@ export function VPanel() {
       </div>
 
       {/* E3.5 — the second tab appears once someone is signed in. */}
-      <div className="flex shrink-0 items-center gap-4 border-b px-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 border-b px-4">
         {tabs.map((value) => (
           <button
             key={value}
@@ -130,28 +140,49 @@ export function VPanel() {
         ))}
       </div>
 
+      <SignInDialog open={signIn} onOpenChange={setSignIn} />
+      {activeTab === "playlists" &&
+        (user ? (
+          <VisualPlaylists key={user.id} userId={user.id} query={query} />
+        ) : (
+          <p className="p-4 text-xs">
+            <button
+              type="button"
+              className="underline"
+              onClick={() => setSignIn(true)}
+            >
+              Sign in
+            </button>{" "}
+            to use visual playlists.
+          </p>
+        ))}
+
       {activeTab === "visualisations" &&
         (browseLoading ? (
           <p className="px-4 py-6 text-xs text-muted-foreground">Loading…</p>
         ) : browseError ? (
           <p className="px-4 py-6 text-xs text-destructive">{browseError}</p>
         ) : (
-        <VirtualList
-          items={visualisations}
-          rowHeight={ROW_HEIGHT}
-          className="min-h-0 flex-1"
-          empty={<p className="px-4 py-6 text-xs text-muted-foreground">No matches.</p>}
-          renderRow={(vis) => (
-            <VisTile
-              vis={vis}
-              active={vis.id === currentId}
-              // E3.10 — picking a tile also sets the playing context.
-              onSelect={() => select(vis, visualisations)}
-              owned={Boolean(user && vis.ownerId === user.id)}
-              onChanged={refreshMine}
-            />
-          )}
-        />
+          <VirtualList
+            items={visualisations}
+            rowHeight={ROW_HEIGHT}
+            className="min-h-0 flex-1"
+            empty={
+              <p className="px-4 py-6 text-xs text-muted-foreground">
+                No matches.
+              </p>
+            }
+            renderRow={(vis) => (
+              <VisTile
+                vis={vis}
+                active={vis.id === currentId}
+                // E3.10 — picking a tile also sets the playing context.
+                onSelect={() => select(vis, visualisations)}
+                owned={Boolean(user && vis.ownerId === user.id)}
+                onChanged={refreshMine}
+              />
+            )}
+          />
         ))}
 
       {activeTab === "mine" &&
@@ -161,15 +192,19 @@ export function VPanel() {
           <p className="px-4 py-6 text-xs text-destructive">{mineError}</p>
         ) : mine && mine.length === 0 ? (
           <p className="px-4 py-6 text-xs text-muted-foreground">
-            Nothing yet. Use <span className="text-foreground">Create Vis</span> to
-            start one.
+            Nothing yet. Use <span className="text-foreground">Create Vis</span>{" "}
+            to start one.
           </p>
         ) : (
           <VirtualList
             items={myFiltered}
             rowHeight={ROW_HEIGHT}
             className="min-h-0 flex-1"
-            empty={<p className="px-4 py-6 text-xs text-muted-foreground">No matches.</p>}
+            empty={
+              <p className="px-4 py-6 text-xs text-muted-foreground">
+                No matches.
+              </p>
+            }
             renderRow={(vis) => (
               <VisTile
                 vis={vis}
@@ -186,7 +221,9 @@ export function VPanel() {
         (favouritesLoading ? (
           <p className="px-4 py-6 text-xs text-muted-foreground">Loading…</p>
         ) : favouritesError ? (
-          <p className="px-4 py-6 text-xs text-destructive">{favouritesError}</p>
+          <p className="px-4 py-6 text-xs text-destructive">
+            {favouritesError}
+          </p>
         ) : favourites && favourites.length === 0 ? (
           <p className="px-4 py-6 text-xs text-muted-foreground">
             No favourites yet. Use the heart on the player to add one.
@@ -196,7 +233,11 @@ export function VPanel() {
             items={favouritesFiltered}
             rowHeight={ROW_HEIGHT}
             className="min-h-0 flex-1"
-            empty={<p className="px-4 py-6 text-xs text-muted-foreground">No matches.</p>}
+            empty={
+              <p className="px-4 py-6 text-xs text-muted-foreground">
+                No matches.
+              </p>
+            }
             renderRow={(vis) => (
               <VisTile
                 vis={vis}

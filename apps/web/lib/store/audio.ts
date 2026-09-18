@@ -81,6 +81,8 @@ interface AudioState {
   hostedTracks: Track[];
   hostedLoading: boolean;
   hostedError: string | null;
+  hostedPage: { url: string; nextOffset: number | null } | null;
+  hostedPageLoading: boolean;
 
   setSilent: () => void;
   enableMic: () => Promise<void>;
@@ -102,6 +104,11 @@ interface AudioState {
   selectFilesSource: () => void;
   loadHostedCatalogue: () => Promise<void>;
   selectHostedSource: () => void;
+  playHostedSelection: (
+    id: string,
+    tracks: HostedTrackSummary[],
+    page?: { url: string; nextOffset: number | null },
+  ) => Promise<void>;
 
   addFiles: (files: File[]) => void;
   addViaPicker: () => Promise<void>;
@@ -268,15 +275,14 @@ async function renewHostedPlayback(
     if (
       beforeReplace.kind !== "hosted" ||
       beforeTrack?.hostedTrackId !== trackId
-    ) return;
+    )
+      return;
 
     await getAudioEngine().replaceUrl(source.url);
     const afterReplace = useAudioStore.getState();
     const afterTrack = afterReplace.hostedTracks[afterReplace.currentIndex];
-    if (
-      afterReplace.kind !== "hosted" ||
-      afterTrack?.hostedTrackId !== trackId
-    ) return;
+    if (afterReplace.kind !== "hosted" || afterTrack?.hostedTrackId !== trackId)
+      return;
     scheduleHostedRenewal(trackId, source.expiresAt);
   } catch (error) {
     const latest = useAudioStore.getState();
@@ -359,6 +365,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   hostedTracks: [],
   hostedLoading: false,
   hostedError: null,
+  hostedPage: null,
+  hostedPageLoading: false,
 
   setSilent: () => {
     playToken += 1;
@@ -607,6 +615,27 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
   },
 
+  playHostedSelection: async (id, tracks, page) => {
+    const index = tracks.findIndex((track) => track.id === id);
+    if (index < 0) return;
+    hostedCatalogueToken += 1;
+    get().selectHostedSource();
+    set({
+      hostedTracks: tracks.map((track) => ({
+        id: `hosted-${track.id}`,
+        name: track.title,
+        source: "hosted" as const,
+        hostedTrackId: track.id,
+        artist: track.artist,
+        durationMs: track.durationMs,
+      })),
+      hostedLoading: false,
+      hostedPage: page ?? null,
+      hostedPageLoading: false,
+    });
+    await get().playIndex(index);
+  },
+
   selectHostedSource: () => {
     playToken += 1;
     cancelHostedTimers();
@@ -843,8 +872,64 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   nextTrack: async () => {
-    const state = get();
-    const list = activeTracks(state);
+    let state = get();
+    let list = activeTracks(state);
+    if (
+      state.kind === "hosted" &&
+      state.currentIndex === list.length - 1 &&
+      state.hostedPage?.nextOffset != null
+    ) {
+      if (state.hostedPageLoading) return;
+      const token = hostedCatalogueToken;
+      const playbackToken = playToken;
+      const page = state.hostedPage;
+      set({ hostedPageLoading: true, hostedError: null });
+      try {
+        const response = await fetch(`${page.url}&offset=${page.nextOffset}`, {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as {
+          tracks: HostedTrackSummary[];
+          nextOffset: number | null;
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(data.error ?? "Could not load the next tracks.");
+        if (token !== hostedCatalogueToken || playbackToken !== playToken)
+          return;
+        const existing = new Set(list.map((t) => t.hostedTrackId));
+        set({
+          hostedTracks: [
+            ...list,
+            ...data.tracks
+              .filter((t) => !existing.has(t.id))
+              .map((track) => ({
+                id: `hosted-${track.id}`,
+                name: track.title,
+                source: "hosted" as const,
+                hostedTrackId: track.id,
+                artist: track.artist,
+                durationMs: track.durationMs,
+              })),
+          ],
+          hostedPage: { ...page, nextOffset: data.nextOffset },
+        });
+      } catch (error) {
+        if (token === hostedCatalogueToken && playbackToken === playToken)
+          set({
+            hostedError:
+              error instanceof Error
+                ? error.message
+                : "Could not load the next tracks.",
+          });
+        return;
+      } finally {
+        if (token === hostedCatalogueToken) set({ hostedPageLoading: false });
+      }
+      if (token !== hostedCatalogueToken || playbackToken !== playToken) return;
+      state = get();
+      list = activeTracks(state);
+    }
     if (list.length === 0) return;
 
     const { shuffleTracks } = useSessionStore.getState();

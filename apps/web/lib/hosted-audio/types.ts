@@ -6,6 +6,7 @@ export interface HostedTrackSummary {
   title: string;
   artist: string;
   artistSlug: string;
+  artworkUrl?: string;
   album: string | null;
   year: number | null;
   durationMs: number;

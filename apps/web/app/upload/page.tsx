@@ -13,6 +13,7 @@ export default function UploadPage() {
           Upload your MP3s and bring your music to a world of visuals. Each track
           becomes available as soon as its upload is verified.
         </p>
+        <p><a href="/my-artists" className="underline">Manage my artists, track details & artwork</a></p>
         <UploadForm />
       </main>
       <SiteFooter />

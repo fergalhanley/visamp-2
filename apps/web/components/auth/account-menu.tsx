@@ -116,6 +116,9 @@ export function AccountMenu() {
             </DropdownMenuItem>
           )}
 
+          <DropdownMenuItem nativeButton={false} render={<a href="/my-artists" />}>
+            My artists
+          </DropdownMenuItem>
           <DropdownMenuItem nativeButton={false} render={<a href="/upload" />}>
             Upload music
           </DropdownMenuItem>

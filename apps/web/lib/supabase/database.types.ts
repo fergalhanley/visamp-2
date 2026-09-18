@@ -14,6 +14,49 @@ export type Database = {
   }
   public: {
     Tables: {
+      track_favourites: {
+        Row: { user_id: string; track_id: string; created_at: string };
+        Insert: { user_id: string; track_id: string; created_at?: string };
+        Update: Partial<{
+          user_id: string;
+          track_id: string;
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
+      music_playlists: {
+        Row: {
+          id: string;
+          owner_id: string;
+          title: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          title: string;
+          created_at?: string;
+        };
+        Update: Partial<{
+          id: string;
+          owner_id: string;
+          title: string;
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
+      music_playlist_items: {
+        Row: { playlist_id: string; track_id: string; created_at: string };
+        Insert: { playlist_id: string; track_id: string; created_at?: string };
+        Update: Partial<{
+          playlist_id: string;
+          track_id: string;
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
+
+
       ai_credit_reservations: {
         Row: {
           allocation_id: string
@@ -963,6 +1006,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      browse_music: {
+        Args: {
+          p_query?: string;
+          p_artist?: string;
+          p_user_id?: string;
+          p_favourites?: boolean;
+          p_playlist?: string;
+          p_offset?: number;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+
+
       refund_ai_credit_purchase: {
         Args: {
           p_livemode: boolean

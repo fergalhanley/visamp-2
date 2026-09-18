@@ -95,6 +95,7 @@ function summary(track: TrackRow, artist: ArtistRow): HostedTrackSummary {
     title: track.title,
     artist: artist.name,
     artistSlug: artist.slug,
+    artworkUrl: `/api/artwork/track/${track.id}`,
     album: track.album,
     year: track.year,
     durationMs: track.duration_ms,
@@ -201,6 +202,16 @@ export async function getHostedPlayback(id: string): Promise<HostedPlayback> {
   const track = await fetchTrack(id);
   if (!track) throw new HostedAudioHttpError(404, "Track not found");
   return playbackForTrack(track, false);
+}
+
+/** Artwork obeys the same live/licence gate without signing audio renditions. */
+export async function getHostedArtwork(id: string): Promise<string> {
+  const track = await fetchTrack(id);
+  if (!track || track.status !== "live") throw new HostedAudioHttpError(404, "Artwork not found");
+  const [artist, licence] = await Promise.all([fetchArtist(track.music_artist_id), fetchLicence(track.licence_id)]);
+  if (!artist || !isLicencePlayable(licence, artist.id)) throw new HostedAudioHttpError(404, "Artwork not found");
+  const key = track.artwork_1024_key ?? artist.avatar_key;
+  return key ? (await signMediaObject(key)).url : "/VA.svg";
 }
 
 export async function getAdminHostedPlayback(

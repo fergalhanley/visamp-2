@@ -196,3 +196,10 @@ export async function deleteR2Object(
       : buckets.mastersBucket;
   await client().send(new DeleteObjectCommand({ Bucket, Key: key }));
 }
+
+/** Validated, re-encoded artwork only; never accepts a client-supplied key. */
+export async function putMediaObject(key: string, body: Buffer, contentType: string) {
+  await client().send(new PutObjectCommand({
+    Bucket: config().mediaBucket, Key: key, Body: body, ContentType: contentType,
+  }));
+}
