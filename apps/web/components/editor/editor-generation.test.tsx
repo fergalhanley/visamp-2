@@ -9,8 +9,39 @@ import {
 import { useEffect, type MutableRefObject } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Database } from "@/lib/supabase/database.types";
-const m = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock("@visamp/player", () => ({ VisampCanvas: () => null }));
+const m = vi.hoisted(() => ({
+  replace: vi.fn(),
+  refresh: vi.fn(),
+  write: vi.fn(),
+  persist: null as
+    | null
+    | ((
+        snapshot: { title: string; source: string; visibility: "private" },
+        signal: AbortSignal,
+      ) => Promise<void>),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: m.refresh }),
+}));
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    from: () => {
+      const query = {
+        update: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        select: vi.fn(() => query),
+        abortSignal: vi.fn(() => query),
+        single: m.write,
+      };
+      return query;
+    },
+  }),
+}));
+vi.mock("@visamp/player", () => ({
+  VisampCanvas: ({ source }: { source: string }) => (
+    <output aria-label="Preview source">{source}</output>
+  ),
+}));
 vi.mock("@/components/auth/auth-provider", () => ({
   useAuth: () => ({ user: { id: "owner" } }),
 }));
@@ -39,12 +70,15 @@ vi.mock("@/hooks/use-visualisation-assets", () => ({
   useVisualisationAssets: () => ({ assets: [], preparation: null }),
 }));
 vi.mock("@/hooks/use-editor-autosave", () => ({
-  useEditorAutosave: () => ({
-    dirty: false,
-    saving: false,
-    saveError: null,
-    setSaveError: vi.fn(),
-  }),
+  useEditorAutosave: ({ persist }: { persist: typeof m.persist }) => {
+    m.persist = persist;
+    return {
+      dirty: false,
+      saving: false,
+      saveError: null,
+      setSaveError: vi.fn(),
+    };
+  },
 }));
 vi.mock("@/components/editor/code-editor", () => ({
   CodeEditor: ({
@@ -59,9 +93,9 @@ vi.mock("@/components/editor/code-editor", () => ({
     useEffect(() => {
       if (handleRef) handleRef.current = { replaceDocument: m.replace };
     }, [handleRef]);
-    return handleRef ? null : (
+    return (
       <textarea
-        aria-label="Code attempt"
+        aria-label={handleRef ? "Editor code" : "Code attempt"}
         defaultValue={initialValue}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -243,4 +277,75 @@ it("sends the edited code, diagnostic, original prompt and disclosed price to re
     expectedCost: 100,
   });
   expect(m.replace).not.toHaveBeenCalled();
+});
+
+it("refreshes cached route data after a successful document save without replacing newer edits", async () => {
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: vi.fn() });
+  const original = {
+    id: "vis",
+    owner_id: "owner",
+    title: "Test",
+    source: "original",
+    visibility: "private",
+    thumb_pinned: true,
+  } as Database["public"]["Tables"]["visualisations"]["Row"];
+  const view = render(<EditorShell visualisation={original} canEdit />);
+  const snapshot = {
+    title: "Test",
+    source: "saved edit",
+    visibility: "private" as const,
+  };
+  m.write.mockResolvedValue({ error: null });
+  fireEvent.change(screen.getByLabelText("Editor code"), {
+    target: { value: "newer unsaved edit" },
+  });
+  await m.persist!(snapshot, new AbortController().signal);
+  expect(m.refresh).toHaveBeenCalledOnce();
+  view.rerender(
+    <EditorShell
+      visualisation={{ ...original, source: snapshot.source }}
+      canEdit
+    />,
+  );
+  expect(
+    (screen.getByLabelText("Editor code") as HTMLTextAreaElement).value,
+  ).toBe("newer unsaved edit");
+  await waitFor(() =>
+    expect(screen.getByLabelText("Preview source").textContent).toBe(
+      "newer unsaved edit",
+    ),
+  );
+  view.unmount();
+  render(
+    <EditorShell
+      visualisation={{ ...original, source: snapshot.source }}
+      canEdit
+    />,
+  );
+  expect(
+    (screen.getByLabelText("Editor code") as HTMLTextAreaElement).value,
+  ).toBe("saved edit");
+  expect(screen.getByLabelText("Preview source").textContent).toBe(
+    "saved edit",
+  );
+});
+it("does not refresh the route when the document write fails", async () => {
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: vi.fn() });
+  const original = {
+    id: "vis",
+    owner_id: "owner",
+    title: "Test",
+    source: "original",
+    visibility: "private",
+    thumb_pinned: true,
+  } as Database["public"]["Tables"]["visualisations"]["Row"];
+  render(<EditorShell visualisation={original} canEdit />);
+  m.write.mockResolvedValue({ error: { message: "Write failed" } });
+  await expect(
+    m.persist!(
+      { title: "Test", source: "edit", visibility: "private" },
+      new AbortController().signal,
+    ),
+  ).rejects.toThrow("Write failed");
+  expect(m.refresh).not.toHaveBeenCalled();
 });

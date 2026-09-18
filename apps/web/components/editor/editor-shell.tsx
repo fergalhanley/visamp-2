@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import {
   VisampCanvas,
   type CompileResult,
@@ -91,6 +93,7 @@ interface EditorShellProps {
 }
 
 export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
+  const router = useRouter();
   const empty = visualisation === null;
 
   const [title, setTitle] = useState(visualisation?.title ?? "");
@@ -356,6 +359,10 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             .abortSignal(signal)
             .single();
           if (error) throw new Error(error.message);
+          // Direct Supabase writes do not invalidate Next's history cache.
+          // Refresh the server snapshot without replacing the live editor buffer.
+          // Do this before thumbnail work, which can fail or outlive navigation.
+          router.refresh();
         },
         async (thumbnailSignal) => {
           if (thumbPinned) return;
@@ -372,7 +379,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         (message) => appendLog({ level: "warn", message }),
       );
     },
-    [visualisation, thumbPinned, uploadThumbnail, appendLog],
+    [visualisation, thumbPinned, uploadThumbnail, appendLog, router],
   );
 
   const onSaveError = useCallback(
