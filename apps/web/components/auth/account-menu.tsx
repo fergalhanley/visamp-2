@@ -85,14 +85,6 @@ export function AccountMenu() {
               <AvatarFallback className="text-[10px]">{initial}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          {/* The avatar alone identifies the account on a narrow bar, where
-              the name is the first thing there is no room for. */}
-          <a
-            href="/account"
-            className="hidden max-w-24 text-lg truncate transition hover:text-foreground sm:inline"
-          >
-            {name}
-          </a>
         </div>
 
         <DropdownMenuContent align="end" className="w-48">
