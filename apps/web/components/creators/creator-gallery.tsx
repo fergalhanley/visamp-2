@@ -10,6 +10,8 @@ import { EditorTransport } from "@/components/editor/editor-transport";
 import { CommentsThread } from "@/components/panels/comments-thread";
 import { formatCount, posterStyle } from "@/components/panels/tiles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
+import { usePreviewAudio } from "@/hooks/use-preview-audio";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { useCreatorGallery, useCreatorWork, type CreatorStats } from "@/hooks/use-creator-gallery";
 import { useFullscreen } from "@/hooks/use-fullscreen";
@@ -92,6 +94,10 @@ export function CreatorGallery({ initialUsername = null, initialCreator, initial
     initialCreator && initialWork ? { ownerId: initialCreator.id, items: initialWork } : undefined);
   const activeVis: Visualisation | null =
     work.find((vis) => vis.id === pickedVis) ?? work[0] ?? null;
+
+  const source = activeVis?.source ?? DEFAULT_SOURCE;
+  const { assets, preparation } = useVisualisationAssets(source, activeVis?.id);
+  usePreviewAudio(activeVis?.id, activeVis?.preferredTrackId);
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -220,10 +226,15 @@ export function CreatorGallery({ initialUsername = null, initialCreator, initial
                               )}
                             >
                               <div
-                                className="aspect-video h-10 shrink-0 rounded-md"
+                                className="relative aspect-video h-10 shrink-0 overflow-hidden rounded-md"
                                 style={posterStyle(vis.id)}
                                 aria-hidden
-                              />
+                              >
+                                {vis.thumbUrl && (
+                                  // eslint-disable-next-line @next/next/no-img-element -- stored thumbnail
+                                  <img src={vis.thumbUrl} alt="" className="h-full w-full object-cover" />
+                                )}
+                              </div>
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm">{vis.title}</p>
                                 <p className="truncate text-[11px] text-muted-foreground">
@@ -277,7 +288,11 @@ export function CreatorGallery({ initialUsername = null, initialCreator, initial
               className="aspect-video min-w-0 flex-1 bg-black"
             >
               <VisampCanvas
-                source={activeVis?.source ?? DEFAULT_SOURCE}
+                source={source}
+                assets={assets}
+                assetPreparation={preparation}
+                posterUrl={activeVis?.thumbUrl}
+                interactive
                 active
                 analyser={analyser}
                 className="h-full w-full"

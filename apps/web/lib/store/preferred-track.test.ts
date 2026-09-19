@@ -4,6 +4,9 @@ const engine = vi.hoisted(() => ({
   disableMic: vi.fn(),
   stopFiles: vi.fn(),
   playHlsStream: vi.fn(async () => {}),
+  playFile: vi.fn(async () => {}),
+  setEvents: vi.fn(),
+  seek: vi.fn(),
 }));
 const stored = vi.hoisted(() => ({ url: "" }));
 vi.mock("@/lib/audio/audio-engine", () => ({ getAudioEngine: () => engine }));
@@ -13,12 +16,13 @@ vi.mock("@/lib/audio/persistence", () => ({
   loadTrackNames: () => [],
   supportsFileSystemAccess: () => false,
   saveSoundcloudUrl: vi.fn(),
+  saveTrackNames: vi.fn(),
 }));
 vi.mock("@/lib/visript/default", () => ({
   DEFAULT_VISUALISATION: { id: "default", source: "" },
 }));
 vi.mock("@/lib/fixtures/visualisations", () => ({ VISUALISATIONS: [] }));
-import { useAudioStore } from "./audio";
+import { useAudioStore, wireAudioEvents } from "./audio";
 import { useSessionStore } from "./session";
 const preferred = {
   id: "track",
@@ -42,7 +46,7 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (url: string) =>
       Response.json(
-        url === "/api/tracks"
+        url.startsWith("/api/tracks") && !url.includes("/playback")
           ? { tracks: [preferred] }
           : {
               sources: [
@@ -124,4 +128,60 @@ it("ignores stale visualisations and unavailable tracks", async () => {
   );
   await useAudioStore.getState().applyPreferredTrack("vis", "track");
   expect(engine.playUrl).not.toHaveBeenCalled();
+});
+it("plays a preview preference without relying on the main player's selection", async () => {
+  await useAudioStore.getState().applyPreferredTrack("editor-vis", "track", () => true);
+  expect(engine.playUrl).toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledWith("/api/tracks?id=track", expect.anything());
+});
+it("does not play a preference after the preview has changed", async () => {
+  let finish!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finish = resolve; })));
+  let current = true;
+  const pending = useAudioStore.getState().applyPreferredTrack("preview", "track", () => current);
+  current = false;
+  finish(Response.json({ tracks: [preferred] }));
+  await pending;
+  expect(engine.playUrl).not.toHaveBeenCalled();
+});
+it("immediately plays the first newly added file, including when appending", async () => {
+  const first = new File(["audio"], "first.mp3");
+  const second = new File(["audio"], "second.mp3");
+  useAudioStore.getState().addFiles([first]);
+  await Promise.resolve();
+  expect(engine.playFile).toHaveBeenLastCalledWith(first);
+  useAudioStore.getState().addFiles([second]);
+  await Promise.resolve();
+  expect(engine.playFile).toHaveBeenLastCalledWith(second);
+  expect(useAudioStore.getState()).toMatchObject({ currentIndex: 1, isPlaying: true, musicExplicit: true });
+});
+it("ignores an empty file selection", () => {
+  useAudioStore.getState().addFiles([]);
+  expect(engine.playFile).not.toHaveBeenCalled();
+  expect(useAudioStore.getState().musicExplicit).toBe(false);
+});
+it("cancels a preview preference while its playback URL is loading", async () => {
+  let finish!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("?id=")
+    ? Response.json({ tracks: [preferred] })
+    : new Promise<Response>(resolve => { finish = resolve; })));
+  let current = true;
+  const pending = useAudioStore.getState().applyPreferredTrack("preview", "track", () => current);
+  await vi.waitFor(() => expect(finish).toBeDefined());
+  current = false;
+  finish(Response.json({ sources: [{ format: "mp3", url: "https://audio.example/song.mp3" }] }));
+  await pending;
+  expect(engine.playUrl).not.toHaveBeenCalled();
+  expect(useAudioStore.getState().pendingIndex).toBe(-1);
+});
+it.each(["hosted", "soundcloud", "files"] as const)("updates the %s scrubber from media events and seeks the engine", kind => {
+  useAudioStore.setState({ kind });
+  wireAudioEvents();
+  const events = engine.setEvents.mock.calls[0]![0] as { onTimeUpdate: (position: number, duration: number) => void };
+  events.onTimeUpdate(12, 180);
+  expect(useAudioStore.getState()).toMatchObject({ position: 12, duration: 180 });
+  useAudioStore.getState().seek(90);
+  expect(engine.seek).toHaveBeenCalledWith(90);
+  events.onTimeUpdate(91, 180);
+  expect(useAudioStore.getState().position).toBe(91);
 });

@@ -49,7 +49,7 @@ interface AudioState {
   /** Listener choices outrank automatic visualisation preferences, including while paused. */
   musicExplicit: boolean;
   restored: boolean;
-  applyPreferredTrack: (visId: string, trackId: string) => Promise<void>;
+  applyPreferredTrack: (visId: string, trackId: string, isCurrent?: () => boolean) => Promise<void>;
   /** E4.7 — silent (time-driven) is the default; every vis runs without audio. */
   kind: AudioSourceKind;
   micError: string | null;
@@ -121,13 +121,13 @@ interface AudioState {
   clearTracks: () => void;
   moveTrack: (from: number, to: number) => void;
 
-  playIndex: (index: number, automatic?: boolean) => Promise<void>;
+  playIndex: (index: number, automatic?: boolean, isCurrent?: () => boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
   nextTrack: () => Promise<void>;
   prevTrack: () => Promise<void>;
   seek: (seconds: number) => void;
 
-  restore: () => Promise<void>;
+  restore: (preferredTrackId?: string | null) => Promise<void>;
 }
 
 /**
@@ -679,6 +679,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   addFiles: (files) => {
+    if (!files.length) return;
+    const firstAddedIndex = get().tracks.length;
     set({ musicExplicit: true });
     soundcloudLoadToken += 1;
     if (get().kind !== "files") {
@@ -699,6 +701,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       saveTrackNames(tracks.map((t) => t.name));
       return { tracks, kind: "files", pendingNames: [] };
     });
+    void get().playIndex(firstAddedIndex);
   },
 
   addViaPicker: async () => {
@@ -760,7 +763,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       return { tracks, currentIndex };
     }),
 
-  playIndex: async (index, automatic = false) => {
+  playIndex: async (index, automatic = false, isCurrent) => {
     if (!automatic) {
       set({ musicExplicit: true });
       soundcloudLoadToken += 1;
@@ -779,7 +782,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     set({ pendingIndex: index, soundcloudError: null, hostedError: null });
 
     /** False once a newer request has taken over. */
-    const current = () => token === playToken;
+    const current = () => token === playToken && (!isCurrent || isCurrent());
 
     try {
       if (track.source === "hosted" && track.hostedTrackId) {
@@ -876,6 +879,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
               : "Playback failed"
             : null,
       });
+    } finally {
+      if (token === playToken && isCurrent && !isCurrent()) {
+        set({ pendingIndex: -1 });
+      }
     }
   },
 
@@ -988,14 +995,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     set({ position: seconds });
   },
 
-  applyPreferredTrack: async (visId, trackId) => {
+  applyPreferredTrack: async (visId, trackId, isCurrent) => {
     const eligible = () =>
       !get().musicExplicit &&
-      useSessionStore.getState().current.id === visId &&
-      useSessionStore.getState().current.preferredTrackId === trackId;
+      (isCurrent ? isCurrent() : (
+        useSessionStore.getState().current.id === visId &&
+        useSessionStore.getState().current.preferredTrackId === trackId
+      ));
     if (!eligible()) return;
     try {
-      const response = await fetch("/api/tracks", { cache: "no-store" });
+      const response = await fetch(`/api/tracks?id=${encodeURIComponent(trackId)}`, { cache: "no-store" });
       if (!response.ok) return;
       const data = await response.json();
       const track = (data.tracks as HostedTrackSummary[]).find(
@@ -1027,13 +1036,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         pendingIndex: -1,
         isPlaying: false,
       });
-      await get().playIndex(0, true);
+      await get().playIndex(0, true, eligible);
     } catch {
       /* A missing preferred track must not prevent the visual playing. */
     }
   },
 
-  restore: async () => {
+  restore: async (preferredTrackId = useSessionStore.getState().current.preferredTrackId) => {
     if (get().restored) return;
     try {
       void get().loadHostedCatalogue();
@@ -1046,7 +1055,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({ soundcloudUrl: url });
       if (
         !get().musicExplicit &&
-        (storedUrl || !useSessionStore.getState().current.preferredTrackId)
+        (storedUrl || !preferredTrackId)
       )
         void get().loadSoundcloudPlaylist(url, {
           // A viewer's own choice is already saved; the default must not be, or it

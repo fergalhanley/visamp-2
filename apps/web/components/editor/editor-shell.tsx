@@ -61,6 +61,7 @@ import { useEditorAutosave, type EditorSnapshot } from "@/hooks/use-editor-autos
 import { saveDocument } from "@/lib/editor/save-document";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { publicStorageUrl } from "@/lib/storage-urls";
+import { usePreviewAudio } from "@/hooks/use-preview-audio";
 import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import type { GenerationEvent, RepairAttempt } from "@/lib/ai/types";
@@ -102,6 +103,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
   const empty = visualisation === null;
 
   const [preferredTrackId, setPreferredTrackId] = useState(visualisation?.preferred_track_id ?? null);
+  usePreviewAudio(visualisation?.id, preferredTrackId);
   const [title, setTitle] = useState(visualisation?.title ?? "");
   const [visibility, setVisibility] = useState<Visibility>(
     visualisation?.visibility ?? "private",

@@ -62,6 +62,7 @@ vi.mock("@/components/editor/editor-transport", () => ({
 vi.mock("@/components/editor/properties-inspector", () => ({
   PropertiesInspector: () => null,
 }));
+vi.mock("@/hooks/use-preview-audio", () => ({ usePreviewAudio: vi.fn() }));
 vi.mock("@/hooks/use-analyser", () => ({ useAnalyser: () => null }));
 vi.mock("@/hooks/use-fullscreen", () => ({
   useFullscreen: () => ({ toggle: vi.fn() }),

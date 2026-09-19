@@ -51,3 +51,12 @@ parsed as SQL CURRENT_TIME rather than the intended timestamptz variable. Migrat
 grants. Regression SQL checks admission, exhaustion, date-aware windows and reset.
 The fix was applied and committed separately before final playback verification.
 Media CORS permits localhost:3000, so real audio verification uses that origin.
+
+VIS-145: creator and editor previews initialise the audio event bridge and restore
+music through `usePreviewAudio`. Their preferred-track requests use a preview
+lifecycle guard instead of the main player's session selection, and resolve the
+track directly by ID. Both metadata and playback URL requests are rechecked before
+playback, so navigating to another preview cannot start stale music. Explicit
+listener choices still take precedence. Creator canvases now use the shared asset
+preparation hook and stored thumbnail images. File-picker selections immediately
+play the first newly added file; cancelling a picker leaves music unchanged.
