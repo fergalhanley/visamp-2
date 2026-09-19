@@ -199,12 +199,14 @@ export default async function ArtistPage({
           }
         />
         <p className="mt-10 text-sm">
-          Is this your artist name?{" "}
+          Is this your artist name? This may have been uploaded on your behalf by
+          another user claiming permission to do so. We can have this associated
+          with your own account (or removed if you wish) by{" "}
           <Link
             href="/dispute"
             className="font-medium text-emerald-400 underline underline-offset-4 hover:text-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-4"
           >
-            Dispute this artist claim
+            clicking here
           </Link>
           .
         </p>
