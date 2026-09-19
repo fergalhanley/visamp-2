@@ -56,7 +56,8 @@ it("continues the selected playlist beyond its first page instead of looping ear
   expect(
     useAudioStore.getState().hostedTracks.map((t) => t.hostedTrackId),
   ).toEqual(["first", "second"]);
-  expect(play).toHaveBeenCalledWith(1);
+  expect(play).toHaveBeenCalledWith(1, false);
+  expect(useAudioStore.getState().musicExplicit).toBe(true);
 });
 it("does not replace a newer selection when an older page resolves", async () => {
   await useAudioStore

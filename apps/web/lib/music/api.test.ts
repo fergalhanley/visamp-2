@@ -245,3 +245,19 @@ it("rejects unsafe artist links before writing and permits clearing all links", 
   const cleared=await artist(request(`/api/my-artists/${id}`,{name:"Act",bio:"",links:[]},"PATCH"),{params:Promise.resolve({id})});
   expect(cleared.status).toBe(200);expect(q.update).toHaveBeenCalledWith({name:"Act",bio:null,website_url:null,links:[]});
 });
+it("stores artist banners separately after checking ownership", async () => {
+  const q = query({ data: { id }, error: null });
+  m.from.mockReturnValue(q);
+  m.image.mockResolvedValue("artist-banners/new.webp");
+  const response = await artistImage(request(`/api/my-artists/${id}?image=banner`, {}), { params: Promise.resolve({ id }) });
+  expect(response.status).toBe(200);
+  expect(q.eq).toHaveBeenCalledWith("claimed_by", owner);
+  expect(m.image).toHaveBeenCalledWith(expect.any(Request), `artist-banners/${id}`, "banner");
+  expect(q.update).toHaveBeenCalledWith({ banner_key: "artist-banners/new.webp" });
+});
+it("rejects another user's banner upload before processing the file", async () => {
+  m.from.mockReturnValue(query({ data: null, error: null }));
+  const response = await artistImage(request(`/api/my-artists/${id}?image=banner`, {}), { params: Promise.resolve({ id }) });
+  expect(response.status).toBe(404);
+  expect(m.image).not.toHaveBeenCalled();
+});

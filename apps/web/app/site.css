@@ -635,3 +635,47 @@
 
 .site-content.settings-content { max-width: 800px; }
 .artist-selector.site-form { margin-top: 24px; padding: 16px; }
+
+/* Artist profile: a wide hero, persistent biography and a compact catalogue. */
+.site-content.artist-profile-page { max-width: 1200px; padding-top: 80px; }
+.artist-hero { position: relative; isolation: isolate; min-height: 340px; border-radius: 18px; overflow: hidden; background: #122019; display: flex; align-items: flex-end; }
+.artist-hero-image, .artist-hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+.artist-hero-image { object-fit: cover; z-index: -2; }
+.artist-hero-shade { z-index: -1; background: linear-gradient(180deg, rgb(0 0 0 / 5%) 15%, rgb(0 0 0 / 80%) 100%); }
+.artist-hero-identity { display: flex; align-items: center; gap: 24px; padding: 36px; width: 100%; }
+.artist-hero-avatar { width: 120px; height: 120px; flex-shrink: 0; border-radius: 50%; object-fit: cover; background: #0b100d; border: 3px solid rgb(255 255 255 / 20%); }
+.artist-hero .site-eyebrow { margin: 0 0 8px; color: #c4d8ab; }
+.artist-hero h1 { margin: 0; font-size: clamp(2.5rem, 5vw, 4.75rem); line-height: 1.05; overflow-wrap: anywhere; color: #fff; }
+.artist-track-count { margin: 12px 0 0; font-size: 14px; color: #d1d8d3; }
+.artist-profile-summary { padding: 28px 0; display: flex; flex-direction: column; gap: 22px; }
+.artist-biography { margin: 0; max-width: 800px; white-space: pre-line; overflow-wrap: anywhere; color: #bbc5be; line-height: 1.7; }
+.artist-profile-links { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; padding: 0; margin: 0; }
+.artist-profile-links li { max-width: 100%; min-width: 0; }
+.artist-profile-links a { display: flex; align-items: center; gap: 12px; border: 1px solid #283129; border-radius: 10px; padding: 10px 14px; color: #00d69b; transition: background .15s; }
+.artist-profile-links a:hover { background: #17201a; }
+.artist-link-label { display: block; font-size: 12px; color: #a4aea7; }
+.artist-link-url { display: block; font-size: 14px; overflow-wrap: anywhere; text-decoration: underline; text-underline-offset: 4px; }
+.artist-tabs { display: flex; gap: 28px; border-bottom: 1px solid #283129; }
+.artist-tabs button { padding: 16px 2px; border: 0; border-bottom: 2px solid transparent; background: none; color: #9ba69e; font-size: 16px; }
+.artist-tabs button[data-active] { color: #f0f5f1; border-bottom-color: #00d69b; }
+.artist-tab-panel { padding-top: 20px; }
+.artist-tracks { margin: 0; }
+.artist-tracks .site-table td { padding: 16px 12px; }
+.artist-tracks .site-table th { padding: 12px; }
+.artist-track-title { color: #f0f5f1; font-weight: 500; }
+@media (max-width: 640px) {
+ .artist-hero { min-height: 290px; border-radius: 12px; }
+ .artist-hero-identity { padding: 22px; gap: 16px; align-items: flex-start; flex-direction: column; }
+ .artist-hero-avatar { width: 80px; height: 80px; }
+ .artist-hero h1 { font-size: 2.5rem; }
+ .artist-profile-summary { padding: 24px 0; }
+}
+
+.artist-visual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 20px; }
+.artist-visual-card { display: block; overflow: hidden; border: 1px solid #283129; border-radius: 12px; transition: border-color .15s; }
+.artist-visual-card:hover { border-color: #00d69b; }
+.artist-visual-card img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #14221a; }
+.artist-visual-card > div { padding: 16px; }
+.artist-visual-card h2 { font-size: 17px; margin: 0 0 5px; overflow-wrap: anywhere; }
+.artist-visual-card p { font-size: 13px; color: #9ba69e; margin: 0; }
+.artist-visual-card .artist-visual-track { margin-top: 12px; color: #00d69b; }

@@ -39,6 +39,7 @@ import { barButton, barButtonBlue, barLabel } from "@/components/chrome/bar-butt
 import { CreateVisButton } from "@/components/chrome/create-vis-button";
 import { TopBar } from "@/components/chrome/top-bar";
 import { GenerationFailureDialog, type GenerationFailure } from "@/components/editor/generation-failure-dialog";
+import { PreferredTrack } from "@/components/editor/preferred-track";
 import { AiPrompt } from "@/components/editor/ai-prompt";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
@@ -100,6 +101,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
   const router = useRouter();
   const empty = visualisation === null;
 
+  const [preferredTrackId, setPreferredTrackId] = useState(visualisation?.preferred_track_id ?? null);
   const [title, setTitle] = useState(visualisation?.title ?? "");
   const [visibility, setVisibility] = useState<Visibility>(
     visualisation?.visibility ?? "private",
@@ -410,7 +412,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
     [appendLog],
   );
   const { dirty, saving, saveError, setSaveError } = useEditorAutosave({
-    value: { title, source, visibility },
+    value: { title, source, visibility, preferred_track_id: preferredTrackId },
     // A previous successful compile says nothing about newly typed source.
     enabled:
       !empty && canEdit && compile?.ok === true && compiledSource === source,
@@ -477,7 +479,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
       if (canEdit && dirty) {
         const { error } = await supabase
           .from("visualisations")
-          .update({ title, source, visibility })
+          .update({ title, source, visibility, preferred_track_id: preferredTrackId })
           .eq("id", visualisation.id);
 
         if (error) throw new Error(visualisationSaveError(error));
@@ -514,6 +516,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
     title,
     source,
     visibility,
+    preferredTrackId,
     visualisation,
   ]);
 
@@ -827,6 +830,8 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
               <span className="shrink-0 text-xs text-muted-foreground">Read-only</span>
             )}
           </div>
+
+          {!empty && <PreferredTrack value={preferredTrackId} onChange={id => { setPreferredTrackId(id); setSaveError(null); }} disabled={!canEdit || generating} />}
 
           {/* E6.3 — 16:9 sized to the column; the log takes what's left. */}
           {/* Fullscreen expands just this box, so the visualisation fills the

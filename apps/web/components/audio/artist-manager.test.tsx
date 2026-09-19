@@ -61,3 +61,13 @@ it("adds typed links, validates their domains and removes entries", async () => 
   fireEvent.click(screen.getByRole("button",{name:"Remove link 1"}));
   expect(screen.queryByRole("textbox",{name:"Link 1 URL"})).toBeNull();
 });
+it("uploads a banner separately and refreshes its preview", async () => {
+  render(<ArtistManager />);
+  const input = await screen.findByLabelText("Artist banner");
+  const preview = screen.getByRole("img", { name: "Artist banner" });
+  expect(preview.getAttribute("src")).toBe("/api/artwork/banner/artist?v=0");
+  fireEvent.change(input, { target: { files: [new File(["banner"], "banner.png", { type: "image/png" })] } });
+  await screen.findByText("Artwork saved.");
+  expect(requests).toHaveBeenCalledWith("/api/my-artists/artist?image=banner", expect.objectContaining({ method: "POST" }));
+  expect(preview.getAttribute("src")).not.toBe("/api/artwork/banner/artist?v=0");
+});

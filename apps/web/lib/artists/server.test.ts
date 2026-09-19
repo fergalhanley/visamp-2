@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.artist.mockResolvedValue({ data: {
     id: "artist", slug: "new-act", name: "New Act", claimed_by: "owner",
-    bio: "Artist biography", website_url: "https://artist.example", avatar_key: "avatar",
+    bio: "Artist biography", website_url: "https://artist.example", avatar_key: "avatar", banner_key: "banner",
   }, error: null });
   mocks.profile.mockResolvedValue({ data: { username: "creator", vis_count: 1 } });
   mocks.tracks.mockResolvedValue([]);
@@ -27,9 +27,10 @@ beforeEach(() => {
 it("publishes the full profile and creator link before any music is live", async () => {
   expect(await loadArtist("new-act")).toMatchObject({
     name: "New Act", bio: "Artist biography", websiteUrl: "https://artist.example",
-    avatarUrl: "https://signed.example", creatorUsername: "creator", tracks: [],
+    avatarUrl: "https://signed.example", bannerUrl: "https://signed.example", creatorUsername: "creator", tracks: [],
   });
   expect(mocks.sign).toHaveBeenCalledWith("avatar");
+  expect(mocks.sign).toHaveBeenCalledWith("banner");
 });
 
 it("does not link to a creator without public visualisations", async () => {

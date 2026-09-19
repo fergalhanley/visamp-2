@@ -26,6 +26,7 @@ export function creatorFromProfile(profile: ProfileRow | null): Creator {
 /** Maps a database row onto the shape the player and panels already speak. */
 export function visualisationFromRow(row: Row, creator: Creator): Visualisation {
   return {
+    preferredTrackId: row.preferred_track_id ?? undefined,
     id: row.id,
     slug: row.slug,
     title: row.title,

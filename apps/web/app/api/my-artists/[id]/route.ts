@@ -115,10 +115,17 @@ export async function POST(
   try {
     const { id } = await params;
     const { db, userId } = await ownedArtist(id);
-    const key = await uploadArtwork(request, `artist-artwork/${id}`);
+    const kind = new URL(request.url).searchParams.get("image") ?? "avatar";
+    if (!["avatar", "banner"].includes(kind))
+      throw new MusicError(400, "Invalid image type.");
+    const key = await uploadArtwork(
+      request,
+      `${kind === "banner" ? "artist-banners" : "artist-artwork"}/${id}`,
+      kind === "banner" ? "banner" : "square",
+    );
     const { data, error } = await db
       .from("music_artists")
-      .update({ avatar_key: key })
+      .update(kind === "banner" ? { banner_key: key } : { avatar_key: key })
       .eq("id", id)
       .eq("claimed_by", userId)
       .select("id")

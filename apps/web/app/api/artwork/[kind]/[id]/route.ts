@@ -14,18 +14,19 @@ export async function GET(
   try {
     await musicRate(request, true);
     const { kind, id } = await params;
-    if (!UUID.test(id) || !["artist", "track"].includes(kind))
+    if (!UUID.test(id) || !["artist", "banner", "track"].includes(kind))
       throw new MusicError(404, "Artwork not found.");
     const { db, userId } = await musicIdentity(false);
-    let url = "/VA.svg";
-    if (kind === "artist") {
+    let url = kind === "banner" ? "/artist-banner-placeholder.svg" : "/VA.svg";
+    if (kind === "artist" || kind === "banner") {
       const { data, error } = await db
         .from("music_artists")
-        .select("avatar_key")
+        .select("avatar_key,banner_key")
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
-      if (data?.avatar_key) url = (await signMediaObject(data.avatar_key)).url;
+      const key = kind === "banner" ? data?.banner_key : data?.avatar_key;
+      if (key) url = (await signMediaObject(key)).url;
     } else {
       const { data, error } = await db
         .from("tracks")

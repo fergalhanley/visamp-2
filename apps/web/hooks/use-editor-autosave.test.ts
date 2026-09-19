@@ -148,3 +148,12 @@ describe("editor autosave", () => {
     expect(persist).toHaveBeenCalledTimes(1);
   });
 });
+it("saves and clears the preferred track even without source edits", async () => {
+  const { rerender, persist } = setup();
+  rerender({ value: { ...initial, preferred_track_id: "track" }, enabled: true });
+  await tick();
+  expect(persist.mock.calls[0]?.[0].preferred_track_id).toBe("track");
+  rerender({ value: { ...initial, preferred_track_id: null }, enabled: true });
+  await tick(AUTOSAVE_MS);
+  expect(persist.mock.calls[1]?.[0].preferred_track_id).toBeNull();
+});

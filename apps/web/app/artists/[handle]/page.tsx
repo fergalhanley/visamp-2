@@ -1,3 +1,6 @@
+import { loadArtistVisualisations } from "@/lib/artists/visualisations";
+import { visualisationPath } from "@/lib/visualisation-url";
+import { ArtistTabs } from "@/components/artists/artist-tabs";
 import { ArtistLinkIcon } from "@/components/audio/artist-link-icon";
 import { artistLinkTypes } from "@/lib/artists/links";
 import Link from "next/link";
@@ -48,113 +51,153 @@ export default async function ArtistPage({
 }: PageProps<"/artists/[handle]">) {
   const { handle } = await params;
   const artist = await resolve(handle);
+  const visualisations = await loadArtistVisualisations(artist.tracks);
 
   return (
     <div className="site-page">
       <TopBar />
-      <main className="site-content max-w-3xl">
-        <div className="mt-6 flex flex-wrap items-center gap-6">
-          {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URL; next/image cannot use a remote loader here */}
+      <main className="site-content artist-profile-page">
+        <section
+          className="artist-hero"
+          aria-label={`${artist.name} artist profile`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 banner or local fallback */}
           <img
-            src={artist.avatarUrl ?? "/VA.svg"}
+            className="artist-hero-image"
+            src={artist.bannerUrl ?? "/artist-banner-placeholder.svg"}
             alt=""
-            className="h-24 w-24 shrink-0 rounded-full bg-white/5 object-cover"
+            fetchPriority="high"
           />
-          <div className="min-w-0">
-            <p className="site-eyebrow" style={{ marginBottom: 8 }}>
-              ARTIST
-            </p>
-            <h1 style={{ marginBottom: 8 }}>{artist.name}</h1>
-            <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#9ba69e]">
-              <span>
-                {artist.links.length > 0 && (
-                  <ul
-                    aria-label="Artist links"
-                    className="mt-6 flex list-none flex-wrap gap-3 p-0"
-                  >
-                    {artist.links.map((link) => (
-                      <li
-                        key={`${link.type}:${link.url}`}
-                        className="min-w-0 max-w-full"
-                      >
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer nofollow"
-                          className="flex items-center gap-3 rounded-lg border px-3 py-2 text-emerald-400 transition hover:bg-white/5 hover:text-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-2"
-                        >
-                          <ArtistLinkIcon type={link.type} />
-                          <span className="min-w-0">
-                            <span className="block text-xs text-muted-foreground">
-                              {
-                                artistLinkTypes.find(
-                                  (kind) => kind.value === link.type,
-                                )?.label
-                              }
-                            </span>
-                            <span className="block break-all text-sm underline underline-offset-4">
-                              {link.url
-                                .replace(/^https?:\/\//, "")
-                                .replace(/\/$/, "")}
-                            </span>
-                          </span>
-                          <span className="sr-only"> (new tab)</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+          <div className="artist-hero-shade" />
+          <div className="artist-hero-identity">
+            {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 avatar */}
+            <img
+              src={artist.avatarUrl ?? "/VA.svg"}
+              alt=""
+              className="artist-hero-avatar"
+            />
+            <div className="min-w-0">
+              <p className="site-eyebrow">ARTIST</p>
+              <h1>{artist.name}</h1>
+              <p className="artist-track-count">
                 {artist.tracks.length}{" "}
                 {artist.tracks.length === 1 ? "track" : "tracks"}
-              </span>
-              {/* The act and the person are separate: this link exists only
-                  when the claimant also makes visualisations. */}
-              {artist.creatorUsername && (
-                <a href={`/creators/${artist.creatorUsername}`}>
-                  Visualisations by {artist.creatorUsername}
-                </a>
-              )}
-            </p>
+              </p>
+            </div>
           </div>
+        </section>
+        <div className="artist-profile-summary">
+          {artist.bio && <p className="artist-biography">{artist.bio}</p>}
+          {artist.links.length > 0 && (
+            <ul aria-label="Artist links" className="artist-profile-links">
+              {artist.links.map((link) => (
+                <li key={`${link.type}:${link.url}`}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                  >
+                    <ArtistLinkIcon type={link.type} />
+                    <span className="min-w-0">
+                      <span className="artist-link-label">
+                        {
+                          artistLinkTypes.find(
+                            (kind) => kind.value === link.type,
+                          )?.label
+                        }
+                      </span>
+                      <span className="artist-link-url">
+                        {link.url
+                          .replace(/^https?:\/\//, "")
+                          .replace(/\/$/, "")}
+                      </span>
+                    </span>
+                    <span className="sr-only"> (new tab)</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-
-        {artist.bio && <p className="mt-8 whitespace-pre-line">{artist.bio}</p>}
-
-        {artist.tracks.length ? (
-          <div className="site-table-wrap mt-10">
-            <table className="site-table">
-              <thead>
-                <tr>
-                  <th scope="col">Track</th>
-                  <th scope="col">Album</th>
-                  <th scope="col">Length</th>
-                </tr>
-              </thead>
-              <tbody>
-                {artist.tracks.map((track) => (
-                  <tr key={track.id}>
-                    <td>
-                      {track.title}
-                      <TrackPreview trackId={track.id} />
-                      {track.isExplicit && (
-                        <span className="ml-2 text-[10px] text-[#9ba69e]">
-                          EXPLICIT
-                        </span>
-                      )}
-                    </td>
-                    <td>{track.album ?? "—"}</td>
-                    <td>{duration(track.durationMs)}</td>
-                  </tr>
+        <ArtistTabs
+          tracks={
+            artist.tracks.length ? (
+              <div className="site-table-wrap artist-tracks">
+                <table className="site-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Track</th>
+                      <th scope="col">Album</th>
+                      <th scope="col">Length</th>
+                      <th scope="col">
+                        <span className="sr-only">Playback</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {artist.tracks.map((track) => (
+                      <tr key={track.id}>
+                        <td>
+                          <div className="artist-track-title">
+                            {track.title}
+                          </div>
+                          {track.isExplicit && (
+                            <span className="ml-2 text-[10px] text-[#9ba69e]">
+                              EXPLICIT
+                            </span>
+                          )}
+                        </td>
+                        <td>{track.album ?? "—"}</td>
+                        <td>{duration(track.durationMs)}</td>
+                        <td>
+                          <TrackPreview trackId={track.id} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="gallery-empty">
+                <h3>Nothing live yet.</h3>
+                <p>This artist hasn’t published any music yet.</p>
+              </div>
+            )
+          }
+          visualisations={
+            visualisations.length ? (
+              <div className="artist-visual-grid">
+                {visualisations.map((vis) => (
+                  <a
+                    key={vis.id}
+                    href={visualisationPath(vis)}
+                    className="artist-visual-card"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- public thumbnail or local placeholder */}
+                    <img
+                      src={vis.thumbnail ?? "/artist-banner-placeholder.svg"}
+                      alt=""
+                      loading="lazy"
+                    />
+                    <div>
+                      <h2>{vis.title}</h2>
+                      <p>by {vis.creator}</p>
+                      <p className="artist-visual-track">{vis.track}</p>
+                    </div>
+                  </a>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="gallery-empty">
-            <h3>Nothing live yet.</h3>
-            <p>This artist hasn’t published any music yet.</p>
-          </div>
-        )}
+              </div>
+            ) : (
+              <div className="gallery-empty">
+                <h3>No visualisations yet.</h3>
+                <p>
+                  Public visualisations that choose this artist’s music as their
+                  preferred track will appear here.
+                </p>
+              </div>
+            )
+          }
+        />
         <p className="mt-10 text-sm">
           Is this your artist name?{" "}
           <Link

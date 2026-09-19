@@ -4,7 +4,7 @@ export async function GET() {
     const { db, userId } = await musicIdentity();
     const { data, error } = await db
       .from("music_artists")
-      .select("id,slug,name,bio,website_url,links,avatar_key")
+      .select("id,slug,name,bio,website_url,links,avatar_key,banner_key")
       .eq("claimed_by", userId!)
       .order("name");
     if (error) throw error;
@@ -12,6 +12,8 @@ export async function GET() {
       artists: (data ?? []).map((a) => ({
         ...a,
         avatar_key: undefined,
+        banner_key: undefined,
+        bannerUrl: a.banner_key ? `/api/artwork/banner/${a.id}` : null,
         avatarUrl: `/api/artwork/artist/${a.id}`,
       })),
     });

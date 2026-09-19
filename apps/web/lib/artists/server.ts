@@ -18,6 +18,7 @@ export interface ArtistProfile {
   websiteUrl: string | null;
   links: ArtistLink[];
   avatarUrl: string | null;
+  bannerUrl: string | null;
   tracks: HostedTrackSummary[];
   /**
    * The claimant's creator profile, only when they have public visualisations
@@ -62,7 +63,7 @@ async function avatarUrl(key: string | null): Promise<string | null> {
 export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
   const { data: artist, error } = await admin()
     .from("music_artists")
-    .select("id, slug, name, bio, website_url, links, avatar_key, claimed_by")
+    .select("id, slug, name, bio, website_url, links, avatar_key, banner_key, claimed_by")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -91,6 +92,7 @@ export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
     websiteUrl: artist.website_url,
     links: readArtistLinks(artist.links, artist.website_url),
     avatarUrl: await avatarUrl(artist.avatar_key),
+    bannerUrl: await avatarUrl(artist.banner_key),
     tracks,
     creatorUsername,
   };

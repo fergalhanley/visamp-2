@@ -4,7 +4,11 @@ import { randomUUID } from "node:crypto";
 import { MusicError, musicRate } from "./api";
 import { putMediaObject } from "@/lib/hosted-audio/r2";
 
-export async function uploadArtwork(request: Request, prefix: string) {
+export async function uploadArtwork(
+  request: Request,
+  prefix: string,
+  kind: "square" | "banner" = "square",
+) {
   await musicRate(request);
   if (request.headers.get("origin") !== new URL(request.url).origin)
     throw new MusicError(403, "Invalid request origin.");
@@ -39,7 +43,10 @@ export async function uploadArtwork(request: Request, prefix: string) {
       throw new Error("Unsupported image format");
     image = await decoded
       .rotate()
-      .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
+      .resize(kind === "banner" ? 2400 : 1024, kind === "banner" ? 800 : 1024, {
+        fit: kind === "banner" ? "cover" : "inside",
+        withoutEnlargement: true,
+      })
       .webp({ quality: 85 })
       .toBuffer();
   } catch {

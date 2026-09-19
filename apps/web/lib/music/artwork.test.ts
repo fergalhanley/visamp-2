@@ -55,3 +55,8 @@ it("refuses active image formats and cross-origin requests", async () => {
   ).rejects.toMatchObject({ status: 403 });
   expect(put).not.toHaveBeenCalled();
 });
+it("crops artist banners to a wide, bounded WebP without retaining metadata", async () => {
+  const png = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: "green" } }).png().toBuffer();
+  await uploadArtwork(request(png), "artist-banners/test", "banner");
+  expect(await sharp(put.mock.calls[0]![1]).metadata()).toMatchObject({ format: "webp", width: 2400, height: 800 });
+});

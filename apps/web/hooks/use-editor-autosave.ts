@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 export interface EditorSnapshot {
+  preferred_track_id?: string | null;
   title: string;
   source: string;
   visibility: "public" | "private";
@@ -49,7 +50,9 @@ export function useEditorAutosave({
   const dirty =
     value.title !== lastSaved.title ||
     value.source !== lastSaved.source ||
-    value.visibility !== lastSaved.visibility;
+    value.visibility !== lastSaved.visibility ||
+    (value.preferred_track_id ?? null) !==
+      (lastSaved.preferred_track_id ?? null);
   const canSave = enabled && dirty && !saving;
 
   useEffect(() => {

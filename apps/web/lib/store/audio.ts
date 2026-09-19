@@ -46,6 +46,10 @@ function activeTracks(state: {
 }
 
 interface AudioState {
+  /** Listener choices outrank automatic visualisation preferences, including while paused. */
+  musicExplicit: boolean;
+  restored: boolean;
+  applyPreferredTrack: (visId: string, trackId: string) => Promise<void>;
   /** E4.7 — silent (time-driven) is the default; every vis runs without audio. */
   kind: AudioSourceKind;
   micError: string | null;
@@ -117,7 +121,7 @@ interface AudioState {
   clearTracks: () => void;
   moveTrack: (from: number, to: number) => void;
 
-  playIndex: (index: number) => Promise<void>;
+  playIndex: (index: number, automatic?: boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
   nextTrack: () => Promise<void>;
   prevTrack: () => Promise<void>;
@@ -336,7 +340,7 @@ function startOnFirstGesture(): void {
       ) {
         return;
       }
-      void state.playIndex(0);
+      void state.playIndex(0, !state.musicExplicit);
     }, 0);
   };
 
@@ -346,6 +350,8 @@ function startOnFirstGesture(): void {
 
 export const useAudioStore = create<AudioState>((set, get) => ({
   kind: "silent",
+  musicExplicit: false,
+  restored: false,
   micError: null,
 
   tracks: [],
@@ -370,6 +376,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   hostedPageLoading: false,
 
   setSilent: () => {
+    set({ musicExplicit: true });
+    soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
     const engine = getAudioEngine();
@@ -385,6 +393,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   enableMic: async () => {
+    set({ musicExplicit: true });
+    soundcloudLoadToken += 1;
     const token = (playToken += 1);
     try {
       cancelHostedTimers();
@@ -406,17 +416,21 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   disableMic: () => {
+    set({ musicExplicit: true });
+    soundcloudLoadToken += 1;
     playToken += 1;
     getAudioEngine().disableMic();
     set({ kind: "silent", micError: null });
   },
 
   setSoundcloudUrl: (soundcloudUrl) => {
+    set({ musicExplicit: true });
     soundcloudLoadToken += 1;
     set({ soundcloudUrl, soundcloudLoading: false });
   },
 
   loadSoundcloudPlaylist: async (url, options) => {
+    if (options?.persist !== false) set({ musicExplicit: true });
     const token = (soundcloudLoadToken += 1);
     const current = () => token === soundcloudLoadToken;
     set({ soundcloudUrl: url, soundcloudLoading: true, soundcloudError: null });
@@ -507,7 +521,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       });
 
       if (options?.autoplay && tracks.length > 0) {
-        await get().playIndex(0);
+        await get().playIndex(0, options?.persist === false);
       }
     } catch (error) {
       if (!current()) return;
@@ -534,6 +548,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   clearSoundcloud: () => {
+    set({ musicExplicit: true });
     soundcloudLoadToken += 1;
     playToken += 1;
     getAudioEngine().stopFiles();
@@ -551,6 +566,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   selectSoundcloudSource: () => {
+    set({ musicExplicit: true });
     soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
@@ -567,6 +583,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   selectFilesSource: () => {
+    set({ musicExplicit: true });
+    soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
     getAudioEngine().disableMic();
@@ -617,7 +635,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   playHostedSelection: async (id, tracks, page) => {
-    trackAnalytics("content_selected", { content_type: "track", content_id: id, source_panel: "audio", position: tracks.findIndex(t => t.id === id) });
+    trackAnalytics("content_selected", {
+      content_type: "track",
+      content_id: id,
+      source_panel: "audio",
+      position: tracks.findIndex((t) => t.id === id),
+    });
     const index = tracks.findIndex((track) => track.id === id);
     if (index < 0) return;
     hostedCatalogueToken += 1;
@@ -639,6 +662,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   selectHostedSource: () => {
+    set({ musicExplicit: true });
+    soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
     getAudioEngine().disableMic();
@@ -654,6 +679,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   addFiles: (files) => {
+    set({ musicExplicit: true });
+    soundcloudLoadToken += 1;
     if (get().kind !== "files") {
       playToken += 1;
       cancelHostedTimers();
@@ -733,7 +760,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       return { tracks, currentIndex };
     }),
 
-  playIndex: async (index) => {
+  playIndex: async (index, automatic = false) => {
+    if (!automatic) {
+      set({ musicExplicit: true });
+      soundcloudLoadToken += 1;
+    }
     const state = get();
     const track = activeTracks(state)[index];
     if (!track) return;
@@ -849,6 +880,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   togglePlay: async () => {
+    set({ musicExplicit: true });
     const state = get();
     const { isPlaying, currentIndex } = state;
     const list = activeTracks(state);
@@ -939,7 +971,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       ? Math.floor(Math.random() * list.length)
       : (state.currentIndex + 1) % list.length;
 
-    await get().playIndex(next);
+    await get().playIndex(next, !state.musicExplicit);
   },
 
   prevTrack: async () => {
@@ -948,7 +980,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (list.length === 0) return;
 
     const previous = (state.currentIndex - 1 + list.length) % list.length;
-    await get().playIndex(previous);
+    await get().playIndex(previous, !state.musicExplicit);
   },
 
   seek: (seconds) => {
@@ -956,48 +988,102 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     set({ position: seconds });
   },
 
+  applyPreferredTrack: async (visId, trackId) => {
+    const eligible = () =>
+      !get().musicExplicit &&
+      useSessionStore.getState().current.id === visId &&
+      useSessionStore.getState().current.preferredTrackId === trackId;
+    if (!eligible()) return;
+    try {
+      const response = await fetch("/api/tracks", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      const track = (data.tracks as HostedTrackSummary[]).find(
+        (item) => item.id === trackId,
+      );
+      if (!track || !eligible()) return;
+      soundcloudLoadToken += 1;
+      hostedCatalogueToken += 1;
+      playToken += 1;
+      cancelHostedTimers();
+      getAudioEngine().disableMic();
+      getAudioEngine().stopFiles();
+      set({
+        kind: "hosted",
+        hostedTracks: [
+          {
+            id: `hosted-${track.id}`,
+            name: track.title,
+            source: "hosted",
+            hostedTrackId: track.id,
+            artist: track.artist,
+            durationMs: track.durationMs,
+          },
+        ],
+        hostedPage: null,
+        hostedLoading: false,
+        soundcloudLoading: false,
+        currentIndex: -1,
+        pendingIndex: -1,
+        isPlaying: false,
+      });
+      await get().playIndex(0, true);
+    } catch {
+      /* A missing preferred track must not prevent the visual playing. */
+    }
+  },
+
   restore: async () => {
-    void get().loadHostedCatalogue();
-    // Re-resolve the remembered playlist, or fall back to the default. One
-    // request either way, and it has to be a fresh one: stored stream URLs
-    // would have expired.
-    const storedUrl = loadSoundcloudUrl();
-    const url = storedUrl || DEFAULT_SOUNDCLOUD_PLAYLIST;
+    if (get().restored) return;
+    try {
+      void get().loadHostedCatalogue();
+      // Re-resolve the remembered playlist, or fall back to the default. One
+      // request either way, and it has to be a fresh one: stored stream URLs
+      // would have expired.
+      const storedUrl = loadSoundcloudUrl();
+      const url = storedUrl || DEFAULT_SOUNDCLOUD_PLAYLIST;
 
-    set({ soundcloudUrl: url });
-    void get().loadSoundcloudPlaylist(url, {
-      // A viewer's own choice is already saved; the default must not be, or it
-      // would masquerade as one.
-      persist: Boolean(storedUrl),
-      autoplay: true,
-    });
+      set({ soundcloudUrl: url });
+      if (
+        !get().musicExplicit &&
+        (storedUrl || !useSessionStore.getState().current.preferredTrackId)
+      )
+        void get().loadSoundcloudPlaylist(url, {
+          // A viewer's own choice is already saved; the default must not be, or it
+          // would masquerade as one.
+          persist: Boolean(storedUrl),
+          autoplay: true,
+        });
 
-    const names = loadTrackNames();
+      const names = loadTrackNames();
 
-    if (!supportsFileSystemAccess()) {
-      set({ pendingNames: names });
-      return;
+      if (!supportsFileSystemAccess()) {
+        set({ pendingNames: names });
+        return;
+      }
+
+      const { granted, needsPermission } = await loadHandles();
+      if (granted.length === 0) {
+        set({ pendingNames: names });
+        return;
+      }
+
+      const files = await Promise.all(
+        granted.map((handle: FileSystemFileHandleLike) => handle.getFile()),
+      );
+
+      set({
+        tracks: files.map((file) => ({
+          id: nextTrackId(),
+          name: file.name,
+          source: "file" as const,
+          file,
+        })),
+        pendingNames: needsPermission.map((h) => h.name),
+      });
+    } finally {
+      set({ restored: true });
     }
-
-    const { granted, needsPermission } = await loadHandles();
-    if (granted.length === 0) {
-      set({ pendingNames: names });
-      return;
-    }
-
-    const files = await Promise.all(
-      granted.map((handle: FileSystemFileHandleLike) => handle.getFile()),
-    );
-
-    set({
-      tracks: files.map((file) => ({
-        id: nextTrackId(),
-        name: file.name,
-        source: "file" as const,
-        file,
-      })),
-      pendingNames: needsPermission.map((h) => h.name),
-    });
   },
 }));
 

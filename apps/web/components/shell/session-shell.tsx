@@ -17,6 +17,7 @@ import { useIntervalAdvance } from "@/hooks/use-interval-advance";
 import { useViewCount } from "@/hooks/use-view-count";
 import { useVisRouteSync } from "@/hooks/use-vis-route-sync";
 import { useAudioStore, wireAudioEvents } from "@/lib/store/audio";
+import { useSessionStore } from "@/lib/store/session";
 import { useChromeStore } from "@/lib/store/chrome";
 
 /**
@@ -41,6 +42,12 @@ function PlayerSession({ children }: { children: ReactNode }) {
   useViewCount();
 
   const chromeVisible = useChromeStore((s) => s.visible);
+  const visId = useSessionStore(s => s.current.id);
+  const preferredTrackId = useSessionStore(s => s.current.preferredTrackId);
+  const audioRestored = useAudioStore(s => s.restored);
+  useEffect(() => {
+    if (audioRestored && preferredTrackId) void useAudioStore.getState().applyPreferredTrack(visId, preferredTrackId);
+  }, [audioRestored, visId, preferredTrackId]);
 
   useEffect(() => {
     wireAudioEvents();

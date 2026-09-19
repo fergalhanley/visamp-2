@@ -30,6 +30,7 @@ type Artist = {
   website_url: string | null;
   links?: ArtistLink[];
   avatarUrl: string;
+  bannerUrl?: string | null;
 };
 type Track = {
   id: string;
@@ -147,10 +148,12 @@ function ArtworkInput({
   endpoint,
   label,
   onSaved,
+  banner = false,
 }: {
   url: string;
   endpoint: string;
   label: string;
+  banner?: boolean;
   onSaved?: () => void;
 }) {
   const [version, setVersion] = useState(0);
@@ -185,7 +188,11 @@ function ArtworkInput({
       <img
         src={`${url}${url.includes("?") ? "&" : "?"}v=${version}`}
         alt={label}
-        className="h-24 w-24 rounded bg-white/5 object-cover"
+        className={
+          banner
+            ? "aspect-[3/1] w-full rounded-lg bg-white/5 object-cover"
+            : "h-24 w-24 rounded bg-white/5 object-cover"
+        }
       />
       <div className="min-w-0 flex-1">
         <label>
@@ -203,7 +210,10 @@ function ArtworkInput({
           />
         </label>
         <p className="text-xs text-muted-foreground">
-          JPEG, PNG or WebP, up to 4 MB. Square images work best.
+          JPEG, PNG or WebP, up to 4 MB.{" "}
+          {banner
+            ? "Use a wide image, ideally 2400 × 800. The centre is cropped to fit the banner."
+            : "Square images work best."}
         </p>
         {message && (
           <p role="status" className="text-sm">
@@ -288,6 +298,12 @@ function ArtistDetails({
             url={artist.avatarUrl}
             endpoint={`/api/my-artists/${artist.id}`}
             label="Artist image"
+          />
+          <ArtworkInput
+            url={artist.bannerUrl ?? `/api/artwork/banner/${artist.id}`}
+            endpoint={`/api/my-artists/${artist.id}?image=banner`}
+            label="Artist banner"
+            banner
           />
           <label>
             Artist name

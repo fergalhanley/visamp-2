@@ -24,6 +24,7 @@ export default defineConfig({
       "lib/seo*.test.ts",
       "lib/visualisation*.test.ts",
       "lib/music/**/*.test.ts",
+      "lib/store/**/*.test.ts",
       "lib/ai/**/*.test.ts",
       "lib/billing/**/*.test.ts",
       "components/**/*.test.tsx",

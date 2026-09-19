@@ -537,6 +537,7 @@ export type Database = {
       }
       music_artists: {
         Row: {
+          banner_key: string | null
           avatar_key: string | null
           bio: string | null
           claimed_by: string | null
@@ -548,6 +549,7 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          banner_key?: string | null
           avatar_key?: string | null
           bio?: string | null
           claimed_by?: string | null
@@ -559,6 +561,7 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          banner_key?: string | null
           avatar_key?: string | null
           bio?: string | null
           claimed_by?: string | null
@@ -931,6 +934,7 @@ export type Database = {
       }
       visualisations: {
         Row: {
+          preferred_track_id: string | null
           slug: string
           slug_published: boolean
           lineage_title: string
@@ -953,6 +957,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["visibility"]
         }
         Insert: {
+          preferred_track_id?: string | null
           comment_count?: number
           created_at?: string
           description?: string | null
@@ -972,6 +977,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["visibility"]
         }
         Update: {
+          preferred_track_id?: string | null
           comment_count?: number
           created_at?: string
           description?: string | null
