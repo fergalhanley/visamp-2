@@ -76,3 +76,46 @@ it.each([false, true])(
     await waitFor(() => expect(input.value).toBe(success ? "" : "Draw a star"));
   },
 );
+
+it("clears the prompt without submitting or requiring credits", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ available: 0, generationCost: 100 }),
+      }),
+  );
+  const submit = vi.fn();
+  render(<Prompt disabled={false} generating={false} onSubmit={submit} />);
+  const input = screen.getByRole("textbox") as HTMLTextAreaElement;
+  fireEvent.change(input, { target: { value: "Suggested inspiration" } });
+  fireEvent.click(screen.getByRole("button", { name: "Clear Prompt" }));
+  expect(input.value).toBe("");
+  expect(submit).not.toHaveBeenCalled();
+  await waitFor(() =>
+    expect(screen.queryByText("Loading credits…")).toBeNull(),
+  );
+});
+it.each([
+  { disabled: true, generating: false },
+  { disabled: false, generating: true },
+])("prevents clearing while editing is unavailable: %j", (state) => {
+  vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
+  const change = vi.fn();
+  render(
+    <AiPrompt
+      {...state}
+      prompt="Keep this"
+      onPromptChange={change}
+      onSubmit={vi.fn()}
+    />,
+  );
+  const clear = screen.getByRole("button", {
+    name: "Clear Prompt",
+  }) as HTMLButtonElement;
+  expect(clear.disabled).toBe(true);
+  fireEvent.click(clear);
+  expect(change).not.toHaveBeenCalled();
+});

@@ -142,6 +142,14 @@ export function AiPrompt({
             )}
             Generate
           </button>
+          <button
+            type="button"
+            onClick={() => onPromptChange("")}
+            disabled={disabled || generating || !prompt}
+            className="h-8 shrink-0 px-1 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Clear Prompt
+          </button>
         </div>
       </div>
     </div>

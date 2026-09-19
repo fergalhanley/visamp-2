@@ -93,9 +93,10 @@ interface EditorShellProps {
    */
   visualisation: Visualisation | null;
   canEdit: boolean;
+  initialPrompt?: string;
 }
 
-export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
+export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: EditorShellProps) {
   const router = useRouter();
   const empty = visualisation === null;
 
@@ -149,7 +150,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
   const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generationFailure, setGenerationFailure] = useState<GenerationFailure | null>(null);
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(canEdit ? initialPrompt : "");
   const generationInFlight = useRef(false);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const preserveNextCompileLog = useRef(false);

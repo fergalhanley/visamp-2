@@ -349,3 +349,21 @@ it("does not refresh the route when the document write fails", async () => {
   ).rejects.toThrow("Write failed");
   expect(m.refresh).not.toHaveBeenCalled();
 });
+
+it("initializes a suggested prompt once and keeps user edits and clearing across rerenders", async () => {
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: vi.fn() });
+  const fetch = vi.fn(async (_url: string) => ({ ok: true, json: async () => ({ available: 0, generationCost: 100 }) }));
+  vi.stubGlobal("fetch", fetch);
+  const visualisation = { id: "new", owner_id: "owner", title: "Strobe Velvet Pumpkin", source: "original", visibility: "private" } as Database["public"]["Tables"]["visualisations"]["Row"];
+  const view = render(<EditorShell visualisation={visualisation} canEdit initialPrompt="An audio-reactive Strobe Velvet Pumpkin" />);
+  const prompt = screen.getByRole("textbox", { name: "Describe a change to this visualisation" }) as HTMLTextAreaElement;
+  expect(prompt.value).toBe("An audio-reactive Strobe Velvet Pumpkin");
+  await waitFor(() => expect(screen.queryByText("Loading credits…")).toBeNull());
+  expect(fetch.mock.calls.every(([url]) => url === "/api/billing")).toBe(true);
+  fireEvent.change(prompt, { target: { value: "My own idea" } });
+  view.rerender(<EditorShell visualisation={{ ...visualisation, title: "Changed title" }} canEdit initialPrompt="Different suggestion" />);
+  expect(prompt.value).toBe("My own idea");
+  fireEvent.click(screen.getByRole("button", { name: "Clear Prompt" }));
+  view.rerender(<EditorShell visualisation={visualisation} canEdit initialPrompt="Another suggestion" />);
+  expect(prompt.value).toBe("");
+});

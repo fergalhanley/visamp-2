@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  createStarterPrompt,
+  STARTER_PROMPT_HASH,
+} from "@/lib/editor/starter-prompts";
 import { EditorShell } from "./editor-shell";
 
 type Document = {
   visualisation: Database["public"]["Tables"]["visualisations"]["Row"] | null;
   canEdit: boolean;
+  initialPrompt?: string;
 };
 
 /** Never seed an editable buffer from a cached server-component payload. */
@@ -36,7 +41,22 @@ export function EditorDocument({ id }: { id: string }) {
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
-        if (active) setLoaded({ id, document: result });
+        if (active) {
+          let initialPrompt = "";
+          if (window.location.hash === STARTER_PROMPT_HASH) {
+            // Consume only after a successful read: failures can still retry.
+            // Let Next synchronize its router state with the cleaned URL.
+            window.history.replaceState(
+              null,
+              "",
+              window.location.pathname + window.location.search,
+            );
+            if (result.canEdit && result.visualisation?.title) {
+              initialPrompt = createStarterPrompt(result.visualisation.title);
+            }
+          }
+          setLoaded({ id, document: { ...result, initialPrompt } });
+        }
       })
       .catch((cause) => {
         if (active)

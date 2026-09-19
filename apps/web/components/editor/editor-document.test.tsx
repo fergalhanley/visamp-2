@@ -10,11 +10,17 @@ vi.mock("./editor-shell", () => ({
   EditorShell: ({
     visualisation,
     canEdit,
+    initialPrompt,
   }: {
     visualisation: { source: string } | null;
     canEdit: boolean;
+    initialPrompt?: string;
   }) => (
-    <div data-testid="editor" data-editable={canEdit}>
+    <div
+      data-testid="editor"
+      data-editable={canEdit}
+      data-prompt={initialPrompt}
+    >
       {visualisation?.source ?? "empty"}
     </div>
   ),
@@ -22,6 +28,7 @@ vi.mock("./editor-shell", () => ({
 import { EditorDocument } from "./editor-document";
 afterEach(() => {
   cleanup();
+  window.history.replaceState(null, "", "/");
   vi.unstubAllGlobals();
 });
 it("waits for a fresh read on every entry and restores saved content after returning", async () => {
@@ -83,4 +90,68 @@ it("ignores an old document response after the requested id changes", async () =
   await waitFor(() =>
     expect(screen.getByTestId("editor").textContent).toBe("second"),
   );
+});
+
+it("seeds only the creation visit using the saved title and consumes the marker", async () => {
+  window.history.replaceState(
+    { preserved: true },
+    "",
+    "/edit/vis#starter-prompt",
+  );
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        visualisation: { source: "starter", title: "Strobe Velvet Pumpkin" },
+        canEdit: true,
+      }),
+    ),
+  );
+  const view = render(<EditorDocument id="vis" />);
+  expect(
+    (await screen.findByTestId("editor")).getAttribute("data-prompt"),
+  ).toContain('"Strobe Velvet Pumpkin"');
+  expect(window.location.hash).toBe("");
+  view.unmount();
+  render(<EditorDocument id="vis" />);
+  expect(
+    (await screen.findByTestId("editor")).getAttribute("data-prompt"),
+  ).toBe("");
+});
+it("preserves the creation marker through a failed load, then seeds on retry", async () => {
+  window.history.replaceState(null, "", "/edit/vis#starter-prompt");
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ error: "Unavailable" }, { status: 503 }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          visualisation: { title: "Prism Silver Fox" },
+          canEdit: true,
+        }),
+      ),
+  );
+  render(<EditorDocument id="vis" />);
+  await screen.findByRole("alert");
+  expect(window.location.hash).toBe("#starter-prompt");
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(
+    (await screen.findByTestId("editor")).getAttribute("data-prompt"),
+  ).toContain("Prism Silver Fox");
+});
+it("never seeds read-only documents even with a creation marker", async () => {
+  window.history.replaceState(null, "", "/edit/vis#starter-prompt");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({ visualisation: { title: "Existing" }, canEdit: false }),
+    ),
+  );
+  render(<EditorDocument id="vis" />);
+  expect(
+    (await screen.findByTestId("editor")).getAttribute("data-prompt"),
+  ).toBe("");
 });
