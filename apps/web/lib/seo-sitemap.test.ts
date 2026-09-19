@@ -21,7 +21,7 @@ it("paginates beyond the database's 1000-row limit and propagates errors", async
 
 it("uses public-only works, deduplicates creators and includes only artist slugs", async () => {
   mocks.publicFrom.mockReturnValue(query([
-    { id: "one", updated_at: "2026-09-18T00:00:00Z", profiles: { username: "A & B" } },
+    { id: "one", slug: "prism-velvet-otter", updated_at: "2026-09-18T00:00:00Z", profiles: { username: "A & B" } },
     { id: "two", updated_at: "2026-09-19T00:00:00Z", profiles: { username: "A & B" } },
   ]));
   const artists = query([{ slug: "artist-one" }]);
@@ -30,6 +30,6 @@ it("uses public-only works, deduplicates creators and includes only artist slugs
   expect(mocks.eq).toHaveBeenCalledWith("visibility", "public");
   expect(artists.select).toHaveBeenCalledWith("slug");
   expect(result.filter(row => row.url.includes("/creators/"))).toEqual([{ url: "https://www.visamp.io/creators/A%20%26%20B" }]);
-  expect(result).toContainEqual({ url: "https://www.visamp.io/vis/one", lastModified: "2026-09-18T00:00:00Z" });
+  expect(result).toContainEqual({ url: "https://www.visamp.io/vis/prism-velvet-otter", lastModified: "2026-09-18T00:00:00Z" });
   expect(result.some(row => row.url.includes("/artists/artist-one"))).toBe(true);
 });

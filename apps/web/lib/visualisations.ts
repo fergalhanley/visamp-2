@@ -27,6 +27,7 @@ export function creatorFromProfile(profile: ProfileRow | null): Creator {
 export function visualisationFromRow(row: Row, creator: Creator): Visualisation {
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     description: row.description ?? undefined,
     source: row.source,

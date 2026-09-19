@@ -7,6 +7,8 @@ export interface Creator {
 }
 
 export interface Visualisation {
+  /** Stable canonical address once published; fixtures may use their id. */
+  slug?: string;
   id: string;
   title: string;
   description?: string;

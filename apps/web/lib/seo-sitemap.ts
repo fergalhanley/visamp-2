@@ -1,3 +1,4 @@
+import { visualisationPath } from "@/lib/visualisation-url";
 import "server-only";
 import type { MetadataRoute } from "next";
 import { createPublicClient } from "@/lib/supabase/public";
@@ -21,7 +22,7 @@ export async function publicSitemap(): Promise<MetadataRoute.Sitemap> {
   const db = createPublicClient();
   const [works, artists] = await Promise.all([
     pagedRows((from, to) => db.from("visualisations")
-      .select("id,updated_at,profiles!visualisations_owner_id_fkey(username)")
+      .select("id,slug,updated_at,profiles!visualisations_owner_id_fkey(username)")
       .eq("visibility", "public").order("id").range(from, to)),
     // Artist profiles are already public, including those without live tracks.
     // These tables deny anon access, so select only the public slug here.
@@ -31,7 +32,7 @@ export async function publicSitemap(): Promise<MetadataRoute.Sitemap> {
   const creators = new Set(works.map(row => row.profiles?.username).filter((name): name is string => Boolean(name)));
   const entries: MetadataRoute.Sitemap = [
     ...staticSearchPaths.map(path => ({ url: new URL(path, SITE_URL).href })),
-    ...works.map(row => ({ url: `${SITE_URL}/vis/${row.id}`, lastModified: row.updated_at })),
+    ...works.map(row => ({ url: `${SITE_URL}${visualisationPath(row)}`, lastModified: row.updated_at })),
     ...[...creators].map(name => ({ url: `${SITE_URL}/creators/${encodeURIComponent(name)}` })),
     ...artists.map(row => ({ url: `${SITE_URL}/artists/${encodeURIComponent(row.slug)}` })),
   ];

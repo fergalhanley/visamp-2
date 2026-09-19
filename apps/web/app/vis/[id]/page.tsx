@@ -1,6 +1,7 @@
+import { isVisualisationId, visualisationPath } from "@/lib/visualisation-url";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 
 import { VisSync } from "@/components/shell/vis-sync";
 import { createClient } from "@/lib/supabase/server";
@@ -15,12 +16,13 @@ import { publicMetadata, noIndex } from "@/lib/seo";
  */
 const loadVisualisation = cache(async (id: string) => {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("visualisations")
     .select("*, profiles!visualisations_owner_id_fkey(*)")
-    .eq("id", id)
+    .eq(isVisualisationId(id) ? "id" : "slug", id)
     .maybeSingle();
 
+  if (error) throw new Error("Could not load visualisation");
   return data ? visualisationFromRow(data, creatorFromProfile(data.profiles)) : null;
 });
 
@@ -35,7 +37,7 @@ export async function generateMetadata({
 
   const title = `${vis.title} by ${vis.creator.username}`;
 
-  return publicMetadata(`/vis/${vis.id}`, title,
+  return publicMetadata(visualisationPath(vis), title,
     vis.description || `Play ${vis.title}, a music visualisation by ${vis.creator.username}, on VisAmp.`, vis.thumbUrl);
 }
 
@@ -53,6 +55,11 @@ export default async function VisPage({ params }: PageProps<"/vis/[id]">) {
   const vis = await loadVisualisation(id);
 
   if (!vis) notFound();
+
+  if (id !== (vis.slug || vis.id)) {
+    if (vis.visibility === "public") permanentRedirect(visualisationPath(vis));
+    redirect(visualisationPath(vis));
+  }
 
   return (
     <>

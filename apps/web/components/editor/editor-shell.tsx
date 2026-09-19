@@ -1,5 +1,6 @@
 "use client";
 import { confirmedSave, flushConfirmedSave } from "@/lib/analytics/editor";
+import { visualisationSaveError } from "@/lib/editor/title";
 import { track } from "@/lib/analytics/client";
 
 import { useRouter } from "next/navigation";
@@ -337,7 +338,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
         .from("thumbnails")
         .upload(path, blob, { contentType: "image/png", upsert: true });
 
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(visualisationSaveError(error));
       signal?.throwIfAborted();
 
       return path;
@@ -373,7 +374,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             .select("id")
             .abortSignal(signal)
             .single();
-          if (error) throw new Error(error.message);
+          if (error) throw new Error(visualisationSaveError(error));
           // Direct Supabase writes do not invalidate Next's history cache.
           // Refresh the server snapshot without replacing the live editor buffer.
           // Do this before thumbnail work, which can fail or outlive navigation.
@@ -392,7 +393,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
             .eq("id", visualisation.id)
             .eq("thumb_pinned", false)
             .abortSignal(thumbnailSignal);
-          if (error) throw new Error(error.message);
+          if (error) throw new Error(visualisationSaveError(error));
         },
         (message) => appendLog({ level: "warn", message }),
       );
@@ -430,7 +431,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           .update({ thumb_path: thumbPath, thumb_pinned: true })
           .eq("id", visualisation.id);
 
-        if (error) throw new Error(error.message);
+        if (error) throw new Error(visualisationSaveError(error));
         setThumbPinned(true);
       }
     } catch (error) {
@@ -478,14 +479,13 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           .update({ title, source, visibility })
           .eq("id", visualisation.id);
 
-        if (error) throw new Error(error.message);
+        if (error) throw new Error(visualisationSaveError(error));
       }
 
       const { data, error } = await supabase
         .from("visualisations")
         .insert({
           owner_id: user.id,
-          title: `${title} (fork)`,
           description: visualisation.description,
           source,
           visibility: "private",
@@ -760,7 +760,10 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
           <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
             <input
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                setSaveError(null);
+              }}
               disabled={!canEdit}
               aria-label="Title"
               className={cn(
@@ -772,7 +775,7 @@ export function EditorShell({ visualisation, canEdit }: EditorShellProps) {
                 "focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-ring",
                 "disabled:bg-transparent disabled:opacity-60",
               )}
-              placeholder="Untitled"
+              placeholder="Name your visualisation"
             />
 
             {canEdit ? (

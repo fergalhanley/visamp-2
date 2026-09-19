@@ -42,7 +42,6 @@ async function insertFork(visId: string, ownerId: string): Promise<string | null
   // A fixture has no row to fork from, so fall back to what is on screen and
   // leave the attribution empty rather than pointing at an id that is not there.
   const playing = useSessionStore.getState().current;
-  const title = row?.title ?? playing.title;
   const source = row?.source ?? playing.source;
 
   // E6.11 — a fork is an insert, never an update, and counters do not carry
@@ -52,7 +51,6 @@ async function insertFork(visId: string, ownerId: string): Promise<string | null
     .from("visualisations")
     .insert({
       owner_id: ownerId,
-      title: `${title} (fork)`,
       description: row?.description ?? null,
       source,
       visibility: "private",

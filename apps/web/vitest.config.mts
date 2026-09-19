@@ -22,6 +22,7 @@ export default defineConfig({
       "lib/artists/**/*.test.ts",
       "lib/creators/**/*.test.ts",
       "lib/seo*.test.ts",
+      "lib/visualisation*.test.ts",
       "lib/music/**/*.test.ts",
       "lib/ai/**/*.test.ts",
       "lib/billing/**/*.test.ts",

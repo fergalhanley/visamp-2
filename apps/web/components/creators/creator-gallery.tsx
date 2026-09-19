@@ -1,5 +1,6 @@
 "use client";
 
+import { visualisationPath } from "@/lib/visualisation-url";
 import { VisampCanvas } from "@visamp/player";
 import { ChevronDown, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -205,7 +206,7 @@ export function CreatorGallery({ initialUsername = null, initialCreator, initial
                           work.map((vis) => (
                             <a
                               key={vis.id}
-                              href={`/vis/${vis.id}`}
+                              href={visualisationPath(vis)}
                               onClick={(event) => {
                                 if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                                 event.preventDefault();

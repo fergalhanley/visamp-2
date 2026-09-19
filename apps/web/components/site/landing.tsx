@@ -1,5 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-html-link-for-pages -- player and artist preview use a singleton WASM canvas that requires a fresh document */
+import { visualisationPath } from "@/lib/visualisation-url";
 import Image from "next/image";
 import { ArrowDown, ArrowUpRight, Eye, Play } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -247,7 +248,7 @@ export function Landing({
             {page.items.map((item, index) => (
               <article className="gallery-card" key={item.id}>
                 <a
-                  href={"/vis/" + item.id}
+                  href={visualisationPath(item)}
                   className={"gallery-art art-" + (index % 6)}
                   aria-label={"Play " + item.title}
                 >
@@ -273,7 +274,7 @@ export function Landing({
                 <div className="gallery-card-info">
                   <div>
                     <h3>
-                      <a href={"/vis/" + item.id}>{item.title}</a>
+                      <a href={visualisationPath(item)}>{item.title}</a>
                     </h3>
                     {item.username ? (
                       <a

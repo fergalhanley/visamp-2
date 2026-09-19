@@ -1,5 +1,6 @@
 "use client";
 
+import { visualisationPath } from "@/lib/visualisation-url";
 import { Loader2, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
 
@@ -213,7 +214,7 @@ export function CommentsThread({
       <SignInDialog
         open={signInOpen}
         onOpenChange={setSignInOpen}
-        next={`/vis/${vis.id}`}
+        next={visualisationPath(vis)}
       />
     </div>
   );

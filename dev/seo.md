@@ -61,3 +61,6 @@ After an owner-authorised release:
 
 Content guides and approved contact/policy details remain separate editorial work.
 Do not publish invented contact details or legal text to fill SEO placeholders.
+
+Visualisation URLs now use stable title-derived slugs; legacy UUID URLs redirect.
+See [naming and URL rules](visualisation-names.md) for allocation, publication and migration details.

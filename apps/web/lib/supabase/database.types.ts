@@ -928,6 +928,9 @@ export type Database = {
       }
       visualisations: {
         Row: {
+          slug: string
+          slug_published: boolean
+          lineage_title: string
           comment_count: number
           created_at: string
           description: string | null

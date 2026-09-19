@@ -85,7 +85,6 @@ export function VisMenu({ vis, owned = false, onChanged }: VisMenuProps) {
       .from("visualisations")
       .insert({
         owner_id: user!.id,
-        title: `${vis.title} (fork)`,
         description: vis.description ?? null,
         source: vis.source,
         visibility: "private",

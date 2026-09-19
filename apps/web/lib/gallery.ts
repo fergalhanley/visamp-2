@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { publicStorageUrl } from "@/lib/storage-urls";
 export type GalleryItem = {
   id: string;
+  slug: string;
   title: string;
   username: string | null;
   thumbnail: string | null;
@@ -17,7 +18,7 @@ export async function getGalleryPage(
   let query = db
     .from("visualisations")
     .select(
-      "id,title,created_at,updated_at,thumb_path,view_count,profiles!visualisations_owner_id_fkey(username)",
+      "id,slug,title,created_at,updated_at,thumb_path,view_count,profiles!visualisations_owner_id_fkey(username)",
     )
     .eq("visibility", "public")
     .order("created_at", { ascending: false })
@@ -45,6 +46,7 @@ export async function getGalleryPage(
   return {
     items: rows.map((row) => ({
       id: row.id,
+      slug: row.slug,
       title: row.title,
       username: row.profiles?.username ?? null,
       thumbnail:

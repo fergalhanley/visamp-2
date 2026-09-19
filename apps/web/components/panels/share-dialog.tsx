@@ -1,5 +1,6 @@
 "use client";
 
+import { visualisationPath } from "@/lib/visualisation-url";
 import { Check, Link as LinkIcon, Mail, MessageSquare } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
@@ -43,7 +44,7 @@ export function ShareDialog({ vis, open, onOpenChange }: ShareDialogProps) {
   );
   const [copied, setCopied] = useState(false);
 
-  const url = `${origin}/vis/${vis.id}`;
+  const url = `${origin}${visualisationPath(vis)}`;
   const text = `${vis.title} by ${vis.creator.username}`;
 
   const encodedUrl = encodeURIComponent(url);

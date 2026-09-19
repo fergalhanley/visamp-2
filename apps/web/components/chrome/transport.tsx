@@ -1,5 +1,6 @@
 "use client";
 
+import { visualisationPath } from "@/lib/visualisation-url";
 import {
   CornerUpLeft,
   Eye,
@@ -336,7 +337,7 @@ export function Transport() {
             fullscreen, or react to the work. */}
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 flex-1 truncate text-sm">
-            <Link href={`/vis/${current.id}`} className="font-medium hover:underline">
+            <Link href={visualisationPath(current)} className="font-medium hover:underline">
               {current.title}
             </Link>
             <span className="text-muted-foreground"> — </span>

@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
     .from("visualisations")
     .insert({
       owner_id: user.id,
-      title: "Untitled",
       source: STARTER_SOURCE,
       visibility: "private",
     })
