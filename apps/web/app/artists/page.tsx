@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { publicMetadata } from "@/lib/seo";
 
 import { TopBar } from "@/components/chrome/top-bar";
@@ -15,6 +16,8 @@ export const metadata = publicMetadata("/artists", "Music Artists", "Discover in
  * absent by construction.
  */
 export default async function ArtistsPage() {
+  // Live catalogue and expiring artwork URLs require runtime credentials.
+  await connection();
   const artists = await listPublicArtists();
 
   return (
