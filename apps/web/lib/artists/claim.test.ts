@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/lib/analytics/server", () => ({ serverEvent: vi.fn(async () => {}) }));
 const m=vi.hoisted(()=>({rpc:vi.fn(), identity:vi.fn()}));
 vi.mock("@/lib/hosted-audio/uploads",()=>({sameOrigin:()=>{},uploadIdentity:m.identity,uploadError:()=>Response.json({error:"Unavailable"},{status:503})}));
 import { POST } from "@/app/api/uploads/artist/route";

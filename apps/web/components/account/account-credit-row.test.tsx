@@ -16,7 +16,7 @@ it("shows the available balance and refreshes after returning from billing", asy
   await screen.findByText("2,000 credits");
   expect(
     screen
-      .getByRole("link", { name: "Credits & billing" })
+      .getByRole("link", { name: "Go to Credits & Billing" })
       .getAttribute("href"),
   ).toBe("/account/billing");
   fireEvent.focus(window);
@@ -29,6 +29,6 @@ it("keeps billing available when the balance cannot load", async () => {
   );
   render(<AccountCreditRow />);
   await screen.findByText("Credits unavailable");
-  expect(screen.getByRole("link", { name: "Credits & billing" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Go to Credits & Billing" })).toBeTruthy();
   expect(screen.queryByText("0 credits")).toBeNull();
 });
