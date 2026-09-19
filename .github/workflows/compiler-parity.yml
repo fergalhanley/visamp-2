@@ -76,26 +76,32 @@ jobs:
           render {
             draw::background(color: color::rgb(r: 0.02, g: 0.02, b: 0.05))
             draw::circle(
-              x: $WIDTH / 2.0 + math::sin(radians: phase) * 40.0,
+              x: $WIDTH / 2.0 + math::sin(rad: phase) * 40.0,
               y: $HEIGHT / 2.0,
-              radius: 20.0 + $FREQUENCY_DATA[4] / 16.0,
+              radius: 20.0 + audio::detect::get_frequency()[4] / 16.0,
               color: $COLOR_RED
             )
           }`;
           for (let attempt = 0; attempt < 50; attempt += 1) {
             try {
-              const response = await fetch("http://127.0.0.1:4318/validate", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ script }),
+              const response = await fetch("http://127.0.0.1:4318/health", {
+                signal: AbortSignal.timeout(2000),
               });
-              if (!response.ok) throw new Error(await response.text());
-              const result = await response.json();
-              if (!result.compilerVersion) throw new Error("missing compiler version");
-              process.exit(0);
+              if (!response.ok) throw new Error("validator not ready");
+              break;
             } catch (error) {
               if (attempt === 49) throw error;
               await new Promise((resolve) => setTimeout(resolve, 200));
             }
           }
+          const response = await fetch("http://127.0.0.1:4318/validate", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ script }),
+            signal: AbortSignal.timeout(30000),
+          });
+          if (!response.ok) throw new Error(await response.text());
+          const result = await response.json();
+          if (!result.compilerVersion) throw new Error("missing compiler version");
+          console.log(`Validated render with compiler ${result.compilerVersion}`);
           NODE
