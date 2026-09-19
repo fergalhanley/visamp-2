@@ -198,6 +198,17 @@ async function playbackForTrack(
   };
 }
 
+/** Public metadata lookup without signing audio or scanning the catalogue. */
+export async function getHostedTrackSummary(id: string): Promise<HostedTrackSummary | null> {
+  const track = await fetchTrack(id);
+  if (!track || track.status !== "live") return null;
+  const [artist, licence] = await Promise.all([
+    fetchArtist(track.music_artist_id), fetchLicence(track.licence_id),
+  ]);
+  if (!artist || !isLicencePlayable(licence, artist.id)) return null;
+  return summary(track, artist);
+}
+
 export async function getHostedPlayback(id: string): Promise<HostedPlayback> {
   const track = await fetchTrack(id);
   if (!track) throw new HostedAudioHttpError(404, "Track not found");

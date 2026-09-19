@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { listHostedTracks } from "@/lib/hosted-audio/server";
+import { getHostedTrackSummary, listHostedTracks } from "@/lib/hosted-audio/server";
 import { checkApiRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
@@ -16,7 +16,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const tracks = await listHostedTracks();
+    const id = new URL(request.url).searchParams.get("id");
+    if (id !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return NextResponse.json({ error: "Invalid track" }, { status: 400 });
+    }
+    const selected = id ? await getHostedTrackSummary(id) : null;
+    const tracks = id ? (selected ? [selected] : []) : await listHostedTracks();
     return NextResponse.json(
       { tracks },
       {

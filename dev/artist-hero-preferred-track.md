@@ -21,8 +21,12 @@ and column grants apply. Forks start without a preferred track.
 The artist Visualisations tab uses an anonymous public query, filtered by the artist's
 playable track IDs. It displays up to 200 recent matching visuals, independently of
 who made them. The existing hosted catalogue bounds apply (500 candidate tracks).
-Private visualisations and withdrawn/unlicensed tracks are excluded. The editor's
-selector uses the same hosted catalogue.
+Private visualisations and withdrawn/unlicensed tracks are excluded. The editor uses a searchable dialog backed by `/api/music/tracks`: title, artist
+and album search is debounced by 250 ms, with 40 results per page and Load more.
+It searches the full playable catalogue rather than the 500-candidate list. Saved
+selections resolve directly via `/api/tracks?id=<uuid>` with the same live/licence
+gate; this lookup returns metadata without signing audio. Selecting closes the
+dialog and uses existing autosave; clearing and playback precedence are unchanged.
 
 On player startup or visualisation change, the preferred track is a fallback:
 explicit tracks, playlist/favourites playback, saved SoundCloud playlists, local
