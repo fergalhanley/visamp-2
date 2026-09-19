@@ -1,10 +1,9 @@
 "use client";
 
-import { Loader2, LogOut, Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { AccountCreditRow } from "@/components/account/account-credit-row";
-import { AccountAnalytics } from "@/components/account/account-analytics";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { profileAvatarUrl } from "@/lib/storage-urls";
@@ -14,7 +13,7 @@ import { creatorName } from "@/lib/visualisations";
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 export function AccountEditor() {
-  const { user, profile, loading, refreshProfile, signOut } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
   const [bioDraft, setBioDraft] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -189,19 +188,7 @@ export function AccountEditor() {
         </form>
 
         <AccountCreditRow key={user.id} />
-        <AccountAnalytics />
 
-        <div className="flex justify-end gap-5">
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            disabled={saving}
-            className="mt-4 flex cursor-pointer items-center gap-2 rounded-md border border-red-500 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <LogOut aria-hidden="true" className="h-4 w-4" />
-            Log out of VisAmp
-          </button>
-        </div>
       </div>
     </main>
   );

@@ -13,20 +13,6 @@ import {
   setAnalyticsConsent,
 } from "@/lib/analytics/client";
 
-export function AnalyticsPreferencesButton() {
-  return (
-    <button
-      type="button"
-      className="cursor-pointer underline underline-offset-4"
-      onClick={() =>
-        window.dispatchEvent(new Event("visamp:analytics-preferences"))
-      }
-    >
-      Analytics preferences
-    </button>
-  );
-}
-
 function subscribeConsent(listener: () => void) {
   window.addEventListener("visamp:analytics-consent", listener);
   window.addEventListener("storage", listener);
@@ -47,15 +33,12 @@ export function AnalyticsProvider() {
     () => "loading",
   );
   useEffect(() => {
-    const show = () => setOpen(true);
     const storage = (event: StorageEvent) => {
       if (event.key !== consentKey) return;
       if (consent() !== "accepted") void setAnalyticsConsent(false);
     };
-    window.addEventListener("visamp:analytics-preferences", show);
     window.addEventListener("storage", storage);
     return () => {
-      window.removeEventListener("visamp:analytics-preferences", show);
       window.removeEventListener("storage", storage);
     };
   }, []);
@@ -84,7 +67,7 @@ export function AnalyticsProvider() {
       void pageViewed(path);
     });
   };
-  if (!(open ?? choice === null)) return null;
+  if (path === "/settings" || !(open ?? choice === null)) return null;
   return (
     <section
       aria-labelledby="analytics-consent-heading"
@@ -97,8 +80,7 @@ export function AnalyticsProvider() {
           <p id="analytics-consent-description" className="mt-1 text-sm text-muted-foreground">
             Allow optional usage analytics to help us understand listening and
             creation. We use Mixpanel in the US. We don’t send your code,
-            prompts or audio. You can change this choice in Analytics
-            preferences or on your account page. <a href="/site/privacy-policy" className="underline underline-offset-4">Privacy policy</a>
+            prompts or audio. You can change this choice in <a href="/settings" className="underline underline-offset-4">Settings</a>. <a href="/site/privacy-policy" className="underline underline-offset-4">Privacy policy</a>
           </p>
           {error && <p role="alert" className="mt-2 text-sm">{error}</p>}
         </div>

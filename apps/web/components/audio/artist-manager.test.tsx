@@ -1,0 +1,63 @@
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { ArtistManager } from "./artist-manager";
+vi.mock("@/components/auth/auth-provider", () => ({ useAuth: () => ({ user: { id: "owner" }, loading: false }) }));
+vi.mock("@/components/auth/sign-in-dialog", () => ({ SignInDialog: () => null }));
+vi.mock("./claim-artist-form", () => ({ ClaimArtistForm: () => null }));
+const requests = vi.fn();
+beforeEach(() => {
+  requests.mockReset().mockImplementation(async (url: string, options?: RequestInit) => {
+    if (options?.method === "PATCH" || options?.method === "DELETE" || options?.method === "POST") return Response.json({ saved: true });
+    if (url === "/api/my-artists") return Response.json({ artists: [{ id: "artist", name: "Test Artist", slug: "test-artist", bio: "Existing biography", avatarUrl: "/artist.png" }] });
+    return Response.json({ tracks: [{ id: "track", title: "First Song", album: "First Album", status: "live", artworkUrl: "/artwork.png" }], nextOffset: null });
+  });
+  vi.stubGlobal("fetch", requests);
+  vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} unobserve() {} });
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("preserves unsaved profile fields between tabs and saves through the existing API", async () => {
+  render(<ArtistManager />);
+  const bio = await screen.findByRole("textbox", { name: "Bio" });
+  fireEvent.change(bio, { target: { value: "New biography" } });
+  fireEvent.click(screen.getByRole("tab", { name: "Tracks & Artwork" }));
+  expect(await screen.findByRole("table", { name: "Tracks and artwork for Test Artist" })).toBeTruthy();
+  expect(screen.queryByRole("textbox", { name: "Bio" })).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "Artist Profile" }));
+  expect((screen.getByRole("textbox", { name: "Bio" }) as HTMLTextAreaElement).value).toBe("New biography");
+  fireEvent.click(screen.getByRole("button", { name: "Save artist profile" }));
+  await screen.findByText("Profile saved.");
+  expect(requests).toHaveBeenCalledWith("/api/my-artists/artist", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "Test Artist", bio: "New biography", links: [] }) }));
+});
+it("edits a track in a dialog, refreshes table artwork and requires removal confirmation", async () => {
+  render(<ArtistManager />);
+  fireEvent.click(await screen.findByRole("tab", { name: "Tracks & Artwork" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit First Song" }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.change(within(dialog).getByRole("textbox", { name: "Track title" }), { target: { value: "Renamed Song" } });
+  fireEvent.change(within(dialog).getByLabelText("Artwork for First Song"), { target: { files: [new File(["image"], "cover.png", { type: "image/png" })] } });
+  await screen.findByText("Artwork saved.");
+  expect(document.querySelector('table img')?.getAttribute('src')).not.toBe('/artwork.png?v=0');
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save track" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(screen.getByRole("rowheader", { name: "Renamed Song" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Remove Renamed Song" }));
+  expect(requests.mock.calls.some(([, opts]) => opts?.method === "DELETE")).toBe(false);
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove track" }));
+  await screen.findByRole("link", { name: "Re-upload" });
+  expect(requests).toHaveBeenCalledWith("/api/my-tracks/track", expect.objectContaining({ method: "DELETE" }));
+});
+it("adds typed links, validates their domains and removes entries", async () => {
+  render(<ArtistManager />);
+  fireEvent.click(await screen.findByRole("button",{name:"Add link"}));
+  fireEvent.change(screen.getByRole("combobox",{name:"Link 1 type"}),{target:{value:"spotify"}});
+  fireEvent.change(screen.getByRole("textbox",{name:"Link 1 URL"}),{target:{value:"https://wrong.example"}});
+  fireEvent.click(screen.getByRole("button",{name:"Save artist profile"}));
+  await screen.findByText("Enter a Spotify link, or choose Website for a different address.");
+  expect(requests.mock.calls.some(([,opts])=>opts?.method==="PATCH")).toBe(false);
+  fireEvent.change(screen.getByRole("textbox",{name:"Link 1 URL"}),{target:{value:"https://open.spotify.com/artist/test"}});
+  fireEvent.click(screen.getByRole("button",{name:"Save artist profile"}));
+  await screen.findByText("Profile saved.");
+  expect(requests).toHaveBeenCalledWith("/api/my-artists/artist",expect.objectContaining({method:"PATCH",body:JSON.stringify({name:"Test Artist",bio:"Existing biography",links:[{type:"spotify",url:"https://open.spotify.com/artist/test"}]})}));
+  fireEvent.click(screen.getByRole("button",{name:"Remove link 1"}));
+  expect(screen.queryByRole("textbox",{name:"Link 1 URL"})).toBeNull();
+});

@@ -1,4 +1,5 @@
 import "server-only";
+import { readArtistLinks, type ArtistLink } from "./links";
 
 import { signMediaObject } from "@/lib/hosted-audio/r2";
 import { listHostedTracks } from "@/lib/hosted-audio/server";
@@ -15,6 +16,7 @@ export interface ArtistProfile {
   name: string;
   bio: string | null;
   websiteUrl: string | null;
+  links: ArtistLink[];
   avatarUrl: string | null;
   tracks: HostedTrackSummary[];
   /**
@@ -60,7 +62,7 @@ async function avatarUrl(key: string | null): Promise<string | null> {
 export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
   const { data: artist, error } = await admin()
     .from("music_artists")
-    .select("id, slug, name, bio, website_url, avatar_key, claimed_by")
+    .select("id, slug, name, bio, website_url, links, avatar_key, claimed_by")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -87,6 +89,7 @@ export async function loadArtist(slug: string): Promise<ArtistProfile | null> {
     name: artist.name,
     bio: artist.bio,
     websiteUrl: artist.website_url,
+    links: readArtistLinks(artist.links, artist.website_url),
     avatarUrl: await avatarUrl(artist.avatar_key),
     tracks,
     creatorUsername,

@@ -26,13 +26,16 @@ The visual panel's Playlists tab uses existing private visual playlists. Selecti
 a visual sets the playlist as its next/previous context. Inaccessible or deleted
 visualisations are omitted through existing RLS.
 
-## My artists
+## Manage Artists
 
-`/my-artists` is linked from the account menu, upload page and audio library.
-Owners can add/select artists, edit names, bios and website URLs, and upload an
+`/manage-artists` is linked from the account menu, upload page and audio library.
+Owners can add/select artists, edit names, bios and typed website/social links, and upload an
 artist image. Names retain the global normalized uniqueness constraint; renaming
 does not change the artist's URL. Owners can edit live/draft track titles, albums
 and artwork. Withdrawn/unfinished tracks are listed but are not editable here.
+Artist Profile and Tracks & Artwork share a tabbed panel, with tracks in a compact
+table and editing in a dialog. The old `/my-artists` page redirects permanently.
+See [artist profile links](artist-profile-links.md) for link validation and migration.
 No licence/publication/ownership fields can be changed through these endpoints.
 
 Artwork accepts JPEG, PNG or WebP up to 4 MiB and 25 megapixels. The server decodes,
@@ -69,7 +72,7 @@ these fields. A failed detail/image save leaves the completed upload retryable;
 Retry reuses its track and never transfers the MP3 again. A track may be playable
 before its optional artwork finishes saving.
 
-My artists offers confirmed removal and a re-upload link preselecting the artist.
+Manage Artists offers confirmed removal and a re-upload link preselecting the artist.
 Removal uses a service-only owner-checking RPC, permanently withdraws the old track,
 and queues public assets for deletion through the existing outbox. Masters and the
 audit tombstone are retained. The SHA-256 uniqueness constraint now applies only to

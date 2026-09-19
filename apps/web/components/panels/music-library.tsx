@@ -218,7 +218,7 @@ export function MusicLibrary() {
           </div>
         )}
         <a
-          href="/my-artists"
+          href="/manage-artists"
           className="block text-right text-xs text-muted-foreground underline"
         >
           Manage my artists & music

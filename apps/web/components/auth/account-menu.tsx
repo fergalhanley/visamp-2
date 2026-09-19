@@ -1,12 +1,11 @@
 "use client";
 // Account navigation uses a fresh document to reset the singleton player engine.
 
-import { LogOut, User as UserIcon, UserPlus } from "lucide-react";
+import { LogOut, Settings, Music, User as UserIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
-import { AdminMenuItem } from "@/components/auth/admin-menu-item";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { UsernameClaimDialog } from "@/components/auth/username-claim-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -58,7 +57,11 @@ export function AccountMenu() {
         >
           Sign In
         </button>
-        <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} next={pathname} />
+        <SignInDialog
+          open={signInOpen}
+          onOpenChange={setSignInOpen}
+          next={pathname}
+        />
       </>
     );
   }
@@ -75,14 +78,12 @@ export function AccountMenu() {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <DropdownMenuTrigger
             aria-label="Open account menu"
-            className="transition hover:text-foreground"
+            className="cursor-pointer rounded-full transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4"
           >
-          <a href="/account">
             <Avatar className="h-10 w-10">
               {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
               <AvatarFallback className="text-[10px]">{initial}</AvatarFallback>
             </Avatar>
-          </a>
           </DropdownMenuTrigger>
           {/* The avatar alone identifies the account on a narrow bar, where
               the name is the first thing there is no room for. */}
@@ -97,37 +98,29 @@ export function AccountMenu() {
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuGroup>
             <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-              {user.email}
+              Hi {name}!
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
 
-          {/* Base UI composes via `render`, not Radix's `asChild`. */}
-          {profile?.username ? (
-            <DropdownMenuItem
-              nativeButton={false}
-              render={<a href="/account" />}
-            >
-              <UserIcon className="h-3.5 w-3.5" />
-              Your account
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onClick={() => setClaimOpen(true)}>
-              <UserPlus className="h-3.5 w-3.5" />
-              Choose a username
-            </DropdownMenuItem>
-          )}
-
-          <DropdownMenuItem nativeButton={false} render={<a href="/my-artists" />}>
-            My artists
+          <DropdownMenuItem nativeButton={false} render={<a href="/account" />}>
+            <UserIcon className="h-3.5 w-3.5" />
+            Account
           </DropdownMenuItem>
-          <DropdownMenuItem nativeButton={false} render={<a href="/upload" />}>
-            Upload music
+          <DropdownMenuItem
+            nativeButton={false}
+            render={<a href="/settings" />}
+          >
+            <Settings className="h-3.5 w-3.5" />
+            Settings
           </DropdownMenuItem>
-          <DropdownMenuItem nativeButton={false} render={<a href="/assets" />}>
-            Your assets
+          <DropdownMenuItem
+            nativeButton={false}
+            render={<a href="/manage-artists" />}
+          >
+            <Music className="h-3.5 w-3.5" />
+            Manage Artists
           </DropdownMenuItem>
-          <AdminMenuItem key={user.id} />
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => void signOut()}>
             <LogOut className="h-3.5 w-3.5" />

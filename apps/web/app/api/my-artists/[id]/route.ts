@@ -1,3 +1,4 @@
+import { parseArtistLinks } from "@/lib/artists/links";
 import {
   boundedText,
   musicBody,
@@ -61,7 +62,20 @@ export async function PATCH(
     const { db, userId } = await ownedArtist(id);
     const name = boundedText(body.name, 120, true).replace(/\s+/g, " ");
     const bio = boundedText(body.bio, 2000);
-    const website = boundedText(body.websiteUrl, 500);
+    let links;
+    if (body.links !== undefined) {
+      try {
+        links = parseArtistLinks(body.links);
+      } catch (error) {
+        throw new MusicError(
+          400,
+          error instanceof Error ? error.message : "Invalid artist links.",
+        );
+      }
+    }
+    const website = links
+      ? (links.find((link) => link.type === "website")?.url ?? "")
+      : boundedText(body.websiteUrl, 500);
     if (website) {
       try {
         if (!["http:", "https:"].includes(new URL(website).protocol))
@@ -75,7 +89,12 @@ export async function PATCH(
     }
     const { error } = await db
       .from("music_artists")
-      .update({ name, bio: bio || null, website_url: website || null })
+      .update({
+        name,
+        bio: bio || null,
+        website_url: website || null,
+        ...(links ? { links } : {}),
+      })
       .eq("id", id)
       .eq("claimed_by", userId);
     if (error?.code === "23505")

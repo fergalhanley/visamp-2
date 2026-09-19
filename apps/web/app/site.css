@@ -609,3 +609,29 @@
   opacity: 0.75;
   margin: 0;
 }
+
+/* Keep native select text and the custom chevron comfortably inset. */
+.site-form select {
+  appearance: none;
+  padding-right: 2.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ba69e' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+}
+.artist-panel .site-form,
+.track-edit-form.site-form {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 16px;
+}
+.artist-panel .site-table-wrap { margin: 0; }
+.artist-panel .site-table th,
+.artist-panel .site-table td { padding: 12px; }
+
+.artist-panel .site-table tbody th { color: var(--foreground); font-weight: 500; }
+
+.site-content.settings-content { max-width: 800px; }
+.artist-selector.site-form { margin-top: 24px; padding: 16px; }

@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ArtistLinksEditor } from "./artist-links-editor";
+import {
+  parseArtistLinks,
+  readArtistLinks,
+  type ArtistLink,
+} from "@/lib/artists/links";
+import { Tabs } from "@base-ui/react/tabs";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +28,7 @@ type Artist = {
   slug: string;
   bio: string | null;
   website_url: string | null;
+  links?: ArtistLink[];
   avatarUrl: string;
 };
 type Track = {
@@ -43,7 +51,7 @@ export function ArtistManager() {
         <SignInDialog
           open={signIn}
           onOpenChange={setSignIn}
-          next="/my-artists"
+          next="/manage-artists"
         />
       </>
     );
@@ -97,7 +105,7 @@ function OwnedArtists() {
           <button onClick={() => setVersion((v) => v + 1)}>Retry</button>
         </p>
       )}
-      <div className="site-form mb-6">
+      <div className="site-form artist-selector mb-6">
         <div className="flex flex-wrap items-end gap-3">
           <label className="min-w-0 flex-1 basis-full sm:basis-0">
             Artist
@@ -138,10 +146,12 @@ function ArtworkInput({
   url,
   endpoint,
   label,
+  onSaved,
 }: {
   url: string;
   endpoint: string;
   label: string;
+  onSaved?: () => void;
 }) {
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -162,6 +172,7 @@ function ArtworkInput({
         throw new Error(data.error ?? "Could not save artwork.");
       setVersion(Date.now());
       setMessage("Artwork saved.");
+      onSaved?.();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Could not save artwork.");
     } finally {
@@ -172,7 +183,7 @@ function ArtworkInput({
     <div className="flex flex-wrap items-center gap-4">
       {/* eslint-disable-next-line @next/next/no-img-element -- authenticated signed artwork redirect */}
       <img
-        src={`${url}?v=${version}`}
+        src={`${url}${url.includes("?") ? "&" : "?"}v=${version}`}
         alt={label}
         className="h-24 w-24 rounded bg-white/5 object-cover"
       />
@@ -212,7 +223,9 @@ function ArtistDetails({
 }) {
   const [name, setName] = useState(artist.name);
   const [bio, setBio] = useState(artist.bio ?? "");
-  const [website, setWebsite] = useState(artist.website_url ?? "");
+  const [links, setLinks] = useState(() =>
+    readArtistLinks(artist.links, artist.website_url),
+  );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const tracks = useMusicPages<Track>(`/api/my-artists/${artist.id}`, "tracks");
@@ -222,7 +235,7 @@ function ArtistDetails({
     try {
       await musicRequest(
         `/api/my-artists/${artist.id}`,
-        { name, bio, websiteUrl: website },
+        { name, bio, links: parseArtistLinks(links) },
         "PATCH",
       );
       setMessage("Profile saved.");
@@ -234,113 +247,161 @@ function ArtistDetails({
     }
   }
   return (
-    <>
-      <form
-        className="site-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2>Artist profile</h2>
-          <Link
-            href={`/artists/${artist.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm underline"
-          >
-            View public profile
-          </Link>
-        </div>
-        <ArtworkInput
-          url={artist.avatarUrl}
-          endpoint={`/api/my-artists/${artist.id}`}
-          label="Artist image"
-        />
-        <label>
-          Artist name
-          <input
-            value={name}
-            maxLength={120}
-            required
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <label>
-          Bio
-          <textarea
-            value={bio}
-            maxLength={2000}
-            rows={4}
-            onChange={(e) => setBio(e.target.value)}
-          />
-        </label>
-        <label>
-          Website
-          <input
-            type="url"
-            value={website}
-            maxLength={500}
-            placeholder="https://"
-            onChange={(e) => setWebsite(e.target.value)}
-          />
-        </label>
-        <button
-          className="site-button primary"
-          disabled={busy || !name.trim()}
-          type="submit"
+    <Tabs.Root
+      defaultValue="profile"
+      className="artist-panel overflow-hidden rounded-xl border bg-white/[0.01]"
+    >
+      <Tabs.List aria-label="Artist management" className="flex border-b p-2">
+        <Tabs.Tab
+          value="profile"
+          className="flex-1 cursor-pointer rounded-md px-3 py-2 text-sm text-muted-foreground data-[active]:bg-white/10 data-[active]:text-foreground focus-visible:outline-2"
         >
-          {busy ? "Saving…" : "Save artist profile"}
-        </button>
-        {message && <p role="status">{message}</p>}
-      </form>
-      <h2 className="mt-10">Tracks & artwork</h2>
-      {tracks.items.map((track) => (
-        <TrackDetails
-          key={track.id}
-          track={track}
-          artistId={artist.id}
-          onRemoved={() =>
-            tracks.updateItems((items) =>
-              items.map((item) =>
-                item.id === track.id ? { ...item, status: "withdrawn" } : item,
-              ),
-            )
-          }
+          Artist Profile
+        </Tabs.Tab>
+        <Tabs.Tab
+          value="tracks"
+          className="flex-1 cursor-pointer rounded-md px-3 py-2 text-sm text-muted-foreground data-[active]:bg-white/10 data-[active]:text-foreground focus-visible:outline-2"
+        >
+          Tracks &amp; Artwork
+        </Tabs.Tab>
+      </Tabs.List>
+      <Tabs.Panel value="profile" keepMounted className="p-4 sm:p-6">
+        <form
+          className="site-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg">Artist profile</h2>
+            <Link
+              href={`/artists/${artist.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm underline"
+            >
+              View public profile
+            </Link>
+          </div>
+          <ArtworkInput
+            url={artist.avatarUrl}
+            endpoint={`/api/my-artists/${artist.id}`}
+            label="Artist image"
+          />
+          <label>
+            Artist name
+            <input
+              value={name}
+              maxLength={120}
+              required
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <label>
+            Bio
+            <textarea
+              value={bio}
+              maxLength={2000}
+              rows={4}
+              onChange={(e) => setBio(e.target.value)}
+            />
+          </label>
+          <ArtistLinksEditor
+            links={links}
+            onChange={setLinks}
+            disabled={busy}
+          />
+          <button
+            className="site-button primary"
+            disabled={busy || !name.trim()}
+            type="submit"
+          >
+            {busy ? "Saving…" : "Save artist profile"}
+          </button>
+          {message && <p role="status">{message}</p>}
+        </form>
+      </Tabs.Panel>
+      <Tabs.Panel value="tracks" keepMounted className="p-4 sm:p-6">
+        {tracks.items.length > 0 && (
+          <div className="site-table-wrap">
+            <table className="site-table min-w-[620px]">
+              <caption className="sr-only">
+                Tracks and artwork for {artist.name}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Artwork</th>
+                  <th scope="col">Track</th>
+                  <th scope="col">Album</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tracks.items.map((track) => (
+                  <TrackDetails
+                    key={track.id}
+                    track={track}
+                    artistId={artist.id}
+                    onSaved={(patch) =>
+                      tracks.updateItems((items) =>
+                        items.map((item) =>
+                          item.id === track.id ? { ...item, ...patch } : item,
+                        ),
+                      )
+                    }
+                    onRemoved={() =>
+                      tracks.updateItems((items) =>
+                        items.map((item) =>
+                          item.id === track.id
+                            ? { ...item, status: "withdrawn" }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!tracks.loading && !tracks.items.length && !tracks.error && (
+          <p>
+            No tracks yet.{" "}
+            <a href="/upload" className="underline">
+              Upload your first track
+            </a>
+            .
+          </p>
+        )}
+        {tracks.error && (
+          <p role="alert">
+            {tracks.error} <button onClick={tracks.more}>Retry</button>
+          </p>
+        )}
+        <LoadMore
+          more={tracks.more}
+          loading={tracks.loading}
+          hasMore={!tracks.error && tracks.next !== null}
         />
-      ))}
-      {!tracks.loading && !tracks.items.length && !tracks.error && (
-        <p>
-          No tracks yet.{" "}
-          <a href="/upload" className="underline">
-            Upload your first track
-          </a>
-          .
-        </p>
-      )}
-      {tracks.error && (
-        <p role="alert">
-          {tracks.error} <button onClick={tracks.more}>Retry</button>
-        </p>
-      )}
-      <LoadMore
-        more={tracks.more}
-        loading={tracks.loading}
-        hasMore={!tracks.error && tracks.next !== null}
-      />
-    </>
+      </Tabs.Panel>
+    </Tabs.Root>
   );
 }
 function TrackDetails({
   track,
   artistId,
+  onSaved,
   onRemoved,
 }: {
   track: Track;
   artistId: string;
+  onSaved: (patch: { title: string; album: string | null }) => void;
   onRemoved: () => void;
 }) {
+  const [artworkVersion, setArtworkVersion] = useState(0);
+  const [editing, setEditing] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [title, setTitle] = useState(track.title);
   const [album, setAlbum] = useState(track.album ?? "");
@@ -356,6 +417,8 @@ function TrackDetails({
         { title, album },
         "PATCH",
       );
+      onSaved({ title, album: album || null });
+      setEditing(false);
       setMessage("Track saved.");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Could not save track.");
@@ -379,104 +442,169 @@ function TrackDetails({
     }
   }
   return (
-    <form
-      className="site-form my-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void save();
-      }}
-    >
-      <h3>
-        {track.title}{" "}
-        <span className="text-xs text-muted-foreground">· {track.status}</span>
-      </h3>
-      {editable ? (
-        <>
-          <ArtworkInput
-            url={track.artworkUrl}
-            endpoint={`/api/my-tracks/${track.id}`}
-            label={`Artwork for ${track.title}`}
-          />
-          <label>
-            Track title
-            <input
-              value={title}
-              maxLength={200}
-              required
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </label>
-          <label>
-            Album
-            <input
-              value={album}
-              maxLength={200}
-              onChange={(e) => setAlbum(e.target.value)}
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={busy || !title.trim()}
-            className="site-button secondary"
+    <tr>
+      <td>
+        {/* eslint-disable-next-line @next/next/no-img-element -- authenticated artwork endpoint */}
+        <img
+          src={`${track.artworkUrl}?v=${artworkVersion}`}
+          alt=""
+          className="h-12 w-12 rounded object-cover"
+        />
+      </td>
+      <th
+        scope="row"
+        className="max-w-56 break-words font-medium text-foreground"
+      >
+        {track.title}
+      </th>
+      <td className="max-w-40 break-words">{track.album || "—"}</td>
+      <td>
+        <span className="rounded-full bg-white/5 px-2 py-1 text-xs capitalize">
+          {track.status}
+        </span>
+      </td>
+      <td>
+        {editable ? (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMessage("");
+                setEditing(true);
+              }}
+              aria-label={`Edit ${track.title}`}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setMessage("");
+                setConfirmRemove(true);
+              }}
+              aria-label={`Remove ${track.title}`}
+            >
+              Remove
+            </button>
+          </div>
+        ) : track.status === "withdrawn" ? (
+          <Link
+            className="underline underline-offset-4"
+            href={`/upload?artist=${artistId}`}
           >
-            {busy ? "Saving…" : "Save track"}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            className="site-button secondary text-destructive"
-            onClick={() => setConfirmRemove(true)}
-          >
-            Remove track
-          </button>
-          {message && !confirmRemove && <p role="status">{message}</p>}
-          <Dialog
-            open={confirmRemove}
-            onOpenChange={(open) => {
-              if (!busy) setConfirmRemove(open);
-            }}
-          >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Remove {track.title}?</DialogTitle>
-                <DialogDescription>
-                  This track will no longer be available to listeners and will
-                  be removed from favourites and playlists. You can upload the
-                  recording again afterwards.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-wrap gap-3">
+            Re-upload
+          </Link>
+        ) : (
+          <span className="text-xs text-muted-foreground">Not editable</span>
+        )}
+        {message && !editing && !confirmRemove && (
+          <p role="status" className="mt-2 text-xs">
+            {message}
+          </p>
+        )}
+        <Dialog
+          open={editing}
+          onOpenChange={(open) => {
+            if (!busy) setEditing(open);
+          }}
+        >
+          <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit {track.title}</DialogTitle>
+              <DialogDescription>
+                Update track details and artwork. Artwork uploads save
+                immediately.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              className="site-form track-edit-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save();
+              }}
+            >
+              <ArtworkInput
+                url={`${track.artworkUrl}?v=${artworkVersion}`}
+                endpoint={`/api/my-tracks/${track.id}`}
+                label={`Artwork for ${track.title}`}
+                onSaved={() => setArtworkVersion(Date.now())}
+              />
+              <label>
+                Track title
+                <input
+                  value={title}
+                  maxLength={200}
+                  required
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </label>
+              <label>
+                Album
+                <input
+                  value={album}
+                  maxLength={200}
+                  onChange={(e) => setAlbum(e.target.value)}
+                />
+              </label>
+              <div className="flex flex-wrap justify-end gap-3">
                 <button
                   type="button"
-                  disabled={busy}
                   className="site-button secondary"
-                  onClick={() => setConfirmRemove(false)}
+                  disabled={busy}
+                  onClick={() => setEditing(false)}
                 >
-                  Keep track
+                  Cancel
                 </button>
                 <button
-                  type="button"
-                  disabled={busy}
-                  className="site-button secondary text-destructive"
-                  onClick={() => void remove()}
+                  type="submit"
+                  className="site-button primary"
+                  disabled={busy || !title.trim()}
                 >
-                  {busy ? "Removing…" : "Remove track"}
+                  {busy ? "Saving…" : "Save track"}
                 </button>
               </div>
-              {message && <p role="alert">{message}</p>}
-            </DialogContent>
-          </Dialog>
-        </>
-      ) : track.status === "withdrawn" ? (
-        <p>
-          Removed.{" "}
-          <Link className="underline" href={`/upload?artist=${artistId}`}>
-            Re-upload track
-          </Link>
-        </p>
-      ) : (
-        <p>This track is not currently editable.</p>
-      )}
-    </form>
+              {message && <p role="status">{message}</p>}
+            </form>
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={confirmRemove}
+          onOpenChange={(open) => {
+            if (!busy) setConfirmRemove(open);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove {track.title}?</DialogTitle>
+              <DialogDescription>
+                This track will no longer be available to listeners and will be
+                removed from favourites and playlists. You can upload the
+                recording again afterwards.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={busy}
+                className="site-button secondary"
+                onClick={() => setConfirmRemove(false)}
+              >
+                Keep track
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className="site-button secondary text-destructive"
+                onClick={() => void remove()}
+              >
+                {busy ? "Removing…" : "Remove track"}
+              </button>
+            </div>
+            {message && <p role="alert">{message}</p>}
+          </DialogContent>
+        </Dialog>
+      </td>
+    </tr>
   );
 }

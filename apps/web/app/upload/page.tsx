@@ -19,7 +19,7 @@ export default async function UploadPage({
           track becomes available as soon as its upload is verified.
         </p>
         <p>
-          <a href="/my-artists" className="underline">
+          <a href="/manage-artists" className="underline">
             Manage my artists, track details & artwork
           </a>
         </p>

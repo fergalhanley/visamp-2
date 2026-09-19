@@ -4,7 +4,7 @@ export async function GET() {
     const { db, userId } = await musicIdentity();
     const { data, error } = await db
       .from("music_artists")
-      .select("id,slug,name,bio,website_url,avatar_key")
+      .select("id,slug,name,bio,website_url,links,avatar_key")
       .eq("claimed_by", userId!)
       .order("name");
     if (error) throw error;

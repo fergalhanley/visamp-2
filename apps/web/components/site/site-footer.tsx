@@ -1,6 +1,5 @@
 "use client";
 /* eslint-disable @next/next/no-html-link-for-pages -- full navigation resets the singleton WASM canvas when crossing site/player/editor routes */
-import { AnalyticsPreferencesButton } from "@/components/analytics/analytics-provider";
 import { BrandLockup } from "@/components/brand/logo";
 import { sitePages, socialLinks } from "@/lib/site";
 
@@ -49,7 +48,6 @@ export function SiteFooter() {
         Social accounts coming soon.
       </p>
       <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-        <AnalyticsPreferencesButton />
         {sitePages.map((page) => (
           <a key={page.slug} href={"/site/" + page.slug}>
             {page.title}

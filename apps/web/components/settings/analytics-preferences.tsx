@@ -12,7 +12,7 @@ function subscribe(listener: () => void) {
   };
 }
 
-export function AccountAnalytics() {
+export function AnalyticsPreferences() {
   const choice = useSyncExternalStore(subscribe, consent, () => "loading");
   const [saving, setSaving] = useState(false);
   const [retry, setRetry] = useState<boolean | null>(null);
@@ -30,9 +30,14 @@ export function AccountAnalytics() {
   }
 
   return (
-    <section aria-labelledby="analytics-heading" className="visamp-surface mt-6 rounded-2xl border p-6">
+    <section
+      aria-labelledby="analytics-heading"
+      className="visamp-surface mt-6 rounded-2xl border p-6"
+    >
       <div className="flex items-center justify-between gap-4">
-        <h2 id="analytics-heading" className="text-sm font-semibold">Usage analytics</h2>
+        <h2 id="analytics-heading" className="text-sm font-semibold">
+          Usage analytics
+        </h2>
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -47,18 +52,29 @@ export function AccountAnalytics() {
           {choice === "accepted" ? "On" : "Off"}
         </label>
       </div>
-      <p id="analytics-description" className="mt-2 text-sm text-muted-foreground">
+      <p
+        id="analytics-description"
+        className="mt-2 text-sm text-muted-foreground"
+      >
         Allow Mixpanel usage analytics to help improve listening and creation.
-        This preference applies to this browser. Turning it off stops new tracking;
-        it does not delete analytics already sent.
+        This preference applies to this browser. Turning it off stops new
+        tracking; it does not delete analytics already sent.
       </p>
       <p role="status" className="mt-2 text-xs text-muted-foreground">
         {saving ? "Saving preference…" : "Changes save automatically."}
       </p>
       {retry !== null && (
         <div className="mt-3 text-sm">
-          <p role="alert">We couldn’t finish updating your analytics preference. Please retry to synchronise pending server analytics.</p>
-          <button type="button" disabled={saving} onClick={() => void save(retry)} className="mt-2 cursor-pointer underline underline-offset-4">
+          <p role="alert">
+            We couldn’t finish updating your analytics preference. Please retry
+            to synchronise pending server analytics.
+          </p>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void save(retry)}
+            className="mt-2 cursor-pointer underline underline-offset-4"
+          >
             Retry
           </button>
         </div>

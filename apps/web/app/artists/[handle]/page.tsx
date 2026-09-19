@@ -1,3 +1,5 @@
+import { ArtistLinkIcon } from "@/components/audio/artist-link-icon";
+import { artistLinkTypes } from "@/lib/artists/links";
 import Link from "next/link";
 import { TrackPreview } from "@/components/audio/track-preview";
 import type { Metadata } from "next";
@@ -29,8 +31,11 @@ export async function generateMetadata({
   const artist = await loadArtist(handle);
   if (!artist) return { title: "Not found" };
 
-  return publicMetadata(`/artists/${encodeURIComponent(artist.slug)}`, artist.name,
-    artist.bio || `Music by ${artist.name} on VisAmp.`);
+  return publicMetadata(
+    `/artists/${encodeURIComponent(artist.slug)}`,
+    artist.name,
+    artist.bio || `Music by ${artist.name} on VisAmp.`,
+  );
 }
 
 function duration(ms: number): string {
@@ -62,6 +67,43 @@ export default async function ArtistPage({
             <h1 style={{ marginBottom: 8 }}>{artist.name}</h1>
             <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#9ba69e]">
               <span>
+                {artist.links.length > 0 && (
+                  <ul
+                    aria-label="Artist links"
+                    className="mt-6 flex list-none flex-wrap gap-3 p-0"
+                  >
+                    {artist.links.map((link) => (
+                      <li
+                        key={`${link.type}:${link.url}`}
+                        className="min-w-0 max-w-full"
+                      >
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="flex items-center gap-3 rounded-lg border px-3 py-2 text-emerald-400 transition hover:bg-white/5 hover:text-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        >
+                          <ArtistLinkIcon type={link.type} />
+                          <span className="min-w-0">
+                            <span className="block text-xs text-muted-foreground">
+                              {
+                                artistLinkTypes.find(
+                                  (kind) => kind.value === link.type,
+                                )?.label
+                              }
+                            </span>
+                            <span className="block break-all text-sm underline underline-offset-4">
+                              {link.url
+                                .replace(/^https?:\/\//, "")
+                                .replace(/\/$/, "")}
+                            </span>
+                          </span>
+                          <span className="sr-only"> (new tab)</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {artist.tracks.length}{" "}
                 {artist.tracks.length === 1 ? "track" : "tracks"}
               </span>
@@ -72,20 +114,11 @@ export default async function ArtistPage({
                   Visualisations by {artist.creatorUsername}
                 </a>
               )}
-              {artist.websiteUrl && (
-                <a
-                  href={artist.websiteUrl}
-                  rel="noopener noreferrer nofollow"
-                  target="_blank"
-                >
-                  Website
-                </a>
-              )}
             </p>
           </div>
         </div>
 
-        {artist.bio && <p className="mt-8">{artist.bio}</p>}
+        {artist.bio && <p className="mt-8 whitespace-pre-line">{artist.bio}</p>}
 
         {artist.tracks.length ? (
           <div className="site-table-wrap mt-10">
@@ -119,13 +152,18 @@ export default async function ArtistPage({
         ) : (
           <div className="gallery-empty">
             <h3>Nothing live yet.</h3>
-            <p>
-              This artist hasn’t published any music yet.
-            </p>
+            <p>This artist hasn’t published any music yet.</p>
           </div>
         )}
         <p className="mt-10 text-sm">
-          Is this your artist name? <Link href="/dispute">Dispute this artist claim</Link>.
+          Is this your artist name?{" "}
+          <Link
+            href="/dispute"
+            className="font-medium text-emerald-400 underline underline-offset-4 hover:text-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-4"
+          >
+            Dispute this artist claim
+          </Link>
+          .
         </p>
       </main>
       <SiteFooter />

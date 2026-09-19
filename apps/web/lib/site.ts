@@ -22,35 +22,29 @@ export const sitePages = [
 
 /**
  * The one nav the whole site shares. Ordered most-used first, because that is
- * also the order the bar drops them in as it narrows.
- *
- * `compact` marks the links that remain visible at narrower desktop widths; the rest move
- * into the bar's overflow menu rather than wrapping it onto a second row.
+ * first links remain visible when the single navigation row scrolls on phones.
  */
 export const navLinks: {
   href: string;
   label: string;
-  compact: boolean;
   external?: boolean;
   icon?: "discord";
 }[] = [
-  { href: "/player", label: "Player", compact: true },
-  { href: "/creators", label: "Creators", compact: true },
-  { href: "/upload", label: "Upload Music", compact: false },
+  { href: "/player", label: "Player" },
+  { href: "/creators", label: "Creators" },
+  { href: "/upload", label: "Upload Music" },
   {
     href: process.env.NEXT_PUBLIC_DOCS_URL || "https://docs.visamp.io",
     label: "Docs",
-    compact: false,
     external: true,
   },
   {
     href: "https://discord.gg/exV68HvWV8",
     label: "Join Discord",
-    compact: false,
     external: true,
     icon: "discord",
   },
-  { href: "/site/news", label: "News", compact: false },
-  { href: "/site/about", label: "About", compact: false },
-  { href: "/site/contact", label: "Contact", compact: false },
+  { href: "/site/news", label: "News" },
+  { href: "/site/about", label: "About" },
+  { href: "/site/contact", label: "Contact" },
 ];

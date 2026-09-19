@@ -1,6 +1,5 @@
 "use client";
 /* eslint-disable @next/next/no-html-link-for-pages -- a full navigation resets the singleton WASM canvas when crossing site/player/editor routes */
-import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -9,12 +8,6 @@ import { BrandLockup, BrandMark } from "@/components/brand/logo";
 import { CreateVisButton } from "@/components/chrome/create-vis-button";
 import { EditVisButton } from "@/components/chrome/edit-vis-button";
 import { ForkVisButton } from "@/components/chrome/fork-vis-button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { navLinks } from "@/lib/site";
 import { useChromeStore } from "@/lib/store/chrome";
 import { cn } from "@/lib/utils";
@@ -22,7 +15,13 @@ import { cn } from "@/lib/utils";
 // Discord brand mark from Simple Icons (CC0): https://simpleicons.org/?q=discord
 function DiscordIcon() {
   return (
-    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 shrink-0">
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="h-4 w-4 shrink-0"
+    >
       <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
     </svg>
   );
@@ -83,8 +82,8 @@ interface TopBarProps {
  * One menubar for the whole site.
  *
  * The mark and the actions sit together on the left, because both answer
- * "what can I make?"; navigation and the account sit on the right. Below `md`
- * the links fold into a single menu rather than wrapping the bar onto a second
+ * "what can I make?"; navigation and the account sit on the right. On narrow screens
+ * the links scroll horizontally rather than wrapping the bar onto a second
  * row — the bar has a fixed height that the player's panels are positioned
  * against, so it cannot be allowed to grow.
  */
@@ -132,13 +131,13 @@ export function TopBar({
           <BrandLockup className="hidden h-6 sm:block" />
         </a>
 
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           {actions ?? <RouteActions />}
         </div>
 
         <nav
           aria-label="Main navigation"
-          className="flex shrink-0 items-center gap-3 text-[13px] sm:gap-4 xl:gap-6"
+          className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto py-2 text-[13px] xl:justify-end xl:gap-6"
         >
           {navLinks.map((link) => (
             <a
@@ -147,8 +146,7 @@ export function TopBar({
               target={link.external ? "_blank" : undefined}
               rel={link.external ? "noopener noreferrer" : undefined}
               className={cn(
-                "items-center gap-2 whitespace-nowrap text-muted-foreground transition hover:text-foreground",
-                link.compact ? "hidden lg:inline-flex" : "hidden xl:inline-flex",
+                "inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-muted-foreground transition hover:text-foreground",
               )}
             >
               {link.icon === "discord" && <DiscordIcon />}
@@ -156,40 +154,10 @@ export function TopBar({
               {link.external && <span className="sr-only"> (new tab)</span>}
             </a>
           ))}
-
-          {/* Everything the width dropped, in the order it dropped it. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Open navigation"
-              className="cursor-pointer text-muted-foreground transition hover:text-foreground"
-            >
-              <Menu className="h-5 w-5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {navLinks.map((link) => (
-                <DropdownMenuItem
-                  key={link.href}
-                  nativeButton={false}
-                  render={
-                    <a
-                      href={link.href}
-                      target={link.external ? "_blank" : undefined}
-                      rel={link.external ? "noopener noreferrer" : undefined}
-                    />
-                  }
-                  className={link.compact ? "lg:hidden" : undefined}
-                >
-                  {link.icon === "discord" && <DiscordIcon />}
-                  {link.label}
-                  {link.external && <span className="sr-only"> (new tab)</span>}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem onClick={() => window.dispatchEvent(new Event("visamp:analytics-preferences"))}>Analytics preferences</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <AccountMenu />
         </nav>
+        <div className="shrink-0">
+          <AccountMenu />
+        </div>
       </div>
     </header>
   );

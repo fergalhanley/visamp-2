@@ -229,3 +229,19 @@ it("cannot remove another owner's track or delete its assets", async () => {
   expect(response.status).toBe(404);
   expect(m.deletions).not.toHaveBeenCalled();
 });
+it("saves validated typed links and keeps the legacy website field compatible", async () => {
+  const q = query({ data: { id }, error: null });
+  m.from.mockReturnValue(q);
+  const response = await artist(request(`/api/my-artists/${id}`, {
+    name: "Act", bio: "Biography", links: [{type:"website",url:"https://act.example"},{type:"spotify",url:"https://open.spotify.com/artist/test"}],
+  }, "PATCH"), {params:Promise.resolve({id})});
+  expect(response.status).toBe(200);
+  expect(q.update).toHaveBeenCalledWith({name:"Act",bio:"Biography",website_url:"https://act.example/",links:[{type:"website",url:"https://act.example/"},{type:"spotify",url:"https://open.spotify.com/artist/test"}]});
+});
+it("rejects unsafe artist links before writing and permits clearing all links", async () => {
+  const q = query({data:{id},error:null});m.from.mockReturnValue(q);
+  const response=await artist(request(`/api/my-artists/${id}`,{name:"Act",bio:"",links:[{type:"website",url:"javascript:alert(1)"}]},"PATCH"),{params:Promise.resolve({id})});
+  expect(response.status).toBe(400);expect(q.update).not.toHaveBeenCalled();
+  const cleared=await artist(request(`/api/my-artists/${id}`,{name:"Act",bio:"",links:[]},"PATCH"),{params:Promise.resolve({id})});
+  expect(cleared.status).toBe(200);expect(q.update).toHaveBeenCalledWith({name:"Act",bio:null,website_url:null,links:[]});
+});

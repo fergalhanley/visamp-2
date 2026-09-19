@@ -25,6 +25,8 @@ const staticRoutes = new Set([
   "/creators",
   "/upload",
   "/my-artists",
+  "/manage-artists",
+  "/settings",
   "/assets",
   "/account",
   "/account/billing",
