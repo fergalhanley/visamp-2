@@ -1,3 +1,5 @@
+import { Licencing } from "@/components/site/licencing";
+import { TermsAndConditions } from "@/components/site/terms-and-conditions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { TopBar } from "@/components/chrome/top-bar";
@@ -31,7 +33,11 @@ export default async function SitePage({
       <main className="site-content prose-page">
         <p className="site-eyebrow">VISAMP</p>
         <h1>{page.title}</h1>
-        {slug === "about" ? (
+        {slug === "terms-and-conditions" ? (
+          <TermsAndConditions />
+        ) : slug === "licencing" ? (
+          <Licencing />
+        ) : slug === "about" ? (
           <>
             <p>
               Music for your eyes. VisAmp is a place to discover, play and
@@ -103,9 +109,7 @@ export default async function SitePage({
               The final policy has not been published yet.
             </p>
             <p>
-              {slug === "licencing"
-                ? "Artist uploads require an approved licence before their tracks can be published. The artist agreement and licensing details will be available here."
-                : "Please check back for the published document."}
+              Please check back for the published document.
             </p>
           </>
         )}
