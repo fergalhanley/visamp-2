@@ -1,12 +1,12 @@
-// Set official account URLs here when they are created.
-export const socialLinks: { label: string; href: string | null }[] = [
-  { label: "X", href: null },
-  { label: "Instagram", href: null },
-  { label: "Discord", href: null },
-  { label: "YouTube", href: null },
-  { label: "TikTok", href: null },
-  { label: "Email", href: null },
-];
+/** Official VisAmp accounts, shared by the footer and information pages. */
+export const socialLinks = [
+  { label: "YouTube", icon: "youtube", href: "https://www.youtube.com/@visamp_io" },
+  { label: "Instagram", icon: "instagram", href: "https://www.instagram.com/visamp_io" },
+  { label: "Discord", icon: "discord", href: "https://discord.gg/exV68HvWV8" },
+  { label: "Email", icon: "email", href: "mailto:admin@visamp.io" },
+  { label: "X", icon: "x", href: "https://x.com/visamp_io" },
+  { label: "TikTok", icon: "tiktok", href: "https://www.tiktok.com/@visamp_io" },
+] as const;
 
 /** Everything served by `/site/[slug]`. Also what the footer lists. */
 export const sitePages = [

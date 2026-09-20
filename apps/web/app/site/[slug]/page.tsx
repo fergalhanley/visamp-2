@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { TopBar } from "@/components/chrome/top-bar";
-import { SiteFooter } from "@/components/site/site-footer";
+import { SiteFooter, SocialLinks } from "@/components/site/site-footer";
 import { sitePages } from "@/lib/site";
 import { publicMetadata, publicSitePages, noIndex } from "@/lib/seo";
 export async function generateMetadata({
@@ -44,6 +44,7 @@ export default async function SitePage({
             <a className="site-button primary" href="/player">
               Open the player
             </a>
+            <SocialLinks large />
           </>
         ) : slug === "privacy-policy" || slug === "cookie-policy" ? (
           <>
@@ -69,16 +70,15 @@ export default async function SitePage({
           </>
         ) : slug === "contact" ? (
           <>
-            <span className="site-badge">Channels coming soon</span>
             <p>
               Questions about licensing, a track you have uploaded, or something
               that looks broken — this is where to find us.
             </p>
             <p>
-              The official email address and social accounts have not been set
-              up yet. They will be listed here, and in the footer, as soon as
-              they are.
+              Email <a href="mailto:admin@visamp.io" className="underline underline-offset-4">admin@visamp.io</a> or
+              connect with us on our social channels.
             </p>
+            <SocialLinks large />
           </>
         ) : slug === "epilepsy-warning" ? (
           <>
