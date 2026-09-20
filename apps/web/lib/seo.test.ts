@@ -9,8 +9,9 @@ it("gives each public page its own canonical and matching social URL", () => {
 });
 
 it("does not advertise utility or unfinished pages for indexing", () => {
-  for (const path of ["/account", "/upload", "/site/news", "/site/contact", "/site/terms-and-conditions"]) {
+  for (const path of ["/account", "/upload", "/site/contact", "/site/terms-and-conditions"]) {
     expect(staticSearchPaths).not.toContain(path);
   }
   expect(staticSearchPaths).toContain("/site/about");
+  expect(staticSearchPaths).toContain("/site/news");
 });

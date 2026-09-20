@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { AccountMenu } from "@/components/auth/account-menu";
@@ -155,6 +156,7 @@ function AdminOverview() {
     );
   return (
     <>
+      <Link className="site-button primary mb-8" href="/admin/news">Manage News</Link>
       <div className="stats-grid">
         {Object.entries(data.stats).map(([label, count]) => (
           <div className="stat-card" key={label}>

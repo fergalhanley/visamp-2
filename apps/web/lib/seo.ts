@@ -21,8 +21,9 @@ export function publicMetadata(path: string, title: string, description: string,
   };
 }
 
-// Content-pending policy/contact/news pages stay out until VIS-34 is published.
+// Content-pending policy/contact pages stay out until reviewed for publication.
 export const publicSitePages: Record<string, string> = {
+  news: "VisAmp releases, community highlights and updates.",
   about: "Discover VisAmp, a community for listening to music, exploring visualisations and creating visuals in your browser.",
   "epilepsy-warning": "Read VisAmp's warning about flashing lights and moving patterns before using music visualisations.",
 };

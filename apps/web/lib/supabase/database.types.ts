@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      news_posts: {
+        Row: import("@/lib/news/types").NewsPost;
+        Insert: { id?: string; title: string; body?: string; status?: "draft" | "published"; published_at?: string | null; created_at?: string; updated_at?: string };
+        Update: Partial<import("@/lib/news/types").NewsPost>;
+        Relationships: [];
+      };
       track_favourites: {
         Row: { user_id: string; track_id: string; created_at: string };
         Insert: { user_id: string; track_id: string; created_at?: string };

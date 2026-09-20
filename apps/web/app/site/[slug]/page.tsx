@@ -59,21 +59,6 @@ export default async function SitePage({
             <p>Analytics is off until you allow it. Your preference is stored in your browser. Use Analytics preferences in the footer to change your choice. Declining does not affect using VisAmp. Withdrawing stops new analytics; it does not automatically erase events already received.</p>
             <p>Essential authentication and purchase records are separate from optional analytics. The remaining site policy is being prepared.</p>
           </>
-        ) : slug === "news" ? (
-          <>
-            <span className="site-badge">Nothing to report yet</span>
-            <p>
-              Releases, community highlights and what we are building next will
-              be posted here.
-            </p>
-            <p>
-              Until the first entry lands, the visualisations themselves are the
-              news — new work appears on the home page as it is published.
-            </p>
-            <Link className="site-button primary" href="/">
-              See what&apos;s new
-            </Link>
-          </>
         ) : slug === "contact" ? (
           <>
             <p>
