@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Whole-number array index regression</title>
+<link rel="icon" href="data:,">
+<pre id="result">Running…</pre>
+<div id="visamp-stage" style="width:640px;height:480px"></div>
+<script type="module">
+import init, * as engine from '../../pkg-validator/visamp_2.js';
+const frames = [];
+let clock = 0;
+Object.defineProperty(performance, "now", { value: () => clock });
+window.requestAnimationFrame = callback => (frames.push(callback), frames.length);
+try {
+  await init();
+  const error = engine.load_script(`prop result = 0
+prop positions = [10,20,30,40,50,60,70,80]
+on_frame {
+  let position = positions[math::floor(value: $TIME_SEC % 8)]
+  result = position
+  positions[0.0] = 10
+  if positions[4294967296] != 0 { let invalid = positions[0.5] }
+}
+render { draw::clear() }`);
+  if (error) throw Error(error);
+  for (const [elapsed, expected] of [[0, 10], [6750, 70], [7900, 80], [8100, 10]]) {
+    clock = elapsed;
+    frames.shift()(clock);
+    const runtimeError = engine.get_last_error();
+    if (runtimeError) throw Error(runtimeError);
+    const result = JSON.parse(engine.get_properties()).find(property => property.name === "result");
+    if (Number(result.value) !== expected) throw Error(`At ${elapsed} ms: expected ${expected}, got ${result.value}`);
+  }
+  window.results = { passed: true, properties: JSON.parse(engine.get_properties()) };
+} catch (error) {
+  window.results = { passed: false, error: String(error) };
+  console.error(error);
+}
+document.querySelector('#result').textContent = JSON.stringify(window.results, null, 2);
+</script>

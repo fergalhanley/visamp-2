@@ -1790,7 +1790,7 @@ fn a_fractional_index_into_an_audio_array_is_still_rejected() {
     let source =
         "prop v = 0\non_frame {\n  v = audio::detect::get_spectrum()[1.5]\n}\nrender {\n  draw::clear()\n}\n";
     let err = expect_runtime_error(source);
-    assert!(err.contains("requires an integer"), "{err}");
+    assert!(err.contains("whole number"), "{err}");
 }
 
 #[test]

@@ -22,7 +22,8 @@ render {
 
 `math::floor()` rounds down but still returns a float. When you need floor
 semantics and an integer type, use `math::floor(value: number) \ 1`.
-Array write indices also require integers. See [Control Flow](../programming/control-flow.md).
+Array reads and writes accept whole-valued floats, so `items[math::floor(value: number)]`
+works without an extra conversion. Fractional indices are rejected. See [Control Flow](../programming/control-flow.md).
 
 ## Audio looks different from an older script
 

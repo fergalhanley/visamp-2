@@ -30,7 +30,8 @@ Shape opacity and filter amounts are separate controls. Outline thickness uses
 
 ## Integers and floats
 
-Counts and array write indices require integers where specified. Rounding a
+Counts and range bounds require integers where specified. Array indices accept
+finite whole-valued integers or floats. Rounding a
 float does not change its type: `math::floor` returns a float, while integer
 division (`\`) returns an integer. See [Control Flow](../programming/control-flow.md).
 

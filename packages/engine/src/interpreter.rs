@@ -242,6 +242,19 @@ fn range_int(
     }
 }
 
+/// Indices accept whole-valued floats (math::floor output); range loops stay integer-only.
+fn array_index(value: Value) -> InterpResult<i64> {
+    match value {
+        Value::Integer(i) => Ok(i),
+        Value::Float(f) if f.is_finite() && f.fract() == 0.0
+            && f >= i64::MIN as f64 && f < -(i64::MIN as f64) => Ok(f as i64),
+        Value::Float(f) => Err(format!(
+            "array index must be a finite whole number in the signed 64-bit range, got {}. Use \\ or math::floor for fractional values.", f
+        )),
+        other => Err(format!("array index must be a whole number, got {}", type_name(&other))),
+    }
+}
+
 /// How many times a range yields, without materialising it.
 fn range_count(start: i64, end: i64, inclusive: bool, step: i64) -> InterpResult<i64> {
     if step == 0 {
@@ -468,12 +481,9 @@ fn interpret_statement_kind(
             let mut path = Vec::new();
             for index in indices {
                 let value = evaluate_expression(index, decels, runtime, functions)?;
-                let position = match value {
-                    Value::Integer(i) if i >= 0 => usize::try_from(i).ok(),
-                    _ => None,
-                }
+                let position = array_index(value).ok().and_then(|i| usize::try_from(i).ok())
                 .ok_or_else(|| {
-                    "array write index must be a nonnegative integer; use \\ 1 to convert floats"
+                    "array write index must be a nonnegative integer value; use \\ or math::floor for fractional values"
                         .to_string()
                 })?;
                 path.push(position);
@@ -1766,7 +1776,8 @@ fn evaluate_expression_inner(
             let items = match collection {
                 Value::Array(items) => items,
                 Value::Bytes(bytes) => {
-                    let position = range_int(index, "array index", decels, runtime, functions)?;
+                    let position =
+                        array_index(evaluate_expression(index, decels, runtime, functions)?)?;
                     return Ok(Value::Integer(
                         usize::try_from(position)
                             .ok()
@@ -1776,7 +1787,8 @@ fn evaluate_expression_inner(
                     ));
                 }
                 Value::Samples(samples) => {
-                    let position = range_int(index, "array index", decels, runtime, functions)?;
+                    let position =
+                        array_index(evaluate_expression(index, decels, runtime, functions)?)?;
                     return Ok(Value::Float(
                         usize::try_from(position)
                             .ok()
@@ -1793,28 +1805,15 @@ fn evaluate_expression_inner(
                 }
             };
 
-            let position = match evaluate_expression(index, decels, runtime, functions)? {
-                Value::Integer(i) => i,
-                Value::Float(f) => {
-                    return Err(format!(
-                        "array index must be a whole number, got {}. Use \\ or math::floor.",
-                        f
-                    ))
-                }
-                other => {
-                    return Err(format!(
-                        "array index must be a whole number, got {}",
-                        type_name(&other)
-                    ))
-                }
-            };
+            let position = array_index(evaluate_expression(index, decels, runtime, functions)?)?;
 
             // Out-of-range array reads return zero.
             if position < 0 {
                 return Ok(Value::Integer(0));
             }
-            Ok(items
-                .get(position as usize)
+            Ok(usize::try_from(position)
+                .ok()
+                .and_then(|index| items.get(index))
                 .cloned()
                 .unwrap_or(Value::Integer(0)))
         }

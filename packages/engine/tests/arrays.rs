@@ -125,7 +125,6 @@ fn bad_writes_have_locations_and_leave_the_array_unchanged() {
     for (statement, expected) in [
         ("a[-1] = 7", "nonnegative integer"),
         ("a[0.5] = 7", "nonnegative integer"),
-        ("a[0.0] = 7", "nonnegative integer"),
         ("a[true] = 7", "nonnegative integer"),
         ("a[2] = 7", "out of bounds"),
         ("a[0][0] = 7", "expected a mutable array"),
@@ -220,7 +219,70 @@ fn audio_snapshots_are_not_mutable_arrays() {
 
 #[test]
 fn filled_allocations_share_the_execution_budget() {
-    let mut m = model("on_init { for i in 0..20 { let a = array::filled(count: 65536, value: 0) } }");
+    let mut m =
+        model("on_init { for i in 0..20 { let a = array::filled(count: 65536, value: 0) } }");
     let error = event(&mut m, BlockType::OnInit, &Runtime::new()).unwrap_err();
     assert!(error.contains("execution budget exceeded"), "{error}");
+}
+
+#[test]
+fn floored_time_indexes_arrays_and_mutable_elements() {
+    let mut model = model(
+        r#"prop result = 0
+prop positions = [10,20,30,40,50,60,70,80]
+on_frame {
+  let position = positions[math::floor(value: $TIME_SEC % 8)]
+  result = position
+  positions[math::floor(value: $TIME_SEC % 8)] += 1
+}"#,
+    );
+    let mut runtime = Runtime::new();
+    runtime.clock.elapsed_ms = 6750.0;
+    event(&mut model, BlockType::OnFrame, &runtime).unwrap();
+    assert_eq!(model.decels.get("result"), Some(&Value::Integer(70)));
+    assert_eq!(numbers(&model, "positions")[6], 71.0);
+}
+
+#[test]
+fn whole_float_indices_work_for_all_array_storage_types() {
+    let mut model = model(
+        r#"prop values = []
+on_frame {
+ let spectrum = audio::detect::get_spectrum()
+ let waveform = audio::detect::get_waveform()
+ let frequency = audio::detect::get_frequency()
+ values = [[10,20][1.0], spectrum[math::floor(value: 1.5)], waveform[1.0], frequency[1.0], [1][-1.0], [1][4294967296]]
+}"#,
+    );
+    let mut runtime = Runtime::new();
+    runtime.audio.current.spectrum = Rc::new(vec![0.0, 0.5]);
+    event(&mut model, BlockType::OnFrame, &runtime).unwrap();
+    assert_eq!(
+        numbers(&model, "values"),
+        vec![20.0, 0.5, 0.0, 0.0, 0.0, 0.0]
+    );
+}
+
+#[test]
+fn fractional_nonfinite_and_unrepresentable_float_indices_are_rejected() {
+    for index in [
+        0.5,
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        9223372036854775808.0,
+    ] {
+        for collection in [
+            "[1,2]",
+            "audio::detect::get_spectrum()",
+            "audio::detect::get_frequency()",
+        ] {
+            let mut model = model(&format!(
+                "prop i = 0\nprop result = 0\non_frame {{ result = {collection}[i] }}"
+            ));
+            model.decels.set("i", Value::Float(index));
+            let error = event(&mut model, BlockType::OnFrame, &Runtime::new()).unwrap_err();
+            assert!(error.contains("whole number"), "{error}");
+        }
+    }
 }

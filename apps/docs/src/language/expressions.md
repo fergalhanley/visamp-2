@@ -182,11 +182,13 @@ index may be outside an array’s bounds, so an error would break
 every audio-reactive script the moment it fell silent. A negative index also
 reads as 0.
 
-The index must have integer type. Use `value \ 1` to truncate or
-`math::floor(value: value) \ 1` to round down:
+The index must be a finite whole number in the signed 64-bit range. Both integers
+and whole-valued floats such as `6.0` are accepted, including `math::floor` results.
+Use `value \ 1` to truncate or `math::floor(value: value)` to round down:
 
 ```visript
 let v = audio::detect::get_spectrum()[$WIDTH \ 40]
+let position = positions[math::floor(value: $TIME_SEC % 8)]
 ```
 
 ## Grouping

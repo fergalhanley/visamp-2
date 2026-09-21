@@ -29,8 +29,9 @@ aliases, loop variables, history buffers and user-function arguments.
   sixteen old samples into each of 128 bars should group eight current samples.
   Spectrum length remains 1,024 in this implementation. Do not make either
   length a permanent assumption in new designs.
-- Audio arrays now contain floats. If a sample controls an integer index, range,
-  bitwise operation or count, convert deliberately with `value \ 1` (or `math::floor(value: value) \ 1`).
+- Audio arrays now contain floats. Round fractional array indices deliberately
+  with `math::floor(value: value)` or truncate with `value \ 1`. For integer-only
+  ranges, bitwise operations or counts, use `value \ 1` (or `math::floor(value: value) \ 1`).
 - Silence produces zero-filled arrays, so loops still execute. Scripts that used
   an empty array as a “source connected” test need a different condition.
 
