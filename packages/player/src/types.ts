@@ -56,6 +56,8 @@ export interface LogEntry {
 /** The shape wasm-pack generates for the current crate. */
 export interface EngineModule {
   main_web(): void;
+  set_animation_time(timeMs?: number): void;
+  set_animation_paused(paused: boolean): void;
   queue_input(json: string): void;
   clear_input(): void;
   input_capabilities(code: string): number;
@@ -110,6 +112,8 @@ export type ResolvedAsset =
     };
 
 export interface VisampCanvasHandle {
+  /** Shared animation time, in milliseconds; null restores automatic playback. */
+  setAnimationTime: (timeMs: number | null) => void;
   queueInput: (packet: object | null) => void;
   /**
    * Resolves a PNG Blob at a fixed 1280×720, whatever size the canvas is on

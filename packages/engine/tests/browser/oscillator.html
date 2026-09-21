@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>Oscillator integration</title>
+<button id="run">Run oscillator tests</button><pre id="result">Ready</pre><div id="visamp-stage" style="width:320px;height:240px"></div>
+<script type="module">
+import init, * as engine from '../../pkg-validator/visamp_2.js';
+const queue=[];
+window.requestAnimationFrame=cb=>(queue.push(cb),queue.length);
+const assert=(ok,message)=>{if(!ok)throw Error(message)};
+const step=()=>{queue.shift()(performance.now());assert(!engine.get_last_error(),engine.get_last_error())};
+const props=()=>Object.fromEntries(JSON.parse(engine.get_properties()).map(p=>[p.name,Number(p.value)]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+document.querySelector('#run').onclick=async()=>{
+ try {
+  await init();
+  const script=`prop wave=0.0 prop same=0.0 render {
+    wave=oscillator::saw(period: 2)
+    same=oscillator::saw(period: 2)
+    draw::background(color: color::rgb(r: wave))
+  }`;
+  assert(!engine.validate_script(script),'WASM validator accepts oscillator');
+  assert(!engine.load_script(script),'load');
+  for(const time of [0,500,1000,1500,2000,500]){
+    engine.set_animation_time(time);step();
+    const p=props();assert(Math.abs(p.wave-(time%2000)/2000)<1e-12,'supplied timeline');assert(p.wave===p.same,'frame stable');
+    const live=document.querySelector('canvas').getContext('2d').getImageData(20,20,1,1).data[0];
+    const before=engine.get_properties();
+    const shot=await createImageBitmap(await engine.capture_frame());
+    const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;
+    const ctx=canvas.getContext('2d');ctx.drawImage(shot,0,0);shot.close();
+    assert(Math.abs(ctx.getImageData(20,20,1,1).data[0]-live)<=1,'capture equals live sample');
+    assert(engine.get_properties()===before,'capture does not advance clock/state');
+  }
+  engine.set_animation_time(undefined);engine.set_animation_paused(true);step();
+  const frozen=props().wave;await sleep(80);step();assert(props().wave===frozen,'pause freezes timeline');
+  engine.set_animation_paused(false);step();await sleep(80);step();assert(props().wave>frozen,'resume advances');
+  for(const source of ['sin(period: 0)','square(duty: 2)','sin(phase: true)','sin(period: 1, period: 2)']){
+   assert(engine.validate_script(`render {let v=oscillator::${source}}`).includes('oscillator::'),'WASM diagnostic');
+  }
+  assert(!engine.load_script('context 3d render { camera::orthographic(height: 2) draw::point_cloud(count: 1, size: 80, color: color::rgb(r: oscillator::saw())) }'),'GPU frame scalar');
+  const reds=[];
+  for(const t of [0,500]){engine.set_animation_time(t);step();const canvas=document.querySelector('canvas'),gl=canvas.getContext('webgl2'),p=new Uint8Array(4);gl.readPixels(canvas.width/2,canvas.height/2,1,1,gl.RGBA,gl.UNSIGNED_BYTE,p);reds.push(p[0]);}
+  assert(reds[1]>reds[0]+50,'literal oscillator point data is refreshed each frame');
+  window.results={passed:true,checks:['WASM validation/runtime','out-of-order seek and reset','same-frame samples','capture parity','pause/resume','GPU literal refresh']};
+ } catch(e){window.results={passed:false,error:String(e)};console.error(e)}
+ document.querySelector('#result').textContent=JSON.stringify(window.results,null,2);
+};
+</script>

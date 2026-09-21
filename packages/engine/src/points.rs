@@ -224,6 +224,7 @@ fn dependent(expr: &Expression, depth: usize) -> Result<bool, String> {
             | Expression::ArrayFilled { args }
             | Expression::Call { args, .. }
             | Expression::InputCall { args, .. }
+            | Expression::OscillatorCall { args, .. }
             | Expression::AudioCall { args, .. }
             | Expression::MathCall { args, .. }
             | Expression::ColorConstruct { args, .. } => {
@@ -409,6 +410,7 @@ impl Fields<'_> {
                     _ => return Err(format!("math::{func} is not supported in point fields")),
                 }
             }
+            Expression::OscillatorCall { func, .. } => return Err(format!("oscillator::{func}: per-point arguments are not supported; evaluate the oscillator into a per-frame local before draw::point_cloud")),
             _ => return Err("point fields support numeric arithmetic, math calls and array reads; move other calculations outside draw::point_cloud".into()),
         })
     }

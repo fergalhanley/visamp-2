@@ -149,7 +149,7 @@ unary_operator = { "!" | "-" | "+" }
 postfix_expr = { primary_expr ~ index* }
 index = { "[" ~ expression ~ "]" }
 
-primary_expr = _{ array_length_expr | input_expr | audio_expr | array_expr | math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
+primary_expr = _{ oscillator_expr | array_length_expr | input_expr | audio_expr | array_expr | math_expr | color_expr | asset_expr | call_expr | value | "(" ~ expression ~ ")" }
 
 math_expr = { "math::" ~ math_func ~ "(" ~ math_args? ~ ")" }
 // Longest-first, and atomic with a trailing guard. Ordered alternation means a
@@ -196,3 +196,5 @@ input_expr = { input_path ~ function_params }
 input_path = @{ "input::" ~ identifier ~ "::" ~ identifier ~ "::" ~ identifier }
 
 array_length_expr = { "array::length" ~ function_params }
+
+oscillator_expr = { "oscillator::" ~ identifier ~ function_params }

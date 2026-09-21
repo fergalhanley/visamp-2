@@ -42,6 +42,9 @@ pub struct FrameClock {
     pub calendar: Calendar,
     last_ms: Option<f64>,
     started: bool,
+    host_ms: Option<f64>,
+    paused: bool,
+    external_ms: Option<f64>,
 }
 impl Default for FrameClock {
     fn default() -> Self {
@@ -57,10 +60,52 @@ impl FrameClock {
             calendar,
             last_ms: None,
             started: false,
+            host_ms: None,
+            paused: false,
+            external_ms: None,
         }
     }
     pub fn pause(&mut self) {
         self.last_ms = None;
+        self.host_ms = None;
+    }
+    /// Pause the animation timeline; the next resume excludes time spent paused.
+    pub fn set_paused(&mut self, paused: bool) {
+        if self.paused != paused {
+            self.pause();
+        }
+        self.paused = paused;
+    }
+    /// Host timeline ownership, including seeking and offline sampling. None
+    /// returns to automatic advancement from the current position.
+    pub fn set_time(&mut self, time_ms: Option<f64>) -> Result<(), String> {
+        if time_ms.is_some_and(|t| !t.is_finite()) {
+            return Err("animation time must be finite".into());
+        }
+        if self.external_ms.is_some() != time_ms.is_some() {
+            self.pause();
+        }
+        self.external_ms = time_ms;
+        Ok(())
+    }
+    pub fn reset_frame_index(&mut self) {
+        self.index = 0;
+        self.started = false;
+        self.last_ms = None;
+        self.delta_sec = 0.0;
+    }
+    /// Called exactly once per rendered frame. Host timestamps are a source
+    /// for the shared clock, never individual oscillator clocks.
+    pub fn advance(&mut self, host_ms: f64, calendar: Calendar) {
+        let delta = self
+            .host_ms
+            .map(|last| (host_ms - last).max(0.0))
+            .unwrap_or(0.0);
+        self.host_ms = Some(host_ms);
+        let time = self
+            .external_ms
+            .unwrap_or_else(|| self.elapsed_ms + if self.paused { 0.0 } else { delta });
+        self.begin_frame(time, calendar);
     }
     pub fn begin_frame(&mut self, elapsed_ms: f64, calendar: Calendar) {
         if self.started {

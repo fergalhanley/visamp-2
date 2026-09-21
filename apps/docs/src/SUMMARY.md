@@ -42,6 +42,7 @@
 
 - [Control Flow](./programming/control-flow.md)
 - [Functions](./programming/functions.md)
+- [Oscillators](./programming/oscillators.md)
 - [Math Library](./programming/math.md)
 - [Input Detection](./programming/input-detection.md)
 - [Audio Detection](./programming/audio-detection.md)

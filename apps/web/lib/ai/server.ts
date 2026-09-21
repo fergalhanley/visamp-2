@@ -35,6 +35,10 @@ async function visriptReference() {
       "utf8",
     ),
     readFile(
+      path.resolve(process.cwd(), "../docs/src/programming/oscillators.md"),
+      "utf8",
+    ),
+    readFile(
       path.resolve(process.cwd(), "../docs/src/examples/basic.md"),
       "utf8",
     ),
@@ -65,6 +69,7 @@ async function visriptReference() {
   ]).then(
     ([
       grammar,
+      oscillators,
       basic,
       animation,
       systemValues,
@@ -83,6 +88,7 @@ async function visriptReference() {
         "Examples and language reference:",
         basic,
         animation,
+        oscillators,
         systemValues,
         filters,
         audioDetection,

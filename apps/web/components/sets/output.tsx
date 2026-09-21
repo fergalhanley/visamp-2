@@ -321,6 +321,8 @@ export function SetOutput({
               ? { ...visual, level: visual.level * (visualProgress * 2 - 1) }
               : null;
       }
+      // Set preview, embedded and pop-out output share this transport clock.
+      handle.current?.setAnimationTime(s.positionMs);
       previousVisual = visual;
       const next = {
         source: visual ? (sources[visual.clip.media.id] ?? "") : "",

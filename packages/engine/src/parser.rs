@@ -397,6 +397,21 @@ pub fn build_expression(pair: Pair<Rule>) -> Expression {
                 .collect();
             Expression::InputCall { path, args }
         }
+        Rule::oscillator_expr => {
+            let mut inner = pair.into_inner();
+            let func = inner.next().unwrap().as_str().to_string();
+            let args = inner
+                .flat_map(|p| p.into_inner())
+                .map(|p| {
+                    let mut fields = p.into_inner();
+                    (
+                        fields.next().unwrap().as_str().to_owned(),
+                        build_expression(fields.next().unwrap()),
+                    )
+                })
+                .collect();
+            Expression::OscillatorCall { func, args }
+        }
         Rule::audio_expr => {
             let mut inner = pair.into_inner();
             let func = inner.next().unwrap().as_str().to_string();

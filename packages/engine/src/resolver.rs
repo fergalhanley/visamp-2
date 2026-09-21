@@ -164,6 +164,43 @@ impl Resolver {
             // `color::` and `math::` are their own grammar rules rather than
             // `function_call`, so they need their own arm — without it their
             // arguments went unchecked and a misspelling silently became 0.0.
+            Rule::oscillator_expr => {
+                let mut inner = pair.clone().into_inner();
+                let function = inner.next().unwrap();
+                let name = function.as_str();
+                let mut args = Vec::new();
+                for arg in inner.flat_map(|p| p.into_inner()) {
+                    let mut parts = arg.clone().into_inner();
+                    let label = parts.next().unwrap();
+                    let expr = crate::parser::build_expression(parts.next().unwrap());
+                    let value = if constant_expression(&expr) {
+                        match crate::interpreter::evaluate_expression(
+                            &expr,
+                            &Default::default(),
+                            &crate::interpreter::Runtime::new(),
+                            &[],
+                        ) {
+                            Ok(v) => Some(v),
+                            Err(e) => {
+                                self.errors.push(located(
+                                    &arg,
+                                    format!("oscillator::{name}: {}: {e}", label.as_str()),
+                                ));
+                                None
+                            }
+                        }
+                    } else {
+                        None
+                    };
+                    args.push((label.as_str().to_string(), value));
+                }
+                if let Err(e) = crate::oscillator::validate(name, &args) {
+                    self.errors.push(located(&pair, e));
+                }
+                for child in pair.into_inner() {
+                    self.walk(child);
+                }
+            }
             Rule::audio_expr => {
                 let mut inner = pair.clone().into_inner();
                 let function = inner.next().unwrap();
@@ -682,5 +719,21 @@ impl Resolver {
             // Anything computed cannot be read without running the script.
             Some(_) => Overlay::Unknown,
         };
+    }
+}
+
+// Only closed, time-independent scalar/array expressions may be pre-evaluated.
+// In particular oscillator calls are NEVER constants, even with literal arguments.
+fn constant_expression(expr: &crate::model::Expression) -> bool {
+    use crate::model::Expression as E;
+    match expr {
+        E::Literal(_) => true,
+        E::Grouping(e) | E::Unary { expr: e, .. } => constant_expression(e),
+        E::Binary { left, right, .. } => constant_expression(left) && constant_expression(right),
+        E::Array(items) => items.iter().all(constant_expression),
+        E::MathCall { args, .. } | E::ColorConstruct { args, .. } | E::ArrayLength { args } => {
+            args.iter().all(|(_, e)| constant_expression(e))
+        }
+        _ => false,
     }
 }

@@ -6,8 +6,8 @@ System values provide access to runtime information. They are prefixed with `$`.
 
 | Value | Type | Description |
 |-------|------|-------------|
-| `$TIME_SEC` | Float | Monotonic seconds since engine initialization |
-| `$TIME_MS` | Integer | Monotonic milliseconds since engine initialization |
+| `$TIME_SEC` | Float | Shared animation timeline in seconds |
+| `$TIME_MS` | Integer | Shared animation timeline in milliseconds |
 | `$DELTA_SEC` | Float | Active elapsed seconds since the previous frame; zero on init, first frame and resume |
 | `$TIME_HOUR` | Integer | Local hour, 0–23 |
 | `$TIME_MINUTE` | Integer | Local minute, 0–59 |
@@ -205,3 +205,8 @@ render {
   )
 }
 ```
+
+The animation timeline freezes when the host pauses it. Set Builder and VJ output
+supply their shared set position, so seeking, restarting and looping also update
+`$TIME_SEC`, `$TIME_MS` and oscillator samples. `$DELTA_SEC` is zero on the first
+frame and after a backward seek. Calendar values continue to describe local time.

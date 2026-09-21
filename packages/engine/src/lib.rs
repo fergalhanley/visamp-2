@@ -19,6 +19,7 @@ pub mod input;
 pub mod interpreter;
 pub mod math3;
 pub mod model;
+pub mod oscillator;
 mod overlay;
 pub mod parser;
 mod point_renderer;
@@ -109,6 +110,27 @@ const HOST_ID: &str = "visamp-stage";
 thread_local! {
     static STATE: RefCell<Option<Rc<AppState>>> = RefCell::new(None);
     static INITIALIZED: RefCell<bool> = RefCell::new(false);
+}
+
+/// Supply the shared timeline position for the next frame. None releases
+/// timeline ownership back to normal playback; non-finite positions are errors.
+#[wasm_bindgen]
+pub fn set_animation_time(time_ms: Option<f64>) -> Result<(), String> {
+    STATE.with(|state| {
+        let state = state.borrow();
+        let state = state.as_ref().ok_or("engine is not initialized")?;
+        let result = state.runtime.borrow_mut().clock.set_time(time_ms);
+        result
+    })
+}
+
+#[wasm_bindgen]
+pub fn set_animation_paused(paused: bool) {
+    STATE.with(|state| {
+        if let Some(state) = state.borrow().as_ref() {
+            state.runtime.borrow_mut().clock.set_paused(paused);
+        }
+    });
 }
 
 /// Hands the engine decoded pixels for an asset the page has already fetched.
@@ -379,7 +401,7 @@ fn init_app() -> Result<(), String> {
         };
         runtime.audio.begin_frame();
         runtime.frame_count += 1;
-        runtime.clock.begin_frame(
+        runtime.clock.advance(
             utils::start_time_ms() as f64,
             frame_clock::Calendar::local_now(),
         );
@@ -631,7 +653,7 @@ pub fn load_script(code: &str) -> String {
                 if let Some(ref state) = *s.borrow() {
                     let mut runtime = state.runtime.borrow_mut();
                     runtime.input = input::InputState::default();
-                    runtime.clock = frame_clock::FrameClock::default();
+                    runtime.clock.reset_frame_index();
                     let Model {
                         blocks,
                         functions,

@@ -106,3 +106,26 @@ values and `is_*` for booleans. Event-only access requires the corresponding
 `on_input_<device>_<event>` handler; helpers inherit that context at runtime.
 Scroll is an event-only domain. Document units, neutral state, ordering, focus,
 cancellation and host policy for every new channel. See [Input detection](../programming/input-detection.md).
+
+## Oscillator and host clock contract
+
+`oscillator::{sin,cos,saw,triangle,square}` are expression built-ins registered
+in `oscillator.rs` and parsed through the normal named-argument expression path.
+The resolver and interpreter share argument validation. Never constant-fold or
+persistently cache these calls, including calls with literal arguments.
+
+`FrameClock` owns animation time. Browser frames call `advance`; normal playback
+advances its existing timeline, and host pause excludes paused elapsed time.
+`set_animation_time(milliseconds)` supplies the next frame's position; passing
+`undefined` returns ownership to automatic playback from the current position.
+This host API accepts finite timestamps in any order for seeking and offline
+sampling. `set_animation_paused(boolean)` pauses automatic advancement. Explicit
+host timestamps can still seek while paused. `VisampCanvas.setAnimationTime`
+forwards these positions, and the shared Set/VJ output supplies set time.
+Script activation resets frame indices, not the shared host timeline. Captures
+clone the current frame snapshot and do not advance it.
+
+There is no video-export implementation currently. The browser oscillator
+fixture verifies existing PNG capture against live samples, and native tests
+exercise caller-supplied times independently of frame order. If video export is
+added, supply its timeline through this same clock rather than adding a timer.

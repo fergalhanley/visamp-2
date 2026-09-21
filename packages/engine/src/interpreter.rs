@@ -1967,6 +1967,18 @@ fn evaluate_expression_inner(
                 _ => return Err(format!("unknown audio detection function {func}")),
             })
         }
+        Expression::OscillatorCall { func, args } => {
+            let values = args
+                .iter()
+                .map(|(name, expr)| {
+                    evaluate_expression(expr, decels, runtime, functions)
+                        .map(|value| (name.clone(), value))
+                        .map_err(|e| format!("oscillator::{func}: {name}: {e}"))
+                })
+                .collect::<InterpResult<Vec<_>>>()?;
+            crate::oscillator::evaluate(func, &values, runtime.clock.elapsed_ms / 1000.0)
+                .map(Value::Float)
+        }
         Expression::MathCall { func, args } => {
             if crate::creative_math::NAMES.contains(&func.as_str()) {
                 let values = args

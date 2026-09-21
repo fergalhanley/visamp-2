@@ -2,6 +2,8 @@ import { createRef } from "react";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 const engine = vi.hoisted(() => ({
+  set_animation_paused: vi.fn(),
+  set_animation_time: vi.fn(),
   validate_script: vi.fn(() => ""),
   load_script: vi.fn(() => ""),
   clear_assets: vi.fn(),

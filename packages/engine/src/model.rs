@@ -876,6 +876,10 @@ pub enum Expression {
         func: String,
         args: Vec<(String, Expression)>,
     },
+    OscillatorCall {
+        func: String,
+        args: Vec<(String, Expression)>,
+    },
     MathCall {
         func: String,
         args: Vec<(String, Expression)>,

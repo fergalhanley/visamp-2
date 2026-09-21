@@ -68,9 +68,8 @@ export interface VisampCanvasProps {
    * gates real rather than cosmetic: nothing renders and no audio context is
    * touched until the viewer's click flips it.
    *
-   * Setting it back to false does not stop the render loop — the current crate
-   * starts `requestAnimationFrame` in its wasm-bindgen start function and has
-   * no pause entry point.
+   * Setting it back to false freezes the shared animation timeline. The
+   * engine keeps its render loop alive so it can resume without reloading.
    */
   active: boolean;
   /** Enable script input. Landing/decorative previews leave this disabled. */
@@ -185,6 +184,11 @@ export function VisampCanvas({
       onReadyRef.current?.();
     });
   }, [active]);
+
+  useEffect(() => {
+    engineRef.current?.set_animation_paused(!active);
+    return () => engineRef.current?.set_animation_paused(true);
+  }, [active, ready]);
 
   // Validate independently of readiness so editor diagnostics/autosave still
   // work while downloads are pending. Activation waits for the complete set.
@@ -330,6 +334,9 @@ export function VisampCanvas({
     ref,
     () => ({
       captureFrame,
+      setAnimationTime: (timeMs: number | null) => {
+        engineRef.current?.set_animation_time(timeMs ?? undefined);
+      },
       queueInput: (packet: object | null) => {
         if (packet) engineRef.current?.queue_input(JSON.stringify(packet));
         else engineRef.current?.clear_input();
