@@ -1,5 +1,9 @@
 # Visamp MVP product specification
 
+> Set/VJ update (2026-09-21): [the approved contract](vj-mode-and-set-builder.md)
+> supersedes conflicting historical set routes, sharing, source restrictions and
+> playback decisions below. See VIS-38, VIS-44 and VIS-45 for current delivery status.
+
 Status: agreed direction plus explicitly open decisions; section-by-section discovery is ongoing.
 Code baseline: f224eeebd0fa003cda6c5fbd65e01eb3ac3f9a7e, reviewed 8 September 2026.
 The current application is a PoC. Code presence is not evidence of beta readiness.

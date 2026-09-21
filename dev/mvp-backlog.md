@@ -1,5 +1,9 @@
 # Visamp Linear backlog mapping
 
+> Set/VJ update (2026-09-21): [the approved contract](vj-mode-and-set-builder.md)
+> supersedes conflicting historical set routes, sharing, source restrictions and
+> playback decisions below. See VIS-38, VIS-44 and VIS-45 for current delivery status.
+
 Transferred and verified 2026-09-08 (UTC). Linear is now authoritative for live scope,
 ownership, priority, dependencies, acceptance criteria and delivery status.
 This file is a transfer snapshot and navigation index, not a second live task tracker.
