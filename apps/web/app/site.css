@@ -682,13 +682,14 @@
 .artist-hero .site-eyebrow { margin: 0 0 8px; color: #c4d8ab; }
 .artist-hero h1 { margin: 0; font-size: clamp(2.5rem, 5vw, 4.75rem); line-height: 1.05; overflow-wrap: anywhere; color: #fff; }
 .artist-track-count { margin: 12px 0 0; font-size: 14px; color: #d1d8d3; }
-.artist-profile-summary { padding: 28px 0; display: flex; flex-direction: column; gap: 22px; }
+.artist-profile-summary { padding: 28px 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 320px); align-items: start; gap: 32px; }
 .artist-biography { margin: 0; max-width: 800px; white-space: pre-line; overflow-wrap: anywhere; color: #bbc5be; line-height: 1.7; }
-.artist-profile-links { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; padding: 0; margin: 0; }
+.artist-biography:only-child { grid-column: 1 / -1; }
+.artist-profile-links { grid-column: 2; list-style: none; display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0; }
 .artist-profile-links li { max-width: 100%; min-width: 0; }
-.artist-profile-links a { display: flex; align-items: center; gap: 12px; border: 1px solid #283129; border-radius: 10px; padding: 10px 14px; color: #00d69b; transition: background .15s; }
+.artist-profile-links a { display: flex; align-items: center; gap: 12px; border: 1px solid #283129; border-radius: 10px; padding: 10px 14px; color: #fff; transition: background .15s; }
 .artist-profile-links a:hover { background: #17201a; }
-.artist-link-label { display: block; font-size: 12px; color: #a4aea7; }
+.artist-link-label { display: block; font-size: 12px; color: inherit; }
 .artist-link-url { display: block; font-size: 14px; overflow-wrap: anywhere; text-decoration: underline; text-underline-offset: 4px; }
 .artist-tabs { display: flex; gap: 28px; border-bottom: 1px solid #283129; }
 .artist-tabs button { padding: 16px 2px; border: 0; border-bottom: 2px solid transparent; background: none; color: #9ba69e; font-size: 16px; }
@@ -698,6 +699,10 @@
 .artist-tracks .site-table td { padding: 16px 12px; }
 .artist-tracks .site-table th { padding: 12px; }
 .artist-track-title { color: #f0f5f1; font-weight: 500; }
+@media (max-width: 760px) {
+ .artist-profile-summary { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+ .artist-profile-links { grid-column: 1; }
+}
 @media (max-width: 640px) {
  .artist-hero { min-height: 290px; border-radius: 12px; }
  .artist-hero-identity { padding: 22px; gap: 16px; align-items: flex-start; flex-direction: column; }
