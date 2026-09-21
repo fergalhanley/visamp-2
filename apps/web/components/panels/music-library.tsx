@@ -16,7 +16,13 @@ import { MusicPlaylistDialog } from "./music-playlist-dialog";
 type Tab = "tracks" | "artists" | "favourites" | "playlists";
 type MusicTrack = HostedTrackSummary & { favourite: boolean };
 type Context = { type: "artist" | "playlist"; id: string; name: string } | null;
-export function MusicLibrary() {
+export function MusicLibrary({
+  onSelect,
+  onPreview,
+}: {
+  onSelect?: (track: HostedTrackSummary) => void;
+  onPreview?: (track: HostedTrackSummary) => void;
+} = {}) {
   const { user } = useAuth();
   const [signIn, setSignIn] = useState(false);
   const [tab, setTab] = useState<Tab>("tracks");
@@ -154,7 +160,12 @@ export function MusicLibrary() {
     }
   }
   function choose(next: Context) {
-    if (next) trackAnalytics("content_selected", { content_type: next.type, content_id: next.id, source_panel: "audio" });
+    if (next)
+      trackAnalytics("content_selected", {
+        content_type: next.type,
+        content_id: next.id,
+        source_panel: "audio",
+      });
     setContext(next);
     setQuery("");
     setSearch("");
@@ -357,6 +368,23 @@ export function MusicLibrary() {
             {tracks.items.map((track) => (
               <div
                 key={track.id}
+                draggable={!!onSelect}
+                onDragStart={
+                  onSelect
+                    ? (e) =>
+                        e.dataTransfer.setData(
+                          "application/x-visamp-set-media",
+                          JSON.stringify({
+                            id: track.id,
+                            kind: "audio",
+                            source: "hosted",
+                            title: track.title,
+                            attribution: track.artist,
+                            durationMs: track.durationMs,
+                          }),
+                        )
+                    : undefined
+                }
                 className={cn(
                   "flex cursor-pointer items-center gap-2 px-4 py-2 [&_button]:cursor-pointer",
                   kind === "hosted" && current === track.id
@@ -368,13 +396,18 @@ export function MusicLibrary() {
                   type="button"
                   aria-label={`Play ${track.title}`}
                   onClick={() =>
-                    void useAudioStore
-                      .getState()
-                      .playHostedSelection(track.id, tracks.items, {
-                        url: `/api/music/tracks?${params}`,
-                        nextOffset: tracks.next,
-                        scope: context || tab === "favourites" ? "collection" : "track",
-                      })
+                    onPreview
+                      ? onPreview(track)
+                      : void useAudioStore
+                          .getState()
+                          .playHostedSelection(track.id, tracks.items, {
+                            url: `/api/music/tracks?${params}`,
+                            nextOffset: tracks.next,
+                            scope:
+                              context || tab === "favourites"
+                                ? "collection"
+                                : "track",
+                          })
                   }
                   className="relative h-11 w-11 shrink-0 overflow-hidden rounded bg-foreground/5"
                 >
@@ -389,15 +422,20 @@ export function MusicLibrary() {
                   <button
                     type="button"
                     onClick={() =>
-                      void useAudioStore
-                        .getState()
-                        .playHostedSelection(track.id, tracks.items, {
-                          url: `/api/music/tracks?${params}`,
-                          nextOffset: tracks.next,
-                        scope: context || tab === "favourites" ? "collection" : "track",
-                        })
+                      onPreview
+                        ? onPreview(track)
+                        : void useAudioStore
+                            .getState()
+                            .playHostedSelection(track.id, tracks.items, {
+                              url: `/api/music/tracks?${params}`,
+                              nextOffset: tracks.next,
+                              scope:
+                                context || tab === "favourites"
+                                  ? "collection"
+                                  : "track",
+                            })
                     }
-                    className="block w-full truncate text-left text-xs"
+                    className="set-track-name block w-full truncate text-left text-xs"
                   >
                     {track.title}
                   </button>
@@ -405,7 +443,7 @@ export function MusicLibrary() {
                     href={`/artists/${track.artistSlug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block max-w-full truncate align-middle text-[11px] text-muted-foreground hover:underline"
+                    className="set-track-artist inline-block max-w-full truncate align-middle text-[11px] text-muted-foreground hover:underline"
                   >
                     {track.artist}
                   </a>
@@ -416,61 +454,74 @@ export function MusicLibrary() {
                     className="h-4 w-4 shrink-0 text-primary"
                   />
                 )}
-                <button
-                  type="button"
-                  aria-label={`${track.favourite ? "Unfavourite" : "Favourite"} ${track.title}`}
-                  aria-pressed={track.favourite}
-                  disabled={pending !== null}
-                  onClick={() =>
-                    void mutate(
-                      {
-                        action: "favourite",
-                        trackId: track.id,
-                        value: !track.favourite,
-                      },
-                      track.id,
-                    )
-                  }
-                  className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
-                >
-                  <Heart
-                    className={cn(
-                      "h-4 w-4",
-                      track.favourite && "fill-primary text-primary",
-                    )}
-                  />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Add ${track.title} to playlist`}
-                  onClick={() =>
-                    user
-                      ? setTarget(track)
-                      : setError("Sign in to save playlists.")
-                  }
-                  className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground"
-                >
-                  <ListPlus className="h-4 w-4" />
-                </button>
-                {context?.type === "playlist" && tab === "tracks" && (
+                {onSelect && (
                   <button
                     type="button"
-                    disabled={!!pending}
-                    aria-label={`Remove ${track.title} from playlist`}
-                    onClick={() =>
-                      void mutate(
-                        {
-                          action: "remove",
-                          playlistId: context.id,
-                          trackId: track.id,
-                        },
-                        track.id,
-                      )
-                    }
-                    className="shrink-0 p-1"
+                    onClick={() => onSelect(track)}
+                    className="rounded border px-2 py-1 text-xs"
                   >
-                    <X className="h-3 w-3" />
+                    Add
                   </button>
+                )}
+                {!onSelect && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label={`${track.favourite ? "Unfavourite" : "Favourite"} ${track.title}`}
+                      aria-pressed={track.favourite}
+                      disabled={pending !== null}
+                      onClick={() =>
+                        void mutate(
+                          {
+                            action: "favourite",
+                            trackId: track.id,
+                            value: !track.favourite,
+                          },
+                          track.id,
+                        )
+                      }
+                      className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    >
+                      <Heart
+                        className={cn(
+                          "h-4 w-4",
+                          track.favourite && "fill-primary text-primary",
+                        )}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Add ${track.title} to playlist`}
+                      onClick={() =>
+                        user
+                          ? setTarget(track)
+                          : setError("Sign in to save playlists.")
+                      }
+                      className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground"
+                    >
+                      <ListPlus className="h-4 w-4" />
+                    </button>
+                    {context?.type === "playlist" && tab === "tracks" && (
+                      <button
+                        type="button"
+                        disabled={!!pending}
+                        aria-label={`Remove ${track.title} from playlist`}
+                        onClick={() =>
+                          void mutate(
+                            {
+                              action: "remove",
+                              playlistId: context.id,
+                              trackId: track.id,
+                            },
+                            track.id,
+                          )
+                        }
+                        className="shrink-0 p-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             ))}

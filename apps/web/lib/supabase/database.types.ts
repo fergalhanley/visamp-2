@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      performance_sets: {
+        Row: import("@/lib/sets/model").SetRow;
+        Insert: { id?: string; owner_id: string; content: import("@/lib/sets/model").SetContent; created_at?: string; updated_at?: string };
+        Update: { content?: import("@/lib/sets/model").SetContent; updated_at?: string };
+        Relationships: [];
+      };
       news_posts: {
         Row: import("@/lib/news/types").NewsPost;
         Insert: { id?: string; title: string; body?: string; status?: "draft" | "published"; published_at?: string | null; created_at?: string; updated_at?: string };

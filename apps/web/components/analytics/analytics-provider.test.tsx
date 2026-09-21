@@ -24,3 +24,9 @@ it("does not overlay the settings page with a first-visit banner", () => {
   expect(screen.queryByRole("region")).toBeNull();
   expect(state.save).not.toHaveBeenCalled();
 });
+it("keeps captured VJ output clean without implicitly accepting analytics", () => {
+  state.path = "/vj-mode/output/session";
+  render(<AnalyticsProvider />);
+  expect(screen.queryByRole("region")).toBeNull();
+  expect(state.save).not.toHaveBeenCalled();
+});

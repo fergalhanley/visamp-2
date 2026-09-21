@@ -11,9 +11,11 @@ import { VirtualList } from "./virtual-list";
 export function VisualPlaylists({
   userId,
   query,
+  renderItem,
 }: {
   userId: string;
   query: string;
+  renderItem?: (vis: Visualisation) => React.ReactNode;
 }) {
   const [playlists, setPlaylists] = useState<{ id: string; title: string }[]>(
     [],
@@ -101,9 +103,14 @@ export function VisualPlaylists({
     try {
       const { data, error } = await createClient()
         .from("playlists")
-        .insert({ owner_id: userId, title: title.trim() }).select("id").single();
+        .insert({ owner_id: userId, title: title.trim() })
+        .select("id")
+        .single();
       if (error) throw error;
-      track("playlist_created", { playlist_type: "visual", playlist_id: data?.id });
+      track("playlist_created", {
+        playlist_type: "visual",
+        playlist_id: data?.id,
+      });
       setTitle("");
       setVersion((v) => v + 1);
     } catch (e) {
@@ -177,15 +184,20 @@ export function VisualPlaylists({
               to a playlist.
             </p>
           }
-          renderRow={(vis) => (
-            <VisTile
-              vis={vis}
-              active={vis.id === currentId}
-              onSelect={() => useSessionStore.getState().select(vis, filtered)}
-              owned={vis.ownerId === userId}
-              onChanged={() => setVersion((v) => v + 1)}
-            />
-          )}
+          renderRow={
+            renderItem ??
+            ((vis) => (
+              <VisTile
+                vis={vis}
+                active={vis.id === currentId}
+                onSelect={() =>
+                  useSessionStore.getState().select(vis, filtered)
+                }
+                owned={vis.ownerId === userId}
+                onChanged={() => setVersion((v) => v + 1)}
+              />
+            ))
+          }
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">

@@ -3,8 +3,7 @@
 Approved by Fergal, 2026-09-21. Tracking: [VIS-38](https://linear.app/visamp/issue/VIS-38)
 (contract), [VIS-44](https://linear.app/visamp/issue/VIS-44) (foundations and builder),
 [VIS-45](https://linear.app/visamp/issue/VIS-45) (VJ and production output).
-Implementation status: contract only; the acceptance checklist below is not a claim
-that these features exist. Linear remains authoritative for delivery status.
+Implementation is delivered with VIS-44/VIS-45. See [implementation and verification](vj-implementation.md) for architecture, operating instructions, checks and remaining manual acceptance work. Linear remains authoritative for delivery status.
 
 Fergal explicitly confirmed that the new requirements supersede conflicting older
 requirements in VIS-38, VIS-44, VIS-45 and VIS-75. In particular: sets are private,

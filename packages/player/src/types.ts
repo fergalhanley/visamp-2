@@ -110,6 +110,7 @@ export type ResolvedAsset =
     };
 
 export interface VisampCanvasHandle {
+  queueInput: (packet: object | null) => void;
   /**
    * Resolves a PNG Blob at a fixed 1280×720, whatever size the canvas is on
    * screen — so thumbnails don't inherit the author's window (§3).

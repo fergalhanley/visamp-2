@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { SetNav } from "@/components/sets/nav";
 import { AccountMenu } from "@/components/auth/account-menu";
 import { BrandLockup, BrandMark } from "@/components/brand/logo";
 import { CreateVisButton } from "@/components/chrome/create-vis-button";
@@ -155,6 +156,7 @@ export function TopBar({
             </a>
           ))}
         </nav>
+        <SetNav />
         <div className="shrink-0">
           <AccountMenu />
         </div>

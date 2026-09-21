@@ -41,7 +41,11 @@ export interface AudioEngineEvents {
   onMediaError?: () => void;
 }
 
-class AudioEngine {
+export class AudioEngine {
+  constructor(
+    private sharedContext?: AudioContext,
+    private destination?: AudioNode,
+  ) {}
   private ctx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
 
@@ -70,7 +74,7 @@ class AudioEngine {
   /** Must be called from a user gesture the first time. */
   private ensureContext(): AudioContext {
     if (!this.ctx) {
-      this.ctx = new AudioContext();
+      this.ctx = this.sharedContext ?? new AudioContext();
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = FFT_SIZE;
       this.levelBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize));
@@ -78,6 +82,24 @@ class AudioEngine {
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
     return this.ctx;
+  }
+
+  position(): number {
+    return this.element?.currentTime ?? 0;
+  }
+
+  dispose(): void {
+    this.stopFiles();
+    this.disableMic();
+    this.elementSource?.disconnect();
+    this.analyser?.disconnect();
+    if (this.ctx && !this.sharedContext) void this.ctx.close();
+    this.element = null;
+    this.elementSource = null;
+    this.analyser = null;
+    this.ctx = null;
+    this.events = {};
+    this.analyserListeners.clear();
   }
 
   getAnalyser(): AnalyserNode | null {
@@ -175,7 +197,7 @@ class AudioEngine {
     // Analysis and monitoring are separate branches. Connecting the analyser
     // itself to the destination would also route its microphone input to the
     // speakers, creating feedback.
-    this.elementSource.connect(ctx.destination);
+    this.elementSource.connect(this.destination ?? ctx.destination);
   }
 
   /** Tears down any HLS session without disturbing the audio graph. */
@@ -234,22 +256,25 @@ class AudioEngine {
 
     element.src = url;
     element.load();
-    await abortable(new Promise<void>((resolve, reject) => {
-      const ready = () => {
-        cleanup();
-        resolve();
-      };
-      const failed = () => {
-        cleanup();
-        reject(new Error("Hosted audio URL could not be loaded"));
-      };
-      const cleanup = () => {
-        element.removeEventListener("loadedmetadata", ready);
-        element.removeEventListener("error", failed);
-      };
-      element.addEventListener("loadedmetadata", ready, { once: true });
-      element.addEventListener("error", failed, { once: true });
-    }), signal);
+    await abortable(
+      new Promise<void>((resolve, reject) => {
+        const ready = () => {
+          cleanup();
+          resolve();
+        };
+        const failed = () => {
+          cleanup();
+          reject(new Error("Hosted audio URL could not be loaded"));
+        };
+        const cleanup = () => {
+          element.removeEventListener("loadedmetadata", ready);
+          element.removeEventListener("error", failed);
+        };
+        element.addEventListener("loadedmetadata", ready, { once: true });
+        element.addEventListener("error", failed, { once: true });
+      }),
+      signal,
+    );
 
     if (Number.isFinite(position) && position > 0) {
       element.currentTime = Math.min(position, element.duration || position);
@@ -299,9 +324,14 @@ class AudioEngine {
 
     await new Promise<void>((resolve, reject) => {
       const parsed = () => finish(resolve);
-      const failed = (_event: string, data: { fatal: boolean; details?: string }) => {
+      const failed = (
+        _event: string,
+        data: { fatal: boolean; details?: string },
+      ) => {
         if (data.fatal)
-          finish(() => reject(new Error(data.details ?? "HLS playback failed")));
+          finish(() =>
+            reject(new Error(data.details ?? "HLS playback failed")),
+          );
       };
       const aborted = () => finish(() => reject(supersededPlaybackError()));
       const finish = (settle: () => void) => {
@@ -349,7 +379,10 @@ class AudioEngine {
 
   /** Analytics listening time excludes muted/zero-volume playback. */
   isMediaAudible(): boolean {
-    return this.isMediaActuallyPlaying() && Boolean(this.element && !this.element.muted && this.element.volume > 0);
+    return (
+      this.isMediaActuallyPlaying() &&
+      Boolean(this.element && !this.element.muted && this.element.volume > 0)
+    );
   }
 
   /** Detach any media playback without tearing down the context. */
@@ -373,5 +406,3 @@ export function getAudioEngine(): AudioEngine {
   if (!engine) engine = new AudioEngine();
   return engine;
 }
-
-export type { AudioEngine };

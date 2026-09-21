@@ -67,7 +67,7 @@ export function AnalyticsProvider() {
       void pageViewed(path);
     });
   };
-  if (path === "/settings" || !(open ?? choice === null)) return null;
+  if (path.startsWith("/vj-mode/output/") || path === "/settings" || !(open ?? choice === null)) return null;
   return (
     <section
       aria-labelledby="analytics-consent-heading"

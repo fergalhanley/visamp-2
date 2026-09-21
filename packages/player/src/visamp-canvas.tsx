@@ -75,6 +75,8 @@ export interface VisampCanvasProps {
   active: boolean;
   /** Enable script input. Landing/decorative previews leave this disabled. */
   interactive?: boolean;
+  /** Clean capture surfaces report failures to their operator instead. */
+  hideErrors?: boolean;
   /**
    * Audio graph tap for the `audio::detect` standard library.
    *
@@ -113,6 +115,7 @@ export function VisampCanvas({
   posterUrl,
   active,
   interactive = false,
+  hideErrors = false,
   analyser,
   onCompileResult,
   onProperties,
@@ -323,7 +326,17 @@ export function VisampCanvas({
     return engine.capture_frame();
   }, [source, assets, assetScope, assetStatus, activationError]);
 
-  useImperativeHandle(ref, () => ({ captureFrame }), [captureFrame]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      captureFrame,
+      queueInput: (packet: object | null) => {
+        if (packet) engineRef.current?.queue_input(JSON.stringify(packet));
+        else engineRef.current?.clear_input();
+      },
+    }),
+    [captureFrame],
+  );
 
   const pending = assetStatus !== "ready" || Boolean(activationError);
   return (
@@ -334,7 +347,7 @@ export function VisampCanvas({
           id={HOST_ID}
           style={{ width: "100%", height: "100%" }}
         />
-        {pending && (
+        {pending && !hideErrors && (
           <div
             style={{
               position: "absolute",
