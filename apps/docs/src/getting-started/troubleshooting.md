@@ -8,22 +8,15 @@ and a full function call stack are not currently available.
 
 ## “Range end must be a whole number”
 
-Visript distinguishes integer values from float values, even when a float prints
-as `240`. Division `/` produces a float. Use integer division `\` to convert:
+Whole-number arguments, range bounds/steps and array indices automatically floor
+finite floats. You can use `for i in 0..($WIDTH / 10)` or `items[$TIME_SEC % 8]`
+directly. `3.9` converts to `3`; `-0.2` converts to `-1`, not zero.
 
-```visript
-render {
-  let count = ($WIDTH / 10) \ 1
-  for i in 0..count {
-    draw::circle(x: i * 10, y: $HEIGHT / 2, radius: 3)
-  }
-}
-```
-
-`math::floor()` rounds down but still returns a float. When you need floor
-semantics and an integer type, use `math::floor(value: number) \ 1`.
-Array reads and writes accept whole-valued floats, so `items[math::floor(value: number)]`
-works without an extra conversion. Fractional indices are rejected. See [Control Flow](../programming/control-flow.md).
+An error here means the value is non-numeric, non-finite, outside the supported
+integer range, or violates the argument's limits. For example, a range step of
+`0.9` floors to zero and is invalid. Explicit integer division `\` still
+truncates toward zero, and bitwise operators still require integer operands.
+See [Control Flow](../programming/control-flow.md).
 
 ## Audio looks different from an older script
 

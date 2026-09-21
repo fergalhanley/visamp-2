@@ -57,7 +57,7 @@ fn helpers_have_defined_edges() {
     for expr in [
         "math::map(value: 1,input_min: 0,input_max: 0,output_min: 0,output_max: 1)",
         "math::wrap(value: 1,min: 2,max: 0)",
-        "math::random(seed: 0.5,index: 0)",
+        "math::random(seed: -0.5,index: 0)",
         "math::random(seed: 0,index: 16777216)",
         "math::noise(x: 1000001)",
         "color::radial_gradient(x: 0,y: 0,radius: 0,color_stops: [])",
@@ -115,4 +115,40 @@ fn invalid_shapes_and_combinations_fail() {
  "context 3d render {draw::polyline(points: [[0,0],[1,1]])}",
  "context 3d render {gfx::overlay(enabled: true) draw::text(content: \"a\") gfx::overlay(enabled: false) draw::cube()}"
  ]{assert!(scene(source).is_err(),"{source}");}
+}
+
+#[test]
+fn integer_arguments_floor_fractional_values() {
+    assert_eq!(
+        value("array::length(value: array::filled(count: 3.9, value: 0))").unwrap(),
+        Value::Integer(3)
+    );
+    assert_eq!(
+        value("math::random(seed: 3.9, index: 2.9)").unwrap(),
+        value("math::random(seed: 3, index: 2)").unwrap()
+    );
+    assert_eq!(
+        value("math::noise(x: 0.1, seed: 3.9)").unwrap(),
+        value("math::noise(x: 0.1, seed: 3)").unwrap()
+    );
+    let s = scene(
+        "context 3d render { draw::point_cloud(count: 3.9) draw::grid(columns: 2.9, rows: 3.9) }",
+    )
+    .unwrap();
+    assert_eq!(s.point_clouds[0].count, 3);
+    assert_eq!(s.point_clouds[1].grid, Some((2, 3)));
+    for v in [
+        Value::Float(f64::NAN),
+        Value::Float(f64::INFINITY),
+        Value::Float(9223372036854775808.0),
+        Value::Boolean(true),
+    ] {
+        assert!(v.floor_integer("test").is_err());
+    }
+    assert_eq!(Value::Float(-0.2).floor_integer("test").unwrap(), -1);
+    assert_eq!(
+        Value::Integer(i64::MAX).floor_integer("test").unwrap(),
+        i64::MAX
+    );
+    assert!(value("array::filled(count: -0.2, value: 0)").is_err());
 }

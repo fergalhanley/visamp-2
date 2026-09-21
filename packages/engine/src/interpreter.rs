@@ -224,7 +224,7 @@ pub(crate) fn set_stroke_paint(
 /// accident. Erring here beats freezing.
 const MAX_LOOP_ITERATIONS: i64 = 10_000;
 
-/// Ranges are integers only, so a float bound is rejected rather than rounded.
+/// Range bounds and steps use the same floor conversion as integer arguments.
 fn range_int(
     expr: &Expression,
     label: &str,
@@ -232,27 +232,11 @@ fn range_int(
     runtime: &Runtime,
     functions: &[FunctionDef],
 ) -> InterpResult<i64> {
-    match evaluate_expression(expr, decels, runtime, functions)? {
-        Value::Integer(value) => Ok(value),
-        Value::Float(value) => Err(format!(
-            "{} requires an integer, got float {:?}. Use integer division (\\ 1) to convert.",
-            label, value
-        )),
-        other => Err(format!("{} must be a whole number, got {:?}", label, other)),
-    }
+    evaluate_expression(expr, decels, runtime, functions)?.floor_integer(label)
 }
 
-/// Indices accept whole-valued floats (math::floor output); range loops stay integer-only.
 fn array_index(value: Value) -> InterpResult<i64> {
-    match value {
-        Value::Integer(i) => Ok(i),
-        Value::Float(f) if f.is_finite() && f.fract() == 0.0
-            && f >= i64::MIN as f64 && f < -(i64::MIN as f64) => Ok(f as i64),
-        Value::Float(f) => Err(format!(
-            "array index must be a finite whole number in the signed 64-bit range, got {}. Use \\ or math::floor for fractional values.", f
-        )),
-        other => Err(format!("array index must be a whole number, got {}", type_name(&other))),
-    }
+    value.floor_integer("array index")
 }
 
 /// How many times a range yields, without materialising it.
@@ -1103,12 +1087,21 @@ impl<'a> ArgReader<'a> {
 
     /// A whole-number argument such as a segment count.
     fn count(&mut self, name: &str, default: u32) -> InterpResult<u32> {
-        match self.number(name)? {
+        match self.raw(name)? {
             // Clamped rather than rejected: a resolution driven by audio can
             // dip below what a mesh needs, and failing the frame for it would
             // be worse than quietly using the minimum.
-            Some(n) if n.is_finite() => Ok((n.round().clamp(1.0, 512.0)) as u32),
-            _ => Ok(default),
+            Some(value) => {
+                let n = value.try_into_f64()?;
+                if !n.is_finite() {
+                    return Err(format!(
+                        "{}::{}: {name} must be finite",
+                        self.call.namespace, self.call.function
+                    ));
+                }
+                Ok(n.floor().clamp(1.0, 512.0) as u32)
+            }
+            None => Ok(default),
         }
     }
 
@@ -1242,8 +1235,13 @@ fn interpret_statement_function_call(
         let mut args = ArgReader::new(function_call, decels, runtime, functions);
         let kind = match args.raw("type")? {
             None => 1,
-            Some(Value::Integer(n)) if (1..=crate::scramble::MAX_TYPE).contains(&n) => n as u8,
-            _ => return Err("effect::scramble: 'type' must be an integer from 1 to 40".into()),
+            Some(value) => {
+                let n = value.floor_integer("effect::scramble: type")?;
+                if !(1..=crate::scramble::MAX_TYPE).contains(&n) {
+                    return Err("effect::scramble: type must be an integer from 1 to 40".into());
+                }
+                n as u8
+            }
         };
         let refresh = args.color("refresh_color")?.unwrap_or(BLACK);
         if let Some(effect) = target.scramble {
@@ -1909,9 +1907,10 @@ fn evaluate_expression_inner(
                     .map(|(_, e)| e)
                     .ok_or_else(|| format!("array::filled: missing {name}"))
             };
-            let count =
-                evaluate_expression(arg("count")?, decels, runtime, functions)?.try_into_f64()?;
-            if !count.is_finite() || count.fract() != 0.0 || !(0.0..=65536.0).contains(&count) {
+            let count = evaluate_expression(arg("count")?, decels, runtime, functions)?
+                .try_into_f64()?
+                .floor();
+            if !count.is_finite() || !(0.0..=65536.0).contains(&count) {
                 return Err("array::filled: count must be a whole number from 0 to 65536".into());
             }
             let value = evaluate_expression(arg("value")?, decels, runtime, functions)?;

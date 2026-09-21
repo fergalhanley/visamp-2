@@ -467,6 +467,16 @@ impl Value {
         }
     }
 
+    /// Whole-number contexts floor finite floats; never saturate an overflow.
+    pub fn floor_integer(self, label: &str) -> Result<i64, String> {
+        match self {
+            Value::Integer(n) => Ok(n),
+            Value::Float(n) if n.is_finite() && n.floor() >= i64::MIN as f64
+                && n.floor() < -(i64::MIN as f64) => Ok(n.floor() as i64),
+            other => Err(format!("{label} must be a finite number convertible to a whole number in the signed 64-bit range, got {}", other.display())),
+        }
+    }
+
     /// Fallible number conversion; see `try_into_color` for why it is fallible.
     pub fn try_into_f64(self) -> Result<f64, String> {
         match self {

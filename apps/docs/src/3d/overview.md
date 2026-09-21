@@ -311,7 +311,7 @@ in pixels. Device point-size limits apply. The current transform, camera,
 depth and blend settings apply; points are unlit and follow draw order.
 
 Per-point fields support arithmetic, `math::` functions and numeric array reads,
-using 32-bit floats. Array indices outside bounds or not whole numbers read zero.
+using 32-bit floats. Array indices are implicitly floored; indices outside bounds read zero.
 User functions and other Visript logic must run outside the fields. The per-point
 system values cannot be assigned to a `let` for later use. Colour supports RGB
 and HSL, including transparency. `texture: asset::bitmap(id: "…")` or a vector

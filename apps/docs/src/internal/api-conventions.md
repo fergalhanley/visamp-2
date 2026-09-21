@@ -53,10 +53,12 @@ Use `stroke_width` for outline thickness controls. Give every parameter a type, 
 out-of-range/non-finite values. Explicitly state pixels versus world units,
 coordinate origin, rotation pivot and winding where relevant.
 
-Counts and indices should require integers in new APIs. Geometry tessellation
-currently rounds and clamps some numeric inputs; do not silently change that
-behaviour. Rounding a float and converting to an integer are separate operations:
-`math::floor` returns a float today, while integer division (`\`) returns an integer.
+Whole-number argument contexts floor finite floats before applying domain bounds.
+Use `Value::floor_integer` when converting to signed integers, preserving existing
+integer values without a lossy float round-trip. Bounded numeric counts may floor
+before their existing limits/clamps. GPU indices and seeded helpers use the same
+floor semantics. Ordinary arithmetic, bitwise operators and explicit `\`
+integer division keep their established semantics.
 
 Prefer neutral defaults for optional styling. Require meaningful structural
 inputs rather than making an omitted operand silently become zero. Existing math

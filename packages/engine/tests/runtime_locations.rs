@@ -127,24 +127,16 @@ fn loop_and_recursion_limits_have_statement_locations() {
 }
 
 #[test]
-fn range_errors_show_float_type_and_a_working_integer_conversion() {
-    for (range, label) in [
-        ("0..math::ceil(value: 239.5)", "range end"),
-        ("0.0..1", "range start"),
-        ("0..1 step 1.0", "range step"),
-    ] {
-        assert_error(
-            &format!("render {{\n  for i in {range} {{}}\n}}"),
-            2,
-            3,
-            &format!("{label} requires an integer, got float"),
-        );
+fn float_ranges_work_and_invalid_steps_keep_locations() {
+    for range in ["0..math::ceil(value: 239.5)", "0.0..1", "0..1 step 1.9"] {
+        run(&format!("render {{ for i in {range} {{}} }}")).unwrap();
     }
-    let error = run("render {\n  for i in 0..math::ceil(value: 239.5) {}\n}").unwrap_err();
-    assert!(error.contains("float 240.0"), "{error}");
-    assert!(error.contains("integer division (\\ 1)"), "{error}");
-    run("render {\n  for i in 0..(math::ceil(value: 239.5) \\ 1) {}\n}")
-        .expect("the suggested conversion must work");
+    assert_error(
+        "render {\n  for i in 0..2 step 0.9 {}\n}",
+        2,
+        3,
+        "range step cannot be 0",
+    );
 }
 
 #[test]

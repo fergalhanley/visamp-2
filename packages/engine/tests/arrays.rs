@@ -124,7 +124,7 @@ on_init {
 fn bad_writes_have_locations_and_leave_the_array_unchanged() {
     for (statement, expected) in [
         ("a[-1] = 7", "nonnegative integer"),
-        ("a[0.5] = 7", "nonnegative integer"),
+        ("a[-0.5] = 7", "nonnegative integer"),
         ("a[true] = 7", "nonnegative integer"),
         ("a[2] = 7", "out of bounds"),
         ("a[0][0] = 7", "expected a mutable array"),
@@ -156,7 +156,7 @@ fn constructor_checks_names_types_lengths_and_copy_budget() {
     }
     for args in [
         "count: -1, value: 0",
-        "count: 1.5, value: 0",
+        "count: -0.5, value: 0",
         "count: 65537, value: 0",
         "count: true, value: 0",
         "count: 65536, value: array::filled(count: 100, value: 0)",
@@ -264,9 +264,8 @@ on_frame {
 }
 
 #[test]
-fn fractional_nonfinite_and_unrepresentable_float_indices_are_rejected() {
+fn nonfinite_and_unrepresentable_float_indices_are_rejected() {
     for index in [
-        0.5,
         f64::NAN,
         f64::INFINITY,
         f64::NEG_INFINITY,
@@ -285,4 +284,12 @@ fn fractional_nonfinite_and_unrepresentable_float_indices_are_rejected() {
             assert!(error.contains("whole number"), "{error}");
         }
     }
+}
+
+#[test]
+fn fractional_reads_and_writes_floor_before_bounds_checks() {
+ let mut m=model("prop a=[10,20,30] prop result=[] on_frame { a[1.9] += 5 result=[a[1.5], a[-0.2], a[3.2]] }");
+ event(&mut m,BlockType::OnFrame,&Runtime::new()).unwrap();
+ assert_eq!(numbers(&m,"a"),vec![10.,25.,30.]);
+ assert_eq!(numbers(&m,"result"),vec![25.,0.,0.]);
 }

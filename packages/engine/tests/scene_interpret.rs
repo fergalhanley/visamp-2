@@ -392,7 +392,7 @@ render {
 #[test]
 fn point_cloud_limits_and_invalid_fields_report_statement_locations() {
     for (args, expected) in [
-        ("count: 1.5", "integer"),
+        ("count: -0.5", "integer"),
         ("count: -1", "integer"),
         ("count: 1000001", "integer"),
         ("count: 1, size: -1", "nonnegative"),
@@ -557,7 +557,7 @@ render {
 fn grids_reject_invalid_dimensions_and_contexts() {
     for args in [
         "columns: 1, rows: 2",
-        "columns: 2.5, rows: 3",
+        "columns: 1.5, rows: 3",
         "columns: 4097, rows: 2",
         "columns: 4096, rows: 4096",
     ] {

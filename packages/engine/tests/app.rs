@@ -519,14 +519,8 @@ fn expect_runtime_error(source: &str) -> String {
 }
 
 #[test]
-fn float_range_bounds_are_rejected() {
-    let err = expect_runtime_error(
-        "prop n = 0\non_frame {\n  for i in 0..2.5 {\n    n = i\n  }\n}\nrender {\n  draw::clear()\n}\n",
-    );
-    assert!(
-        err.contains("requires an integer, got float 2.5"),
-        "unexpected: {err}"
-    );
+fn float_range_bounds_are_floored() {
+    assert_eq!(eval_prop("prop n=0 on_frame { for i in -0.5..2.9 { n += i } } render {}", "n"), Value::Integer(0));
 }
 
 #[test]
@@ -710,11 +704,8 @@ fn indexing_a_non_array_is_an_error() {
 }
 
 #[test]
-fn a_float_index_is_rejected() {
-    let err = expect_runtime_error(
-        "prop x = 0\non_frame {\n  x = [1, 2, 3][1.5]\n}\nrender {\n  draw::clear()\n}\n",
-    );
-    assert!(err.contains("whole number"), "unexpected: {err}");
+fn a_float_index_is_floored() {
+    assert_eq!(eval_prop("prop x=0 on_frame { x=[1,2,3][1.9] } render {}", "x"), Value::Integer(2));
 }
 
 /// Indexing binds tighter than arithmetic: `a[0] * 2`, not `a[0 * 2]`.
@@ -1786,11 +1777,8 @@ fn silent_audio_snapshots_have_zero_filled_bins() {
 }
 
 #[test]
-fn a_fractional_index_into_an_audio_array_is_still_rejected() {
-    let source =
-        "prop v = 0\non_frame {\n  v = audio::detect::get_spectrum()[1.5]\n}\nrender {\n  draw::clear()\n}\n";
-    let err = expect_runtime_error(source);
-    assert!(err.contains("whole number"), "{err}");
+fn a_fractional_index_into_an_audio_array_is_floored() {
+    assert_eq!(eval_prop("prop v=1 on_frame { v=audio::detect::get_spectrum()[1.5] } render {}", "v"), Value::Float(0.0));
 }
 
 #[test]

@@ -1,0 +1,31 @@
+<!doctype html><meta charset="utf-8"><title>Integer conversion integration</title>
+<button id="run">Run integer conversion tests</button><pre id="result">Ready</pre><div id="visamp-stage" style="width:320px;height:240px"></div>
+<script type="module">
+import init, * as engine from '../../pkg-validator/visamp_2.js';
+const queue=[];window.requestAnimationFrame=cb=>(queue.push(cb),queue.length);
+const assert=(ok,message)=>{if(!ok)throw Error(message)};
+const step=()=>{queue.shift()(performance.now());assert(!engine.get_last_error(),engine.get_last_error())};
+document.querySelector('#run').onclick=async()=>{
+ try {
+ await init();
+ const source=`context 3d
+ prop a=[0.25,0.75] prop sample=0 prop total=0
+ on_frame {a[1.9]=0.75 sample=a[1.5] total=0 for i in -0.2..2.9 {total+=i}}
+ render { camera::orthographic(height: 2)
+ draw::point_cloud(count: 1.9, size: 80, color: color::rgb(r: a[$POINT_INDEX+1.9], g: math::random(seed: 3.9,index: $POINT_INDEX+2.9)))
+ }`;
+ assert(!engine.validate_script(source),'validator accepts implicit conversions');assert(!engine.load_script(source),'load');step();
+ const props=Object.fromEntries(JSON.parse(engine.get_properties()).map(p=>[p.name,p.value]));
+ assert(Number(props.sample)===0.75 && Number(props.total)===0,'CPU read/write and negative range floor');
+ const canvas=document.querySelector('canvas'),gl=canvas.getContext('webgl2'),pixels=new Uint8Array(4);
+ gl.readPixels(canvas.width/2,canvas.height/2,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+ assert(pixels[0]>185 && pixels[0]<195,'GPU fractional array index floors');
+ assert(!engine.load_script(source.replace('seed: 3.9,index: $POINT_INDEX+2.9','seed: 3,index: $POINT_INDEX+2')),'integer comparison load');step();
+ const reference=new Uint8Array(4);gl.readPixels(canvas.width/2,canvas.height/2,1,1,gl.RGBA,gl.UNSIGNED_BYTE,reference);
+ assert(reference[1]===pixels[1],'GPU seeded random floors consistently');
+ assert(!engine.load_script('render {effect::posterize(levels: 4.9)}'),'effect counts');step();
+ window.results={passed:true,checks:['WASM validation','CPU array reads/writes','negative range floor','GPU array flooring','GPU random seed/index parity','effect counts']};
+ }catch(e){window.results={passed:false,error:String(e)};console.error(e)}
+ document.querySelector('#result').textContent=JSON.stringify(window.results,null,2);
+};
+</script>

@@ -182,9 +182,10 @@ index may be outside an array’s bounds, so an error would break
 every audio-reactive script the moment it fell silent. A negative index also
 reads as 0.
 
-The index must be a finite whole number in the signed 64-bit range. Both integers
-and whole-valued floats such as `6.0` are accepted, including `math::floor` results.
-Use `value \ 1` to truncate or `math::floor(value: value)` to round down:
+Indices accept integers and finite floats, flooring floats implicitly. For example,
+`items[1.9]` reads index `1`, and `items[-0.2]` reads outside the array and returns
+zero. The converted index must fit the signed 64-bit range. Use `value \ 1`
+only when you specifically want truncation toward zero instead of flooring:
 
 ```visript
 let v = audio::detect::get_spectrum()[$WIDTH \ 40]
@@ -275,8 +276,8 @@ the caller's value.
 
 Writes support `=`, `+=`, `-=`, `*=`, `/=` and `%=`. Each index is evaluated once,
 from left to right, followed by the right-hand expression. A write index must
-have integer type and be within the existing bounds. To convert a float use
-`value \ 1` (or `math::floor(value: value) \ 1` to round down). A failed bounds
+be within the existing bounds after implicit floor conversion. For example,
+`items[1.9] = 7` writes index `1`; a negative result is rejected. A failed bounds
 check or arithmetic operation leaves the target element unchanged and reports
 the statement's source location. Writes never grow arrays. Audio snapshots
 such as `audio::detect::get_spectrum()` remain read-only; copy selected samples

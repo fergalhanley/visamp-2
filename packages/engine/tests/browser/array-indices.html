@@ -18,7 +18,7 @@ on_frame {
   let position = positions[math::floor(value: $TIME_SEC % 8)]
   result = position
   positions[0.0] = 10
-  if positions[4294967296] != 0 { let invalid = positions[0.5] }
+  if positions[4294967296] != 0 { let invalid = positions[true] }
 }
 render { draw::clear() }`);
   if (error) throw Error(error);

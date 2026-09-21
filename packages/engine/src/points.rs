@@ -42,8 +42,8 @@ pub fn build(
     let grid = if call.function == "grid" {
         let dimension = |name: &str| -> Result<u32, String> {
             let n = eval(arg(name).ok_or_else(|| format!("draw::grid: {name} is required"))?)?
-                .try_into_f64()?;
-            if !n.is_finite() || n.fract() != 0.0 || !(2.0..=4096.0).contains(&n) {
+                .try_into_f64()?.floor();
+            if !n.is_finite() || !(2.0..=4096.0).contains(&n) {
                 return Err(format!(
                     "draw::grid: {name} must be a whole number from 2 to 4096"
                 ));
@@ -73,7 +73,7 @@ pub fn build(
         None => None,
     };
     let count = match arg("count") {
-        Some(e) => eval(e)?.try_into_f64()?,
+        Some(e) => eval(e)?.try_into_f64()?.floor(),
         None if grid.is_some() => {
             let (columns, rows) = grid.unwrap();
             (columns * rows) as f64
@@ -83,7 +83,7 @@ pub fn build(
             .map(|(_, p)| p.len() as f64)
             .ok_or("draw::point_cloud: count or model is required")?,
     };
-    if !count.is_finite() || count.fract() != 0.0 || count < 0.0 || count > MAX_POINTS as f64 {
+    if !count.is_finite() || count < 0.0 || count > MAX_POINTS as f64 {
         return Err(format!(
             "draw::point_cloud: count must be an integer from 0 to {MAX_POINTS}"
         ));

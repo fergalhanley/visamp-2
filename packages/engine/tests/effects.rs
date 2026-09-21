@@ -70,7 +70,7 @@ fn all_effects_compile_in_both_contexts_and_overlay() {
 fn literal_contracts_report_locations() {
     for call in [
         "kaleidoscope(segments: 1)",
-        "kaleidoscope(segments: 8.0)",
+        "kaleidoscope(segments: 1.9)",
         "kaleidoscope(branches: 7)",
         "pixelate(size: 0)",
         "pixelate_rect(height: -1)",
@@ -140,4 +140,12 @@ fn displacement_requires_loaded_bitmap_and_store_epoch_changes() {
         s.clear();
         assert_ne!(epoch, s.epoch());
     });
+}
+
+#[test]
+fn counts_floor_before_domain_validation() {
+    let ops=run("render { effect::posterize(levels: 4.9) effect::kaleidoscope(segments: 8.9, branches: 2.9) }").unwrap();
+    assert_eq!(ops[0].amount, 4.0);
+    assert_eq!(ops[1].params[2..4], [8.0, 2.0]);
+    assert!(run("render { effect::posterize(levels: 1.9) }").is_err());
 }

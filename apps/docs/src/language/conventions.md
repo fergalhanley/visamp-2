@@ -30,9 +30,10 @@ Shape opacity and filter amounts are separate controls. Outline thickness uses
 
 ## Integers and floats
 
-Counts and range bounds require integers where specified. Array indices accept
-finite whole-valued integers or floats. Rounding a
-float does not change its type: `math::floor` returns a float, while integer
+Whole-number arguments, counts, range bounds/steps and array indices implicitly
+floor finite floats: `3.9` becomes `3`, while `-0.2` becomes `-1`. Bounds and
+resource limits apply after conversion. Non-numeric, non-finite and integer-overflow
+values are errors. Ordinary arithmetic retains its existing types: `math::floor` returns a float, while integer
 division (`\`) returns an integer. See [Control Flow](../programming/control-flow.md).
 
 ## Input state and events

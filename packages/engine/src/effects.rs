@@ -43,11 +43,10 @@ impl Args {
         }
     }
     fn count(&mut self, key: &str, default: i64, min: i64, max: i64) -> Result<f32, String> {
-        // Counts follow the language's integer contract (math::floor still returns a float).
+        // Whole-number parameters floor floats before checking their domain.
         let n = match self.values.remove(key) {
             None => default,
-            Some(Value::Integer(n)) => n,
-            _ => return Err(self.error(key, "an integer")),
+            Some(value) => value.floor_integer(&format!("effect::{}: {key}", self.name))?,
         };
         if n < min || n > max {
             Err(self.error(key, &format!("an integer between {min} and {max}")))
@@ -216,9 +215,7 @@ pub fn literal_error(name: &str, key: &str, raw: &str) -> Option<String> {
         (name, key),
         ("kaleidoscope", "segments" | "branches") | ("posterize", "levels")
     );
-    if integer && raw.parse::<i64>().is_err() {
-        return Some(format!("effect::{name}: '{key}' must be an integer"));
-    }
+    let n = if integer { n.floor() } else { n };
     let (min, max) = match (name, key) {
         ("kaleidoscope", "segments") => (2.0, 64.0),
         ("kaleidoscope", "branches") => (1.0, 6.0),

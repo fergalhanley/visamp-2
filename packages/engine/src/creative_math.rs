@@ -59,8 +59,8 @@ pub fn evaluate(name: &str, args: &[(String, Value)]) -> Result<f64, String> {
         Ok(value)
     };
     let integer = |key: &str, default: Option<f64>| -> Result<u32, String> {
-        let n = number(key, default)?;
-        if n.fract() != 0.0 || !(0.0..=16777215.0).contains(&n) {
+        let n = number(key, default)?.floor();
+        if !(0.0..=16777215.0).contains(&n) {
             return Err(format!(
                 "math::{name}: {key} must be a whole number from 0 to 16777215"
             ));

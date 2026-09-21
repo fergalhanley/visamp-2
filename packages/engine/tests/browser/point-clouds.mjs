@@ -31,7 +31,7 @@ export function verifyPoints(engine, step, load, canvas) {
   near(pixel(0), [0,255,0,255], 'HSL green');
   near(pixel(1), [0,0,255,255], 'HSL blue');
   render(`let a = [0.5]\n draw::point_cloud(count: 1, color: color::rgb(r: a[$POINT_INDEX], g: a[$POINT_INDEX - 1], b: a[$POINT_INDEX + 0.5]), size: 20.0)`);
-  near(pixel(), [128,0,0,255], 'numeric arrays and invalid indices');
+  near(pixel(), [128,0,128,255], 'numeric arrays, floored indices and out-of-bounds reads');
   render(`transform::translate(x: 1.0)\n draw::point_cloud(count: 1, size: 20.0)`);
   near(pixel(0), [0,0,0,255], 'point moved from origin');
   near(pixel(1), [255,255,255,255], 'point transform');

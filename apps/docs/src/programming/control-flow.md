@@ -86,7 +86,7 @@ does not run, rather than quietly counting backwards:
 for i in 5..0 { }           // never runs
 ```
 
-Bounds can be any integer expression:
+Bounds can be any numeric expression; floats are implicitly floored:
 
 ```visript
 prop bars = 32
@@ -104,11 +104,10 @@ render {
 }
 ```
 
-For a computed float bound, use `value \ 1`. `math::floor` rounds but still
-returns a float; use `math::floor(value: value) \ 1` when rounding down.
-
-Ranges are **integers only** — `0..2.5` is an error rather than being rounded,
-and a step of `0` is rejected instead of looping forever. A range is also
+Computed float bounds and steps are implicitly floored: `0..2.9` yields `0, 1`,
+and `-0.2..2` starts at `-1`. A step that floors to `0` is rejected instead of
+looping forever. Values must be finite and fit a signed 64-bit integer after
+flooring. A range is also
 capped at 10,000 iterations: your script runs inside the frame loop, so an
 enormous one would lock the browser rather than merely being slow.
 

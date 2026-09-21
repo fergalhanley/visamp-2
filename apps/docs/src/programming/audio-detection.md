@@ -72,7 +72,7 @@ render {
 }
 ```
 
-Array indexes accept finite whole numbers, including `math::floor` results. GPU point/grid fields can
+Array indexes accept integers and finite floats; floats are implicitly floored. GPU point/grid fields can
 index a frame's audio array, or use scalar readings as frame constants. Custom
 band bounds must be frame values when used within a dependent GPU field; compute
 per-point band calculations outside that field. Lifecycle initialization/resize

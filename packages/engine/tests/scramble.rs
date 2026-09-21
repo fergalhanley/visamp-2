@@ -63,10 +63,10 @@ fn shared_defaults_colours_and_last_call_wins() {
 
 #[test]
 fn bad_types_colours_and_argument_names_fail() {
-    for kind in ["0", "41", "-1", "1.0", "1.5", "true", "\"1\""] {
+    for kind in ["0", "41", "-1", "0.9", "true", "\"1\""] {
         assert!(evaluate("2d", &format!("effect::scramble(type: {kind})"))
             .unwrap_err()
-            .contains("integer from 1 to 40"));
+            .contains("effect::scramble"));
     }
     assert!(evaluate("3d", "effect::scramble(refresh_color: 2)").is_err());
     assert!(evaluate("2d", "effect::scramble(typo: 1)")
@@ -141,4 +141,9 @@ fn dependency_maps_match_sequential_byte_writes_including_tiny_canvases() {
             }
         }
     }
+}
+
+#[test]
+fn fractional_type_is_floored() {
+ assert_eq!(evaluate("2d", "effect::scramble(type: 2.9)").unwrap().unwrap().kind,2);
 }

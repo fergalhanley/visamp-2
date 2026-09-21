@@ -14,7 +14,8 @@ precision highp int;
 uniform highp sampler2D u_data, u_model_data;
 uniform int u_model_count;
 float model_at(float index, int axis) {
-    if (isnan(index) || isinf(index) || index < 0.0 || index >= float(u_model_count) || index != trunc(index)) return 0.0;
+    index = floor(index);
+    if (isnan(index) || isinf(index) || index < 0.0 || index >= float(u_model_count)) return 0.0;
     int i = int(index);
     return texelFetch(u_model_data, ivec2(i % 1024, i / 1024), 0)[axis];
 }
@@ -24,7 +25,8 @@ uniform vec2 u_size_range;
 out vec4 v_color;
 float data_at(int index) { return texelFetch(u_data, ivec2(index % 1024, index / 1024), 0).r; }
 float array_at(int offset, int count, float index) {
-    if (isnan(index) || isinf(index) || index < 0.0 || index >= float(count) || index != trunc(index)) return 0.0;
+    index = floor(index);
+    if (isnan(index) || isinf(index) || index < 0.0 || index >= float(count)) return 0.0;
     return data_at(offset + int(index));
 }
 float point_round(float v) { return sign(v)*floor(abs(v)+0.5); }
