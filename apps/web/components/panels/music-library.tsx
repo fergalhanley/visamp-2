@@ -373,6 +373,7 @@ export function MusicLibrary() {
                       .playHostedSelection(track.id, tracks.items, {
                         url: `/api/music/tracks?${params}`,
                         nextOffset: tracks.next,
+                        scope: context || tab === "favourites" ? "collection" : "track",
                       })
                   }
                   className="relative h-11 w-11 shrink-0 overflow-hidden rounded bg-foreground/5"
@@ -393,6 +394,7 @@ export function MusicLibrary() {
                         .playHostedSelection(track.id, tracks.items, {
                           url: `/api/music/tracks?${params}`,
                           nextOffset: tracks.next,
+                        scope: context || tab === "favourites" ? "collection" : "track",
                         })
                     }
                     className="block w-full truncate text-left text-xs"

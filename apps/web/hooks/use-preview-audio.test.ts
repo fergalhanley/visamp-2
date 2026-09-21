@@ -23,3 +23,14 @@ it("drops stale preferences if the preview changes during restoration", async ()
   await waitFor(() => expect(m.apply).toHaveBeenCalledTimes(1));
   expect(m.apply).toHaveBeenCalledWith("new", "track", expect.any(Function));
 });
+
+it("reapplies the preview preference on Per Track completion while mounted", async () => {
+  const view = renderHook(() => usePreviewAudio("preview", "track"));
+  await waitFor(() => expect(m.apply).toHaveBeenCalledTimes(1));
+  const ended = m.wire.mock.calls[0]![0] as () => void;
+  ended();
+  expect(m.apply).toHaveBeenCalledTimes(2);
+  view.unmount();
+  ended();
+  expect(m.apply).toHaveBeenCalledTimes(2);
+});

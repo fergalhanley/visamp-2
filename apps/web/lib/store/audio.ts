@@ -48,9 +48,11 @@ function activeTracks(state: {
 interface AudioState {
   /** Listener choices outrank automatic visualisation preferences, including while paused. */
   musicExplicit: boolean;
+  /** Single tracks expire at completion; selected sources/collections keep control. */
+  selectionScope: "track" | "collection" | "source" | null;
   restored: boolean;
   applyPreferredTrack: (visId: string, trackId: string, isCurrent?: () => boolean) => Promise<void>;
-  /** E4.7 — silent (time-driven) is the default; every vis runs without audio. */
+  /** Hosted VisAmp is the default source; visuals still work without audio. */
   kind: AudioSourceKind;
   micError: string | null;
 
@@ -112,7 +114,7 @@ interface AudioState {
   playHostedSelection: (
     id: string,
     tracks: HostedTrackSummary[],
-    page?: { url: string; nextOffset: number | null },
+    page?: { url: string; nextOffset: number | null; scope?: "track" | "collection" },
   ) => Promise<void>;
 
   addFiles: (files: File[]) => void;
@@ -131,11 +133,8 @@ interface AudioState {
 }
 
 /**
- * What plays when a viewer has never chosen anything of their own.
- *
- * Deliberately *not* written to localStorage: only a playlist the viewer
- * actually entered is remembered, so "never chosen" stays distinguishable and
- * changing this default reaches everyone who has not overridden it.
+ * Suggested link when the listener opens SoundCloud. It is never resolved or
+ * played automatically on entry, and is not written to localStorage unless chosen.
  */
 export const DEFAULT_SOUNDCLOUD_PLAYLIST =
   "https://soundcloud.com/visamp_io/sets/vizamp-io";
@@ -164,6 +163,7 @@ let waitingForGesture = false;
  * rather than what was asked for.
  */
 let playToken = 0;
+let preferredLoadToken = 0;
 let soundcloudLoadToken = 0;
 let hostedCatalogueToken = 0;
 let hostedRenewalTimer: ReturnType<typeof setTimeout> | null = null;
@@ -349,8 +349,9 @@ function startOnFirstGesture(): void {
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
-  kind: "silent",
+  kind: "hosted",
   musicExplicit: false,
+  selectionScope: null,
   restored: false,
   micError: null,
 
@@ -376,7 +377,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   hostedPageLoading: false,
 
   setSilent: () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
@@ -393,7 +394,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   enableMic: async () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     const token = (playToken += 1);
     try {
@@ -416,7 +417,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   disableMic: () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     playToken += 1;
     getAudioEngine().disableMic();
@@ -424,13 +425,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   setSoundcloudUrl: (soundcloudUrl) => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     set({ soundcloudUrl, soundcloudLoading: false });
   },
 
   loadSoundcloudPlaylist: async (url, options) => {
-    if (options?.persist !== false) set({ musicExplicit: true });
+    if (options?.persist !== false) set({ musicExplicit: true, selectionScope: "source" });
     const token = (soundcloudLoadToken += 1);
     const current = () => token === soundcloudLoadToken;
     set({ soundcloudUrl: url, soundcloudLoading: true, soundcloudError: null });
@@ -548,7 +549,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   clearSoundcloud: () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     playToken += 1;
     getAudioEngine().stopFiles();
@@ -566,7 +567,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   selectSoundcloudSource: () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
@@ -583,7 +584,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   selectFilesSource: () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
@@ -646,6 +647,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     hostedCatalogueToken += 1;
     get().selectHostedSource();
     set({
+      musicExplicit: true,
+      selectionScope: page?.scope ?? (page ? "collection" : "track"),
       hostedTracks: tracks.map((track) => ({
         id: `hosted-${track.id}`,
         name: track.title,
@@ -662,7 +665,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   selectHostedSource: () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: false, selectionScope: null });
     soundcloudLoadToken += 1;
     playToken += 1;
     cancelHostedTimers();
@@ -681,7 +684,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   addFiles: (files) => {
     if (!files.length) return;
     const firstAddedIndex = get().tracks.length;
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: "source" });
     soundcloudLoadToken += 1;
     if (get().kind !== "files") {
       playToken += 1;
@@ -765,7 +768,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   playIndex: async (index, automatic = false, isCurrent) => {
     if (!automatic) {
-      set({ musicExplicit: true });
+      set({ musicExplicit: true, selectionScope: get().kind === "hosted"
+        ? (get().selectionScope === "collection" ? "collection" : "track") : "source" });
       soundcloudLoadToken += 1;
     }
     const state = get();
@@ -887,7 +891,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   togglePlay: async () => {
-    set({ musicExplicit: true });
+    set({ musicExplicit: true, selectionScope: get().kind === "hosted"
+      ? (get().selectionScope === "collection" ? "collection" : "track") : "source" });
     const state = get();
     const { isPlaying, currentIndex } = state;
     const list = activeTracks(state);
@@ -996,8 +1001,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   applyPreferredTrack: async (visId, trackId, isCurrent) => {
+    // Never interrupt music already playing or a listener's pending request.
+    if (get().musicExplicit || get().isPlaying || get().pendingIndex !== -1) return;
+    const request = ++preferredLoadToken;
+    const previousPlay = playToken;
     const eligible = () =>
-      !get().musicExplicit &&
+      request === preferredLoadToken && !get().musicExplicit &&
       (isCurrent ? isCurrent() : (
         useSessionStore.getState().current.id === visId &&
         useSessionStore.getState().current.preferredTrackId === trackId
@@ -1010,7 +1019,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const track = (data.tracks as HostedTrackSummary[]).find(
         (item) => item.id === trackId,
       );
-      if (!track || !eligible()) return;
+      if (!track || !eligible() || get().isPlaying || get().pendingIndex !== -1 || previousPlay !== playToken) return;
       soundcloudLoadToken += 1;
       hostedCatalogueToken += 1;
       playToken += 1;
@@ -1042,27 +1051,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
   },
 
-  restore: async (preferredTrackId = useSessionStore.getState().current.preferredTrackId) => {
+  restore: async () => {
     if (get().restored) return;
+    set({ restored: true });
     try {
       void get().loadHostedCatalogue();
-      // Re-resolve the remembered playlist, or fall back to the default. One
-      // request either way, and it has to be a fresh one: stored stream URLs
-      // would have expired.
-      const storedUrl = loadSoundcloudUrl();
-      const url = storedUrl || DEFAULT_SOUNDCLOUD_PLAYLIST;
-
-      set({ soundcloudUrl: url });
-      if (
-        !get().musicExplicit &&
-        (storedUrl || !preferredTrackId)
-      )
-        void get().loadSoundcloudPlaylist(url, {
-          // A viewer's own choice is already saved; the default must not be, or it
-          // would masquerade as one.
-          persist: Boolean(storedUrl),
-          autoplay: true,
-        });
+      // Remember the URL for convenience, but restoring it is not a listener
+      // choice in this visit. Hosted preferences win on fresh page entry.
+      set({ soundcloudUrl: loadSoundcloudUrl() || DEFAULT_SOUNDCLOUD_PLAYLIST });
 
       const names = loadTrackNames();
 
@@ -1090,8 +1086,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         })),
         pendingNames: needsPermission.map((h) => h.name),
       });
-    } finally {
-      set({ restored: true });
+    } catch {
+      // Unavailable saved file handles must not block preferred-track playback.
     }
   },
 }));
@@ -1105,18 +1101,33 @@ export function useActiveTracks(): Track[] {
  * Bridges the media element's own events back into the store. Called once from
  * the shell.
  */
-export function wireAudioEvents(): void {
+export function wireAudioEvents(onPreferredTrackEnd?: () => void): void {
   getAudioEngine().setEvents({
     onTimeUpdate: (position, duration) =>
       useAudioStore.setState({ position, duration }),
     onEnded: () => {
       window.dispatchEvent(new Event("visamp:audio-ended"));
       cancelHostedTimers();
-      void useAudioStore.getState().nextTrack();
-
-      // E3.2 — in track-audio mode the visualisation follows the track.
+      const audio = useAudioStore.getState();
+      useAudioStore.setState({ isPlaying: false, pendingIndex: -1 });
       const session = useSessionStore.getState();
-      if (session.mode === "track-audio") session.advance(1);
+      const followsVis = !audio.musicExplicit || audio.selectionScope === "track";
+      if (session.mode === "track-audio" && followsVis) {
+        useAudioStore.setState({ musicExplicit: false, selectionScope: null });
+        if (onPreferredTrackEnd) {
+          // Preview pages own their visual, not the full player's session.
+          onPreferredTrackEnd();
+        } else {
+          session.advance(1);
+          const vis = useSessionStore.getState().current;
+          if (vis.preferredTrackId) void useAudioStore.getState().applyPreferredTrack(vis.id, vis.preferredTrackId);
+          else void useAudioStore.getState().nextTrack();
+        }
+        return;
+      }
+      // Explicit collections continue their queue; visuals may still advance.
+      if (session.mode === "track-audio" && !onPreferredTrackEnd) session.advance(1);
+      void useAudioStore.getState().nextTrack();
     },
     onMediaError: () => {
       const state = useAudioStore.getState();

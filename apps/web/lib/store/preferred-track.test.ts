@@ -36,6 +36,7 @@ beforeEach(() => {
   stored.url = "";
   useAudioStore.setState({ ...useAudioStore.getInitialState() });
   useSessionStore.setState({
+    ...useSessionStore.getInitialState(),
     current: {
       ...useSessionStore.getInitialState().current,
       id: "vis",
@@ -94,12 +95,13 @@ it.each(["track", "playlist", "favourites"])(
     expect(engine.playUrl).not.toHaveBeenCalled();
   },
 );
-it("does not override a restored SoundCloud playlist", async () => {
+it("remembers SoundCloud without making it the default, even before a vis has loaded", async () => {
   stored.url = "https://soundcloud.com/user/sets/chosen";
-  await useAudioStore.getState().restore();
-  vi.clearAllMocks();
+  await useAudioStore.getState().restore(null);
+  expect(useAudioStore.getState()).toMatchObject({ kind: "hosted", musicExplicit: false, soundcloudUrl: stored.url });
+  expect(vi.mocked(fetch).mock.calls.every(([url]) => !String(url).includes("soundcloud"))).toBe(true);
   await useAudioStore.getState().applyPreferredTrack("vis", "track");
-  expect(fetch).not.toHaveBeenCalled();
+  expect(engine.playUrl).toHaveBeenCalled();
 });
 it("abandons a delayed preferred selection when the listener chooses silence", async () => {
   let finish!: (response: Response) => void;
@@ -184,4 +186,81 @@ it.each(["hosted", "soundcloud", "files"] as const)("updates the %s scrubber fro
   expect(engine.seek).toHaveBeenCalledWith(90);
   events.onTimeUpdate(91, 180);
   expect(useAudioStore.getState().position).toBe(91);
+});
+
+it("keeps automatic audio playing when a different visual is selected", async () => {
+  await useAudioStore.getState().applyPreferredTrack("vis", "track");
+  vi.clearAllMocks();
+  useSessionStore.setState({ current: { ...useSessionStore.getState().current, id: "next" } });
+  await useAudioStore.getState().applyPreferredTrack("next", "track");
+  expect(engine.stopFiles).not.toHaveBeenCalled();
+  expect(fetch).not.toHaveBeenCalled();
+});
+it("does not replace a pending listener playback request", async () => {
+  useAudioStore.setState({ pendingIndex: 0 });
+  await useAudioStore.getState().applyPreferredTrack("vis", "track");
+  expect(fetch).not.toHaveBeenCalled();
+});
+function endTrack() {
+  wireAudioEvents();
+  const events = engine.setEvents.mock.calls.at(-1)![0] as { onEnded: () => void };
+  events.onEnded();
+}
+it("advances the visual before choosing its preferred track in Per Track mode", async () => {
+  await useAudioStore.getState().applyPreferredTrack("vis", "track");
+  const old = useSessionStore.getState().current;
+  useSessionStore.setState({ context: [old, { ...old, id: "next", preferredTrackId: "next-track" }] });
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("?id=")
+    ? Response.json({ tracks: [{ ...preferred, id: "next-track" }] })
+    : Response.json({ sources: [{ format: "mp3", url: "https://audio.example/next.mp3" }] })));
+  endTrack();
+  await vi.waitFor(() => expect(engine.playUrl).toHaveBeenLastCalledWith("https://audio.example/next.mp3"));
+  expect(useSessionStore.getState().current.id).toBe("next");
+  expect(fetch).not.toHaveBeenCalledWith("/api/tracks/track/playback", expect.anything());
+});
+it("replays the preferred track when the Per Track visual stays the same", async () => {
+  await useAudioStore.getState().applyPreferredTrack("vis", "track");
+  useSessionStore.setState({ context: [useSessionStore.getState().current] });
+  engine.playUrl.mockClear();
+  endTrack();
+  await vi.waitFor(() => expect(engine.playUrl).toHaveBeenCalledTimes(1));
+});
+it("a single hosted-track override expires at Per Track completion", async () => {
+  await useAudioStore.getState().playHostedSelection("track", [preferred as never], { url: "/api/music/tracks?q=", nextOffset: null, scope: "track" });
+  endTrack();
+  await vi.waitFor(() => expect(useAudioStore.getState().musicExplicit).toBe(false));
+  expect(useAudioStore.getState().selectionScope).toBe(null);
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/tracks?id=track", expect.anything()));
+});
+it.each(["playlist", "artist", "favourites"])("keeps the selected %s queue at completion", async kind => {
+  await useAudioStore.getState().playHostedSelection("track", [preferred as never], { url: `/api/music/tracks?${kind}=id`, nextOffset: null, scope: "collection" });
+  vi.clearAllMocks();
+  endTrack();
+  await vi.waitFor(() => expect(engine.playUrl).toHaveBeenCalled());
+  expect(useAudioStore.getState().musicExplicit).toBe(true);
+  expect(fetch).not.toHaveBeenCalledWith("/api/tracks?id=track", expect.anything());
+});
+it.each(["files", "mic", "soundcloud", "silent"] as const)("preserves the explicitly selected %s source", async kind => {
+  useAudioStore.setState({kind, musicExplicit: true, selectionScope: "source"});
+  await useAudioStore.getState().applyPreferredTrack("vis", "track");
+  expect(fetch).not.toHaveBeenCalled();
+});
+it("uses the preview's preferred track at completion, not an unrelated full-player visual", async () => {
+  const apply = vi.fn();
+  wireAudioEvents(apply);
+  const events = engine.setEvents.mock.calls.at(-1)![0] as { onEnded: () => void };
+  events.onEnded();
+  expect(apply).toHaveBeenCalledTimes(1);
+  expect(fetch).not.toHaveBeenCalled();
+});
+it("only the latest preferred request can claim playback", async () => {
+  const responses: ((response: Response) => void)[] = [];
+  vi.stubGlobal("fetch", vi.fn((url: string) => url.includes("?id=")
+    ? new Promise<Response>(resolve => responses.push(resolve))
+    : Promise.resolve(Response.json({ sources: [{ format: "mp3", url: "https://audio.example/song.mp3" }] }))));
+  const first = useAudioStore.getState().applyPreferredTrack("preview", "track", () => true);
+  const second = useAudioStore.getState().applyPreferredTrack("preview", "track", () => true);
+  responses[1]!(Response.json({ tracks: [preferred] })); await second;
+  responses[0]!(Response.json({ tracks: [preferred] })); await first;
+  expect(engine.playUrl).toHaveBeenCalledTimes(1);
 });
