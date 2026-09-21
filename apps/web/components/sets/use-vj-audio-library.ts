@@ -8,7 +8,7 @@ import { fileRef, request } from "@/lib/sets/client";
 
 /** Browsing never creates an audio engine; only the authoritative VJ output plays. */
 export function useVjAudioLibrary(
-  select: (media: MediaRef) => Promise<void>,
+  select: (media: MediaRef, context: MediaRef[]) => Promise<void>,
   active: MediaRef | undefined,
   playing: boolean,
 ) {
@@ -115,7 +115,7 @@ export function useVjAudioLibrary(
             ).values(),
           ]);
           setSource("files");
-          if (refs[0]) await select(refs[0]);
+          if (refs[0]) await select(refs[0], refs);
         } catch (e) {
           setError(String(e));
         }
@@ -146,7 +146,23 @@ export function useVjAudioLibrary(
               durationMs: t.durationMs,
             }
           : references.current.get(t.id);
-      if (media) await select(media);
+      if (media)
+        await select(
+          media,
+          source === "soundcloud"
+            ? scTracks.map((t) => ({
+                id: t.id,
+                kind: "audio",
+                source: "soundcloud",
+                title: t.name,
+                attribution: t.artist ?? "SoundCloud",
+                durationMs: t.durationMs,
+              }))
+            : tracks.flatMap((t) => {
+                const ref = references.current.get(t.id);
+                return ref ? [ref] : [];
+              }),
+        );
     },
   };
   return { library, error };

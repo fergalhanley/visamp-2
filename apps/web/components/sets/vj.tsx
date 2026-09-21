@@ -13,6 +13,8 @@ import { useVjAudioLibrary } from "./use-vj-audio-library";
 import { usePerformance } from "./use-performance";
 import { PerformanceView } from "./performance-view";
 import { ResizeHandle } from "./resize-handle";
+import { Transport } from "@/components/chrome/transport";
+import { useFreeplay, visualRef, hostedRef } from "./use-freeplay";
 import { InputController } from "./input-controller";
 export function VjMode() {
   const query = useSearchParams(),
@@ -35,8 +37,9 @@ export function VjMode() {
     [previewHeight, setPreviewHeight] = useState(380),
     [workspaceTab, setWorkspaceTab] = useState(initialId ? "set" : "freeplay"),
     [resume, setResume] = useState<ReturnType<typeof parseState>>(null);
+  const freeplay = useFreeplay(p, workspaceTab === "freeplay");
   const audioLibrary = useVjAudioLibrary(
-    (media) => p.override("audio", media),
+    (media, context) => freeplay.select("audio", media, context),
     p.state.audioOverride?.media,
     p.state.playing,
   );
@@ -210,14 +213,12 @@ export function VjMode() {
             <VPanel
               embedded
               activeId={p.state.visualOverride?.media.id}
-              onSelect={(vis) =>
-                void p.override("visual", {
-                  id: vis.id,
-                  kind: "visual",
-                  source: "visual",
-                  title: vis.title,
-                  attribution: vis.creator.username,
-                })
+              onSelect={(vis, context) =>
+                void freeplay.select(
+                  "visual",
+                  visualRef(vis),
+                  context.map(visualRef),
+                )
               }
             />
             {divider(0)}
@@ -231,15 +232,12 @@ export function VjMode() {
                     : undefined,
                 playing: p.state.playing,
               }}
-              onHostedSelect={(t) =>
-                void p.override("audio", {
-                  id: t.id,
-                  kind: "audio",
-                  source: "hosted",
-                  title: t.title,
-                  attribution: t.artist,
-                  durationMs: t.durationMs,
-                })
+              onHostedSelect={(t, context) =>
+                void freeplay.select(
+                  "audio",
+                  hostedRef(t),
+                  context.map(hostedRef),
+                )
               }
             />
             {audioLibrary.error && (
@@ -350,9 +348,23 @@ export function VjMode() {
           </div>
         </section>
         {divider(1)}
-        <div className="vj-performance">
+        <div
+          className={
+            workspaceTab === "freeplay"
+              ? "vj-performance vj-freeplay-performance"
+              : "vj-performance"
+          }
+        >
           <PerformanceView
             performance={p}
+            controls={
+              workspaceTab === "freeplay" ? (
+                <Transport controller={freeplay.controller} />
+              ) : undefined
+            }
+            poppedOut={
+              <InputController send={p.input} destination={p.status} />
+            }
             manual={manual}
             outputHeight={previewHeight}
             divider={
@@ -376,7 +388,6 @@ export function VjMode() {
               track("vj_set_started");
             }}
           />
-          <InputController send={p.input} destination={p.status} />
         </div>
       </main>
     </div>

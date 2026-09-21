@@ -171,6 +171,9 @@ export function usePerformance() {
         t.seek(0);
         t.play();
         break;
+      case "seek-audio":
+        t.seekAudio(Number(command.value));
+        break;
       case "seek":
         t.seek(Number(command.value));
         break;

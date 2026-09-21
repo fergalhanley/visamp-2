@@ -104,6 +104,12 @@ export class SetTransport {
     this.state.complete = false;
     this.state.stopped = false;
   }
+  seekAudio(ms: number) {
+    if (!Number.isFinite(ms)) return;
+    this.tick();
+    const audio = this.state.audioOverride;
+    if (audio) audio.positionMs = Math.max(0, Math.min(audio.media.durationMs ?? Infinity, ms));
+  }
   override(kind: "audio" | "visual", media: MediaRef | null) {
     this.tick();
     this.state[kind === "audio" ? "audioOverride" : "visualOverride"] = media

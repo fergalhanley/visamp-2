@@ -1,7 +1,7 @@
 "use client";
 // Account navigation uses a fresh document to reset the singleton player engine.
 
-import { LogOut, Settings, Music, User as UserIcon } from "lucide-react";
+import { LogOut, Settings, Music, Upload, User as UserIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -105,6 +105,10 @@ export function AccountMenu() {
           >
             <Settings className="h-3.5 w-3.5" />
             Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem nativeButton={false} render={<a href="/upload" />}>
+            <Upload className="h-3.5 w-3.5" />
+            Upload Music
           </DropdownMenuItem>
           <DropdownMenuItem
             nativeButton={false}

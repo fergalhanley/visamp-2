@@ -23,7 +23,7 @@ export function MusicLibrary({
 }: {
   playback?: { id?: string; playing: boolean };
   onSelect?: (track: HostedTrackSummary) => void;
-  onPreview?: (track: HostedTrackSummary) => void;
+  onPreview?: (track: HostedTrackSummary, context: HostedTrackSummary[]) => void;
 } = {}) {
   const { user } = useAuth();
   const [signIn, setSignIn] = useState(false);
@@ -399,7 +399,7 @@ export function MusicLibrary({
                   aria-label={`Play ${track.title}`}
                   onClick={() =>
                     onPreview
-                      ? onPreview(track)
+                      ? onPreview(track, tracks.items)
                       : void useAudioStore
                           .getState()
                           .playHostedSelection(track.id, tracks.items, {
@@ -425,7 +425,7 @@ export function MusicLibrary({
                     type="button"
                     onClick={() =>
                       onPreview
-                        ? onPreview(track)
+                        ? onPreview(track, tracks.items)
                         : void useAudioStore
                             .getState()
                             .playHostedSelection(track.id, tracks.items, {

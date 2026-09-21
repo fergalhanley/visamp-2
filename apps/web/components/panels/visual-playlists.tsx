@@ -17,7 +17,7 @@ export function VisualPlaylists({
 }: {
   userId: string;
   query: string;
-  onSelect?: (vis: Visualisation) => void;
+  onSelect?: (vis: Visualisation, context: Visualisation[]) => void;
   activeId?: string;
   renderItem?: (vis: Visualisation) => React.ReactNode;
 }) {
@@ -194,7 +194,7 @@ export function VisualPlaylists({
               <VisTile
                 vis={vis}
                 active={vis.id === (onSelect ? activeId : currentId)}
-                onSelect={() => onSelect ? onSelect(vis) :
+                onSelect={() => onSelect ? onSelect(vis, filtered) :
                   useSessionStore.getState().select(vis, filtered)
                 }
                 owned={vis.ownerId === userId}

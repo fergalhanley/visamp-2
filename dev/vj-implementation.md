@@ -68,3 +68,31 @@ The updated complete Chromium flow passed, including selection from the reused
 visual panel while popped out. Additional browser checks confirmed hosted selection
 creates an audio override without operator media elements, shared top-bar colours
 and 7px radii, hidden VJ action/page heading, tab layout and no browser errors.
+
+
+### Freeplay transport and output interactions — VIS-45
+
+Freeplay embeds the shared player Transport with an external controller and no
+social/info footer. Its selected catalogue context supplies previous/next and
+shuffle queues. Per-track and Timed advancement follow output transport telemetry;
+manual mode retains the visual when skipping audio. The validated `seek-audio`
+command seeks live audio in either output realm without changing underlying set
+time. Set-tab controls remain separate.
+
+The Input Controller occupies the output slot only while the pop-out is connected.
+The embedded iframe has a top-right Pop out output action; disconnect recovery
+restores that action with the iframe. Pointer movement reveals the output cursor,
+three seconds idle or a surface click hides it, and fullscreen pop-out keeps it
+hidden. Double-clicking the pop-out surface toggles native fullscreen. Shared top
+navigation now links Artists; Upload Music is in the signed-in account menu.
+
+Verification includes transport/queue/pointer regression tests and both Chromium
+flows: `verify-sets-browser.mjs` and `verify-vj-freeplay-browser.mjs`. The latter
+checks seek, mode-dependent skip, output/input replacement, embedded and pop-out
+cursor behavior, native double-click fullscreen and recovery. Both use an already
+authenticated test browser; the Freeplay flow creates no saved content.
+
+This iteration passed 322 web tests, TypeScript, ESLint (the same two unrelated
+warnings), the webpack production build and both Chromium flows. Artists/upload
+navigation was checked in the signed-in dropdown. Development hot reload can
+supersede an existing output iframe; verification used fresh page loads.

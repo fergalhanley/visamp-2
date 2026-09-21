@@ -52,18 +52,56 @@ function formatInterval(seconds: number): string {
 }
 
 /** Visualisation tracking belongs with playback because it governs advancing. */
-function PlaybackOptions() {
-  const mode = useSessionStore((s) => s.mode);
-  const setMode = useSessionStore((s) => s.setMode);
-  const intervalSec = useSessionStore((s) => s.intervalSec);
-  const setIntervalSec = useSessionStore((s) => s.setIntervalSec);
-  const shuffleTracks = useSessionStore((s) => s.shuffleTracks);
-  const toggleShuffleTracks = useSessionStore((s) => s.toggleShuffleTracks);
-  const shuffleVis = useSessionStore((s) => s.shuffleVis);
-  const toggleShuffleVis = useSessionStore((s) => s.toggleShuffleVis);
+export type PlaybackSettings = {
+  mode: PlayerMode;
+  setMode: (mode: PlayerMode) => void;
+  intervalSec: number;
+  setIntervalSec: (seconds: number) => void;
+  shuffleTracks: boolean;
+  toggleShuffleTracks: () => void;
+  shuffleVis: boolean;
+  toggleShuffleVis: () => void;
+};
+export type TransportController = PlaybackSettings & {
+  title: string;
+  creator: string;
+  track?: { name: string; artist?: string };
+  playing: boolean;
+  position: number;
+  duration: number;
+  canSkip: boolean;
+  canPlay: boolean;
+  togglePlay: () => void;
+  seek: (seconds: number) => void;
+  skip: (direction: 1 | -1) => void;
+  fullscreen?: () => void;
+};
+function PlaybackOptions({ controller }: { controller?: PlaybackSettings }) {
+  const mode = useSessionStore((s) => (controller ? controller.mode : s.mode));
+  const setMode = useSessionStore((s) =>
+    controller ? controller.setMode : s.setMode,
+  );
+  const intervalSec = useSessionStore((s) =>
+    controller ? controller.intervalSec : s.intervalSec,
+  );
+  const setIntervalSec = useSessionStore((s) =>
+    controller ? controller.setIntervalSec : s.setIntervalSec,
+  );
+  const shuffleTracks = useSessionStore((s) =>
+    controller ? controller.shuffleTracks : s.shuffleTracks,
+  );
+  const toggleShuffleTracks = useSessionStore((s) =>
+    controller ? controller.toggleShuffleTracks : s.toggleShuffleTracks,
+  );
+  const shuffleVis = useSessionStore((s) =>
+    controller ? controller.shuffleVis : s.shuffleVis,
+  );
+  const toggleShuffleVis = useSessionStore((s) =>
+    controller ? controller.toggleShuffleVis : s.toggleShuffleVis,
+  );
 
   return (
-    <div className="mt-2 flex items-center justify-end gap-1.5">
+    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
       <button
         type="button"
         onClick={toggleShuffleTracks}
@@ -101,6 +139,7 @@ function PlaybackOptions() {
               key={value}
               type="button"
               onClick={() => setMode(value)}
+              aria-pressed={mode === value}
               className={cn(
                 "whitespace-nowrap rounded px-2 py-1 text-[10px] transition",
                 mode === value
@@ -181,7 +220,9 @@ function VisActions() {
           onClick={toggle}
           disabled={!likeable}
           aria-pressed={liked}
-          aria-label={liked ? `Unlike ${current.title}` : `Like ${current.title}`}
+          aria-label={
+            liked ? `Unlike ${current.title}` : `Like ${current.title}`
+          }
           title={
             likeable
               ? liked
@@ -206,7 +247,11 @@ function VisActions() {
         type="button"
         onClick={() => setCommentsOpen(true)}
         disabled={!saved}
-        title={saved ? "Read and add comments" : "No comments — this one is not saved"}
+        title={
+          saved
+            ? "Read and add comments"
+            : "No comments — this one is not saved"
+        }
         className={cn(
           "flex cursor-pointer items-center gap-1 transition",
           "hover:text-foreground disabled:cursor-default disabled:opacity-40",
@@ -220,7 +265,11 @@ function VisActions() {
         type="button"
         onClick={() => setForksOpen(true)}
         disabled={!saved}
-        title={saved ? "See what has been made from this" : "No forks — this one is not saved"}
+        title={
+          saved
+            ? "See what has been made from this"
+            : "No forks — this one is not saved"
+        }
         className={cn(
           "flex cursor-pointer items-center gap-1 transition",
           "hover:text-foreground disabled:cursor-default disabled:opacity-40",
@@ -248,7 +297,11 @@ function VisActions() {
         type="button"
         onClick={() => setShareOpen(true)}
         disabled={!saved}
-        title={saved ? "Share this visualisation" : "Nothing to link to — this one is not saved"}
+        title={
+          saved
+            ? "Share this visualisation"
+            : "Nothing to link to — this one is not saved"
+        }
         className={cn(
           "flex cursor-pointer items-center gap-1 transition",
           "hover:text-foreground disabled:cursor-default disabled:opacity-40",
@@ -276,17 +329,16 @@ function VisActions() {
   );
 }
 
-export function Transport() {
+export function Transport({
+  controller,
+}: { controller?: TransportController } = {}) {
   const visible = useChromeStore((s) => s.visible);
   const vOpen = useChromeStore((s) => s.vOpen);
   const aOpen = useChromeStore((s) => s.aOpen);
   const setControlsHovered = useChromeStore((s) => s.setControlsHovered);
   const compact = useCompactChrome();
 
-  useEffect(
-    () => () => setControlsHovered(false),
-    [setControlsHovered],
-  );
+  useEffect(() => () => setControlsHovered(false), [setControlsHovered]);
 
   // A bottom sheet occupies the transport's 10vh perch, so on compact layouts
   // the transport yields while a sheet is up rather than overprinting it.
@@ -295,26 +347,39 @@ export function Transport() {
   const tracks = useActiveTracks();
   const currentIndex = useAudioStore((s) => s.currentIndex);
   const pendingIndex = useAudioStore((s) => s.pendingIndex);
-  const isPlaying = useAudioStore((s) => s.isPlaying);
-  const position = useAudioStore((s) => s.position);
-  const duration = useAudioStore((s) => s.duration);
-  const togglePlay = useAudioStore((s) => s.togglePlay);
-  const seek = useAudioStore((s) => s.seek);
+  const isPlaying = useAudioStore((s) =>
+    controller ? controller.playing : s.isPlaying,
+  );
+  const position = useAudioStore((s) =>
+    controller ? controller.position : s.position,
+  );
+  const duration = useAudioStore((s) =>
+    controller ? controller.duration : s.duration,
+  );
+  const togglePlay = useAudioStore((s) =>
+    controller ? controller.togglePlay : s.togglePlay,
+  );
+  const seek = useAudioStore((s) => (controller ? controller.seek : s.seek));
 
   const mode = useSessionStore((s) => s.mode);
   const current = useSessionStore((s) => s.current);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen();
 
-  const loading = pendingIndex !== -1;
+  const loading = !controller && pendingIndex !== -1;
   // The track being started wins over the one still playing, so the title
   // changes the instant it is picked rather than after the stream opens.
-  const track = tracks[loading ? pendingIndex : currentIndex];
-  const hasTracks = tracks.length > 0;
+  const track = controller
+    ? controller.track
+    : tracks[loading ? pendingIndex : currentIndex];
+  const hasTracks = controller ? controller.canPlay : tracks.length > 0;
   // In track-audio mode skip is meaningful even with no tracks loaded, because
   // it still advances the visualisation.
-  const canSkip = hasTracks || mode === "track-audio";
+  const canSkip = controller
+    ? controller.canSkip
+    : hasTracks || mode === "track-audio";
 
   const skip = (direction: 1 | -1) => {
+    if (controller) return controller.skip(direction);
     const audio = useAudioStore.getState();
     if (hasTracks) {
       void (direction === 1 ? audio.nextTrack() : audio.prevTrack());
@@ -324,12 +389,18 @@ export function Transport() {
 
   return (
     <div
-      onPointerEnter={() => setControlsHovered(true)}
+      onPointerEnter={() => {
+        if (!controller) setControlsHovered(true);
+      }}
       onPointerLeave={() => setControlsHovered(false)}
       className={cn(
-        "fixed bottom-[10vh] left-1/2 z-40 w-[min(42rem,calc(100vw-3rem))] -translate-x-1/2",
+        controller
+          ? "w-full"
+          : "fixed bottom-[10vh] left-1/2 z-40 w-[min(42rem,calc(100vw-3rem))] -translate-x-1/2",
         "transition-opacity duration-500",
-        visible && !eclipsed ? "opacity-100" : "pointer-events-none opacity-0",
+        controller || (visible && !eclipsed)
+          ? "opacity-100"
+          : "pointer-events-none opacity-0",
       )}
     >
       <div className="visamp-surface rounded-2xl border px-5 py-3">
@@ -337,41 +408,62 @@ export function Transport() {
             fullscreen, or react to the work. */}
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0 flex-1 truncate text-sm">
-            <Link href={visualisationPath(current)} className="font-medium hover:underline">
-              {current.title}
-            </Link>
-            <span className="text-muted-foreground"> — </span>
-            {/* The gallery owns its own canvas, so enter it with a fresh
+            {controller ? (
+              <>
+                <span className="font-medium">{controller.title}</span>
+                {controller.creator && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    — {controller.creator}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                {" "}
+                <Link
+                  href={visualisationPath(current)}
+                  className="font-medium hover:underline"
+                >
+                  {current.title}
+                </Link>
+                <span className="text-muted-foreground"> — </span>
+                {/* The gallery owns its own canvas, so enter it with a fresh
                 document and preselect this artist from the URL. */}
-            <a
-              href={`/creators/${current.creator.username}`}
-              className="text-muted-foreground hover:underline"
-            >
-              {current.creator.username}
-            </a>
+                <a
+                  href={`/creators/${current.creator.username}`}
+                  className="text-muted-foreground hover:underline"
+                >
+                  {current.creator.username}
+                </a>
+              </>
+            )}
           </p>
 
           <div className="-mr-1 -mt-1 flex shrink-0 items-center gap-1.5">
-
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-              className={cn(
-                "shrink-0 cursor-pointer rounded-full p-1.5 text-muted-foreground",
-                "transition hover:bg-foreground/10 hover:text-foreground",
-              )}
-            >
-              {isFullscreen ? (
-                <Minimize className="h-4 w-4" />
-              ) : (
-                <Maximize className="h-4 w-4" />
-              )}
-            </button>
+            {(!controller || controller.fullscreen) && (
+              <button
+                type="button"
+                onClick={controller?.fullscreen ?? toggleFullscreen}
+                aria-label={
+                  isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
+                }
+                className={cn(
+                  "shrink-0 cursor-pointer rounded-full p-1.5 text-muted-foreground",
+                  "transition hover:bg-foreground/10 hover:text-foreground",
+                )}
+              >
+                {isFullscreen ? (
+                  <Minimize className="h-4 w-4" />
+                ) : (
+                  <Maximize className="h-4 w-4" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
-        <PlaybackOptions />
+        <PlaybackOptions controller={controller} />
 
         <div className="flex items-center gap-3">
           <button
@@ -431,8 +523,12 @@ export function Transport() {
               onChange={(event) => seek(Number(event.target.value))}
               className="h-1 w-full min-w-0 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground disabled:cursor-default disabled:opacity-40"
             />
-            <p className="mt-[5px] truncate text-center text-xs text-muted-foreground" title={track?.name ?? "Silent — time-driven"}>
-              Audio: {track?.name ?? "Silent — time-driven"} {track?.artist ? ` - ${track?.artist}` : ""}
+            <p
+              className="mt-[5px] truncate text-center text-xs text-muted-foreground"
+              title={track?.name ?? "Silent — time-driven"}
+            >
+              Audio: {track?.name ?? "Silent — time-driven"}{" "}
+              {track?.artist ? ` - ${track?.artist}` : ""}
             </p>
           </div>
           <span className="w-9 font-mono text-[10px] text-muted-foreground">
@@ -442,9 +538,12 @@ export function Transport() {
 
         {/* Inset, so the rule reads as a divider between two halves of one
             card rather than a seam cutting it in two. */}
-        <div className="mx-2 my-3 border-t border-foreground/10" />
-
-        <VisActions />
+        {!controller && (
+          <>
+            <div className="mx-2 my-3 border-t border-foreground/10" />
+            <VisActions />
+          </>
+        )}
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ import {
 import { runtimeInput } from "@/lib/sets/input";
 import { visualFallback, type Scheduled } from "@/lib/sets/scheduler";
 import { type Clip, type MediaRef } from "@/lib/sets/model";
+import { useOutputPointer } from "./use-output-pointer";
 const black = "";
 export function SetOutput({
   sessionId,
@@ -25,6 +26,7 @@ export function SetOutput({
   outputId: string;
 }) {
   const { user, loading } = useAuth();
+  const { surface, hidden } = useOutputPointer();
   const userId = user?.id;
   const [view, setView] = useState({ source: black, key: "black", opacity: 0 });
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -113,6 +115,9 @@ export function SetOutput({
           ensureAudio();
           transport.seek(0);
           transport.play();
+          break;
+        case "seek-audio":
+          if (typeof c.value === "number") transport.seekAudio(c.value);
           break;
         case "seek":
           if (typeof c.value === "number") transport.seek(c.value);
@@ -364,11 +369,13 @@ export function SetOutput({
   }, [preparation.status]);
   return (
     <div
+      ref={surface}
+      data-vj-output
       style={{
         position: "fixed",
         inset: 0,
         background: "#000",
-        cursor: "none",
+        cursor: hidden ? "none" : "default",
         overflow: "hidden",
       }}
     >

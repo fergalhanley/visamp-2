@@ -24,7 +24,7 @@ it("browses SoundCloud without playback and routes a selection to the authoritat
   expect(select).not.toHaveBeenCalled();
   expect(result.current.library.soundcloudTracks[0]?.name).toBe("Song");
   await act(() => result.current.library.playIndex(0));
-  expect(select).toHaveBeenCalledWith({
+  expect(select.mock.calls[0]?.[0]).toEqual({
     id: "42",
     title: "Song",
     attribution: "Artist",
@@ -53,7 +53,7 @@ it("prepares local files for output-window access and starts the first selection
   );
   const file = new File(["audio"], "one.wav");
   act(() => result.current.library.addFiles([file]));
-  await waitFor(() => expect(select).toHaveBeenCalledWith(ref));
+  await waitFor(() => expect(select).toHaveBeenCalledWith(ref, [ref]));
   expect(client.fileRef.mock.calls[0]?.[0]).toBe(file);
   expect(result.current.library.currentIndex).toBe(0);
   expect(result.current.library.isPlaying).toBe(true);

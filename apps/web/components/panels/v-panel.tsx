@@ -30,7 +30,7 @@ const TAB_LABELS: Record<Tab, string> = {
   playlists: "Playlists",
 };
 
-export function VPanel({ embedded = false, onSelect, activeId }: { embedded?: boolean; onSelect?: (vis: Visualisation) => void; activeId?: string } = {}) {
+export function VPanel({ embedded = false, onSelect, activeId }: { embedded?: boolean; onSelect?: (vis: Visualisation, context: Visualisation[]) => void; activeId?: string } = {}) {
   const [tab, setTab] = useState<Tab>("visualisations");
   const [query, setQuery] = useState("");
   const [signIn, setSignIn] = useState(false);
@@ -187,7 +187,7 @@ export function VPanel({ embedded = false, onSelect, activeId }: { embedded?: bo
                 vis={vis}
                 active={vis.id === currentId}
                 // E3.10 — picking a tile also sets the playing context.
-                onSelect={() => onSelect ? onSelect(vis) : select(vis, visualisations)}
+                onSelect={() => onSelect ? onSelect(vis, visualisations) : select(vis, visualisations)}
                 owned={Boolean(user && vis.ownerId === user.id)}
                 onChanged={refreshMine}
               />
@@ -219,7 +219,7 @@ export function VPanel({ embedded = false, onSelect, activeId }: { embedded?: bo
               <VisTile
                 vis={vis}
                 active={vis.id === currentId}
-                onSelect={() => onSelect ? onSelect(vis) : select(vis, myFiltered)}
+                onSelect={() => onSelect ? onSelect(vis, myFiltered) : select(vis, myFiltered)}
                 owned
                 onChanged={refreshMine}
               />
@@ -252,7 +252,7 @@ export function VPanel({ embedded = false, onSelect, activeId }: { embedded?: bo
               <VisTile
                 vis={vis}
                 active={vis.id === currentId}
-                onSelect={() => onSelect ? onSelect(vis) : select(vis, favouritesFiltered)}
+                onSelect={() => onSelect ? onSelect(vis, favouritesFiltered) : select(vis, favouritesFiltered)}
                 owned={Boolean(user && vis.ownerId === user.id)}
                 onChanged={() => {
                   refreshFavourites();

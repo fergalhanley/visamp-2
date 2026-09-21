@@ -32,7 +32,7 @@ export const navLinks: {
 }[] = [
   { href: "/player", label: "Player" },
   { href: "/creators", label: "Creators" },
-  { href: "/upload", label: "Upload Music" },
+  { href: "/artists", label: "Artists" },
   {
     href: process.env.NEXT_PUBLIC_DOCS_URL || "https://docs.visamp.io",
     label: "Docs",

@@ -139,6 +139,7 @@ export function APanel({
   library?: AudioPanelLibrary;
   onHostedSelect?: (
     track: import("@/lib/hosted-audio/types").HostedTrackSummary,
+    context: import("@/lib/hosted-audio/types").HostedTrackSummary[],
   ) => void;
   hostedPlayback?: { id?: string; playing: boolean };
 } = {}) {

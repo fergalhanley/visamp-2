@@ -144,7 +144,7 @@ const outputTab = browser("tab", "list").tabs.find((t) =>
 ).tabId;
 browser("tab", operatorTab);
 await until(
-  'document.querySelectorAll("iframe").length === 0 && !!document.querySelector(".set-output-status")',
+  'document.querySelectorAll("iframe").length === 0 && !!document.querySelector(".vj-input")',
   "Embedded output was not fully detached",
 );
 browser("tab", outputTab);
@@ -162,7 +162,7 @@ if (
   button("Enable audio");
 browser("tab", operatorTab);
 await until(
-  'document.querySelectorAll("iframe").length === 0 && !!document.querySelector(".set-output-status")',
+  'document.querySelectorAll("iframe").length === 0 && !!document.querySelector(".vj-input")',
   "Refreshed output did not reconnect",
 );
 browser("find", "role", "tab", "click", "--name", "Freeplay Visualisations", "--exact");
@@ -173,6 +173,7 @@ await until(
 evaluate(
   'document.querySelector("[aria-label=\\\"Browse\\\"] button.text-left").click()',
 );
+browser("find", "role", "tab", "click", "--name", "Set", "--exact");
 await until(
   `${performanceText}.includes('LIVE OVERRIDE')`,
   "Visual override did not start",
@@ -203,7 +204,7 @@ const beforeClose = Number(
 browser("tab", "close", outputTab);
 browser("tab", operatorTab);
 await until(
-  'document.querySelectorAll("iframe").length === 1 && !document.querySelector(".set-output-status")',
+  'document.querySelectorAll("iframe").length === 1 && !document.querySelector(".vj-input")',
   "Embedded output did not recover",
 );
 assert.equal(evaluate(`(${performanceText}).includes('LIVE OVERRIDE')`), false);

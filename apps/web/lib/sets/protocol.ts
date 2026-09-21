@@ -29,6 +29,7 @@ export type Command = {
     | "stop"
     | "restart"
     | "seek"
+    | "seek-audio"
     | "loop"
     | "volume"
     | "mute"
@@ -230,7 +231,7 @@ export function parseCommand(raw: unknown): Command | null {
   const c = raw as Command;
   if (["play", "pause", "stop", "restart"].includes(c.action))
     return { action: c.action };
-  if (c.action === "seek")
+  if (c.action === "seek" || c.action === "seek-audio")
     return typeof c.value === "number" &&
       Number.isFinite(c.value) &&
       c.value >= 0
