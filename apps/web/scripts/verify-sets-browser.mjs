@@ -165,12 +165,13 @@ await until(
   'document.querySelectorAll("iframe").length === 0 && !!document.querySelector(".set-output-status")',
   "Refreshed output did not reconnect",
 );
+browser("find", "role", "tab", "click", "--name", "Freeplay Visualisations", "--exact");
 await until(
-  '!!document.querySelector("[aria-label=\\\"Visualisations catalogue\\\"] article button")',
+  '!!document.querySelector("[aria-label=\\\"Browse\\\"] button.text-left")',
   "Visual catalogue unavailable",
 );
 evaluate(
-  'document.querySelector("[aria-label=\\\"Visualisations catalogue\\\"] article button").click()',
+  'document.querySelector("[aria-label=\\\"Browse\\\"] button.text-left").click()',
 );
 await until(
   `${performanceText}.includes('LIVE OVERRIDE')`,

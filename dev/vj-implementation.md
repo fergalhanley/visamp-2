@@ -27,6 +27,24 @@ Click the Input Controller to acquire pointer lock. It sends keyboard code/key, 
 - Local files remain in this browser's IndexedDB, available to its same-origin pop-out. Only references/metadata are saved remotely. A missing file is marked unavailable and can be repaired by choosing the same file again. No new portability or broadcast restrictions are imposed.
 - Existing consent/environment-aware analytics records feature events, never input coordinates, key presses, set names or user-authored source.
 
+## VJ workspace layout — VIS-45, 2026-09-21
+
+The shared top-bar action group places VJ Mode after Create and contextual actions.
+VJ Mode uses the common button geometry with magenta/white styling and is hidden on
+its own route; that route exposes Set Builder in the action group.
+
+The left workspace has Freeplay Visualisations and Set tabs. Freeplay embeds the
+same VPanel and APanel used by /player, including filters, favourites, playlists
+and management controls. Panel selection callbacks and the VJ audio-library adapter
+route playback exclusively through the shared performance controller. Browsing never
+starts the normal player's audio engine. Local files are prepared in the existing
+IndexedDB store before selection so pop-out playback can access them. Microphone
+mixing remains outside the VJ MVP. Set loading/search/resume controls live in the Set
+tab; changing tabs preserves catalogue state and does not change a running set.
+
+Set-specific control CSS is scoped to editor/list/set controls and performance
+controls, leaving shared navigation and freeplay panel styling intact.
+
 ## Verification
 
 Automated tests cover scheduling boundaries/fades/seeking, timing and missing-content validation, history, snapshot recovery, independent overrides/loop/pause, message rejection/order, stale telemetry, auth return destinations and owner/concurrency API guards. Live database assertions confirm owner visibility, foreign-owner exclusion and revoked direct mutation/anonymous privileges.
@@ -42,3 +60,11 @@ A local app and at least two public visuals and hosted tracks of at least 30 sec
 Additional Chromium checks used an interactive visual changing colour on keyboard and pointer events, including the pop-out. These verify runtime delivery beyond the pad counter. Browser screenshots are development evidence, not production design assets.
 
 Still requiring the owner's performance setup: OBS window capture, dual-monitor operation, and a one-hour manual soak. Do not treat this as production broadcast sign-off or mark those acceptance criteria verified until recorded. No production release is part of this implementation.
+
+VIS-45 layout follow-up verification: 315 web tests passed; TypeScript and ESLint
+passed (two existing unrelated lint warnings). The webpack production build passed;
+the default Turbopack build cannot follow this task worktree's dependency symlinks.
+The updated complete Chromium flow passed, including selection from the reused
+visual panel while popped out. Additional browser checks confirmed hosted selection
+creates an audio override without operator media elements, shared top-bar colours
+and 7px radii, hidden VJ action/page heading, tab layout and no browser errors.

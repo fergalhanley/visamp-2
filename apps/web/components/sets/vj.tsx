@@ -7,7 +7,9 @@ import { request } from "@/lib/sets/client";
 import { type SetDocument, validate, emptySet } from "@/lib/sets/model";
 import { parseState } from "@/lib/sets/protocol";
 import { track } from "@/lib/analytics/client";
-import { Catalogue } from "./catalogue";
+import { VPanel } from "@/components/panels/v-panel";
+import { APanel } from "@/components/panels/a-panel";
+import { useVjAudioLibrary } from "./use-vj-audio-library";
 import { usePerformance } from "./use-performance";
 import { PerformanceView } from "./performance-view";
 import { ResizeHandle } from "./resize-handle";
@@ -27,12 +29,17 @@ export function VjMode() {
     [selected, setSelected] = useState(initialId ?? ""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
-    [manual, setManual] = useState(false),
+    [manual, setManual] = useState(!initialId),
     [unavailable, setUnavailable] = useState<Record<string, string>>({}),
-    [widths, setWidths] = useState([250, 280]),
+    [widths, setWidths] = useState([300, 320]),
     [previewHeight, setPreviewHeight] = useState(380),
-    [catalogueTab, setCatalogueTab] = useState("visual"),
+    [workspaceTab, setWorkspaceTab] = useState(initialId ? "set" : "freeplay"),
     [resume, setResume] = useState<ReturnType<typeof parseState>>(null);
+  const audioLibrary = useVjAudioLibrary(
+    (media) => p.override("audio", media),
+    p.state.audioOverride?.media,
+    p.state.playing,
+  );
   useEffect(() => {
     void request<{ sets: SetDocument[] }>("/api/sets")
       .then((d) => setSets(d.sets))
@@ -146,99 +153,7 @@ export function VjMode() {
   return (
     <div className="sets-app">
       <TopBar position="static" />
-      <div className="vj-controls">
-        <h1>VJ Mode</h1>
-        <a href="/sets">Set Builder</a>
-        <input
-          aria-label="Search sets"
-          placeholder="Search your sets"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <select
-          aria-label="Choose set"
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-        >
-          <option value="">Choose a set</option>
-          {sets
-            .filter((s) => s.name.toLowerCase().includes(filter.toLowerCase()))
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-        </select>
-        <button
-          disabled={!selected || loading}
-          onClick={() => void load(selected)}
-        >
-          Load set
-        </button>
-        <button
-          onClick={() => {
-            if (p.state.playing && !confirm("Stop and start without a set?"))
-              return;
-            p.send({ action: "stop" });
-            p.replaceSet(emptySet());
-            setUnavailable({});
-            setError("");
-            setManual(true);
-            setSelected("");
-          }}
-        >
-          Start without a set
-        </button>
-        <strong>{manual ? "Manual performance" : p.state.set.name}</strong>
-        <button
-          disabled={!manual && invalid}
-          onClick={() => p.send({ action: "restart" })}
-        >
-          Restart set
-        </button>
-      </div>
-      {resume && (
-        <p className="vj-controls">
-          Resume your last session near {Math.floor(resume.positionMs / 1000)}{" "}
-          seconds?{" "}
-          <button
-            onClick={async () => {
-              const old = resume;
-              const resolved = await p.load(old.set);
-              if (
-                validate(old.set, resolved.unavailable).some(
-                  (i) => i.severity === "error",
-                )
-              ) {
-                setError(
-                  "Previous session content is unavailable. Repair its set first.",
-                );
-                return;
-              }
-              p.send({ action: "seek", value: old.positionMs });
-              p.send({ action: "play" });
-              setResume(null);
-            }}
-          >
-            Resume
-          </button>
-          <button onClick={() => setResume(null)}>Dismiss</button>
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="vj-controls">
-          {error}
-        </p>
-      )}
-      {loading && <p>Loading set…</p>}
-      <div className="vj-catalogue-tabs">
-        <button onClick={() => setCatalogueTab("visual")}>
-          Visualisations
-        </button>
-        <button onClick={() => setCatalogueTab("audio")}>Audio</button>
-      </div>
       <main
-        data-catalogue={catalogueTab}
         className="vj-workspace"
         style={
           {
@@ -247,17 +162,193 @@ export function VjMode() {
           } as React.CSSProperties
         }
       >
-        <Catalogue
-          kind="visual"
-          onAdd={(m) => void p.override("visual", m)}
-          onPreview={(m) => void p.override("visual", m)}
-        />
-        {divider(0)}
-        <Catalogue
-          kind="audio"
-          onAdd={(m) => void p.override("audio", m)}
-          onPreview={(m) => void p.override("audio", m)}
-        />
+        <section className="vj-library" aria-label="Performance library">
+          <div
+            role="tablist"
+            aria-label="Performance mode"
+            className="flex shrink-0 gap-6 border-b px-4"
+          >
+            {(["freeplay", "set"] as const).map((tab) => (
+              <button
+                key={tab}
+                id={`vj-tab-${tab}`}
+                role="tab"
+                aria-selected={workspaceTab === tab}
+                aria-controls={`vj-panel-${tab}`}
+                tabIndex={workspaceTab === tab ? 0 : -1}
+                onKeyDown={(e) => {
+                  if (
+                    ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)
+                  ) {
+                    e.preventDefault();
+                    const next =
+                      e.key === "Home"
+                        ? "freeplay"
+                        : e.key === "End"
+                          ? "set"
+                          : tab === "set"
+                            ? "freeplay"
+                            : "set";
+                    setWorkspaceTab(next);
+                    document.getElementById(`vj-tab-${next}`)?.focus();
+                  }
+                }}
+                onClick={() => setWorkspaceTab(tab)}
+                className={`-mb-px border-b-2 py-3 text-sm transition ${workspaceTab === tab ? "border-fuchsia-400 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                {tab === "freeplay" ? "Freeplay Visualisations" : "Set"}
+              </button>
+            ))}
+          </div>
+          <div
+            id="vj-panel-freeplay"
+            role="tabpanel"
+            aria-labelledby="vj-tab-freeplay"
+            hidden={workspaceTab !== "freeplay"}
+            className="vj-freeplay"
+          >
+            <VPanel
+              embedded
+              activeId={p.state.visualOverride?.media.id}
+              onSelect={(vis) =>
+                void p.override("visual", {
+                  id: vis.id,
+                  kind: "visual",
+                  source: "visual",
+                  title: vis.title,
+                  attribution: vis.creator.username,
+                })
+              }
+            />
+            {divider(0)}
+            <APanel
+              embedded
+              library={audioLibrary.library}
+              hostedPlayback={{
+                id:
+                  p.state.audioOverride?.media.source === "hosted"
+                    ? p.state.audioOverride.media.id
+                    : undefined,
+                playing: p.state.playing,
+              }}
+              onHostedSelect={(t) =>
+                void p.override("audio", {
+                  id: t.id,
+                  kind: "audio",
+                  source: "hosted",
+                  title: t.title,
+                  attribution: t.artist,
+                  durationMs: t.durationMs,
+                })
+              }
+            />
+            {audioLibrary.error && (
+              <p role="alert" className="col-span-full text-destructive">
+                {audioLibrary.error}
+              </p>
+            )}
+          </div>
+          <div
+            id="vj-panel-set"
+            role="tabpanel"
+            aria-labelledby="vj-tab-set"
+            hidden={workspaceTab !== "set"}
+            className="vj-set-controls"
+          >
+            <div className="vj-controls">
+              <input
+                aria-label="Search sets"
+                placeholder="Search your sets"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+              <select
+                aria-label="Choose set"
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+              >
+                <option value="">Choose a set</option>
+                {sets
+                  .filter((s) =>
+                    s.name.toLowerCase().includes(filter.toLowerCase()),
+                  )
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+              </select>
+              <button
+                disabled={!selected || loading}
+                onClick={() => void load(selected)}
+              >
+                Load set
+              </button>
+              <button
+                onClick={() => {
+                  if (
+                    p.state.playing &&
+                    !confirm("Stop and start without a set?")
+                  )
+                    return;
+                  p.send({ action: "stop" });
+                  p.replaceSet(emptySet());
+                  setUnavailable({});
+                  setError("");
+                  setManual(true);
+                  setSelected("");
+                  setWorkspaceTab("freeplay");
+                  history.replaceState(null, "", "/vj-mode");
+                }}
+              >
+                Start without a set
+              </button>
+              <strong>
+                {manual ? "Manual performance" : p.state.set.name}
+              </strong>
+              <button
+                disabled={!manual && invalid}
+                onClick={() => p.send({ action: "restart" })}
+              >
+                Restart set
+              </button>
+            </div>
+            {resume && (
+              <p className="vj-controls">
+                Resume your last session near{" "}
+                {Math.floor(resume.positionMs / 1000)} seconds?{" "}
+                <button
+                  onClick={async () => {
+                    const old = resume;
+                    const resolved = await p.load(old.set);
+                    if (
+                      validate(old.set, resolved.unavailable).some(
+                        (i) => i.severity === "error",
+                      )
+                    ) {
+                      setError(
+                        "Previous session content is unavailable. Repair its set first.",
+                      );
+                      return;
+                    }
+                    p.send({ action: "seek", value: old.positionMs });
+                    p.send({ action: "play" });
+                    setResume(null);
+                  }}
+                >
+                  Resume
+                </button>
+                <button onClick={() => setResume(null)}>Dismiss</button>
+              </p>
+            )}
+            {error && (
+              <p role="alert" className="vj-controls">
+                {error}
+              </p>
+            )}
+            {loading && <p>Loading set…</p>}
+          </div>
+        </section>
         {divider(1)}
         <div className="vj-performance">
           <PerformanceView
@@ -278,6 +369,7 @@ export function VjMode() {
             play={() => {
               if (!manual && invalid) {
                 setError("Load a valid set or choose Start without a set.");
+                setWorkspaceTab("set");
                 return;
               }
               p.send({ action: "play" });

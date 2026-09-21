@@ -99,37 +99,127 @@ function TrackStatus({
   );
 }
 
-export function APanel() {
+export type AudioPanelLibrary = Pick<
+  ReturnType<typeof useAudioStore.getState>,
+  | "kind"
+  | "micError"
+  | "tracks"
+  | "currentIndex"
+  | "pendingIndex"
+  | "isPlaying"
+  | "pendingNames"
+  | "soundcloudPlaylist"
+  | "soundcloudTracks"
+  | "soundcloudLoading"
+  | "soundcloudError"
+  | "enableMic"
+  | "disableMic"
+  | "addFiles"
+  | "addViaPicker"
+  | "removeTrack"
+  | "clearTracks"
+  | "moveTrack"
+  | "playIndex"
+  | "refreshSoundcloud"
+  | "loadSoundcloudPlaylist"
+  | "clearSoundcloud"
+  | "soundcloudUrl"
+  | "setSoundcloudUrl"
+  | "selectSoundcloudSource"
+  | "selectFilesSource"
+>;
+
+export function APanel({
+  embedded = false,
+  library,
+  onHostedSelect,
+  hostedPlayback,
+}: {
+  embedded?: boolean;
+  library?: AudioPanelLibrary;
+  onHostedSelect?: (
+    track: import("@/lib/hosted-audio/types").HostedTrackSummary,
+  ) => void;
+  hostedPlayback?: { id?: string; playing: boolean };
+} = {}) {
   const aOpen = useChromeStore((s) => s.aOpen);
 
-  const kind = useAudioStore((s) => s.kind);
-  const micError = useAudioStore((s) => s.micError);
-  const tracks = useAudioStore((s) => s.tracks);
-  const currentIndex = useAudioStore((s) => s.currentIndex);
-  const pendingIndex = useAudioStore((s) => s.pendingIndex);
-  const isPlaying = useAudioStore((s) => s.isPlaying);
-  const pendingNames = useAudioStore((s) => s.pendingNames);
+  const kind = useAudioStore((s) => (library ? library.kind : s.kind));
+  const micError = useAudioStore((s) =>
+    library ? library.micError : s.micError,
+  );
+  const tracks = useAudioStore((s) => (library ? library.tracks : s.tracks));
+  const currentIndex = useAudioStore((s) =>
+    library ? library.currentIndex : s.currentIndex,
+  );
+  const pendingIndex = useAudioStore((s) =>
+    library ? library.pendingIndex : s.pendingIndex,
+  );
+  const isPlaying = useAudioStore((s) =>
+    library ? library.isPlaying : s.isPlaying,
+  );
+  const pendingNames = useAudioStore((s) =>
+    library ? library.pendingNames : s.pendingNames,
+  );
 
-  const scPlaylist = useAudioStore((s) => s.soundcloudPlaylist);
-  const scTracks = useAudioStore((s) => s.soundcloudTracks);
-  const scLoading = useAudioStore((s) => s.soundcloudLoading);
-  const scError = useAudioStore((s) => s.soundcloudError);
+  const scPlaylist = useAudioStore((s) =>
+    library ? library.soundcloudPlaylist : s.soundcloudPlaylist,
+  );
+  const scTracks = useAudioStore((s) =>
+    library ? library.soundcloudTracks : s.soundcloudTracks,
+  );
+  const scLoading = useAudioStore((s) =>
+    library ? library.soundcloudLoading : s.soundcloudLoading,
+  );
+  const scError = useAudioStore((s) =>
+    library ? library.soundcloudError : s.soundcloudError,
+  );
 
-  const enableMic = useAudioStore((s) => s.enableMic);
-  const disableMic = useAudioStore((s) => s.disableMic);
-  const addFiles = useAudioStore((s) => s.addFiles);
-  const addViaPicker = useAudioStore((s) => s.addViaPicker);
-  const removeTrack = useAudioStore((s) => s.removeTrack);
-  const clearTracks = useAudioStore((s) => s.clearTracks);
-  const moveTrack = useAudioStore((s) => s.moveTrack);
-  const playIndex = useAudioStore((s) => s.playIndex);
-  const refreshSoundcloud = useAudioStore((s) => s.refreshSoundcloud);
-  const loadPlaylist = useAudioStore((s) => s.loadSoundcloudPlaylist);
-  const clearSoundcloud = useAudioStore((s) => s.clearSoundcloud);
-  const url = useAudioStore((s) => s.soundcloudUrl);
-  const setUrl = useAudioStore((s) => s.setSoundcloudUrl);
-  const selectSoundcloudSource = useAudioStore((s) => s.selectSoundcloudSource);
-  const selectFilesSource = useAudioStore((s) => s.selectFilesSource);
+  const enableMic = useAudioStore((s) =>
+    library ? library.enableMic : s.enableMic,
+  );
+  const disableMic = useAudioStore((s) =>
+    library ? library.disableMic : s.disableMic,
+  );
+  const addFiles = useAudioStore((s) =>
+    library ? library.addFiles : s.addFiles,
+  );
+  const addViaPicker = useAudioStore((s) =>
+    library ? library.addViaPicker : s.addViaPicker,
+  );
+  const removeTrack = useAudioStore((s) =>
+    library ? library.removeTrack : s.removeTrack,
+  );
+  const clearTracks = useAudioStore((s) =>
+    library ? library.clearTracks : s.clearTracks,
+  );
+  const moveTrack = useAudioStore((s) =>
+    library ? library.moveTrack : s.moveTrack,
+  );
+  const playIndex = useAudioStore((s) =>
+    library ? library.playIndex : s.playIndex,
+  );
+  const refreshSoundcloud = useAudioStore((s) =>
+    library ? library.refreshSoundcloud : s.refreshSoundcloud,
+  );
+  const loadPlaylist = useAudioStore((s) =>
+    library ? library.loadSoundcloudPlaylist : s.loadSoundcloudPlaylist,
+  );
+  const clearSoundcloud = useAudioStore((s) =>
+    library ? library.clearSoundcloud : s.clearSoundcloud,
+  );
+  const url = useAudioStore((s) =>
+    library ? library.soundcloudUrl : s.soundcloudUrl,
+  );
+  const setUrl = useAudioStore((s) =>
+    library ? library.setSoundcloudUrl : s.setSoundcloudUrl,
+  );
+  const selectSoundcloudSource = useAudioStore((s) =>
+    library ? library.selectSoundcloudSource : s.selectSoundcloudSource,
+  );
+  const selectFilesSource = useAudioStore((s) =>
+    library ? library.selectFilesSource : s.selectFilesSource,
+  );
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const fsa = useSupportsFileSystemAccess();
@@ -159,37 +249,49 @@ export function APanel() {
   };
 
   return (
-    <Panel side="a" label="Audio source">
+    <Panel side="a" label="Audio source" embedded={embedded}>
       <header className="shrink-0 border-b px-4 py-3">
         <h2 className="text-sm font-medium">Audio</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          VisAmp artists, SoundCloud, your own files, or the microphone.
+          {library
+            ? "VisAmp artists, SoundCloud, or your own files."
+            : "VisAmp artists, SoundCloud, your own files, or the microphone."}
         </p>
       </header>
 
       <div className="shrink-0 border-b px-4 py-3">
-        <div className="grid grid-cols-2 gap-1 min-[1200px]:grid-cols-4 rounded-lg bg-foreground/5 p-1">
-          {SOURCES.map(({ value, label, icon: Icon }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => selectSource(value)}
-              aria-pressed={activeTab === value}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition",
-                activeTab === value
-                  ? "bg-foreground/15 font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
+        <div
+          className={cn(
+            "grid gap-1 rounded-lg bg-foreground/5 p-1",
+            library ? "grid-cols-3" : "grid-cols-2 min-[1200px]:grid-cols-4",
+          )}
+        >
+          {SOURCES.filter((source) => !library || source.value !== "mic").map(
+            ({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => selectSource(value)}
+                aria-pressed={activeTab === value}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs transition",
+                  library ? "px-1" : "px-2",
+                  activeTab === value
+                    ? "bg-foreground/15 font-medium"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
-      {activeTab === "hosted" && <MusicLibrary />}
+      {activeTab === "hosted" && (
+        <MusicLibrary onPreview={onHostedSelect} playback={hostedPlayback} />
+      )}
 
       {activeTab === "soundcloud" && (
         <section className="flex min-h-0 flex-1 flex-col">
@@ -347,7 +449,9 @@ export function APanel() {
               <button
                 type="button"
                 onClick={() =>
-                  fsa ? void addViaPicker() : inputRef.current?.click()
+                  fsa && !library
+                    ? void addViaPicker()
+                    : inputRef.current?.click()
                 }
                 className="rounded-md border px-2 py-1 text-xs transition hover:bg-foreground/5"
               >
@@ -369,7 +473,8 @@ export function APanel() {
           />
 
           <p className="shrink-0 px-4 pb-2 text-[11px] text-muted-foreground">
-            MP3, M4A, AAC, OGG, Opus, WAV, FLAC. Local files stay on this device.
+            MP3, M4A, AAC, OGG, Opus, WAV, FLAC. Local files stay on this
+            device.
           </p>
 
           {pendingNames.length > 0 && (

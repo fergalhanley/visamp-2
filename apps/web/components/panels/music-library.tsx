@@ -19,7 +19,9 @@ type Context = { type: "artist" | "playlist"; id: string; name: string } | null;
 export function MusicLibrary({
   onSelect,
   onPreview,
+  playback,
 }: {
+  playback?: { id?: string; playing: boolean };
   onSelect?: (track: HostedTrackSummary) => void;
   onPreview?: (track: HostedTrackSummary) => void;
 } = {}) {
@@ -42,12 +44,12 @@ export function MusicLibrary({
   const [playlistError, setPlaylistError] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [playlistUser, setPlaylistUser] = useState<string | null>(null);
-  const kind = useAudioStore((s) => s.kind);
+  const kind = useAudioStore((s) => playback ? "hosted" : s.kind);
   const current = useAudioStore(
-    (s) => s.hostedTracks[s.currentIndex]?.hostedTrackId,
+    (s) => playback ? playback.id : s.hostedTracks[s.currentIndex]?.hostedTrackId,
   );
-  const playing = useAudioStore((s) => s.isPlaying);
-  const playbackError = useAudioStore((s) => s.hostedError);
+  const playing = useAudioStore((s) => playback ? playback.playing : s.isPlaying);
+  const playbackError = useAudioStore((s) => playback ? null : s.hostedError);
   useEffect(() => {
     if (!target && !signIn) return;
     useChromeStore.getState().setPinned("a", true);

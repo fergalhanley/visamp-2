@@ -17,6 +17,7 @@ function isTextEntry(node: EventTarget | null): boolean {
 }
 
 interface PanelProps {
+  embedded?: boolean;
   side: PanelSide;
   label: string;
   children: ReactNode;
@@ -29,7 +30,7 @@ interface PanelProps {
  * On a touch device or a narrow window this becomes a bottom sheet with a drag
  * handle (E2.11).
  */
-export function Panel({ side, label, children }: PanelProps) {
+export function Panel({ side, label, children, embedded = false }: PanelProps) {
   const open = useChromeStore((s) => (side === "v" ? s.vOpen : s.aOpen));
   // The top bar shares the chrome's visibility, so the panel starts below it
   // whenever it is on screen and reclaims the full height once it fades.
@@ -89,6 +90,10 @@ export function Panel({ side, label, children }: PanelProps) {
       closePanel(side);
     }
   };
+
+  if (embedded) return (
+    <aside aria-label={label} className="visamp-surface flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border">{children}</aside>
+  );
 
   if (compact) {
     return (

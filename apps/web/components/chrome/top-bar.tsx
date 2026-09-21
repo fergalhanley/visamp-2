@@ -134,6 +134,7 @@ export function TopBar({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {actions ?? <RouteActions />}
+          <SetNav />
         </div>
 
         <nav
@@ -156,7 +157,6 @@ export function TopBar({
             </a>
           ))}
         </nav>
-        <SetNav />
         <div className="shrink-0">
           <AccountMenu />
         </div>

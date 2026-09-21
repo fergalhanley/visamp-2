@@ -51,6 +51,7 @@ it("renders owner controls after authentication", () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 it("signed-out navigation requests sign-in with the VJ destination", () => {
+  route.path = "/player";
   render(<SetNav />);
   expect(screen.queryByText("Set Builder")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "VJ Mode" }));
@@ -63,4 +64,11 @@ it("shows the Set Builder editor entry only for signed-in users", () => {
   expect(
     screen.getByRole("link", { name: "Set Builder" }).getAttribute("href"),
   ).toBe("/sets");
+});
+
+it("hides the VJ action on its own page and provides Set Builder", () => {
+  auth.user = { id: "owner" };
+  render(<SetNav />);
+  expect(screen.queryByRole("link", { name: "VJ Mode" })).toBeNull();
+  expect(screen.getByRole("link", { name: "Set Builder" }).getAttribute("href")).toBe("/sets");
 });

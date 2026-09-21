@@ -17,6 +17,8 @@ import { useMyVisualisations } from "@/hooks/use-my-visualisations";
 import { useSessionStore } from "@/lib/store/session";
 import { cn } from "@/lib/utils";
 
+import type { Visualisation } from "@/lib/types";
+
 const ROW_HEIGHT = 64;
 
 type Tab = "visualisations" | "mine" | "favourites" | "playlists";
@@ -28,7 +30,7 @@ const TAB_LABELS: Record<Tab, string> = {
   playlists: "Playlists",
 };
 
-export function VPanel() {
+export function VPanel({ embedded = false, onSelect, activeId }: { embedded?: boolean; onSelect?: (vis: Visualisation) => void; activeId?: string } = {}) {
   const [tab, setTab] = useState<Tab>("visualisations");
   const [query, setQuery] = useState("");
   const [signIn, setSignIn] = useState(false);
@@ -38,7 +40,8 @@ export function VPanel() {
     return () => useChromeStore.getState().setPinned("v", false);
   }, [signIn]);
 
-  const currentId = useSessionStore((s) => s.current.id);
+  const playerCurrentId = useSessionStore((s) => s.current.id);
+  const currentId = onSelect ? activeId : playerCurrentId;
   const select = useSessionStore((s) => s.select);
 
   const { user } = useAuth();
@@ -64,8 +67,8 @@ export function VPanel() {
   // starts with. Seeded from here because this is where the list already is —
   // fetching it a second time in the shell would double the query.
   useEffect(() => {
-    useSessionStore.getState().seedFromBrowse(publicVis);
-  }, [publicVis]);
+    if (!onSelect) useSessionStore.getState().seedFromBrowse(publicVis);
+  }, [publicVis, onSelect]);
   const needle = query.trim().toLowerCase();
 
   // The tab only exists while signed in; falling back keeps the panel sane if
@@ -110,7 +113,7 @@ export function VPanel() {
     return () => clearTimeout(timer);
   }, [needle, activeTab, searchCount]);
   return (
-    <Panel side="v" label="Browse">
+    <Panel side="v" label="Browse" embedded={embedded}>
       {/* E3.1 — the mark, the Artists link and the account control used to
           head this panel. They are site navigation rather than anything to do
           with browsing, and now live on the top bar with the rest of it. */}
@@ -150,7 +153,7 @@ export function VPanel() {
       <SignInDialog open={signIn} onOpenChange={setSignIn} />
       {activeTab === "playlists" &&
         (user ? (
-          <VisualPlaylists key={user.id} userId={user.id} query={query} />
+          <VisualPlaylists key={user.id} userId={user.id} query={query} onSelect={onSelect} activeId={activeId} />
         ) : (
           <p className="p-4 text-xs">
             <button
@@ -184,7 +187,7 @@ export function VPanel() {
                 vis={vis}
                 active={vis.id === currentId}
                 // E3.10 — picking a tile also sets the playing context.
-                onSelect={() => select(vis, visualisations)}
+                onSelect={() => onSelect ? onSelect(vis) : select(vis, visualisations)}
                 owned={Boolean(user && vis.ownerId === user.id)}
                 onChanged={refreshMine}
               />
@@ -216,7 +219,7 @@ export function VPanel() {
               <VisTile
                 vis={vis}
                 active={vis.id === currentId}
-                onSelect={() => select(vis, myFiltered)}
+                onSelect={() => onSelect ? onSelect(vis) : select(vis, myFiltered)}
                 owned
                 onChanged={refreshMine}
               />
@@ -249,7 +252,7 @@ export function VPanel() {
               <VisTile
                 vis={vis}
                 active={vis.id === currentId}
-                onSelect={() => select(vis, favouritesFiltered)}
+                onSelect={() => onSelect ? onSelect(vis) : select(vis, favouritesFiltered)}
                 owned={Boolean(user && vis.ownerId === user.id)}
                 onChanged={() => {
                   refreshFavourites();
