@@ -5,6 +5,7 @@ import {
   LogOut,
   Settings,
   Music,
+  ListVideo,
   Upload,
   User as UserIcon,
 } from "lucide-react";
@@ -129,6 +130,10 @@ export function AccountMenu() {
           >
             <Music className="h-3.5 w-3.5" />
             Playlists
+          </DropdownMenuItem>
+          <DropdownMenuItem nativeButton={false} render={<a href="/sets" />}>
+            <ListVideo className="h-3.5 w-3.5" />
+            My Sets
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => void signOut()}>
