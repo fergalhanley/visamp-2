@@ -4,6 +4,10 @@ export default defineConfig({
   esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
+      "@visamp/engine/package.json": new URL(
+        "../../packages/engine/package.json",
+        import.meta.url,
+      ).pathname,
       "@visamp/engine": new URL(
         "../../packages/engine/pkg/visamp_2.js",
         import.meta.url,
