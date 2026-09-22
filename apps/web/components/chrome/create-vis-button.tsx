@@ -58,11 +58,12 @@ export function CreateVisButton({ className }: { className?: string }) {
         <button
           type="submit"
           onClick={onClick}
-          title="Start a new visualisation"
+          title="Create a Visualisation"
+          aria-label="Create a Visualisation"
           className={cn(barButton, barButtonGreen, className)}
         >
           <Plus className="h-4 w-4" />
-          <span className={barLabel}>Create</span>
+          <span className={barLabel}>Create a Visualisation</span>
         </button>
       </form>
 

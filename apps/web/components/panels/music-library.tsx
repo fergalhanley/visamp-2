@@ -1,7 +1,7 @@
 "use client";
 import { track as trackAnalytics } from "@/lib/analytics/client";
 import { Heart, ListPlus, Search, X, Volume2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useMusicPages } from "@/hooks/use-music-pages";
@@ -31,6 +31,7 @@ export function MusicLibrary({
   ) => void;
 } = {}) {
   const { user } = useAuth();
+  const tabsId = useId();
   const [signIn, setSignIn] = useState(false);
   const [tab, setTab] = useState<Tab>("tracks");
   const [query, setQuery] = useState("");
@@ -86,7 +87,13 @@ export function MusicLibrary({
     "tracks",
     version + (user ? 1 : 0),
   );
-  const artists = useMusicPages<{ id: string; name: string; slug: string }>(
+  const artists = useMusicPages<{
+    id: string;
+    name: string;
+    slug: string;
+    artworkUrl: string;
+    trackCount: number;
+  }>(
     tab === "artists"
       ? `/api/music/artists?q=${encodeURIComponent(search)}`
       : null,
@@ -189,7 +196,8 @@ export function MusicLibrary({
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <div
-        className="flex flex-wrap gap-x-4 border-b px-4"
+        className="music-library-tabs flex flex-wrap gap-x-4 border-b px-4"
+        role="tablist"
         aria-label="Music library tabs"
       >
         {(["tracks", "artists", "favourites", "playlists"] as Tab[]).map(
@@ -197,7 +205,35 @@ export function MusicLibrary({
             <button
               key={value}
               type="button"
-              aria-pressed={tab === value}
+              role="tab"
+              id={`${tabsId}-${value}`}
+              aria-controls={`${tabsId}-panel`}
+              aria-selected={tab === value}
+              tabIndex={tab === value ? 0 : -1}
+              onKeyDown={(e) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key))
+                  return;
+                e.preventDefault();
+                const tabs: Tab[] = [
+                  "tracks",
+                  "artists",
+                  "favourites",
+                  "playlists",
+                ];
+                const next =
+                  e.key === "Home"
+                    ? tabs[0]!
+                    : e.key === "End"
+                      ? tabs[3]!
+                      : tabs[
+                          (tabs.indexOf(value) +
+                            (e.key === "ArrowRight" ? 1 : 3)) %
+                            4
+                        ]!;
+                setTab(next);
+                setError("");
+                document.getElementById(`${tabsId}-${next}`)?.focus();
+              }}
               onClick={() => {
                 setTab(value);
                 setError("");
@@ -215,7 +251,7 @@ export function MusicLibrary({
         )}
       </div>
       <div className="shrink-0 space-y-2 px-4 py-3">
-        <label className="flex items-center gap-2 rounded border px-2 py-2">
+        <label className="music-library-search flex items-center gap-2 rounded px-2 py-2">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             aria-label="Search music"
@@ -260,7 +296,12 @@ export function MusicLibrary({
           )}
         </p>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div
+        role="tabpanel"
+        id={`${tabsId}-panel`}
+        aria-labelledby={`${tabsId}-${tab}`}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
         {needsLogin ? (
           <p className="px-4 py-5 text-sm">
             <button
@@ -277,22 +318,31 @@ export function MusicLibrary({
             {artists.items.map((a) => (
               <div
                 key={a.id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-foreground/5"
+                className="music-artist-row flex items-center gap-3 rounded px-4 py-2 hover:bg-foreground/10"
               >
                 <button
                   type="button"
-                  className="min-w-0 flex-1 truncate text-left text-sm"
+                  className="music-artist-choice flex min-w-0 flex-1 items-center gap-3 text-left text-sm"
                   onClick={() =>
                     choose({ type: "artist", id: a.slug, name: a.name })
                   }
                 >
-                  {a.name}
+                  {/* eslint-disable-next-line @next/next/no-img-element -- artwork redirect endpoint */}
+                  <img
+                    src={a.artworkUrl || `/api/artwork/artist/${a.id}`}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded object-cover"
+                  />
+                  <span className="truncate">
+                    {a.name} - {a.trackCount}{" "}
+                    {a.trackCount === 1 ? "track" : "tracks"}
+                  </span>
                 </button>
                 <a
                   href={`/artists/${a.slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-xs text-muted-foreground underline"
+                  className="music-artist-profile shrink-0 text-xs text-muted-foreground underline"
                 >
                   Profile
                 </a>

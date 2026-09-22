@@ -56,7 +56,7 @@ function mockFetch() {
       url.includes("/artists")
         ? {
             artists: [
-              { id: "artist", name: "First Artist", slug: "first-artist" },
+              { id: "artist", name: "First Artist", slug: "first-artist", trackCount: 9, artworkUrl: "/api/artwork/artist/artist" },
             ],
             nextOffset: null,
           }
@@ -77,15 +77,15 @@ it("artist selection switches to filtered Tracks without changing playback", asy
   expect(
     screen.getByRole("link", { name: "First Artist" }).getAttribute("href"),
   ).toBe("/artists/first-artist");
-  fireEvent.click(screen.getByRole("button", { name: "artists" }));
-  fireEvent.click(await screen.findByRole("button", { name: "First Artist" }));
+  fireEvent.click(screen.getByRole("tab", { name: "artists" }));
+  fireEvent.click(await screen.findByRole("button", { name: "First Artist - 9 tracks" }));
   await waitFor(() =>
     expect(
       fetch.mock.calls.some(([url]) => url.includes("artist=first-artist")),
     ).toBe(true),
   );
   expect(
-    screen.getByRole("button", { name: "tracks" }).getAttribute("aria-pressed"),
+    screen.getByRole("tab", { name: "tracks" }).getAttribute("aria-selected"),
   ).toBe("true");
   expect(mocks.play).not.toHaveBeenCalled();
   fireEvent.click(
@@ -107,7 +107,7 @@ it("artist selection switches to filtered Tracks without changing playback", asy
 it("playlist selection loads that playlist on the Tracks tab", async () => {
   const fetch = mockFetch();
   render(<MusicLibrary />);
-  fireEvent.click(screen.getByRole("button", { name: "playlists" }));
+  fireEvent.click(screen.getByRole("tab", { name: "playlists" }));
   fireEvent.click(
     await screen.findByRole("button", { name: "Evening - 17 tracks" }),
   );
@@ -117,7 +117,7 @@ it("playlist selection loads that playlist on the Tracks tab", async () => {
     ).toBe(true),
   );
   expect(
-    screen.getByRole("button", { name: "tracks" }).getAttribute("aria-pressed"),
+    screen.getByRole("tab", { name: "tracks" }).getAttribute("aria-selected"),
   ).toBe("true");
   expect(mocks.play).not.toHaveBeenCalled();
 });
@@ -145,7 +145,7 @@ it("asks guests to sign in without requesting private collections", async () => 
   mocks.user = null;
   const fetch = mockFetch();
   render(<MusicLibrary />);
-  fireEvent.click(screen.getByRole("button", { name: "favourites" }));
+  fireEvent.click(screen.getByRole("tab", { name: "favourites" }));
   expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
   expect(
     fetch.mock.calls.some(([url]) => url.includes("favourites=true")),
@@ -212,7 +212,7 @@ it("removes an unfavourited row immediately and restores it on save failure", as
     ? new Promise<Response>((resolve) => { finish = resolve; })
     : Promise.resolve(Response.json({ tracks: [{ ...track, favourite: true }], nextOffset: null }))));
   render(<MusicLibrary />);
-  fireEvent.click(screen.getByRole("button", { name: "favourites" }));
+  fireEvent.click(screen.getByRole("tab", { name: "favourites" }));
   fireEvent.click(await screen.findByRole("button", { name: "Unfavourite First Song" }));
   expect(screen.queryByRole("button", { name: "Play First Song" })).toBeNull();
   await act(async () => finish(Response.json({ error: "Save failed" }, { status: 503 })));

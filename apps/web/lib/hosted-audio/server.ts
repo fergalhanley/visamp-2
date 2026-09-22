@@ -64,7 +64,7 @@ interface RenditionRow {
   bitrate_kbps: number;
 }
 
-function isLicencePlayable(
+export function isLicencePlayable(
   licence: LicenceRow | null,
   artistId: string,
 ): boolean {

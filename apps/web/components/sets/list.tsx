@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- full navigation releases player resources */
 import { useEffect, useRef, useState } from "react";
+import { barButton, barButtonGreen } from "@/components/chrome/bar-button";
 import { TopBar } from "@/components/chrome/top-bar";
 import { request, resolveSet } from "@/lib/sets/client";
 import {
@@ -87,16 +88,20 @@ export function SetList({ create = false }: { create?: boolean }) {
   }
   return (
     <div className="sets-app">
-      <TopBar position="static" />
+      <TopBar
+        position="static"
+        actions={
+          <a className={`${barButton} ${barButtonGreen}`} href="/sets/new">
+            New Set
+          </a>
+        }
+      />
       <main className="sets-list">
         <header>
           <div>
             <small>YOUR PROGRAMMES</small>
             <h1>My sets</h1>
           </div>
-          <a className="set-primary" href="/sets/new">
-            New Set
-          </a>
         </header>
         {error && <p role="alert">{error}</p>}
         {create ? (

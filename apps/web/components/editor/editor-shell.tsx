@@ -636,7 +636,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
                 )}
               >
                 <FilePlus className="h-4 w-4" />
-                Create Vis
+                Create a Visualisation
               </button>
             </form>
 

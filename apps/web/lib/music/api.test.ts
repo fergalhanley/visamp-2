@@ -261,3 +261,22 @@ it("rejects another user's banner upload before processing the file", async () =
   expect(response.status).toBe(404);
   expect(m.image).not.toHaveBeenCalled();
 });
+
+
+it("artist catalogue includes artwork and counts only playable tracks", async () => {
+  const { GET } = await import("@/app/api/music/artists/route");
+  const licence = { id: "licence", music_artist_id: id, status: "active", signed_at: "2020-01-01", effective_from: "2020-01-01", effective_until: null, grants_hosting: true, grants_streaming: true, grants_transcoding: true, grants_sync: true };
+  const artistQuery = query({ data: [{ id, slug: "act", name: "Act" }], error: null });
+  const trackQuery = query({ data: [
+    { music_artist_id: id, licences: licence },
+    { music_artist_id: id, licences: { ...licence, status: "terminated" } },
+    { music_artist_id: id, licences: { ...licence, grants_streaming: false } },
+    { music_artist_id: id, licences: { ...licence, effective_until: "2020-01-02" } },
+    { music_artist_id: id, licences: { ...licence, music_artist_id: owner } },
+  ], error: null });
+  m.from.mockImplementation((table: string) => table === "music_artists" ? artistQuery : trackQuery);
+  const response = await GET(new Request("https://visamp.io/api/music/artists"));
+  expect(response.status).toBe(200);
+  expect((await response.json()).artists).toEqual([{ id, slug: "act", name: "Act", artworkUrl: `/api/artwork/artist/${id}`, trackCount: 1 }]);
+  expect(trackQuery.eq).toHaveBeenCalledWith("status", "live");
+});

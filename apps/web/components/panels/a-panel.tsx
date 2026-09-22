@@ -33,7 +33,7 @@ const ACCEPTED = ".mp3,.m4a,.aac,.ogg,.opus,.wav,.flac";
 type SourceTab = "hosted" | "soundcloud" | "files" | "mic";
 
 const SOURCES: { value: SourceTab; label: string; icon: typeof Cloud }[] = [
-  { value: "hosted", label: "VisAmp", icon: Library },
+  { value: "hosted", label: "VisAmp Music", icon: Library },
   { value: "soundcloud", label: "SoundCloud", icon: Cloud },
   { value: "files", label: "My Files", icon: Music },
   { value: "mic", label: "Mic", icon: Mic },

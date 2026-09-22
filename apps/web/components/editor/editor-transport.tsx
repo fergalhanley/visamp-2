@@ -201,13 +201,13 @@ function HostedAudioPopover() {
         }}
       >
         <Library className="h-3.5 w-3.5" />
-        VisAmp
+        VisAmp Music
       </PopoverTrigger>
 
       <PopoverContent align="start" className="w-80 p-0">
         <div className="flex items-center justify-between border-b px-3 py-2">
           <div>
-            <p className="text-xs font-medium">VisAmp music</p>
+            <p className="text-xs font-medium">VisAmp Music</p>
             <p className="text-[11px] text-muted-foreground">
               Licensed artist catalogue
             </p>

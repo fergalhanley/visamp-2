@@ -40,7 +40,7 @@ export function SetEditor({ id }: { id: string }) {
     [selected, setSelected] = useState<string | null>(null),
     [unavailable, setUnavailable] = useState<Record<string, string>>({}),
     [checking, setChecking] = useState(false),
-    [height, setHeight] = useState(230);
+    [height, setHeight] = useState(288);
   const p = usePerformance();
   const playRef = useRef<() => void>(() => {});
   const [shortcutModifier, setShortcutModifier] = useState("Ctrl");
@@ -86,10 +86,10 @@ export function SetEditor({ id }: { id: string }) {
         }
       })
       .catch((e) => setError(e.message));
-    const stored = localStorage.getItem("visamp-set-timeline-height");
+    const stored = localStorage.getItem("visamp-set-timeline-height-v2");
     const prefFrame = requestAnimationFrame(() => {
       if (stored)
-        setHeight(Math.min(600, Math.max(200, Number(stored) || 230)));
+        setHeight(Math.min(600, Math.max(200, Number(stored) || 288)));
     });
     return () => {
       active = false;
@@ -537,7 +537,7 @@ export function SetEditor({ id }: { id: string }) {
                 Math.min(600, height + (e.key === "ArrowUp" ? 20 : -20)),
               );
               setHeight(n);
-              localStorage.setItem("visamp-set-timeline-height", String(n));
+              localStorage.setItem("visamp-set-timeline-height-v2", String(n));
             }
           }}
           onPointerDown={(e) => {
@@ -548,7 +548,7 @@ export function SetEditor({ id }: { id: string }) {
             const move = (ev: PointerEvent) => {
               const n = Math.max(200, Math.min(600, h + y - ev.clientY));
               setHeight(n);
-              localStorage.setItem("visamp-set-timeline-height", String(n));
+              localStorage.setItem("visamp-set-timeline-height-v2", String(n));
             };
             const up = () => {
               el.removeEventListener("pointermove", move);
@@ -613,26 +613,6 @@ export function SetEditor({ id }: { id: string }) {
             unavailable={unavailable}
           />
         </div>
-        <details>
-          <summary>Set details</summary>
-          <label>
-            Description
-            <textarea
-              value={s.description}
-              maxLength={4000}
-              onChange={(e) => change({ ...s, description: e.target.value })}
-            />
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={s.loop}
-              onChange={(e) => change({ ...s, loop: e.target.checked })}
-            />
-            Loop by default
-          </label>
-          <p>16:9 output</p>
-        </details>
       </main>
     </div>
   );

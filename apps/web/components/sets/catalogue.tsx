@@ -53,7 +53,7 @@ export function Catalogue({
           <label>
             Source
             <select value={source} onChange={(e) => setSource(e.target.value)}>
-              <option value="hosted">VisAmp</option>
+              <option value="hosted">VisAmp Music</option>
               <option value="soundcloud">SoundCloud</option>
               <option value="file">My Files</option>
             </select>

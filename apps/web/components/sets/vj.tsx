@@ -163,7 +163,7 @@ export function VjMode() {
   );
   return (
     <div className="sets-app">
-      <TopBar position="static" />
+      <TopBar position="static" actions={false} />
       <main
         className={`vj-workspace${workspaceTab === "set" ? " vj-workspace-set" : ""}`}
         style={

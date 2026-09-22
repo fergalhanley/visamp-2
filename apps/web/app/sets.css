@@ -748,3 +748,67 @@
   outline: 1px solid #a5adb8;
   outline-offset: 1px;
 }
+
+/* Set Builder finishing touches. */
+.set-editor-timeline {
+  max-height: 40dvh;
+}
+.set-timeline {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.set-editor .set-builder-transport button {
+  border: 0;
+  background: transparent;
+}
+.set-editor .set-editor-bar input:focus-visible,
+.set-editor .set-catalogue select:focus-visible,
+.set-editor .music-library-search input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.set-editor .set-catalogue select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a5adb8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.set-editor .music-library-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 0;
+}
+.set-editor .music-library-tabs button[aria-selected="true"] {
+  border-bottom-color: #ed87d4;
+}
+.set-editor .music-library-search,
+.set-editor .music-library-search input {
+  border: 0;
+  background: transparent;
+}
+.set-editor .music-artist-choice,
+.set-editor .music-artist-profile {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.set-editor .music-artist-choice {
+  white-space: normal;
+}
+.set-editor .music-artist-row {
+  background: #12181e;
+  margin: 0 8px 6px;
+  padding: 8px;
+}
+.set-editor .music-artist-row:hover {
+  background: #242b33;
+}
+.set-editor .music-artist-row button.music-artist-choice,
+.set-editor .music-artist-row a.music-artist-profile {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}

@@ -137,3 +137,11 @@ set name, save state and undo/redo icons above the preview. Space toggles playba
 outside text/native controls and armed input capture. Cmd/Ctrl+Z undoes;
 Cmd/Ctrl+Y or Cmd/Ctrl+Shift+Z redoes. Timeline timecodes and zoom readouts use
 monospaced, fixed-width labels to avoid layout shifts.
+
+The default timeline pane is 288px (40% viewport cap), with non-selectable text
+and borderless transport icons. Set description/default-loop details are no
+longer exposed in the builder; stored metadata remains intact. Hosted audio is
+labelled VisAmp Music. Artist catalogue rows show artwork and a count of live,
+currently licensed tracks using the playback eligibility rules. The set list
+uses New Set in the top bar; VJ Mode has no visualisation-creation action. Other
+visualisation creation actions read Create a Visualisation.
