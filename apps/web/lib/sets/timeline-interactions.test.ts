@@ -32,3 +32,27 @@ describe("pointer anchored zoom", () => {
     expect(anchoredTimelineScroll(expanded, x, after, before)).toBe(4000);
   });
 });
+
+it("quantises fractional playhead snapping for moves and both trim edges", () => {
+  for (const disabled of [false, true]) {
+    for (const offsets of [[0], [0, 30000]]) {
+      for (const time of [12345.678, 42345.678, 59999.999]) {
+        expect(
+          Number.isSafeInteger(
+            snapTimelineTime(
+              time,
+              [12345.678, 59999.999],
+              10,
+              disabled,
+              offsets,
+            ),
+          ),
+        ).toBe(true);
+      }
+    }
+  }
+  expect(snapTimelineTime(12345, [12345.678], 10)).toBe(12346);
+  expect(snapTimelineTime(12345, [42345.678], 10, false, [0, 30000])).toBe(
+    12346,
+  );
+});

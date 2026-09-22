@@ -184,7 +184,7 @@ export function Timeline({
             : 0;
         const start = Math.min(
           end(c) - 1,
-          Math.max(minimum, snap(c.startMs + delta, off, [0, c.durationMs])),
+          Math.max(minimum, snap(c.startMs + delta, off)),
         );
         result = {
           ...c,

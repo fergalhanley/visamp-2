@@ -295,7 +295,7 @@
   background: #492c57;
   border-color: #ac77c4;
 }
-.set-clip.selected {
+.set-editor .set-timeline .set-clip:is(.selected, :focus-visible) {
   outline: 2px solid white;
   outline-offset: -2px;
 }

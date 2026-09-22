@@ -20,7 +20,8 @@ export function snapTimelineTime(
       }
     }
   }
-  if (distance !== Infinity) return result;
+  // The transport clock/playhead has sub-millisecond precision; clip data does not.
+  if (distance !== Infinity) return Math.round(result);
   const second = Math.round(rounded / 1000) * 1000;
   return Math.abs(second - rounded) <= threshold ? second : rounded;
 }
