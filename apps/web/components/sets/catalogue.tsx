@@ -190,9 +190,19 @@ export function Catalogue({
                       <strong>{vis.title}</strong>
                       <small className="block">{vis.creator.username}</small>
                     </div>
+                    <button
+                      className="set-media-action"
+                      onClick={() => onAdd(m)}
+                    >
+                      Add
+                    </button>
+                    <button
+                      className="set-media-action"
+                      onClick={() => onPreview(m)}
+                    >
+                      Preview
+                    </button>
                     <CatalogueVisualActions id={vis.id} ownerId={vis.ownerId} />
-                    <button onClick={() => onAdd(m)}>Add</button>
-                    <button onClick={() => onPreview(m)}>Preview</button>
                   </div>
                 );
               }}
@@ -225,11 +235,21 @@ export function Catalogue({
                       <small>{m.attribution}</small>
                     </div>
                     <div>
+                      <button
+                        className="set-media-action"
+                        onClick={() => onAdd(m)}
+                      >
+                        Add
+                      </button>
+                      <button
+                        className="set-media-action"
+                        onClick={() => onPreview(m)}
+                      >
+                        Preview
+                      </button>
                       {kind === "visual" && (
                         <CatalogueVisualActions id={m.id} ownerId={m.ownerId} />
                       )}
-                      <button onClick={() => onAdd(m)}>Add</button>
-                      <button onClick={() => onPreview(m)}>Preview</button>
                     </div>
                   </article>
                 ))}

@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   type SetContent,
   type Clip,
@@ -10,6 +16,10 @@ import {
   end,
 } from "@/lib/sets/model";
 import { visibleTimelineMs } from "@/lib/sets/zoom";
+import {
+  anchoredTimelineScroll,
+  snapTimelineTime,
+} from "@/lib/sets/timeline-interactions";
 import { DRAG_MEDIA } from "./catalogue";
 export function Timeline({
   set,
@@ -45,6 +55,29 @@ export function Timeline({
     sourceOffsetMs: number;
   } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(75);
+  const pointerX = useRef<number | null>(null);
+  const pendingScroll = useRef<number | null>(null);
+  const changeZoom = useCallback((value: number, x?: number) => {
+    const el = scroller.current;
+    const next = Math.max(0, Math.min(100, value));
+    if (el) {
+      pendingScroll.current = anchoredTimelineScroll(
+        pendingScroll.current ?? el.scrollLeft,
+        x ?? pointerX.current ?? el.clientWidth / 2,
+        visibleTimelineMs(zoomRef.current),
+        visibleTimelineMs(next),
+      );
+    }
+    zoomRef.current = next;
+    setZoom(next);
+  }, []);
+  useLayoutEffect(() => {
+    if (scroller.current && pendingScroll.current !== null) {
+      scroller.current.scrollLeft = pendingScroll.current;
+      pendingScroll.current = null;
+    }
+  }, [zoomPercent]);
   const visibleMs = visibleTimelineMs(zoomPercent);
   const zoom = viewportWidth / (visibleMs / 1000);
   const total = Math.max(visibleMs, duration(set) + 10000);
@@ -64,8 +97,9 @@ export function Timeline({
     const wheel = (event: WheelEvent) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
-      setZoom((value) =>
-        Math.max(0, Math.min(100, value - event.deltaY * 0.15)),
+      changeZoom(
+        zoomRef.current - event.deltaY * 0.15,
+        event.clientX - el.getBoundingClientRect().left,
       );
     };
     let distance = 0;
@@ -82,8 +116,10 @@ export function Timeline({
       e.preventDefault();
       const next = spacing(e);
       if (distance > 0 && next > 0)
-        setZoom((value) =>
-          Math.max(0, Math.min(100, value + Math.log2(next / distance) * 20)),
+        changeZoom(
+          zoomRef.current + Math.log2(next / distance) * 20,
+          (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2 -
+            el.getBoundingClientRect().left,
         );
       distance = next;
     };
@@ -95,7 +131,7 @@ export function Timeline({
       el.removeEventListener("touchstart", start);
       el.removeEventListener("touchmove", move);
     };
-  }, []);
+  }, [changeZoom]);
   const width = (total / 1000) * zoom;
   function move(
     e: React.PointerEvent,
@@ -104,6 +140,7 @@ export function Timeline({
   ) {
     e.stopPropagation();
     e.preventDefault();
+    (e.currentTarget.closest(".set-clip") as HTMLElement | null)?.focus();
     onSelect(c.id);
     const x = e.clientX;
     const original = set;
@@ -113,24 +150,21 @@ export function Timeline({
     let result = c;
     const boundaries = [
       position,
-      ...set[lane]
+      0,
+      ...[...set.audioClips, ...set.visualClips]
         .filter((v) => v.id !== c.id)
         .flatMap((v) => [v.startMs, end(v)]),
     ];
-    const snap = (n: number, off: boolean) => {
-      n = Math.round(n);
-      if (off) return n;
-      const candidates = [Math.round(n / 1000) * 1000, ...boundaries];
-      const closest = candidates.sort(
-        (a, b) => Math.abs(a - n) - Math.abs(b - n),
-      )[0]!;
-      return Math.abs(closest - n) < 8000 / zoom ? closest : n;
-    };
+    const snap = (n: number, off: boolean, offsets = [0]) =>
+      snapTimelineTime(n, boundaries, zoom, off, offsets);
     const update = (ev: PointerEvent) => {
       const delta = ((ev.clientX - x) / zoom) * 1000,
         off = ev.altKey || ev.shiftKey;
       if (mode === "move")
-        result = { ...c, startMs: Math.max(0, snap(c.startMs + delta, off)) };
+        result = {
+          ...c,
+          startMs: Math.max(0, snap(c.startMs + delta, off, [0, c.durationMs])),
+        };
       else if (mode === "right") {
         const maximum =
           c.media.kind === "audio" && c.media.durationMs
@@ -150,7 +184,7 @@ export function Timeline({
             : 0;
         const start = Math.min(
           end(c) - 1,
-          Math.max(minimum, snap(c.startMs + delta, off)),
+          Math.max(minimum, snap(c.startMs + delta, off, [0, c.durationMs])),
         );
         result = {
           ...c,
@@ -202,7 +236,7 @@ export function Timeline({
             min="0"
             max="100"
             value={zoomPercent}
-            onChange={(e) => setZoom(Number(e.target.value))}
+            onChange={(e) => changeZoom(Number(e.target.value))}
           />
         </label>
         {historyControls}
@@ -217,7 +251,14 @@ export function Timeline({
           </span>
         </div>
       </header>
-      <div ref={scroller} className="set-timeline-scroll">
+      <div
+        ref={scroller}
+        className="set-timeline-scroll"
+        onPointerMove={(e) => {
+          pointerX.current =
+            e.clientX - e.currentTarget.getBoundingClientRect().left;
+        }}
+      >
         <div style={{ width, minWidth: "100%", position: "relative" }}>
           <div
             className="set-ruler"
@@ -230,6 +271,7 @@ export function Timeline({
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
                 e.preventDefault();
+                e.stopPropagation();
                 onSeek(
                   Math.max(
                     0,
@@ -239,7 +281,9 @@ export function Timeline({
               }
             }}
             onPointerDown={(e) => {
+              e.preventDefault();
               const el = e.currentTarget;
+              el.focus();
               const seek = (ev: PointerEvent | React.PointerEvent) =>
                 onSeek(
                   Math.max(

@@ -318,3 +318,19 @@ Out of scope: broadcast platform APIs, OBS control, public/collaborative sets, e
 lanes, BPM/beat grids/quantisation/cues/waveforms, live mic/device mixing, MIDI/OSC/
 Stream Deck/gamepad/DMX, effect panels beyond existing input, recording/server
 rendering, overlays/chat, multi-set channel scheduling and OS crash restart.
+
+
+## Set Builder interaction update (VIS-163)
+
+Visual clips added from the catalogue or dropped onto the timeline start at 30
+seconds. Clip moves and trims snap to both lanes' edges and the playhead within
+18 screen pixels (a larger time window when zoomed out), ahead of whole-second
+snapping. Moving a clip can snap either endpoint; Alt/Shift bypasses snapping.
+
+Space toggles playback from the marker, including while timeline controls have
+focus; text entry and armed output input remain excluded. Ruler seeking starts
+playback immediately using the already resolved media, without reloading the set.
+Cmd/Ctrl+C copies the selected clip within the editor session; Cmd/Ctrl+V pastes a
+new clip at the marker, preserving its source and trim, and supports Undo/Redo.
+Pinch zoom anchors at the gesture position; the zoom slider uses the last pointer
+position over the timeline (or viewport centre). Scroll limits still apply.

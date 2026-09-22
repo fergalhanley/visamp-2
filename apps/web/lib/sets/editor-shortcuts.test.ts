@@ -54,3 +54,36 @@ describe("set editor shortcuts", () => {
     ).toBeNull();
   });
 });
+
+it("supports timeline Space with focus on the ruler or a transport button", () => {
+  const timeline = document.createElement("section");
+  timeline.className = "set-timeline";
+  for (const tag of ["div", "button"]) {
+    const node = document.createElement(tag);
+    node.setAttribute("role", "slider");
+    timeline.append(node);
+    expect(setEditorShortcut(event("Space", {}, node), false)).toBe("play");
+  }
+});
+it("supports clip copy/paste without intercepting text or captured input", () => {
+  for (const modifier of [{ metaKey: true }, { ctrlKey: true }]) {
+    expect(setEditorShortcut(event("KeyC", modifier), false)).toBe("copy");
+    expect(setEditorShortcut(event("KeyV", modifier), false)).toBe("paste");
+    expect(setEditorShortcut(event("KeyV", modifier), true)).toBeNull();
+    expect(
+      setEditorShortcut(
+        event("KeyC", modifier, document.createElement("input")),
+        false,
+      ),
+    ).toBeNull();
+  }
+});
+
+it("allows Space after adjusting timeline zoom", () => {
+  const timeline = document.createElement("section");
+  timeline.className = "set-timeline";
+  const range = document.createElement("input");
+  range.type = "range";
+  timeline.append(range);
+  expect(setEditorShortcut(event("Space", {}, range), false)).toBe("play");
+});

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { TopBar } from "@/components/chrome/top-bar";
 import {
+  type Clip,
   type SetDocument,
   type SetContent,
   type MediaRef,
@@ -42,6 +43,7 @@ export function SetEditor({ id }: { id: string }) {
     [checking, setChecking] = useState(false),
     [height, setHeight] = useState(288);
   const p = usePerformance();
+  const clipboard = useRef<Clip | null>(null);
   const playRef = useRef<() => void>(() => {});
   const [shortcutModifier, setShortcutModifier] = useState("Ctrl");
   useEffect(() => {
@@ -217,6 +219,23 @@ export function SetEditor({ id }: { id: string }) {
         if (e.repeat) return;
         if (pRef.current.state.playing) pRef.current.send({ action: "pause" });
         else playRef.current();
+      } else if (action === "copy") {
+        const clip = clips(s).find((c) => c.id === selected);
+        if (clip) {
+          e.preventDefault();
+          clipboard.current = structuredClone(clip);
+        }
+      } else if (action === "paste" && clipboard.current) {
+        e.preventDefault();
+        if (e.repeat) return;
+        const clip = {
+          ...structuredClone(clipboard.current),
+          id: crypto.randomUUID(),
+          startMs: Math.round(pRef.current.state.positionMs),
+        };
+        const lane = clip.media.kind === "audio" ? "audioClips" : "visualClips";
+        change({ ...s, [lane]: transitions([...s[lane], clip], s[lane]) });
+        setSelected(clip.id);
       } else if (action === "undo" || action === "redo") {
         e.preventDefault();
         pRef.current.send({ action: "pause" });
@@ -259,17 +278,8 @@ export function SetEditor({ id }: { id: string }) {
   function add(media: MediaRef, start?: number) {
     const lane = media.kind === "audio" ? "audioClips" : "visualClips";
     const startMs = start ?? s[lane].reduce((n, c) => Math.max(n, end(c)), 0);
-    const next = s.visualClips
-      .filter((c) => c.startMs > startMs)
-      .sort((a, b) => a.startMs - b.startMs)[0]?.startMs;
     const durationMs =
-      media.kind === "audio"
-        ? (media.durationMs ?? 30000)
-        : Math.max(
-            1000,
-            (next ?? (duration(s) > startMs ? duration(s) : startMs + 30000)) -
-              startMs,
-          );
+      media.kind === "audio" ? (media.durationMs ?? 30000) : 30000;
     const clip = {
       id: crypto.randomUUID(),
       media,
@@ -283,34 +293,24 @@ export function SetEditor({ id }: { id: string }) {
     setSelected(clip.id);
     track("set_clip_added", { type: media.kind });
   }
-  async function play() {
-    setChecking(true);
-    try {
-      const resolved = await p.load(s);
-      setUnavailable(resolved.unavailable);
-      if (
-        validate(s, resolved.unavailable).some((i) => i.severity === "error")
-      ) {
-        track("set_validation_failed");
-        setError(
-          validate(s, resolved.unavailable)
-            .filter((i) => i.severity === "error")
-            .map((i) => i.message)
-            .join(" · "),
-        );
-        return;
-      }
-      p.send({
-        action: "seek",
-        value: Math.min(p.state.positionMs, duration(s)),
-      });
-      p.send({ action: "play" });
-      track("set_preview_started");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setChecking(false);
+  function play(position?: number) {
+    if (!loaded || checking) return;
+    // Media is resolved when the set/references change. Resuming or scrubbing
+    // must not reload the snapshot and tear down the current audio source.
+    const errors = validate(s, unavailable).filter(
+      (i) => i.severity === "error",
+    );
+    if (errors.length) {
+      track("set_validation_failed");
+      setError(errors.map((i) => i.message).join(" · "));
+      return;
     }
+    setError("");
+    p.send({ action: "audio", value: null });
+    p.send({ action: "visual", value: null });
+    if (position !== undefined) p.send({ action: "seek", value: position });
+    p.send({ action: "play" });
+    track("set_preview_started");
   }
   function seekTrack(direction: -1 | 1) {
     const starts = s.audioClips.map((c) => c.startMs).sort((a, b) => a - b);
@@ -612,10 +612,7 @@ export function SetEditor({ id }: { id: string }) {
             onChange={change}
             onAdd={add}
             position={p.state.positionMs}
-            onSeek={(n) => {
-              p.send({ action: "pause" });
-              p.send({ action: "seek", value: n });
-            }}
+            onSeek={(n) => play(n)}
             selected={selected}
             onSelect={setSelected}
             unavailable={unavailable}

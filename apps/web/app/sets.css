@@ -851,3 +851,15 @@
   padding: 0;
   background: transparent;
 }
+
+.set-editor .set-media-row .set-media-action {
+  border: 1px solid #ffffff30;
+  border-radius: 5px;
+  background: #ffffff0d;
+  padding: 4px 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.set-editor .set-media-row .set-media-action:hover {
+  background: #ffffff20;
+}
