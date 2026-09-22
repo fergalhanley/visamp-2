@@ -31,7 +31,7 @@ export const navLinks: {
   icon?: "discord";
 }[] = [
   { href: "/player", label: "Player" },
-  { href: "/creators", label: "Creators" },
+  { href: "/creators", label: "◈ Creators" },
   { href: "/artists", label: "♫ Artists" },
   {
     href: process.env.NEXT_PUBLIC_DOCS_URL || "https://docs.visamp.io",
