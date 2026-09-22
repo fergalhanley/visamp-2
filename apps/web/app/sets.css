@@ -6,58 +6,58 @@
   overflow: auto;
   font-size: 13px;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) button,
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) a:not(header a),
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) input,
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) select,
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) textarea {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) button,
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) a:not(header a),
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) input,
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) select,
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) textarea {
   border: 1px solid #39404a;
   border-radius: 6px;
   padding: 6px 10px;
   background: #151b21;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) button {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) button {
   cursor: pointer;
   white-space: nowrap;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) button:hover,
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) a:hover {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) button:hover,
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) a:hover {
   border-color: #a8b2bf;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance))
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance))
   button:disabled {
   opacity: 0.45;
   cursor: default;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) :focus-visible {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) :focus-visible {
   outline: 2px solid #f086dd;
   outline-offset: 3px;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) label {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) label {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) h1 {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) h1 {
   font-size: 30px;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) h2 {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) h2 {
   font-size: 16px;
   font-weight: 600;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) h3 {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) h3 {
   font-size: 14px;
   font-weight: 600;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) small {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) small {
   color: #a5adb8;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance))
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance))
   input[type="range"] {
   padding: 0;
   accent-color: #e46aca;
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) .set-primary {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) .set-primary {
   background: #982779;
   color: white;
   border-color: #e580ce;
@@ -373,10 +373,10 @@
   padding-top: 12px;
 }
 .vj-freeplay[hidden],
-.vj-set-controls[hidden] {
+.vj-set-library[hidden] {
   display: none;
 }
-.vj-set-controls {
+.vj-set-library {
   overflow: auto;
   padding-top: 12px;
 }
@@ -433,7 +433,7 @@
     transition: none !important;
   }
 }
-:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-freeplay-performance)) button {
+:is(.set-editor, .sets-list, .vj-set-controls, .vj-performance:not(.vj-player-performance)) button {
   color: inherit;
 }
 .vj-input {

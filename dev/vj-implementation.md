@@ -96,3 +96,21 @@ This iteration passed 322 web tests, TypeScript, ESLint (the same two unrelated
 warnings), the webpack production build and both Chromium flows. Artists/upload
 navigation was checked in the signed-in dropdown. Development hot reload can
 supersede an existing output iframe; verification used fresh page loads.
+
+## Set playback workspace (VIS-155)
+
+The VJ Set tab lists the current user's saved sets, with search and click-to-load.
+Set selection replaces the former dropdown/load/restart/resume toolbar. Playback
+controls live below the output, alongside a shared two-lane progress display:
+visual clip windows above audio clip windows, proportional to set duration.
+Gaps remain empty and overlaps retain their timeline positions. One playhead
+spans both lanes. Click/drag, arrows (one second), Shift+arrows (ten seconds),
+Home and End seek through the existing session protocol in embedded or pop-out
+mode. Seeking preserves play/pause state and clears live overrides to rejoin the
+scheduled programme; clip source offsets remain authoritative for audio.
+
+The audio strip supports previous/next scheduled tracks, play/pause and scrubbing
+within the current audio clip. Stop, loop, mute and volume are also on the output
+side. Explicit timeline seeks bypass the audio adapter's normal 250 ms drift
+threshold once, so small scrubs are honoured without constantly reseeking during
+ordinary playback. Freeplay continues to use the shared player controls.

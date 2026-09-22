@@ -4,8 +4,13 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { TopBar } from "@/components/chrome/top-bar";
 import { request } from "@/lib/sets/client";
-import { type SetDocument, validate, emptySet } from "@/lib/sets/model";
-import { parseState } from "@/lib/sets/protocol";
+import {
+  type SetDocument,
+  validate,
+  duration,
+  timecode,
+} from "@/lib/sets/model";
+import { SetPlayback } from "./set-playback";
 import { track } from "@/lib/analytics/client";
 import { VPanel } from "@/components/panels/v-panel";
 import { APanel } from "@/components/panels/a-panel";
@@ -23,10 +28,12 @@ export function VjMode() {
   const resumeKey = `visamp-vj-resume:${user?.id ?? "signed-out"}`;
   const p = usePerformance();
   const live = useRef(p);
+  const requestedSet = useRef<string | null>(null);
   useEffect(() => {
     live.current = p;
   }, [p]);
   const [sets, setSets] = useState<SetDocument[]>([]),
+    [listLoading, setListLoading] = useState(true),
     [filter, setFilter] = useState(""),
     [selected, setSelected] = useState(initialId ?? ""),
     [error, setError] = useState(""),
@@ -35,8 +42,7 @@ export function VjMode() {
     [unavailable, setUnavailable] = useState<Record<string, string>>({}),
     [widths, setWidths] = useState([300, 320]),
     [previewHeight, setPreviewHeight] = useState(380),
-    [workspaceTab, setWorkspaceTab] = useState(initialId ? "set" : "freeplay"),
-    [resume, setResume] = useState<ReturnType<typeof parseState>>(null);
+    [workspaceTab, setWorkspaceTab] = useState(initialId ? "set" : "freeplay");
   const freeplay = useFreeplay(p, workspaceTab === "freeplay");
   const audioLibrary = useVjAudioLibrary(
     (media, context) => freeplay.select("audio", media, context),
@@ -46,7 +52,8 @@ export function VjMode() {
   useEffect(() => {
     void request<{ sets: SetDocument[] }>("/api/sets")
       .then((d) => setSets(d.sets))
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(e.message))
+      .finally(() => setListLoading(false));
     track("vj_session_started");
     const prefFrame = requestAnimationFrame(() => {
       try {
@@ -59,8 +66,6 @@ export function VjMode() {
           setWidths(
             w.map((n) => Math.max(200, Math.min(450, Number(n) || 250))),
           );
-        const old = JSON.parse(localStorage.getItem(resumeKey) ?? "null");
-        if (old) setResume(parseState(old));
       } catch {
         /* Optional browser preferences. */
       }
@@ -74,6 +79,7 @@ export function VjMode() {
       !confirm("Stop the current output and load another set?")
     )
       return;
+    requestedSet.current = id;
     setLoading(true);
     setError("");
     live.current.send({ action: "stop" });
@@ -81,6 +87,7 @@ export function VjMode() {
       const set = await request<SetDocument>(`/api/sets/${id}`);
       const resolved = await live.current.load(set);
       setUnavailable(resolved.unavailable);
+      setSelected(id);
       const issues = validate(set, resolved.unavailable);
       if (issues.some((i) => i.severity === "error")) {
         setError(issues.map((i) => i.message).join(" "));
@@ -98,7 +105,8 @@ export function VjMode() {
     }
   }
   useEffect(() => {
-    if (initialId) void load(initialId, false);
+    if (initialId && requestedSet.current !== initialId)
+      void load(initialId, false);
   }, [initialId]); // load only the requested initial programme
   useEffect(() => {
     const timer = setInterval(() => {
@@ -251,116 +259,79 @@ export function VjMode() {
             role="tabpanel"
             aria-labelledby="vj-tab-set"
             hidden={workspaceTab !== "set"}
-            className="vj-set-controls"
+            className="vj-set-library"
           >
-            <div className="vj-controls">
-              <input
-                aria-label="Search sets"
-                placeholder="Search your sets"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
-              <select
-                aria-label="Choose set"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                <option value="">Choose a set</option>
-                {sets
-                  .filter((s) =>
-                    s.name.toLowerCase().includes(filter.toLowerCase()),
-                  )
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </select>
-              <button
-                disabled={!selected || loading}
-                onClick={() => void load(selected)}
-              >
-                Load set
-              </button>
-              <button
-                onClick={() => {
-                  if (
-                    p.state.playing &&
-                    !confirm("Stop and start without a set?")
-                  )
-                    return;
-                  p.send({ action: "stop" });
-                  p.replaceSet(emptySet());
-                  setUnavailable({});
-                  setError("");
-                  setManual(true);
-                  setSelected("");
-                  setWorkspaceTab("freeplay");
-                  history.replaceState(null, "", "/vj-mode");
-                }}
-              >
-                Start without a set
-              </button>
-              <strong>
-                {manual ? "Manual performance" : p.state.set.name}
-              </strong>
-              <button
-                disabled={!manual && invalid}
-                onClick={() => p.send({ action: "restart" })}
-              >
-                Restart set
-              </button>
-            </div>
-            {resume && (
-              <p className="vj-controls">
-                Resume your last session near{" "}
-                {Math.floor(resume.positionMs / 1000)} seconds?{" "}
-                <button
-                  onClick={async () => {
-                    const old = resume;
-                    const resolved = await p.load(old.set);
-                    if (
-                      validate(old.set, resolved.unavailable).some(
-                        (i) => i.severity === "error",
-                      )
-                    ) {
-                      setError(
-                        "Previous session content is unavailable. Repair its set first.",
-                      );
-                      return;
-                    }
-                    p.send({ action: "seek", value: old.positionMs });
-                    p.send({ action: "play" });
-                    setResume(null);
-                  }}
-                >
-                  Resume
-                </button>
-                <button onClick={() => setResume(null)}>Dismiss</button>
+            <input
+              aria-label="Search sets"
+              placeholder="Search your sets"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="mb-3 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+            />
+            <ul aria-label="Your sets" className="space-y-2">
+              {sets
+                .filter((s) =>
+                  s.name.toLowerCase().includes(filter.toLowerCase()),
+                )
+                .map((set) => (
+                  <li key={set.id}>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      aria-pressed={!manual && selected === set.id}
+                      onClick={() => void load(set.id)}
+                      className={`w-full rounded-lg border p-4 text-left transition hover:bg-white/5 disabled:opacity-50 ${!manual && selected === set.id ? "border-fuchsia-400/60 bg-fuchsia-400/10" : "border-white/10"}`}
+                    >
+                      <span className="block truncate font-medium">
+                        {set.name}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {timecode(duration(set)).slice(0, -4)} ·{" "}
+                        {set.visualClips.length} visualisations ·{" "}
+                        {set.audioClips.length} tracks
+                      </span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+            {!listLoading && !sets.length && (
+              <p className="p-4 text-sm text-muted-foreground">
+                No sets yet. Create one in Set Builder.
               </p>
             )}
-            {error && (
-              <p role="alert" className="vj-controls">
-                {error}
+            {sets.length > 0 &&
+              !sets.some((s) =>
+                s.name.toLowerCase().includes(filter.toLowerCase()),
+              ) && (
+                <p className="p-4 text-sm text-muted-foreground">
+                  No matching sets.
+                </p>
+              )}
+            {(loading || listLoading) && (
+              <p role="status" className="p-4 text-sm text-muted-foreground">
+                Loading set…
               </p>
             )}
-            {loading && <p>Loading set…</p>}
           </div>
         </section>
         {divider(1)}
-        <div
-          className={
-            workspaceTab === "freeplay"
-              ? "vj-performance vj-freeplay-performance"
-              : "vj-performance"
-          }
-        >
+        <div className="vj-performance vj-player-performance">
           <PerformanceView
             performance={p}
             controls={
               workspaceTab === "freeplay" ? (
                 <Transport controller={freeplay.controller} />
-              ) : undefined
+              ) : (
+                <SetPlayback
+                  performance={p}
+                  disabled={manual || invalid || loading}
+                  error={error}
+                  onPlay={() => {
+                    p.send({ action: "play" });
+                    track("vj_set_started");
+                  }}
+                />
+              )
             }
             poppedOut={
               <InputController send={p.input} destination={p.status} />
@@ -380,7 +351,7 @@ export function VjMode() {
             onPopout
             play={() => {
               if (!manual && invalid) {
-                setError("Load a valid set or choose Start without a set.");
+                setError("Choose a valid set to play.");
                 setWorkspaceTab("set");
                 return;
               }

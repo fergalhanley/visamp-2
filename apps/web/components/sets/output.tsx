@@ -120,7 +120,10 @@ export function SetOutput({
           if (typeof c.value === "number") transport.seekAudio(c.value);
           break;
         case "seek":
-          if (typeof c.value === "number") transport.seek(c.value);
+          if (typeof c.value === "number") {
+            transport.seek(c.value);
+            audio?.seekOnNextSync();
+          }
           break;
         case "loop":
           transport.state.loop = !!c.value;

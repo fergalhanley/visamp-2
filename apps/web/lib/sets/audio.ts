@@ -19,6 +19,10 @@ export class SetAudio {
   private master = this.context.createGain();
   private decks = new Map<string, Deck>();
   private disposed = false;
+  private forceSeek = false;
+  seekOnNextSync() {
+    this.forceSeek = true;
+  }
   constructor(private onError: (category: string, message: string) => void) {
     this.analyser.fftSize = 2048;
     this.master.connect(this.analyser);
@@ -79,6 +83,8 @@ export class SetAudio {
     upcoming: Scheduled[] = [],
   ) {
     if (this.disposed) return;
+    const forceSeek = this.forceSeek;
+    this.forceSeek = false;
     this.master.gain.setTargetAtTime(volume, this.context.currentTime, 0.01);
     const activeIds = new Set(items.map((x) => x.clip.id));
     const prepared = upcoming.filter((x) => !activeIds.has(x.clip.id));
@@ -129,7 +135,10 @@ export class SetAudio {
         0.008,
       );
       if (d.ready) {
-        if (Math.abs(d.engine.position() * 1000 - item.sourceMs) > 250)
+        if (
+          forceSeek ||
+          Math.abs(d.engine.position() * 1000 - item.sourceMs) > 250
+        )
           d.engine.seek(item.sourceMs / 1000);
         if (!audible) d.engine.pause();
         else if (!d.resuming && !d.engine.isMediaActuallyPlaying()) {
