@@ -351,11 +351,6 @@ export function SetEditor({ id }: { id: string }) {
         track("set_validation_failed");
         return;
       }
-      if (
-        checks.length &&
-        !confirm(checks.map((i) => i.message).join("\n") + "\nOpen VJ Mode?")
-      )
-        return;
       if (await save()) {
         track("set_opened_in_vj_mode");
         location.assign(`/vj-mode?set=${id}`);

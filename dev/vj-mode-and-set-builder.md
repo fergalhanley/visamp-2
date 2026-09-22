@@ -132,7 +132,7 @@ edges. Transition progress `p` spans zero to one across overlap:
 Gaps warn, rather than prevent Ready: audio is silent, visuals are black, and the
 set clock continues. Report leading, internal and trailing gaps against derived set
 duration. Invalid timing, unavailable content, empty lanes and unrepresentable
-transitions are blocking errors. Warnings are summarised before VJ launch.
+transitions are blocking errors. Gap warnings are not displayed in VJ Mode and do not prompt before VJ launch (VIS-168).
 
 Use true dual-render visual dissolves only where stable. A clearly labelled
 fade-through-black fallback is permitted. The current singleton WASM player does
@@ -184,7 +184,7 @@ computed Draft/Ready. Existing sets autosave with a short debounce and visible
 Saving… / Saved / Save failed plus Retry. Retain local state on failure; warn on
 navigation with unsaved edits. A save response must not overwrite newer edits or
 change a running snapshot. Open in VJ Mode saves successfully before navigating;
-errors open validation summary, warnings are summarised without blocking playback.
+errors open validation summary; gap warnings do not prompt or appear in VJ Mode (VIS-168).
 
 ## Embedded VJ and overrides
 

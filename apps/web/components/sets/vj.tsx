@@ -88,13 +88,14 @@ export function VjMode() {
       const resolved = await live.current.load(set);
       setUnavailable(resolved.unavailable);
       setSelected(id);
-      const issues = validate(set, resolved.unavailable);
-      if (issues.some((i) => i.severity === "error")) {
+      const issues = validate(set, resolved.unavailable).filter(
+        (i) => i.severity === "error",
+      );
+      if (issues.length) {
         setError(issues.map((i) => i.message).join(" "));
         setManual(false);
         return;
       }
-      if (issues.length) setError(issues.map((i) => i.message).join(" "));
       setSelected(id);
       setManual(false);
       history.replaceState(null, "", `/vj-mode?set=${id}`);
