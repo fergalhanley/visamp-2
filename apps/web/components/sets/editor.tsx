@@ -20,6 +20,8 @@ import { track } from "@/lib/analytics/client";
 import { Catalogue } from "./catalogue";
 import { Timeline } from "./timeline";
 import { PerformanceView } from "./performance-view";
+import { SetPlayback } from "./set-playback";
+import { InputController } from "./input-controller";
 import { usePerformance } from "./use-performance";
 export function SetEditor({ id }: { id: string }) {
   const [h, dispatch] = useReducer(history, {
@@ -35,7 +37,7 @@ export function SetEditor({ id }: { id: string }) {
     [selected, setSelected] = useState<string | null>(null),
     [unavailable, setUnavailable] = useState<Record<string, string>>({}),
     [checking, setChecking] = useState(false),
-    [height, setHeight] = useState(310);
+    [height, setHeight] = useState(210);
   const p = usePerformance();
   const pRef = useRef(p);
   useEffect(() => {
@@ -72,7 +74,7 @@ export function SetEditor({ id }: { id: string }) {
     const stored = localStorage.getItem("visamp-set-timeline-height");
     const prefFrame = requestAnimationFrame(() => {
       if (stored)
-        setHeight(Math.min(600, Math.max(200, Number(stored) || 310)));
+        setHeight(Math.min(600, Math.max(200, Number(stored) || 210)));
     });
     return () => {
       active = false;
@@ -220,7 +222,7 @@ export function SetEditor({ id }: { id: string }) {
                     ...v,
                     startMs: Math.max(
                       0,
-                      v.startMs + (e.key === "ArrowRight" ? 100 : -100),
+                      v.startMs + (e.key === "ArrowRight" ? 1000 : -1000),
                     ),
                   }
                 : v,
@@ -318,6 +320,26 @@ export function SetEditor({ id }: { id: string }) {
         <TopBar position="static" />
         <main className="p-8">
           {error ? <p role="alert">{error}</p> : <p>Loading set…</p>}
+          <details>
+            <summary>Set details</summary>
+            <label>
+              Description
+              <textarea
+                value={s.description}
+                maxLength={4000}
+                onChange={(e) => change({ ...s, description: e.target.value })}
+              />
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={s.loop}
+                onChange={(e) => change({ ...s, loop: e.target.checked })}
+              />
+              Loop by default
+            </label>
+            <p>16:9 output</p>
+          </details>
         </main>
       </div>
     );
@@ -371,53 +393,172 @@ export function SetEditor({ id }: { id: string }) {
         {error && <p role="alert">{error}</p>}
         <div className="set-editor-main">
           <aside>
-            <div className="set-tabs">
+            <div
+              className="set-tabs"
+              role="tablist"
+              aria-label="Media catalogue"
+            >
               <button
-                aria-pressed={tab === "visual"}
+                role="tab"
+                id="catalogue-tab-visual"
+                aria-selected={tab === "visual"}
+                aria-controls="catalogue-panel"
+                tabIndex={tab === "visual" ? 0 : -1}
+                onKeyDown={(e) => {
+                  if (
+                    ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)
+                  ) {
+                    e.preventDefault();
+                    const next =
+                      e.key === "Home"
+                        ? "visual"
+                        : e.key === "End"
+                          ? "audio"
+                          : tab === "visual"
+                            ? "audio"
+                            : "visual";
+                    setTab(next);
+                    document.getElementById(`catalogue-tab-${next}`)?.focus();
+                  }
+                }}
                 onClick={() => setTab("visual")}
               >
                 Visualisations
               </button>
               <button
-                aria-pressed={tab === "audio"}
+                role="tab"
+                id="catalogue-tab-audio"
+                aria-selected={tab === "audio"}
+                aria-controls="catalogue-panel"
+                tabIndex={tab === "audio" ? 0 : -1}
+                onKeyDown={(e) => {
+                  if (
+                    ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)
+                  ) {
+                    e.preventDefault();
+                    const next =
+                      e.key === "Home"
+                        ? "visual"
+                        : e.key === "End"
+                          ? "audio"
+                          : tab === "visual"
+                            ? "audio"
+                            : "visual";
+                    setTab(next);
+                    document.getElementById(`catalogue-tab-${next}`)?.focus();
+                  }
+                }}
                 onClick={() => setTab("audio")}
               >
                 Audio
               </button>
             </div>
-            <Catalogue
-              kind={tab}
-              onAdd={add}
-              onPreview={(m) => void p.override(m.kind, m)}
-            />
+            <div
+              id="catalogue-panel"
+              role="tabpanel"
+              aria-labelledby={`catalogue-tab-${tab}`}
+              className="set-catalogue-panel"
+            >
+              <Catalogue
+                kind={tab}
+                onAdd={add}
+                onPreview={(m) => void p.override(m.kind, m)}
+              />
+            </div>
           </aside>
-          <div>
-            <PerformanceView performance={p} play={() => void play()} />
-            <details>
-              <summary>Set details</summary>
-              <label>
-                Description
-                <textarea
-                  value={s.description}
-                  maxLength={4000}
-                  onChange={(e) =>
-                    change({ ...s, description: e.target.value })
-                  }
+          <div className="set-editor-preview">
+            <PerformanceView
+              performance={p}
+              onPopout
+              poppedOut={
+                <InputController send={p.input} destination={p.status} />
+              }
+              controls={
+                <SetPlayback
+                  performance={p}
+                  disabled={checking}
+                  onPlay={() => void play()}
                 />
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={s.loop}
-                  onChange={(e) => change({ ...s, loop: e.target.checked })}
-                />
-                Loop by default
-              </label>
-              <p>16:9 output</p>
-            </details>
+              }
+            />
           </div>
+        </div>
+        <div
+          role="separator"
+          aria-label="Timeline height"
+          aria-orientation="horizontal"
+          tabIndex={0}
+          className="set-divider"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+              const n = Math.max(
+                200,
+                Math.min(600, height + (e.key === "ArrowUp" ? 20 : -20)),
+              );
+              setHeight(n);
+              localStorage.setItem("visamp-set-timeline-height", String(n));
+            }
+          }}
+          onPointerDown={(e) => {
+            const y = e.clientY,
+              h = height,
+              el = e.currentTarget;
+            el.setPointerCapture(e.pointerId);
+            const move = (ev: PointerEvent) => {
+              const n = Math.max(200, Math.min(600, h + y - ev.clientY));
+              setHeight(n);
+              localStorage.setItem("visamp-set-timeline-height", String(n));
+            };
+            const up = () => {
+              el.removeEventListener("pointermove", move);
+              el.removeEventListener("pointerup", up);
+            };
+            el.addEventListener("pointermove", move);
+            el.addEventListener("pointerup", up);
+          }}
+        />
+        <div className="set-editor-timeline" style={{ height, minHeight: 200 }}>
+          <Timeline
+            set={s}
+            onChange={change}
+            onAdd={add}
+            position={p.state.positionMs}
+            onSeek={(n) => {
+              p.send({ action: "pause" });
+              p.send({ action: "seek", value: n });
+            }}
+            selected={selected}
+            onSelect={setSelected}
+            unavailable={unavailable}
+          />
+        </div>
+        <details>
+          <summary>Set details</summary>
+          <label>
+            Description
+            <textarea
+              value={s.description}
+              maxLength={4000}
+              onChange={(e) => change({ ...s, description: e.target.value })}
+            />
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={s.loop}
+              onChange={(e) => change({ ...s, loop: e.target.checked })}
+            />
+            Loop by default
+          </label>
+          <p>16:9 output</p>
+        </details>
+        <details className="set-editor-details">
+          <summary>
+            Clip timings & validation{" "}
+            {issues.length ? `(${issues.length})` : "— Ready"}
+          </summary>{" "}
           <aside className="set-inspector">
-            <h2>{clip ? "Clip inspector" : "Programme"}</h2>
+            <h2>Clip inspector</h2>
             {clip ? (
               <>
                 <h3>{clip.media.title}</h3>
@@ -498,56 +639,7 @@ export function SetEditor({ id }: { id: string }) {
               ))
             )}
           </aside>
-        </div>
-        <div
-          role="separator"
-          aria-label="Timeline height"
-          aria-orientation="horizontal"
-          tabIndex={0}
-          className="set-divider"
-          onKeyDown={(e) => {
-            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-              const n = Math.max(
-                200,
-                Math.min(600, height + (e.key === "ArrowUp" ? 20 : -20)),
-              );
-              setHeight(n);
-              localStorage.setItem("visamp-set-timeline-height", String(n));
-            }
-          }}
-          onPointerDown={(e) => {
-            const y = e.clientY,
-              h = height,
-              el = e.currentTarget;
-            el.setPointerCapture(e.pointerId);
-            const move = (ev: PointerEvent) => {
-              const n = Math.max(200, Math.min(600, h + y - ev.clientY));
-              setHeight(n);
-              localStorage.setItem("visamp-set-timeline-height", String(n));
-            };
-            const up = () => {
-              el.removeEventListener("pointermove", move);
-              el.removeEventListener("pointerup", up);
-            };
-            el.addEventListener("pointermove", move);
-            el.addEventListener("pointerup", up);
-          }}
-        />
-        <div style={{ height, minHeight: 200 }}>
-          <Timeline
-            set={s}
-            onChange={change}
-            onAdd={add}
-            position={p.state.positionMs}
-            onSeek={(n) => {
-              p.send({ action: "pause" });
-              p.send({ action: "seek", value: n });
-            }}
-            selected={selected}
-            onSelect={setSelected}
-            unavailable={unavailable}
-          />
-        </div>
+        </details>
       </main>
     </div>
   );

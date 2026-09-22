@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type SetContent,
   type Clip,
@@ -9,6 +9,7 @@ import {
   transitions,
   end,
 } from "@/lib/sets/model";
+import { visibleTimelineMs } from "@/lib/sets/zoom";
 import { DRAG_MEDIA } from "./catalogue";
 export function Timeline({
   set,
@@ -29,7 +30,8 @@ export function Timeline({
   onSelect: (id: string | null) => void;
   unavailable: Record<string, string>;
 }) {
-  const [zoom, setZoom] = useState(25);
+  const [zoomPercent, setZoom] = useState(75);
+  const [viewportWidth, setViewportWidth] = useState(1000);
   const [drag, setDrag] = useState<{
     id: string;
     startMs: number;
@@ -37,7 +39,57 @@ export function Timeline({
     sourceOffsetMs: number;
   } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const total = Math.max(60000, duration(set) + 10000);
+  const visibleMs = visibleTimelineMs(zoomPercent);
+  const zoom = viewportWidth / (visibleMs / 1000);
+  const total = Math.max(visibleMs, duration(set) + 10000);
+  const tickSeconds =
+    [1, 5, 10, 30, 60, 120, 300, 600, 900].find((n) => n * zoom >= 80) ?? 1800;
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setViewportWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    // Desktop trackpads report pinch gestures as Ctrl+wheel.
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      setZoom((value) =>
+        Math.max(0, Math.min(100, value - event.deltaY * 0.15)),
+      );
+    };
+    let distance = 0;
+    const spacing = (e: TouchEvent) =>
+      Math.hypot(
+        e.touches[0]!.clientX - e.touches[1]!.clientX,
+        e.touches[0]!.clientY - e.touches[1]!.clientY,
+      );
+    const start = (e: TouchEvent) => {
+      if (e.touches.length === 2) distance = spacing(e);
+    };
+    const move = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      const next = spacing(e);
+      if (distance > 0 && next > 0)
+        setZoom((value) =>
+          Math.max(0, Math.min(100, value + Math.log2(next / distance) * 20)),
+        );
+      distance = next;
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", wheel);
+      el.removeEventListener("touchstart", start);
+      el.removeEventListener("touchmove", move);
+    };
+  }, []);
   const width = (total / 1000) * zoom;
   function move(
     e: React.PointerEvent,
@@ -136,17 +188,18 @@ export function Timeline({
           {timecode(position)} / {timecode(duration(set))}
         </span>
         <label>
-          Zoom
+          Zoom {Math.round(zoomPercent)}% · {Math.round(visibleMs / 60000)} min
           <input
             type="range"
-            min="4"
-            max="200"
-            value={zoom}
+            min="0"
+            max="100"
+            value={zoomPercent}
             onChange={(e) => setZoom(Number(e.target.value))}
           />
         </label>
         <small>
-          Hold Alt or Shift to disable snapping · Arrow keys nudge 100 ms
+          Hold Alt or Shift to disable snapping · Arrow keys nudge 1 sec · Pinch
+          to zoom
         </small>
       </header>
       <div ref={scroller} className="set-timeline-scroll">
@@ -163,7 +216,10 @@ export function Timeline({
               if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
                 e.preventDefault();
                 onSeek(
-                  Math.max(0, position + (e.key === "ArrowRight" ? 100 : -100)),
+                  Math.max(
+                    0,
+                    position + (e.key === "ArrowRight" ? 1000 : -1000),
+                  ),
                 );
               }
             }}
@@ -192,13 +248,10 @@ export function Timeline({
             }}
           >
             {Array.from(
-              { length: Math.ceil(total / 1000 / (zoom < 15 ? 30 : 10)) },
+              { length: Math.ceil(total / 1000 / tickSeconds) },
               (_, i) => (
-                <span
-                  key={i}
-                  style={{ left: i * (zoom < 15 ? 30 : 10) * zoom }}
-                >
-                  {timecode(i * (zoom < 15 ? 30000 : 10000)).slice(0, 8)}
+                <span key={i} style={{ left: i * tickSeconds * zoom }}>
+                  {timecode(i * (tickSeconds * 1000)).slice(0, 8)}
                 </span>
               ),
             )}

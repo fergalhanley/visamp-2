@@ -484,3 +484,200 @@
   grid-column: 1 / -1;
   min-width: 0;
 }
+
+/* Compact desktop Set Builder, with independently scrolling media and timeline. */
+.set-editor {
+  height: calc(100dvh - 56px);
+  min-height: 660px;
+  overflow: hidden;
+}
+.set-editor-main {
+  grid-template-columns: minmax(300px, 1fr) minmax(360px, 1fr);
+  min-height: 300px;
+  padding: 10px 16px;
+  overflow: hidden;
+}
+.set-editor-main > aside {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.set-catalogue-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.set-editor .set-tabs {
+  flex-shrink: 0;
+  border-bottom: 1px solid #303640;
+  margin-bottom: 8px;
+}
+.set-editor .set-tabs button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+}
+.set-editor .set-tabs [aria-selected="true"] {
+  border-bottom-color: #ed87d4;
+}
+.set-editor .set-catalogue {
+  height: 100%;
+  min-height: 0;
+}
+.set-editor .set-catalogue > section {
+  min-height: 0;
+  flex: 1;
+}
+.set-editor .set-catalogue > input,
+.set-editor .set-catalogue select {
+  border-color: transparent;
+}
+.set-editor .set-media-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #12181e;
+  margin-bottom: 4px;
+}
+.set-editor .set-media-row:hover {
+  background: #242b33;
+}
+.set-editor .set-media-thumb {
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.set-editor .set-media-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.set-media-copy strong,
+.set-media-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.set-editor .set-media-row button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-decoration: underline;
+  font-size: 12px;
+}
+.set-editor .set-media-row .set-track-name {
+  text-decoration: none;
+}
+.set-editor-preview {
+  min-height: 0;
+  overflow: auto;
+}
+.set-editor-preview .set-performance {
+  height: 100%;
+  gap: 6px;
+}
+.set-editor-preview .set-output {
+  flex: 1;
+  min-height: 100px;
+  aspect-ratio: auto;
+}
+.set-editor-preview [aria-label="Set playback"] {
+  padding: 8px;
+}
+.set-editor-preview .vj-input {
+  margin: 0;
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+  padding: 8px;
+}
+.set-editor-timeline {
+  flex-shrink: 0;
+  max-height: 32dvh;
+}
+.set-editor .set-divider {
+  flex-shrink: 0;
+}
+.set-editor > details {
+  padding: 3px 16px;
+  flex-shrink: 0;
+  max-height: 180px;
+  overflow: auto;
+}
+.set-editor summary {
+  cursor: pointer;
+}
+.set-editor .set-inspector {
+  flex-direction: row;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.set-editor .set-inspector label {
+  width: 120px;
+}
+.set-editor .set-inspector input {
+  width: 100%;
+}
+.set-editor-preview [aria-label="Set playback"] button {
+  cursor: pointer;
+}
+.set-editor .set-timeline {
+  gap: 8px;
+  padding: 8px 12px;
+}
+.set-editor .set-ruler {
+  height: 28px;
+}
+.set-editor .set-lane {
+  height: 65px;
+}
+.set-editor .set-clip {
+  top: 18px;
+  height: 44px;
+  padding: 5px 10px;
+}
+.set-editor .set-catalogue-items {
+  flex: 1;
+}
+.set-editor-preview [aria-label="Set playback"] > * {
+  margin-block: 0 !important;
+}
+.set-editor-preview [aria-label="Set playback"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.set-editor .set-media-row .set-track-artist {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.set-editor-preview [aria-label="Set playback"] h2 {
+  font-size: 13px;
+  line-height: 18px;
+}
+.set-editor-preview [aria-label="Set playback"] .h-10 {
+  height: 20px;
+}
+.set-editor {
+  position: relative;
+}
+.set-editor > details[open] {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: #151b21;
+  border-top: 1px solid #39404a;
+  padding: 10px 16px;
+}

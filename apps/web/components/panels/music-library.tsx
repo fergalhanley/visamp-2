@@ -20,10 +20,15 @@ export function MusicLibrary({
   onSelect,
   onPreview,
   playback,
+  setBuilder = false,
 }: {
+  setBuilder?: boolean;
   playback?: { id?: string; playing: boolean };
   onSelect?: (track: HostedTrackSummary) => void;
-  onPreview?: (track: HostedTrackSummary, context: HostedTrackSummary[]) => void;
+  onPreview?: (
+    track: HostedTrackSummary,
+    context: HostedTrackSummary[],
+  ) => void;
 } = {}) {
   const { user } = useAuth();
   const [signIn, setSignIn] = useState(false);
@@ -44,12 +49,14 @@ export function MusicLibrary({
   const [playlistError, setPlaylistError] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [playlistUser, setPlaylistUser] = useState<string | null>(null);
-  const kind = useAudioStore((s) => playback ? "hosted" : s.kind);
-  const current = useAudioStore(
-    (s) => playback ? playback.id : s.hostedTracks[s.currentIndex]?.hostedTrackId,
+  const kind = useAudioStore((s) => (playback ? "hosted" : s.kind));
+  const current = useAudioStore((s) =>
+    playback ? playback.id : s.hostedTracks[s.currentIndex]?.hostedTrackId,
   );
-  const playing = useAudioStore((s) => playback ? playback.playing : s.isPlaying);
-  const playbackError = useAudioStore((s) => playback ? null : s.hostedError);
+  const playing = useAudioStore((s) =>
+    playback ? playback.playing : s.isPlaying,
+  );
+  const playbackError = useAudioStore((s) => (playback ? null : s.hostedError));
   useEffect(() => {
     if (!target && !signIn) return;
     useChromeStore.getState().setPinned("a", true);
@@ -230,12 +237,14 @@ export function MusicLibrary({
             </button>
           </div>
         )}
-        <a
-          href="/manage-artists"
-          className="block text-right text-xs text-muted-foreground underline"
-        >
-          Manage my artists & music
-        </a>
+        {!setBuilder && (
+          <a
+            href="/manage-artists"
+            className="block text-right text-xs text-muted-foreground underline"
+          >
+            Manage my artists & music
+          </a>
+        )}
       </div>
       {(error || playbackError) && (
         <p role="alert" className="px-4 pb-2 text-xs text-destructive">
@@ -388,6 +397,7 @@ export function MusicLibrary({
                     : undefined
                 }
                 className={cn(
+                  setBuilder && "set-media-row",
                   "flex cursor-pointer items-center gap-2 px-4 py-2 [&_button]:cursor-pointer",
                   kind === "hosted" && current === track.id
                     ? "bg-foreground/10"
@@ -463,6 +473,14 @@ export function MusicLibrary({
                     className="rounded border px-2 py-1 text-xs"
                   >
                     Add
+                  </button>
+                )}
+                {setBuilder && onPreview && (
+                  <button
+                    type="button"
+                    onClick={() => onPreview(track, tracks.items)}
+                  >
+                    Preview
                   </button>
                 )}
                 {!onSelect && (

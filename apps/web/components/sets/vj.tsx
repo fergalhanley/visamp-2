@@ -205,7 +205,7 @@ export function VjMode() {
                   }
                 }}
                 onClick={() => setWorkspaceTab(tab)}
-                className={`-mb-px border-b-2 py-3 text-sm transition ${workspaceTab === tab ? "border-fuchsia-400 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                className={`cursor-pointer -mb-px border-b-2 py-3 text-sm transition ${workspaceTab === tab ? "border-fuchsia-400 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
                 {tab === "freeplay" ? "Freeplay" : "Set"}
               </button>
@@ -274,13 +274,13 @@ export function VjMode() {
                   s.name.toLowerCase().includes(filter.toLowerCase()),
                 )
                 .map((set) => (
-                  <li key={set.id}>
+                  <li key={set.id} className="relative">
                     <button
                       type="button"
                       disabled={loading}
                       aria-pressed={!manual && selected === set.id}
                       onClick={() => void load(set.id)}
-                      className={`w-full rounded-lg border p-4 text-left transition hover:bg-white/5 disabled:opacity-50 ${!manual && selected === set.id ? "border-fuchsia-400/60 bg-fuchsia-400/10" : "border-white/10"}`}
+                      className={`cursor-pointer w-full rounded-lg border p-4 pr-24 text-left transition hover:bg-white/5 disabled:opacity-50 ${!manual && selected === set.id ? "border-fuchsia-400/60 bg-fuchsia-400/10" : "border-white/10"}`}
                     >
                       <span className="block truncate font-medium">
                         {set.name}
@@ -291,6 +291,12 @@ export function VjMode() {
                         {set.audioClips.length} tracks
                       </span>
                     </button>
+                    <a
+                      href={`/sets/${set.id}/edit`}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-xs underline hover:text-fuchsia-300"
+                    >
+                      Edit Set
+                    </a>
                   </li>
                 ))}
             </ul>

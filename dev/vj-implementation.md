@@ -118,3 +118,14 @@ ordinary playback. Freeplay continues to use the shared player controls.
 In Set mode, the library and output share the upper workspace row. Set playback
 controls and the two-lane scrub timeline span the full-width bottom row. Freeplay
 retains its catalogue columns and controls beneath the output.
+
+Set Builder uses a compact desktop workspace with scrolling media tabs, a smaller
+preview, the shared SetPlayback controls and the same pop-out/input controller as
+VJ Mode. Precise clip timing and validation remain available in a bottom drawer;
+there is no Programme sidebar. Arrow-key nudges move clips by one second.
+
+Timeline zoom measures the duration visible across the viewport, rather than a
+fixed pixels-per-second range. At 0/25/50/75/100%, the visible spans are
+90/30/10/3/1 minutes, interpolated geometrically between those points. Trackpad
+Ctrl+wheel pinch and two-touch pinch adjust the same zoom value. This interprets
+the repeated 25% in the product request as the 75% landmark.

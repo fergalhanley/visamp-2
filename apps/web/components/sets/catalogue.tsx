@@ -30,9 +30,10 @@ export function Catalogue({
     [error, setError] = useState("");
   const list =
     tab === "mine" ? mine : tab === "favourites" ? favourites : browse;
-  const items: MediaRef[] =
+  const items: (MediaRef & { thumbUrl?: string })[] =
     kind === "visual"
       ? (list.items ?? []).map((v) => ({
+          thumbUrl: v.thumbUrl,
           id: v.id,
           kind: "visual",
           source: "visual",
@@ -47,7 +48,6 @@ export function Catalogue({
         kind === "visual" ? "Visualisations catalogue" : "Audio catalogue"
       }
     >
-      <h2>{kind === "visual" ? "Visualisations" : "Audio"}</h2>
       {kind === "audio" ? (
         <>
           <label>
@@ -60,6 +60,7 @@ export function Catalogue({
           </label>
           {source === "hosted" ? (
             <MusicLibrary
+              setBuilder
               onSelect={(t) =>
                 onAdd({
                   id: t.id,
@@ -171,13 +172,19 @@ export function Catalogue({
                 };
                 return (
                   <div
-                    className="flex items-center gap-2 p-2"
+                    className="set-media-row"
                     draggable
                     onDragStart={(e) =>
                       e.dataTransfer.setData(DRAG_MEDIA, JSON.stringify(m))
                     }
                   >
-                    <div className="min-w-0 flex-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- catalogue thumbnail URLs */}
+                    <img
+                      src={vis.thumbUrl || "/VA.svg"}
+                      alt=""
+                      className="set-media-thumb"
+                    />
+                    <div className="set-media-copy">
                       <strong>{vis.title}</strong>
                       <small className="block">{vis.creator.username}</small>
                     </div>
@@ -198,13 +205,22 @@ export function Catalogue({
                 .map((m) => (
                   <article
                     key={m.id}
+                    className="set-media-row"
                     draggable
                     onDragStart={(e) =>
                       e.dataTransfer.setData(DRAG_MEDIA, JSON.stringify(m))
                     }
                   >
-                    <strong>{m.title}</strong>
-                    <small>{m.attribution}</small>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- catalogue thumbnail URLs */}
+                    <img
+                      src={m.thumbUrl || "/VA.svg"}
+                      alt=""
+                      className="set-media-thumb"
+                    />
+                    <div className="set-media-copy">
+                      <strong>{m.title}</strong>
+                      <small>{m.attribution}</small>
+                    </div>
                     <div>
                       <button onClick={() => onAdd(m)}>Add</button>
                       <button onClick={() => onPreview(m)}>Preview</button>

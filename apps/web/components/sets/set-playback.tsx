@@ -6,7 +6,6 @@ import {
   Repeat,
   SkipBack,
   SkipForward,
-  Square,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -264,21 +263,14 @@ export function SetPlayback({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button
-          aria-label="Stop set"
-          className={iconButton}
-          disabled={!hasSet}
-          onClick={() => p.send({ action: "stop" })}
-        >
-          <Square size={16} />
-        </button>
-        <button
           aria-label="Loop set"
           aria-pressed={s.loop}
-          className={`${iconButton} ${s.loop ? "!text-fuchsia-300" : ""}`}
+          className={`${iconButton} !w-auto gap-2 px-2 ${s.loop ? "!text-fuchsia-300" : ""}`}
           disabled={!hasSet}
           onClick={() => p.send({ action: "loop", value: !s.loop })}
         >
           <Repeat size={18} />
+          <span>Loop Set</span>
         </button>
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {scheduled.visual.map((v) => v.clip.media.title).join(" → ") ||
