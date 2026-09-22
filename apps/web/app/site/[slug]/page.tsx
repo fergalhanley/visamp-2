@@ -2,6 +2,7 @@ import { appVersion, engineVersion } from "@/lib/versions";
 import { Licencing } from "@/components/site/licencing";
 import { TermsAndConditions } from "@/components/site/terms-and-conditions";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import Link from "next/link";
 import { TopBar } from "@/components/chrome/top-bar";
 import { SiteFooter, SocialLinks } from "@/components/site/site-footer";
@@ -28,6 +29,8 @@ export default async function SitePage({
   const { slug } = await params;
   const page = sitePages.find((page) => page.slug === slug);
   if (!page) notFound();
+  // Calculate the copyright year per request, rather than freezing it at build time.
+  if (slug === "about") await connection();
   return (
     <div className="site-page">
       <TopBar />
@@ -61,6 +64,13 @@ export default async function SitePage({
               <dt className="text-muted-foreground">Engine</dt>
               <dd className="font-mono tabular-nums">{engineVersion}</dd>
             </dl>
+            <div className="mt-8 text-sm text-muted-foreground">
+              <p>© {new Date().getFullYear()} VisArc</p>
+              <p>
+                Uploaded music tracks belong to their respective rights holders
+                and are hosted on VisAmp with permission.
+              </p>
+            </div>
           </>
         ) : slug === "privacy-policy" || slug === "cookie-policy" ? (
           <>
