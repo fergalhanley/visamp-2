@@ -20,7 +20,10 @@ import { track } from "@/lib/analytics/client";
 import { Catalogue } from "./catalogue";
 import { Timeline } from "./timeline";
 import { PerformanceView } from "./performance-view";
-import { SetPlayback } from "./set-playback";
+import { Undo2, Redo2, SkipBack, SkipForward, Play, Pause } from "lucide-react";
+import { vjButton } from "./nav";
+import { barButton, barButtonBlue } from "@/components/chrome/bar-button";
+import { setEditorShortcut } from "@/lib/sets/editor-shortcuts";
 import { InputController } from "./input-controller";
 import { usePerformance } from "./use-performance";
 export function SetEditor({ id }: { id: string }) {
@@ -37,8 +40,20 @@ export function SetEditor({ id }: { id: string }) {
     [selected, setSelected] = useState<string | null>(null),
     [unavailable, setUnavailable] = useState<Record<string, string>>({}),
     [checking, setChecking] = useState(false),
-    [height, setHeight] = useState(210);
+    [height, setHeight] = useState(230);
   const p = usePerformance();
+  const playRef = useRef<() => void>(() => {});
+  const [shortcutModifier, setShortcutModifier] = useState("Ctrl");
+  useEffect(() => {
+    setShortcutModifier(
+      /Mac|iPhone|iPad/.test(navigator.platform) ? "Cmd" : "Ctrl",
+    );
+  }, []);
+  useEffect(() => {
+    playRef.current = () => {
+      if (loaded && !checking) void play();
+    };
+  });
   const pRef = useRef(p);
   useEffect(() => {
     pRef.current = p;
@@ -74,7 +89,7 @@ export function SetEditor({ id }: { id: string }) {
     const stored = localStorage.getItem("visamp-set-timeline-height");
     const prefFrame = requestAnimationFrame(() => {
       if (stored)
-        setHeight(Math.min(600, Math.max(200, Number(stored) || 210)));
+        setHeight(Math.min(600, Math.max(200, Number(stored) || 230)));
     });
     return () => {
       active = false;
@@ -191,17 +206,21 @@ export function SetEditor({ id }: { id: string }) {
   }, [selected, s, change]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
-      if (
-        e.target instanceof HTMLElement &&
-        (e.target.matches("input,textarea,select") ||
-          e.target.isContentEditable)
-      )
-        return;
-      if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") {
+      const action = setEditorShortcut(
+        e,
+        !!document.pointerLockElement ||
+          !!document.querySelector('.vj-input[data-armed="true"]'),
+      );
+      if (!action) return;
+      if (action === "play") {
+        e.preventDefault();
+        if (e.repeat) return;
+        if (pRef.current.state.playing) pRef.current.send({ action: "pause" });
+        else playRef.current();
+      } else if (action === "undo" || action === "redo") {
         e.preventDefault();
         pRef.current.send({ action: "pause" });
-        dispatch({ type: e.shiftKey ? "redo" : "undo" });
+        dispatch({ type: action });
       } else if (selected && (e.key === "Delete" || e.key === "Backspace")) {
         e.preventDefault();
         remove();
@@ -222,7 +241,9 @@ export function SetEditor({ id }: { id: string }) {
                     ...v,
                     startMs: Math.max(
                       0,
-                      v.startMs + (e.key === "ArrowRight" ? 1000 : -1000),
+                      v.startMs +
+                        (e.key === "ArrowRight" ? 1 : -1) *
+                          (e.shiftKey ? 10000 : 1000),
                     ),
                   }
                 : v,
@@ -262,8 +283,6 @@ export function SetEditor({ id }: { id: string }) {
     setSelected(clip.id);
     track("set_clip_added", { type: media.kind });
   }
-  const issues = validate(s, unavailable);
-  const clip = clips(s).find((c) => c.id === selected);
   async function play() {
     setChecking(true);
     try {
@@ -273,7 +292,12 @@ export function SetEditor({ id }: { id: string }) {
         validate(s, resolved.unavailable).some((i) => i.severity === "error")
       ) {
         track("set_validation_failed");
-        setError("Resolve the validation errors before preview.");
+        setError(
+          validate(s, resolved.unavailable)
+            .filter((i) => i.severity === "error")
+            .map((i) => i.message)
+            .join(" · "),
+        );
         return;
       }
       p.send({
@@ -288,6 +312,17 @@ export function SetEditor({ id }: { id: string }) {
       setChecking(false);
     }
   }
+  function seekTrack(direction: -1 | 1) {
+    const starts = s.audioClips.map((c) => c.startMs).sort((a, b) => a - b);
+    const target =
+      direction === 1
+        ? starts.find((n) => n > p.state.positionMs + 1)
+        : (starts.reverse().find((n) => n < p.state.positionMs - 1) ?? 0);
+    if (target === undefined) return;
+    p.send({ action: "audio", value: null });
+    p.send({ action: "visual", value: null });
+    p.send({ action: "seek", value: target });
+  }
   async function openVj() {
     setChecking(true);
     try {
@@ -295,7 +330,12 @@ export function SetEditor({ id }: { id: string }) {
       setUnavailable(resolved.unavailable);
       const checks = validate(s, resolved.unavailable);
       if (checks.some((i) => i.severity === "error")) {
-        setError("Resolve the validation errors before opening VJ Mode.");
+        setError(
+          checks
+            .filter((i) => i.severity === "error")
+            .map((i) => i.message)
+            .join(" · "),
+        );
         track("set_validation_failed");
         return;
       }
@@ -317,7 +357,24 @@ export function SetEditor({ id }: { id: string }) {
   if (!loaded)
     return (
       <div className="sets-app">
-        <TopBar position="static" />
+        <TopBar
+          position="static"
+          showSetNav={false}
+          actions={
+            <>
+              <a href="/sets" className={`${barButton} ${barButtonBlue}`}>
+                My Sets
+              </a>
+              <button
+                className={vjButton}
+                disabled={!loaded || checking}
+                onClick={() => void openVj()}
+              >
+                Open in VJ Mode
+              </button>
+            </>
+          }
+        />
         <main className="p-8">
           {error ? <p role="alert">{error}</p> : <p>Loading set…</p>}
         </main>
@@ -325,51 +382,25 @@ export function SetEditor({ id }: { id: string }) {
     );
   return (
     <div className="sets-app">
-      <TopBar position="static" />
+      <TopBar
+        position="static"
+        showSetNav={false}
+        actions={
+          <>
+            <a href="/sets" className={`${barButton} ${barButtonBlue}`}>
+              My Sets
+            </a>
+            <button
+              className={vjButton}
+              disabled={!loaded || checking}
+              onClick={() => void openVj()}
+            >
+              Open in VJ Mode
+            </button>
+          </>
+        }
+      />
       <main className="set-editor">
-        <header className="set-editor-bar">
-          <a href="/sets">My sets</a>
-          <input
-            aria-label="Set name"
-            maxLength={160}
-            value={s.name}
-            onChange={(e) => change({ ...s, name: e.target.value })}
-          />
-          <span role="status">
-            {dirty && saveState === "Saved" ? "Saving…" : saveState}
-          </span>
-          {saveState === "Save failed" && (
-            <button onClick={() => void save()}>Retry</button>
-          )}
-          <button
-            disabled={!h.past.length}
-            onClick={() => {
-              p.send({ action: "pause" });
-              dispatch({ type: "undo" });
-            }}
-          >
-            Undo
-          </button>
-          <button
-            disabled={!h.future.length}
-            onClick={() => {
-              p.send({ action: "pause" });
-              dispatch({ type: "redo" });
-            }}
-          >
-            Redo
-          </button>
-          <button disabled={!loaded || checking} onClick={() => void play()}>
-            Preview
-          </button>
-          <button
-            className="set-primary"
-            disabled={!loaded || checking}
-            onClick={() => void openVj()}
-          >
-            Open in VJ Mode
-          </button>
-        </header>
         {error && <p role="alert">{error}</p>}
         <div className="set-editor-main">
           <aside>
@@ -447,19 +478,49 @@ export function SetEditor({ id }: { id: string }) {
             </div>
           </aside>
           <div className="set-editor-preview">
+            <div className="set-editor-bar">
+              <input
+                aria-label="Set name"
+                maxLength={160}
+                value={s.name}
+                onChange={(e) => change({ ...s, name: e.target.value })}
+              />
+              <span role="status">
+                {dirty && saveState === "Saved" ? "Saving…" : saveState}
+              </span>
+              {saveState === "Save failed" && (
+                <button onClick={() => void save()}>Retry</button>
+              )}
+              <button
+                title={`Undo - ${shortcutModifier}+z`}
+                aria-label="Undo"
+                disabled={!h.past.length}
+                onClick={() => {
+                  p.send({ action: "pause" });
+                  dispatch({ type: "undo" });
+                }}
+              >
+                <Undo2 size={18} />
+              </button>
+              <button
+                title={`Redo - ${shortcutModifier}+y`}
+                aria-label="Redo"
+                disabled={!h.future.length}
+                onClick={() => {
+                  p.send({ action: "pause" });
+                  dispatch({ type: "redo" });
+                }}
+              >
+                <Redo2 size={18} />
+              </button>
+            </div>
             <PerformanceView
               performance={p}
               onPopout
               poppedOut={
                 <InputController send={p.input} destination={p.status} />
               }
-              controls={
-                <SetPlayback
-                  performance={p}
-                  disabled={checking}
-                  onPlay={() => void play()}
-                />
-              }
+              controls={false}
             />
           </div>
         </div>
@@ -499,6 +560,46 @@ export function SetEditor({ id }: { id: string }) {
         />
         <div className="set-editor-timeline" style={{ height, minHeight: 200 }}>
           <Timeline
+            transport={
+              <div
+                className="set-builder-transport"
+                role="group"
+                aria-label="Set playback"
+              >
+                <button
+                  aria-label="Previous set track"
+                  disabled={checking || !s.audioClips.length}
+                  onClick={() => seekTrack(-1)}
+                >
+                  <SkipBack size={20} fill="currentColor" />
+                </button>
+                <button
+                  aria-label={p.state.playing ? "Pause set" : "Play set"}
+                  disabled={checking}
+                  onClick={() =>
+                    p.state.playing ? p.send({ action: "pause" }) : void play()
+                  }
+                >
+                  {p.state.playing ? (
+                    <Pause size={22} fill="currentColor" />
+                  ) : (
+                    <Play size={22} fill="currentColor" />
+                  )}
+                </button>
+                <button
+                  aria-label="Next set track"
+                  disabled={
+                    checking ||
+                    !s.audioClips.some(
+                      (c) => c.startMs > p.state.positionMs + 1,
+                    )
+                  }
+                  onClick={() => seekTrack(1)}
+                >
+                  <SkipForward size={20} fill="currentColor" />
+                </button>
+              </div>
+            }
             set={s}
             onChange={change}
             onAdd={add}
@@ -531,94 +632,6 @@ export function SetEditor({ id }: { id: string }) {
             Loop by default
           </label>
           <p>16:9 output</p>
-        </details>
-        <details className="set-editor-details">
-          <summary>
-            Clip timings & validation{" "}
-            {issues.length ? `(${issues.length})` : "— Ready"}
-          </summary>{" "}
-          <aside className="set-inspector">
-            <h2>Clip inspector</h2>
-            {clip ? (
-              <>
-                <h3>{clip.media.title}</h3>
-                <small>{clip.media.attribution}</small>
-                {(
-                  [
-                    "startMs",
-                    "sourceOffsetMs",
-                    "durationMs",
-                    "fadeInMs",
-                    "fadeOutMs",
-                  ] as const
-                )
-                  .filter(
-                    (k) =>
-                      clip.media.kind === "audio" || k !== "sourceOffsetMs",
-                  )
-                  .map((k) => (
-                    <label key={k}>
-                      {
-                        {
-                          startMs: "Start",
-                          sourceOffsetMs: "Source offset",
-                          durationMs: "Duration",
-                          fadeInMs: "Fade in",
-                          fadeOutMs: "Fade out",
-                        }[k]
-                      }{" "}
-                      (ms)
-                      <input
-                        type="number"
-                        step="1"
-                        value={clip[k]}
-                        onChange={(e) => {
-                          const n = Number(e.target.value);
-                          if (!Number.isSafeInteger(n)) return;
-                          const lane =
-                            clip.media.kind === "audio"
-                              ? "audioClips"
-                              : "visualClips";
-                          const next = s[lane].map((c) =>
-                            c.id === clip.id ? { ...c, [k]: n } : c,
-                          );
-                          change({
-                            ...s,
-                            [lane]:
-                              k === "startMs" || k === "durationMs"
-                                ? transitions(next, s[lane])
-                                : next,
-                          });
-                        }}
-                      />
-                    </label>
-                  ))}
-                <button onClick={remove}>Remove clip</button>
-              </>
-            ) : (
-              <p>
-                Select a clip to edit exact timings. Drag media onto its lane,
-                or choose Add.
-              </p>
-            )}
-            <h3>Validation</h3>
-            {checking ? (
-              <p>Checking content…</p>
-            ) : !issues.length ? (
-              <p>Ready</p>
-            ) : (
-              issues.map((i, n) => (
-                <p
-                  key={n}
-                  className={
-                    i.severity === "error" ? "set-error" : "set-warning"
-                  }
-                >
-                  {i.severity === "error" ? "Error" : "Warning"}: {i.message}
-                </p>
-              ))
-            )}
-          </aside>
         </details>
       </main>
     </div>

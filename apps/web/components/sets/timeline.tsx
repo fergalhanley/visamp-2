@@ -20,7 +20,9 @@ export function Timeline({
   selected,
   onSelect,
   unavailable,
+  transport,
 }: {
+  transport?: React.ReactNode;
   set: SetContent;
   onChange: (s: SetContent) => void;
   onAdd: (m: MediaRef, start?: number) => void;
@@ -183,12 +185,14 @@ export function Timeline({
   return (
     <section className="set-timeline">
       <header>
-        <h2>Timeline</h2>
-        <span>
-          {timecode(position)} / {timecode(duration(set))}
-        </span>
+        {transport}
         <label>
-          Zoom {Math.round(zoomPercent)}% · {Math.round(visibleMs / 60000)} min
+          <span className="set-zoom-percent">
+            Zoom {Math.round(zoomPercent)}%
+          </span>
+          <span className="set-zoom-minutes">
+            {Math.round(visibleMs / 60000)} min
+          </span>
           <input
             type="range"
             min="0"
@@ -198,9 +202,12 @@ export function Timeline({
           />
         </label>
         <small>
-          Hold Alt or Shift to disable snapping · Arrow keys nudge 1 sec · Pinch
-          to zoom
+          Arrows: 1s · Shift+arrows: 10s · Alt/Shift drag: no snap · Pinch to
+          zoom
         </small>
+        <span className="set-timeline-time">
+          {timecode(position)} / {timecode(duration(set))}
+        </span>
       </header>
       <div ref={scroller} className="set-timeline-scroll">
         <div style={{ width, minWidth: "100%", position: "relative" }}>
@@ -303,7 +310,7 @@ export function Timeline({
                     }}
                     onClick={() => onSelect(c.id)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") onSelect(c.id);
+                      if (e.key === "Enter") onSelect(c.id);
                     }}
                     onPointerDown={(e) => move(e, c, "move")}
                   >

@@ -272,10 +272,7 @@ export function SetPlayback({
           <Repeat size={18} />
           <span>Loop Set</span>
         </button>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          {scheduled.visual.map((v) => v.clip.media.title).join(" → ") ||
-            "No visualisation at this position"}
-        </span>
+        <span className="flex-1" />
         <button
           aria-label={s.muted ? "Unmute set" : "Mute set"}
           className={iconButton}

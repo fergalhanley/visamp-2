@@ -120,12 +120,20 @@ controls and the two-lane scrub timeline span the full-width bottom row. Freepla
 retains its catalogue columns and controls beneath the output.
 
 Set Builder uses a compact desktop workspace with scrolling media tabs, a smaller
-preview, the shared SetPlayback controls and the same pop-out/input controller as
-VJ Mode. Precise clip timing and validation remain available in a bottom drawer;
-there is no Programme sidebar. Arrow-key nudges move clips by one second.
+preview and the same pop-out/input controller as VJ Mode. Previous/play/next
+controls live in the timeline row; the preview has no transport panel. The
+Programme sidebar and clip timing/validation drawer are removed. Validation still
+blocks invalid playback and opening VJ Mode, with actionable error messages.
+Arrow-key nudges move clips by one second; Shift increases that to ten seconds.
 
 Timeline zoom measures the duration visible across the viewport, rather than a
 fixed pixels-per-second range. At 0/25/50/75/100%, the visible spans are
 90/30/10/3/1 minutes, interpolated geometrically between those points. Trackpad
 Ctrl+wheel pinch and two-touch pinch adjust the same zoom value. This interprets
 the repeated 25% in the product request as the 75% landmark.
+
+Set Builder has its own top-bar actions (My Sets and Open in VJ Mode), with the
+set name, save state and undo/redo icons above the preview. Space toggles playback
+outside text/native controls and armed input capture. Cmd/Ctrl+Z undoes;
+Cmd/Ctrl+Y or Cmd/Ctrl+Shift+Z redoes. Timeline timecodes and zoom readouts use
+monospaced, fixed-width labels to avoid layout shifts.

@@ -681,3 +681,70 @@
   border-top: 1px solid #39404a;
   padding: 10px 16px;
 }
+
+/* Builder transport belongs to the editing timeline; preview owns the upper row. */
+.set-editor-preview {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.set-editor-preview .set-editor-bar {
+  padding: 0 0 8px;
+  border: 0;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+.set-editor-preview .set-editor-bar input {
+  width: 0;
+  min-width: 80px;
+}
+.set-editor-preview .set-editor-bar [role="status"] {
+  min-width: 65px;
+  font-size: 12px;
+}
+.set-editor-preview .set-performance {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+}
+.set-editor-preview .set-output {
+  min-height: 0;
+}
+.set-builder-transport {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.set-builder-transport button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 32px;
+  padding: 4px;
+}
+.set-timeline-time,
+.set-zoom-percent,
+.set-zoom-minutes {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.set-timeline-time {
+  margin-left: auto;
+  text-align: right;
+  min-width: 27ch;
+}
+.set-zoom-percent {
+  display: inline-block;
+  width: 9ch;
+}
+.set-zoom-minutes {
+  display: inline-block;
+  width: 6ch;
+  text-align: right;
+}
+.set-editor .set-catalogue select:focus-visible {
+  outline: 1px solid #a5adb8;
+  outline-offset: 1px;
+}

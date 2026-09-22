@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { barButton, barButtonBlue } from "@/components/chrome/bar-button";
 import { cn } from "@/lib/utils";
-const vjButton = cn(
+export const vjButton = cn(
   barButton,
   "bg-fuchsia-600 text-white hover:bg-fuchsia-500 focus-visible:ring-fuchsia-300",
 );

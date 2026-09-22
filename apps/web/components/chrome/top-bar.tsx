@@ -77,6 +77,7 @@ interface TopBarProps {
   /** Replaces the route's default actions. */
   actions?: ReactNode;
   className?: string;
+  showSetNav?: boolean;
 }
 
 /**
@@ -93,6 +94,7 @@ export function TopBar({
   visible = true,
   actions,
   className,
+  showSetNav = true,
 }: TopBarProps) {
   const hidden = position === "fixed" && !visible;
   const setControlsHovered = useChromeStore((s) => s.setControlsHovered);
@@ -134,7 +136,7 @@ export function TopBar({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {actions ?? <RouteActions />}
-          <SetNav />
+          {showSetNav && <SetNav />}
         </div>
 
         <nav
