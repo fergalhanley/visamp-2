@@ -406,17 +406,27 @@ export function MusicLibrary({
               </p>
             )}
             {visiblePlaylists.map((p) => (
-              <button
+              <div
                 key={p.id}
-                type="button"
-                onClick={() =>
-                  choose({ type: "playlist", id: p.id, name: p.title })
-                }
-                className="block w-full truncate px-4 py-3 text-left text-sm hover:bg-foreground/5"
+                className="music-playlist-row flex items-center gap-3 px-4 py-3 hover:bg-foreground/5"
               >
-                {p.title} - {p.trackCount}{" "}
-                {p.trackCount === 1 ? "track" : "tracks"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    choose({ type: "playlist", id: p.id, name: p.title })
+                  }
+                  className="min-w-0 flex-1 truncate text-left text-sm"
+                >
+                  {p.title} - {p.trackCount}{" "}
+                  {p.trackCount === 1 ? "track" : "tracks"}
+                </button>
+                <a
+                  href={`/playlists?playlist=${encodeURIComponent(p.id)}`}
+                  className="shrink-0 text-xs underline"
+                >
+                  Edit Playlist
+                </a>
+              </div>
             ))}
             {!playlistLoading && !playlistError && !visiblePlaylists.length && (
               <p className="px-4 py-5 text-xs text-muted-foreground">

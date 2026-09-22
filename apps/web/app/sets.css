@@ -812,3 +812,42 @@
   background: transparent;
   padding: 0;
 }
+.set-timeline-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+.set-save-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 60px;
+  font-size: 12px;
+}
+.set-visual-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.set-editor .set-media-row .set-visual-actions a,
+.set-editor .music-playlist-row a,
+.set-editor .music-playlist-row button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.set-editor .set-media-row .set-visual-actions a {
+  text-decoration: underline;
+  font-size: 12px;
+}
+@media (max-width: 1400px) {
+  .set-timeline header > small {
+    display: none;
+  }
+}
+.set-editor .set-catalogue .music-playlist-row a {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}

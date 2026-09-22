@@ -485,34 +485,6 @@ export function SetEditor({ id }: { id: string }) {
                 value={s.name}
                 onChange={(e) => change({ ...s, name: e.target.value })}
               />
-              <span role="status">
-                {dirty && saveState === "Saved" ? "Saving…" : saveState}
-              </span>
-              {saveState === "Save failed" && (
-                <button onClick={() => void save()}>Retry</button>
-              )}
-              <button
-                title={`Undo - ${shortcutModifier}+z`}
-                aria-label="Undo"
-                disabled={!h.past.length}
-                onClick={() => {
-                  p.send({ action: "pause" });
-                  dispatch({ type: "undo" });
-                }}
-              >
-                <Undo2 size={18} />
-              </button>
-              <button
-                title={`Redo - ${shortcutModifier}+y`}
-                aria-label="Redo"
-                disabled={!h.future.length}
-                onClick={() => {
-                  p.send({ action: "pause" });
-                  dispatch({ type: "redo" });
-                }}
-              >
-                <Redo2 size={18} />
-              </button>
             </div>
             <PerformanceView
               performance={p}
@@ -560,6 +532,42 @@ export function SetEditor({ id }: { id: string }) {
         />
         <div className="set-editor-timeline" style={{ height, minHeight: 200 }}>
           <Timeline
+            historyControls={
+              <div className="set-builder-transport">
+                <button
+                  title={`Undo - ${shortcutModifier}+z`}
+                  aria-label="Undo"
+                  disabled={!h.past.length}
+                  onClick={() => {
+                    p.send({ action: "pause" });
+                    dispatch({ type: "undo" });
+                  }}
+                >
+                  <Undo2 size={18} />
+                </button>
+                <button
+                  title={`Redo - ${shortcutModifier}+y`}
+                  aria-label="Redo"
+                  disabled={!h.future.length}
+                  onClick={() => {
+                    p.send({ action: "pause" });
+                    dispatch({ type: "redo" });
+                  }}
+                >
+                  <Redo2 size={18} />
+                </button>
+              </div>
+            }
+            saveStatus={
+              <span className="set-save-status">
+                <span role="status">
+                  {dirty && saveState === "Saved" ? "Saving…" : saveState}
+                </span>
+                {saveState === "Save failed" && (
+                  <button onClick={() => void save()}>Retry</button>
+                )}
+              </span>
+            }
             transport={
               <div
                 className="set-builder-transport"

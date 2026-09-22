@@ -1,4 +1,5 @@
 "use client";
+import { CatalogueVisualActions } from "./catalogue-visual-actions";
 import { VisualPlaylists } from "@/components/panels/visual-playlists";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useState } from "react";
@@ -30,10 +31,11 @@ export function Catalogue({
     [error, setError] = useState("");
   const list =
     tab === "mine" ? mine : tab === "favourites" ? favourites : browse;
-  const items: (MediaRef & { thumbUrl?: string })[] =
+  const items: (MediaRef & { thumbUrl?: string; ownerId?: string })[] =
     kind === "visual"
       ? (list.items ?? []).map((v) => ({
           thumbUrl: v.thumbUrl,
+          ownerId: v.ownerId,
           id: v.id,
           kind: "visual",
           source: "visual",
@@ -188,6 +190,7 @@ export function Catalogue({
                       <strong>{vis.title}</strong>
                       <small className="block">{vis.creator.username}</small>
                     </div>
+                    <CatalogueVisualActions id={vis.id} ownerId={vis.ownerId} />
                     <button onClick={() => onAdd(m)}>Add</button>
                     <button onClick={() => onPreview(m)}>Preview</button>
                   </div>
@@ -222,6 +225,9 @@ export function Catalogue({
                       <small>{m.attribution}</small>
                     </div>
                     <div>
+                      {kind === "visual" && (
+                        <CatalogueVisualActions id={m.id} ownerId={m.ownerId} />
+                      )}
                       <button onClick={() => onAdd(m)}>Add</button>
                       <button onClick={() => onPreview(m)}>Preview</button>
                     </div>

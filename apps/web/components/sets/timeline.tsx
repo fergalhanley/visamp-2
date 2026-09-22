@@ -21,8 +21,12 @@ export function Timeline({
   onSelect,
   unavailable,
   transport,
+  historyControls,
+  saveStatus,
 }: {
   transport?: React.ReactNode;
+  historyControls?: React.ReactNode;
+  saveStatus?: React.ReactNode;
   set: SetContent;
   onChange: (s: SetContent) => void;
   onAdd: (m: MediaRef, start?: number) => void;
@@ -201,13 +205,17 @@ export function Timeline({
             onChange={(e) => setZoom(Number(e.target.value))}
           />
         </label>
+        {historyControls}
         <small>
           Arrows: 1s · Shift+arrows: 10s · Alt/Shift drag: no snap · Pinch to
           zoom
         </small>
-        <span className="set-timeline-time">
-          {timecode(position)} / {timecode(duration(set))}
-        </span>
+        <div className="set-timeline-status">
+          {saveStatus}
+          <span className="set-timeline-time">
+            {timecode(position)} / {timecode(duration(set))}
+          </span>
+        </div>
       </header>
       <div ref={scroller} className="set-timeline-scroll">
         <div style={{ width, minWidth: "100%", position: "relative" }}>

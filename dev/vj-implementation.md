@@ -145,3 +145,15 @@ labelled VisAmp Music. Artist catalogue rows show artwork and a count of live,
 currently licensed tracks using the playback eligibility rules. The set list
 uses New Set in the top bar; VJ Mode has no visualisation-creation action. Other
 visualisation creation actions read Create a Visualisation.
+
+Set catalogue rows now offer Edit only to the visualisation owner, and Fork reads
+the selected database source before creating a private attributed copy. It never
+falls back to the independently playing visualisation. Timeline history controls
+follow Zoom, with save status alongside the right-aligned timecodes.
+
+Audio playlist rows link to /playlists?playlist=<id>, also accessible from the
+account dropdown. The first management page supports create, rename, confirmed
+delete, paginated track browsing/search, and add/remove via existing owner-scoped
+collection APIs. The track view uses the playable catalogue, so unavailable
+members are not listed individually in this iteration. Ordering and visualisation
+playlist management are not part of this page.

@@ -3,7 +3,13 @@ import { useState, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
-export function SetAccess({ children }: { children: ReactNode }) {
+export function SetAccess({
+  children,
+  title = "Sign in to use Set Builder and VJ Mode",
+}: {
+  children: ReactNode;
+  title?: string;
+}) {
   const { user, loading } = useAuth();
   const path = usePathname(),
     query = useSearchParams();
@@ -12,7 +18,7 @@ export function SetAccess({ children }: { children: ReactNode }) {
   if (user) return children;
   return (
     <main className="p-8">
-      <h1>Sign in to use Set Builder and VJ Mode</h1>
+      <h1>{title}</h1>
       <button onClick={() => setOpen(true)}>Sign in</button>
       <SignInDialog
         open={open}
