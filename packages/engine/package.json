@@ -10,7 +10,8 @@
     ".": {
       "types": "./pkg/visamp_2.d.ts",
       "default": "./pkg/visamp_2.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "sideEffects": [
     "./pkg/visamp_2.js",

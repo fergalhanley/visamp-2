@@ -5,7 +5,8 @@
   "type": "module",
   "description": "React component that renders a Visamp script",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./version": "./src/version.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",

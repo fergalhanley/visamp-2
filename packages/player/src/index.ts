@@ -1,3 +1,4 @@
+export { engineVersion } from "./version";
 export { VisampCanvas } from "./visamp-canvas";
 export type { VisampCanvasProps } from "./visamp-canvas";
 export { parseDiagnostics, toCompileResult } from "./diagnostics";

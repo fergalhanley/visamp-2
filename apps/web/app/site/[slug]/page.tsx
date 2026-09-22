@@ -1,3 +1,4 @@
+import { appVersion, engineVersion } from "@/lib/versions";
 import { Licencing } from "@/components/site/licencing";
 import { TermsAndConditions } from "@/components/site/terms-and-conditions";
 import { notFound } from "next/navigation";
@@ -51,6 +52,15 @@ export default async function SitePage({
               Open the player
             </a>
             <SocialLinks large />
+            <dl
+              aria-label="Software versions"
+              className="mt-8 grid w-fit grid-cols-[auto_auto] gap-x-8 gap-y-2 rounded-lg border border-white/10 px-5 py-4 text-sm"
+            >
+              <dt className="text-muted-foreground">VisAmp</dt>
+              <dd className="font-mono tabular-nums">{appVersion}</dd>
+              <dt className="text-muted-foreground">Engine</dt>
+              <dd className="font-mono tabular-nums">{engineVersion}</dd>
+            </dl>
           </>
         ) : slug === "privacy-policy" || slug === "cookie-policy" ? (
           <>
