@@ -8,6 +8,7 @@ import { VisampCanvas } from "@visamp/player";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { TOP_BAR_HEIGHT, TopBar } from "@/components/chrome/top-bar";
+import { BetaLabel } from "@/components/brand/logo";
 import { SiteFooter } from "@/components/site/site-footer";
 
 import type { GalleryPage } from "@/lib/gallery";
@@ -190,11 +191,14 @@ export function Landing({
           <div className="hero-grid" aria-hidden="true" />
           <div className="hero-content">
             <div className="hero-title">
-              <img
+              <span className="relative inline-flex shrink-0 pr-9">
+                <img
                   src="/visamp-title.svg"
                   alt="VisAmp"
                   className={cn("h-5 w-auto mix-blend-screen", "hero-title-image")}
-              />
+                />
+                <BetaLabel />
+              </span>
             </div>
             <h1 id="landing-title" className="sr-only">
               VisAmp music visualizer — discover, play and create

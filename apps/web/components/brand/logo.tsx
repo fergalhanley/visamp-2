@@ -42,3 +42,12 @@ export function BrandLockup({ className }: { className?: string }) {
     />
   );
 }
+
+/** Small release-status label positioned beside a relative logo wrapper. */
+export function BetaLabel() {
+  return (
+    <span className="absolute -top-1 right-0 text-[9px] font-medium leading-none tracking-[0.12em] text-white/80">
+      BETA
+    </span>
+  );
+}

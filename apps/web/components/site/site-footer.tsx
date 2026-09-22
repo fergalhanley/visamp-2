@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- full navigation resets the singleton WASM canvas when crossing site/player/editor routes */
 import { Mail } from "lucide-react";
 import { ArtistLinkIcon } from "@/components/audio/artist-link-icon";
-import { BrandLockup } from "@/components/brand/logo";
+import { BetaLabel, BrandLockup } from "@/components/brand/logo";
 import { sitePages, socialLinks } from "@/lib/site";
 
 export function SocialLinks({ large = false }: { large?: boolean }) {
@@ -27,8 +27,9 @@ export function SocialLinks({ large = false }: { large?: boolean }) {
 export function SiteFooter() {
   return (
     <footer className="site-footer">
-      <a href="/" aria-label="VisAmp home">
+      <a href="/" aria-label="VisAmp home — beta" className="relative inline-flex pr-9">
         <BrandLockup className="h-7" />
+        <BetaLabel />
       </a>
       <p>Music for your eyes.</p>
       <SocialLinks />

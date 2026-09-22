@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { SetNav } from "@/components/sets/nav";
 import { AccountMenu } from "@/components/auth/account-menu";
-import { BrandLockup, BrandMark } from "@/components/brand/logo";
+import { BetaLabel, BrandLockup, BrandMark } from "@/components/brand/logo";
 import { CreateVisButton } from "@/components/chrome/create-vis-button";
 import { EditVisButton } from "@/components/chrome/edit-vis-button";
 import { ForkVisButton } from "@/components/chrome/fork-vis-button";
@@ -129,9 +129,10 @@ export function TopBar({
         {/* The wordmark costs ~85px, which is the difference between three
             actions fitting on a phone and not. The mark alone still names the
             site, and the lockup comes back as soon as there is room. */}
-        <a href="/" aria-label="VisAmp home" className="shrink-0">
+        <a href="/" aria-label="VisAmp home — beta" className="relative shrink-0 pr-9">
           <BrandMark className="h-6 w-6 sm:hidden" />
           <BrandLockup className="hidden h-6 sm:block" />
+          <BetaLabel />
         </a>
 
         <div className="flex shrink-0 items-center gap-1.5">
