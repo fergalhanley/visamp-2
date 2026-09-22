@@ -165,7 +165,7 @@ export function VjMode() {
     <div className="sets-app">
       <TopBar position="static" />
       <main
-        className="vj-workspace"
+        className={`vj-workspace${workspaceTab === "set" ? " vj-workspace-set" : ""}`}
         style={
           {
             "--visual-width": `${widths[0]}px`,
@@ -322,31 +322,27 @@ export function VjMode() {
               workspaceTab === "freeplay" ? (
                 <Transport controller={freeplay.controller} />
               ) : (
-                <SetPlayback
-                  performance={p}
-                  disabled={manual || invalid || loading}
-                  error={error}
-                  onPlay={() => {
-                    p.send({ action: "play" });
-                    track("vj_set_started");
-                  }}
-                />
+                false
               )
             }
             poppedOut={
               <InputController send={p.input} destination={p.status} />
             }
             manual={manual}
-            outputHeight={previewHeight}
+            outputHeight={
+              workspaceTab === "freeplay" ? previewHeight : undefined
+            }
             divider={
-              <ResizeHandle
-                label="Preview height"
-                value={previewHeight}
-                onChange={(n) => {
-                  setPreviewHeight(n);
-                  localStorage.setItem("visamp-vj-preview-height", String(n));
-                }}
-              />
+              workspaceTab === "freeplay" && (
+                <ResizeHandle
+                  label="Preview height"
+                  value={previewHeight}
+                  onChange={(n) => {
+                    setPreviewHeight(n);
+                    localStorage.setItem("visamp-vj-preview-height", String(n));
+                  }}
+                />
+              )
             }
             onPopout
             play={() => {
@@ -360,6 +356,19 @@ export function VjMode() {
             }}
           />
         </div>
+        {workspaceTab === "set" && (
+          <div className="vj-set-playback">
+            <SetPlayback
+              performance={p}
+              disabled={manual || invalid || loading}
+              error={error}
+              onPlay={() => {
+                p.send({ action: "play" });
+                track("vj_set_started");
+              }}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

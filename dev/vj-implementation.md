@@ -114,3 +114,7 @@ within the current audio clip. Stop, loop, mute and volume are also on the outpu
 side. Explicit timeline seeks bypass the audio adapter's normal 250 ms drift
 threshold once, so small scrubs are honoured without constantly reseeking during
 ordinary playback. Freeplay continues to use the shared player controls.
+
+In Set mode, the library and output share the upper workspace row. Set playback
+controls and the two-lane scrub timeline span the full-width bottom row. Freeplay
+retains its catalogue columns and controls beneath the output.

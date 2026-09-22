@@ -456,3 +456,31 @@
   max-height: none;
   aspect-ratio: auto;
 }
+
+/* Set mode shares the upper row and reserves the bottom row for its timeline. */
+.vj-workspace.vj-workspace-set {
+  grid-template-rows: minmax(280px, 1fr) auto;
+  height: calc(100dvh - 56px);
+  min-height: 640px;
+}
+.vj-workspace-set .vj-library {
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.vj-workspace-set .vj-performance {
+  min-height: 0;
+}
+.vj-workspace-set .set-performance {
+  height: 100%;
+  min-height: 0;
+}
+.vj-workspace-set .set-output {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+.vj-set-playback {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
