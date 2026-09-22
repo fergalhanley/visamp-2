@@ -320,26 +320,6 @@ export function SetEditor({ id }: { id: string }) {
         <TopBar position="static" />
         <main className="p-8">
           {error ? <p role="alert">{error}</p> : <p>Loading set…</p>}
-          <details>
-            <summary>Set details</summary>
-            <label>
-              Description
-              <textarea
-                value={s.description}
-                maxLength={4000}
-                onChange={(e) => change({ ...s, description: e.target.value })}
-              />
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={s.loop}
-                onChange={(e) => change({ ...s, loop: e.target.checked })}
-              />
-              Loop by default
-            </label>
-            <p>16:9 output</p>
-          </details>
         </main>
       </div>
     );
