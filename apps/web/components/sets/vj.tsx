@@ -199,7 +199,7 @@ export function VjMode() {
                 onClick={() => setWorkspaceTab(tab)}
                 className={`-mb-px border-b-2 py-3 text-sm transition ${workspaceTab === tab ? "border-fuchsia-400 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
-                {tab === "freeplay" ? "Freeplay Visualisations" : "Set"}
+                {tab === "freeplay" ? "Freeplay" : "Set"}
               </button>
             ))}
           </div>

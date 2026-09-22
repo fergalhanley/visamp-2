@@ -32,7 +32,7 @@ export const navLinks: {
 }[] = [
   { href: "/player", label: "Player" },
   { href: "/creators", label: "Creators" },
-  { href: "/artists", label: "Artists" },
+  { href: "/artists", label: "♫ Artists" },
   {
     href: process.env.NEXT_PUBLIC_DOCS_URL || "https://docs.visamp.io",
     label: "Docs",
@@ -45,6 +45,6 @@ export const navLinks: {
     icon: "discord",
   },
   { href: "/site/news", label: "News" },
-  { href: "/site/about", label: "About" },
-  { href: "/site/contact", label: "Contact" },
+  // { href: "/site/about", label: "About" },
+  // { href: "/site/contact", label: "Contact" },
 ];
