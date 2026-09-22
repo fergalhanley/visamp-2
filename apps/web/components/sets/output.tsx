@@ -17,6 +17,8 @@ import { runtimeInput } from "@/lib/sets/input";
 import { visualFallback, type Scheduled } from "@/lib/sets/scheduler";
 import { type Clip, type MediaRef } from "@/lib/sets/model";
 import { useOutputPointer } from "./use-output-pointer";
+import { titleOverlays, type TitleOverlay } from "@/lib/sets/title-overlays";
+import { TitleOverlayLayer } from "./title-overlay";
 const black = "";
 export function SetOutput({
   sessionId,
@@ -29,6 +31,7 @@ export function SetOutput({
   const { surface, hidden } = useOutputPointer();
   const userId = user?.id;
   const [view, setView] = useState({ source: black, key: "black", opacity: 0 });
+  const [titles, setTitles] = useState<TitleOverlay[]>([]);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [needsGesture, setNeedsGesture] = useState(false);
   const enableAudio = useRef<() => void>(() => {});
@@ -57,6 +60,7 @@ export function SetOutput({
     const transport = new SetTransport(clock.now);
     let sources: Record<string, string> = {};
     let previousAudio: Scheduled[] = [];
+    let titleKey = "";
     let overrideKey = "";
     let changeAt = 0;
     let transitionFrom: Scheduled[] = [];
@@ -244,6 +248,12 @@ export function SetOutput({
       if (!authorised) return;
       const current = transport.tick(),
         s = transport.state;
+      const nextTitles = titleOverlays(s);
+      const nextTitleKey = JSON.stringify(nextTitles);
+      if (nextTitleKey !== titleKey) {
+        titleKey = nextTitleKey;
+        setTitles(nextTitles);
+      }
       let active = current.audio;
       if (s.audioOverride) {
         const elapsed = s.audioOverride.positionMs;
@@ -408,39 +418,47 @@ export function SetOutput({
           transform: "translate(-50%, -50%)",
           width: "min(100vw, 177.777778vh)",
           height: "min(100vh, 56.25vw)",
-          opacity: preparation.status === "ready" ? view.opacity : 0,
         }}
       >
-        <VisampCanvas
-          ref={handle}
-          active={!!user}
-          interactive={false}
-          hideErrors
-          source={view.source}
-          assets={assets}
-          assetPreparation={preparation}
-          analyser={analyser}
-          className="h-full w-full"
-          onCompileResult={(r) => {
-            if (!r.ok) {
-              badVisual.current = view.key;
-              setView((v) => ({ ...v, opacity: 0 }));
-              channel.current?.send("error", {
-                category: "visual",
-                message: "Visualisation could not compile.",
-              });
-            }
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            opacity: preparation.status === "ready" ? view.opacity : 0,
           }}
-          onLog={(e) => {
-            if (e.level === "error") {
-              badVisual.current = view.key;
-              channel.current?.send("error", {
-                category: "visual",
-                message: "Visualisation runtime error.",
-              });
-            }
-          }}
-        />
+        >
+          <VisampCanvas
+            ref={handle}
+            active={!!user}
+            interactive={false}
+            hideErrors
+            source={view.source}
+            assets={assets}
+            assetPreparation={preparation}
+            analyser={analyser}
+            className="h-full w-full"
+            onCompileResult={(r) => {
+              if (!r.ok) {
+                badVisual.current = view.key;
+                setView((v) => ({ ...v, opacity: 0 }));
+                channel.current?.send("error", {
+                  category: "visual",
+                  message: "Visualisation could not compile.",
+                });
+              }
+            }}
+            onLog={(e) => {
+              if (e.level === "error") {
+                badVisual.current = view.key;
+                channel.current?.send("error", {
+                  category: "visual",
+                  message: "Visualisation runtime error.",
+                });
+              }
+            }}
+          />
+        </div>
+        <TitleOverlayLayer titles={titles} />
       </div>
     </div>
   );

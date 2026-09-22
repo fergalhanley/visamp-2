@@ -33,7 +33,9 @@ export function Timeline({
   transport,
   historyControls,
   saveStatus,
+  onProperties,
 }: {
+  onProperties?: (id: string) => void;
   transport?: React.ReactNode;
   historyControls?: React.ReactNode;
   saveStatus?: React.ReactNode;
@@ -361,6 +363,7 @@ export function Timeline({
                       width: Math.max(6, (display.durationMs / 1000) * zoom),
                     }}
                     onClick={() => onSelect(c.id)}
+                    onDoubleClick={() => onProperties?.(c.id)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") onSelect(c.id);
                     }}

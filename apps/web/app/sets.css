@@ -863,3 +863,11 @@
 .set-editor .set-media-row .set-media-action:hover {
   background: #ffffff20;
 }
+
+.set-builder-transport button.set-clip-properties-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding-inline: 8px;
+}

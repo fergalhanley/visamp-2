@@ -188,3 +188,64 @@ it("adds a 30-second visual regardless of the audio programme length", async () 
   await waitFor(() => expect(transport.state.set.visualClips).toHaveLength(2));
   expect(transport.state.set.visualClips[1]!.durationMs).toBe(30000);
 });
+
+it("opens properties from double-click or toolbar and preserves them through save, copy and undo", async () => {
+  await open();
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Clip properties",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  fireEvent.doubleClick(screen.getByRole("button", { name: "visual clip" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  fireEvent.click(screen.getByLabelText("Show title"));
+  fireEvent.change(screen.getByLabelText("Start (seconds)"), {
+    target: { value: "1.5" },
+  });
+  // Editor transport/history shortcuts must not run while the dialog is open.
+  fireEvent.keyDown(window, { code: "Space" });
+  expect(transport.state.playing).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+  await waitFor(() =>
+    expect(transport.state.set.visualClips[0]!.titleProperties?.startMs).toBe(
+      1500,
+    ),
+  );
+  await waitFor(() =>
+    expect(mock.request).toHaveBeenCalledWith(
+      "/api/sets/test",
+      "PUT",
+      expect.objectContaining({
+        content: expect.objectContaining({
+          visualClips: expect.arrayContaining([
+            expect.objectContaining({
+              titleProperties: expect.objectContaining({
+                enabled: true,
+                startMs: 1500,
+              }),
+            }),
+          ]),
+        }),
+      }),
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Clip properties" }));
+  expect(
+    (screen.getByLabelText("Start (seconds)") as HTMLInputElement).value,
+  ).toBe("1.5");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.keyDown(window, { code: "KeyC", ctrlKey: true });
+  transport.seek(60000);
+  fireEvent.keyDown(window, { code: "KeyV", ctrlKey: true });
+  await waitFor(() => expect(transport.state.set.visualClips).toHaveLength(2));
+  expect(transport.state.set.visualClips[1]!.titleProperties).toEqual(
+    transport.state.set.visualClips[0]!.titleProperties,
+  );
+  fireEvent.keyDown(window, { code: "KeyZ", ctrlKey: true });
+  fireEvent.keyDown(window, { code: "KeyZ", ctrlKey: true });
+  await waitFor(() =>
+    expect(transport.state.set.visualClips[0]!.titleProperties).toBeUndefined(),
+  );
+});

@@ -334,3 +334,27 @@ Cmd/Ctrl+C copies the selected clip within the editor session; Cmd/Ctrl+V pastes
 new clip at the marker, preserving its source and trim, and supports Undo/Redo.
 Pinch zoom anchors at the gesture position; the zoom slider uses the last pointer
 position over the timeline (or viewport centre). Scroll limits still apply.
+
+## Clip title properties (VIS-167)
+
+The selected clip's Properties toolbar action and double-click open the same
+modal. Apply creates one undoable edit and uses normal autosave; Cancel discards
+the dialog draft. Per-clip `titleProperties` is optional in schema version 1 JSON,
+so existing sets remain unchanged and need no database migration. It contains
+`enabled`, nine-position `position`, clip-relative `startMs`, `durationMs`,
+`size` (small/medium/large), and `showAttribution`. The API and output snapshot
+parser validate the enums, booleans and non-negative/positive whole-millisecond
+timing. Copy/paste and set duplication preserve the properties.
+
+Defaults: disabled, Bottom Left, start zero, duration five seconds, medium size,
+attribution included. Seconds in the dialog convert to whole milliseconds.
+Titles stop at their configured end or the clip end, whichever comes first.
+Overlong title windows are permitted so shortening a clip does not invalidate
+its stored settings. Playback uses the shared set clock, including seeks/loops
+and pause; source offsets do not affect the title window.
+
+The shared output renders titles inside the 16:9 surface for builder preview and
+embedded/pop-out VJ playback. Size scales with output width. At transitions the
+dominant audio and renderer's selected visual supply titles. Same-position audio
+and visual titles stack. A live override suppresses that lane's scheduled title;
+returning to the set restores it only if its title window is still active.

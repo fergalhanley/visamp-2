@@ -1,3 +1,4 @@
+import { parseTitleProperties, type TitleProperties } from "./title-properties";
 /** Serializable programme references. Source payloads and playback URLs stay out of storage. */
 export type MediaRef = {
   id: string;
@@ -9,6 +10,7 @@ export type MediaRef = {
   revisionId?: string;
 };
 export type Clip = {
+  titleProperties?: TitleProperties;
   id: string;
   media: MediaRef;
   startMs: number;
@@ -139,6 +141,9 @@ export function parseSet(value: unknown): SetContent {
         sourceOffsetMs: c.sourceOffsetMs as number,
         fadeInMs: c.fadeInMs as number,
         fadeOutMs: c.fadeOutMs as number,
+        ...(c.titleProperties !== undefined
+          ? { titleProperties: parseTitleProperties(c.titleProperties) }
+          : {}),
       };
     });
   };

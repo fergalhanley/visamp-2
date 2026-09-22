@@ -18,10 +18,19 @@ import {
 import { history } from "@/lib/sets/scheduler";
 import { request, resolveSet } from "@/lib/sets/client";
 import { track } from "@/lib/analytics/client";
+import { ClipProperties } from "./clip-properties";
 import { Catalogue } from "./catalogue";
 import { Timeline } from "./timeline";
 import { PerformanceView } from "./performance-view";
-import { Undo2, Redo2, SkipBack, SkipForward, Play, Pause } from "lucide-react";
+import {
+  SlidersHorizontal,
+  Undo2,
+  Redo2,
+  SkipBack,
+  SkipForward,
+  Play,
+  Pause,
+} from "lucide-react";
 import { vjButton } from "./nav";
 import { barButton, barButtonBlue } from "@/components/chrome/bar-button";
 import { setEditorShortcut } from "@/lib/sets/editor-shortcuts";
@@ -34,6 +43,8 @@ export function SetEditor({ id }: { id: string }) {
     future: [],
   });
   const s = h.present;
+  const [propertiesId, setPropertiesId] = useState<string | null>(null);
+  const propertiesClip = clips(s).find((c) => c.id === propertiesId);
   const [loaded, setLoaded] = useState(false),
     [error, setError] = useState(""),
     [saveState, setSaveState] = useState("Saved"),
@@ -210,7 +221,8 @@ export function SetEditor({ id }: { id: string }) {
     const key = (e: KeyboardEvent) => {
       const action = setEditorShortcut(
         e,
-        !!document.pointerLockElement ||
+        !!propertiesId ||
+          !!document.pointerLockElement ||
           !!document.querySelector('.vj-input[data-armed="true"]'),
       );
       if (!action) return;
@@ -274,7 +286,7 @@ export function SetEditor({ id }: { id: string }) {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [selected, remove, s, change]);
+  }, [selected, remove, s, change, propertiesId]);
   function add(media: MediaRef, start?: number) {
     const lane = media.kind === "audio" ? "audioClips" : "visualClips";
     const startMs = start ?? s[lane].reduce((n, c) => Math.max(n, end(c)), 0);
@@ -535,6 +547,16 @@ export function SetEditor({ id }: { id: string }) {
             historyControls={
               <div className="set-builder-transport">
                 <button
+                  className="set-clip-properties-button"
+                  aria-label="Clip properties"
+                  title="Clip properties"
+                  disabled={!selected}
+                  onClick={() => setPropertiesId(selected)}
+                >
+                  <SlidersHorizontal size={18} />
+                  <span>Properties</span>
+                </button>
+                <button
                   title={`Undo - ${shortcutModifier}+z`}
                   aria-label="Undo"
                   disabled={!h.past.length}
@@ -613,12 +635,35 @@ export function SetEditor({ id }: { id: string }) {
             onAdd={add}
             position={p.state.positionMs}
             onSeek={(n) => play(n)}
+            onProperties={(id) => {
+              setSelected(id);
+              setPropertiesId(id);
+            }}
             selected={selected}
             onSelect={setSelected}
             unavailable={unavailable}
           />
         </div>
       </main>
+      {propertiesClip && (
+        <ClipProperties
+          key={propertiesClip.id}
+          clip={propertiesClip}
+          onClose={() => setPropertiesId(null)}
+          onApply={(titleProperties) => {
+            const lane =
+              propertiesClip.media.kind === "audio"
+                ? "audioClips"
+                : "visualClips";
+            change({
+              ...s,
+              [lane]: s[lane].map((c) =>
+                c.id === propertiesClip.id ? { ...c, titleProperties } : c,
+              ),
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
