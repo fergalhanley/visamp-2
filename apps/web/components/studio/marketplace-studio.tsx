@@ -185,7 +185,7 @@ export function MarketplaceStudio() {
         body: JSON.stringify({
           trackId: selectedTrack.id,
           visualisationId: selectedVisual.id,
-          controlValues: activeOverrides,
+          paramValues: activeOverrides,
         }),
       });
       const result = (await response.json()) as {
