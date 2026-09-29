@@ -1,127 +1,181 @@
-# M1 marketplace prototype
+# M1 Studio + marketplace prototype
 
 Status: active design for M1 only.
 
 ## Goal
 
-Prove the transaction:
+Prove one integrated artist workflow:
 
-`artist track → audition creator visual → customise exposed controls → license with credits → export promotional video → creator earning`.
+`My Videos → Video Maker → owned track → eligible visual → customise params → license product if required → export → My Videos`.
 
-Do not expand this milestone into campaigns, social publishing, payouts or the public Visamp network.
+The visual marketplace supplies Video Maker; it is not a separate artist experience.
 
-## Audit of reusable code
+## Studio
 
-### Already reusable
+Studio has two primary tabs.
 
-- Artist identity, self-claiming and MP3 upload flows already exist.
-- Hosted tracks already have playback APIs and can be selected in the player.
-- Public/private creator visualisations, attribution, thumbnails and creator profiles already exist.
-- The player already combines hosted audio with arbitrary visualisations.
-- Visript already has top-level mutable `prop` values and a property inspector.
-- The engine already exposes frame capture and a controllable animation timeline.
-- Prepaid credit allocations, Stripe purchases, balances and transaction history already exist.
+### My Videos
 
-### Material M1 gaps
+The artist's durable workspace for authored output.
 
-- No creator-defined marketplace control metadata.
-- No runtime API for an external UI to set a Visript property without rewriting source.
-- No marketplace price/listing state on a visualisation.
-- No artist-facing flow for auditioning many visuals against one selected track.
-- No visual licence record tied to an artist-owned track.
-- No atomic marketplace credit debit and Visamp/creator split.
-- No creator earnings ledger.
-- No track + visual video export pipeline.
+M1 needs:
+- list existing videos;
+- create a video;
+- open/edit a video;
+- preview a video;
+- show distribution/scheduling state;
+- receive newly exported videos from Video Maker.
 
-## Prototype product model
+Detailed campaign scheduling/publishing mechanics can remain later work; the data model must have a place for that state now.
 
-For M1, a marketplace product is a published Visamp visualisation with optional marketplace metadata. Do not create a parallel visual-product entity until the model requires multiple commercial variants of one visual.
+### Video Maker
 
-A listed visual has:
+Derived from the existing set-builder/timeline rather than the temporary marketplace audition page.
 
-- visualisation id and immutable creator attribution;
-- price in Visamp credits;
-- a list of creator-exposed controls;
-- listing enabled/disabled state.
+Differences from the general set builder:
+- audio catalogue contains only tracks controlled by the signed-in artist;
+- visual catalogue contains only visuals whose distribution class permits video use;
+- visual clips surface the visual's params;
+- product visuals can be previewed before purchase but require a licence before final export/distribution;
+- output is a Video entity owned by the artist, not a performance set.
 
-A control describes a top-level Visript `prop` and how Studio may edit it. Initial control kinds:
+## Visual distribution classes
 
-- number: label, min, max, step;
-- boolean: label;
-- colour: label;
-- text: label.
+### private
+- visible only to creator;
+- source editable by creator;
+- not usable by other artists.
 
-The visual remains the source of truth for the property's initial/default value. Marketplace control metadata only declares which properties a musician may change and UI constraints for changing them.
+### public
+- discoverable;
+- source visible;
+- forkable;
+- free to use in videos, including commercial promotional output;
+- creator attribution retained.
+
+### protected
+- discoverable and usable in videos like public;
+- source not exposed through Visamp product UI/API;
+- not forkable;
+- free to use commercially;
+- params may be customised.
+
+### product
+- discoverable in Video Maker/marketplace;
+- source not exposed through Visamp product UI/API;
+- not forkable;
+- preview permitted;
+- final video/export/distribution requires a paid licence;
+- customisation only through params.
+
+Because Visript currently executes client-side source, true source secrecy for protected/product ultimately requires an opaque compiled/serialized execution representation. M1 must enforce no source UI/API and no fork; opaque delivery is follow-up hardening rather than pretending browser-delivered source can be secret.
+
+## Visript state vs params
+
+### `prop`
+
+`prop` is creator-owned mutable runtime state.
+
+```visript
+prop phase = 0.0
+
+on_frame {
+  phase += 0.01
+}
+```
+
+The script can read and write it.
+
+### `param`
+
+`param` is host/musician-controlled input with a creator-supplied default.
+
+```visript
+param hello = "hello"
+param value_int = 123
+param intensity = 0.7
+```
+
+Rules:
+- declared at top level like `prop`;
+- readable anywhere a normal identifier is readable;
+- immutable from Visript: assignment, compound assignment, increment/decrement and indexed mutation are rejected;
+- writable only through the engine host boundary;
+- a new script load restores the creator's declared defaults;
+- Studio derives the musician-facing controls from declared params rather than exposing arbitrary props;
+- the engine/host will also provide a reserved standard parameter set; exact standard names are defined separately before Video Maker integration.
+
+This is a deliberate language-level contract, not a Studio convention.
 
 ## Runtime contract
 
-The engine must expose a safe `set_property(name, value)` boundary.
+The engine exposes `set_param(name, value)`.
 
-- Only declared top-level `prop` values may be changed.
-- The incoming value must match the property's Visript type.
-- Invalid names/values return an error and leave the visual unchanged.
-- A new script load restores script defaults.
-- Runtime customisation does not mutate the creator's source.
+- creator-defined params may be set by name;
+- standard host params use the same read semantics;
+- the incoming value must match the param's declared type;
+- unknown params or invalid values return an error and leave the running visual unchanged;
+- props cannot be changed through this API;
+- runtime customisation does not mutate creator source.
 
-This allows Studio, API and future MCP clients to apply the same customisation without rewriting Visript.
+The engine also exposes param metadata/current values so Studio can build controls without parsing or revealing source.
 
-## Licence model
+## Product pricing and licensing
 
-A prototype licence is bound to:
+Only `product` visuals require a paid visual licence.
 
+A product licence is bound to:
 - purchaser user;
-- artist-owned track;
+- artist-owned track/video;
 - visualisation;
 - creator;
 - price paid;
 - creator share;
 - Visamp share;
-- chosen control values;
+- chosen param values;
 - purchase timestamp.
 
-The licence permits generated promotional output for that track under the marketplace terms. M1 does not implement exclusivity or transfers.
+Public/protected visuals require attribution/provenance but no marketplace charge.
 
-A repeat purchase of the same visual for the same track should return the existing licence rather than charge twice unless the commercial model is deliberately changed later.
+A repeat product purchase for the same intended licensed unit should not charge twice unless the commercial model explicitly changes later.
 
 ## Credits and creator earnings
 
-Reuse the existing prepaid credit allocations as the balance system.
+Reuse the existing prepaid credit allocation system.
 
-Marketplace purchase must be one database transaction:
-
-1. verify purchaser owns/controls the track through its claimed music artist;
-2. verify visual is public and listed;
+Product purchase must be atomic:
+1. verify purchaser controls the music/video;
+2. verify visual is a product and has a price;
 3. lock purchaser credit balance;
 4. debit allocations;
-5. create the visual licence;
+5. create the visual licence with param snapshot;
 6. record Visamp share and creator earning.
 
-Creator earnings are a separate non-spendable ledger. They are not simply added to the creator's Visamp credit balance.
+Creator earnings remain a separate non-spendable ledger. Cash payout mechanics are post-M1.
 
-For the M1 prototype use a fixed platform percentage in server/database configuration. Payout mechanics are post-M1.
+## Video persistence
 
-## Preview flow
+A Video is a durable Studio object, separate from performance sets.
 
-M1 artist flow:
+It stores enough authoring state to reopen Video Maker, including:
+- owned track references/timing;
+- visual references/timing;
+- param values per visual use;
+- licence/provenance references;
+- output format/aspect ratio;
+- distribution and scheduling state;
+- generated/exported asset references.
 
-1. choose/upload one owned track;
-2. browse listed visuals while that track keeps playing;
-3. selecting a visual changes the visual but not the track;
-4. exposed controls appear for that visual;
-5. changing a control updates the running visual immediately;
-6. purchase confirms credit price;
-7. successful purchase unlocks export for that track/visual/customisation.
+The existing set model/timeline is implementation leverage, not the final Video data model.
 
 ## Export
 
-M1 requires one usable vertical promotional video from the licensed pairing.
-
-Target first format: 9:16, with track audio, suitable for short-form social use. Exact duration and capture implementation can be decided in the export task; do not block marketplace work on a general-purpose editor.
+M1 requires one usable promotional video from the authored Video Maker project, with track audio and visual output, and the result must appear in My Videos.
 
 ## Deliberately outside M1
 
-- campaign generation;
-- social account connections and scheduling;
+- full campaign generation;
+- social platform publishing implementation;
 - creator cash payout execution;
 - subscriptions/auto-top-up;
 - exclusive licences;
