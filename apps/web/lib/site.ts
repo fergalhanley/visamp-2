@@ -30,6 +30,7 @@ export const navLinks: {
   external?: boolean;
   icon?: "discord";
 }[] = [
+  { href: "/studio", label: "Studio" },
   { href: "/player", label: "Player" },
   { href: "/creators", label: "◈ Creators" },
   { href: "/artists", label: "♫ Artists" },
