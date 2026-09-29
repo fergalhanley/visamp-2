@@ -337,6 +337,11 @@ export function VisampCanvas({
       setAnimationTime: (timeMs: number | null) => {
         engineRef.current?.set_animation_time(timeMs ?? undefined);
       },
+      setProperty: (name, value) => {
+        const engine = engineRef.current;
+        if (!engine) throw new Error("The visualisation engine is not ready");
+        engine.set_property(name, JSON.stringify(value));
+      },
       queueInput: (packet: object | null) => {
         if (packet) engineRef.current?.queue_input(JSON.stringify(packet));
         else engineRef.current?.clear_input();
