@@ -4,8 +4,8 @@
 
 Keep this list short. Maximum target: 10 active tasks.
 
-- [ ] Audit current M1 capabilities and map reusable code/data to R090-R094; record only material gaps.
-- [ ] Define the visual product, customisation, licence and creator-earning model. [R091 R092 R094]
+- [x] Audit current M1 capabilities and map reusable code/data to R090-R094; see [M1 design](designs/marketplace-prototype.md).
+- [x] Define the visual product, customisation, licence and creator-earning model; see [M1 design](designs/marketplace-prototype.md). [R091 R092 R094]
 - [ ] Implement creator-exposed visual parameters. [R091]
 - [ ] Build track-based marketplace browsing and live preview. [R090]
 - [ ] Apply exposed visual parameters during marketplace preview. [R091]
