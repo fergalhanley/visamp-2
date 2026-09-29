@@ -58,6 +58,7 @@ export interface EngineModule {
   main_web(): void;
   set_animation_time(timeMs?: number): void;
   set_animation_paused(paused: boolean): void;
+  set_property(name: string, valueJson: string): void;
   queue_input(json: string): void;
   clear_input(): void;
   input_capabilities(code: string): number;
@@ -111,9 +112,13 @@ export type ResolvedAsset =
       uvs: Float32Array;
     };
 
+export type ExternalPropertyValue = string | number | boolean;
+
 export interface VisampCanvasHandle {
   /** Shared animation time, in milliseconds; null restores automatic playback. */
   setAnimationTime: (timeMs: number | null) => void;
+  /** Change a declared top-level Visript property without rewriting source. */
+  setProperty: (name: string, value: ExternalPropertyValue) => void;
   queueInput: (packet: object | null) => void;
   /**
    * Resolves a PNG Blob at a fixed 1280×720, whatever size the canvas is on
