@@ -1,3 +1,28 @@
+export type MarketplaceControl =
+  | {
+      prop: string;
+      label: string;
+      kind: "number";
+      min?: number;
+      max?: number;
+      step?: number;
+    }
+  | {
+      prop: string;
+      label: string;
+      kind: "boolean";
+    }
+  | {
+      prop: string;
+      label: string;
+      kind: "colour";
+    }
+  | {
+      prop: string;
+      label: string;
+      kind: "text";
+    };
+
 export interface Creator {
   username: string;
   avatarUrl?: string;
@@ -18,6 +43,10 @@ export interface Visualisation {
   creator: Creator;
   /** Present for database-backed rows; absent for the local fixtures. */
   ownerId?: string;
+  /** Marketplace metadata is absent on local fixtures and unlisted legacy work. */
+  marketplaceListed?: boolean;
+  marketplacePriceCredits?: number;
+  marketplaceControls?: MarketplaceControl[];
   /**
    * The visualisation this one was forked from, when it was. Attribution is
    * insert-only at the grant level, so this is as permanent as the row.
