@@ -2,7 +2,7 @@
 
 import {
   VisampCanvas,
-  type ExternalPropertyValue,
+  type ExternalParamValue,
   type PropertyView,
   type VisampCanvasHandle,
 } from "@visamp/player";
@@ -32,7 +32,7 @@ type TracksState = {
 function propertyValue(
   property: PropertyView | undefined,
   control: MarketplaceControl,
-): ExternalPropertyValue | undefined {
+): ExternalParamValue | undefined {
   if (!property) return undefined;
   if (control.kind === "number") {
     const value = Number(property.value);
@@ -60,7 +60,7 @@ export function MarketplaceStudio() {
   const [properties, setProperties] = useState<PropertyView[]>([]);
   const [overrides, setOverrides] = useState<{
     visualId: string | null;
-    values: Record<string, ExternalPropertyValue>;
+    values: Record<string, ExternalParamValue>;
   }>({ visualId: null, values: {} });
   const [previewError, setPreviewError] = useState("");
   const [availableCredits, setAvailableCredits] = useState<number | null>(null);
@@ -163,11 +163,11 @@ export function MarketplaceStudio() {
 
   function applyControl(
     control: MarketplaceControl,
-    value: ExternalPropertyValue,
+    value: ExternalParamValue,
   ) {
     if (!selectedVisual) return;
     try {
-      canvas.current?.setProperty(control.prop, value);
+      canvas.current?.setParam(control.prop, value);
       setOverrides((current) => ({
         visualId: selectedVisual.id,
         values: {
