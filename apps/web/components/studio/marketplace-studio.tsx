@@ -2,6 +2,7 @@
 
 import {
   VisampCanvas,
+  type ExternalPropertyValue,
   type PropertyView,
   type VisampCanvasHandle,
 } from "@visamp/player";
@@ -15,9 +16,6 @@ import { useMarketplaceVisualisations } from "@/hooks/use-marketplace-visualisat
 import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import type { HostedTrackSummary } from "@/lib/hosted-audio/types";
 import { useAudioStore, wireAudioEvents } from "@/lib/store/audio";
-import type {
-  ExternalPropertyValue,
-} from "@visamp/player";
 import type { MarketplaceControl, Visualisation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +58,12 @@ export function MarketplaceStudio() {
     values: Record<string, ExternalPropertyValue>;
   }>({ visualId: null, values: {} });
   const [previewError, setPreviewError] = useState("");
+  const [availableCredits, setAvailableCredits] = useState<number | null>(null);
+  const [purchase, setPurchase] = useState<{
+    loading: boolean;
+    licenceId: string | null;
+    message: string;
+  }>({ loading: false, licenceId: null, message: "" });
 
   const canvas = useRef<VisampCanvasHandle>(null);
   const analyser = useAnalyser();
@@ -75,6 +79,14 @@ export function MarketplaceStudio() {
   useEffect(() => {
     if (!user) return;
     let active = true;
+    void fetch("/api/billing", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as { available?: number };
+        if (active && response.ok && typeof payload.available === "number")
+          setAvailableCredits(payload.available);
+      })
+      .catch(() => {});
+
     void fetch("/api/studio/tracks", { cache: "no-store" })
       .then(async (response) => {
         const payload = (await response.json()) as {
@@ -132,6 +144,7 @@ export function MarketplaceStudio() {
     setSelectedVisualId(vis.id);
     setProperties([]);
     setOverrides({ visualId: vis.id, values: {} });
+    setPurchase({ loading: false, licenceId: null, message: "" });
     setPreviewError("");
   }
 
@@ -154,6 +167,57 @@ export function MarketplaceStudio() {
       setPreviewError(
         error instanceof Error ? error.message : "Could not update the visual.",
       );
+    }
+  }
+
+  async function licenseVisual() {
+    if (!selectedTrack || !selectedVisual || purchase.loading) return;
+
+    setPurchase({ loading: true, licenceId: null, message: "" });
+    try {
+      const response = await fetch("/api/studio/licences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trackId: selectedTrack.id,
+          visualisationId: selectedVisual.id,
+          controlValues: activeOverrides,
+        }),
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        status?: string;
+        licenceId?: string;
+        availableCredits?: number;
+        requiredCredits?: number;
+      };
+      if (!response.ok) {
+        if (response.status === 402) {
+          throw new Error(
+            `Not enough credits. This visual costs ${result.requiredCredits ?? selectedVisual.marketplacePriceCredits ?? "more"} credits.`,
+          );
+        }
+        throw new Error(result.error ?? "Could not license this visual.");
+      }
+
+      if (typeof result.availableCredits === "number")
+        setAvailableCredits(result.availableCredits);
+
+      setPurchase({
+        loading: false,
+        licenceId: result.licenceId ?? null,
+        message:
+          result.status === "existing"
+            ? "Already licensed for this track."
+            : "Licensed. This visual is ready to export.",
+      });
+    } catch (error) {
+      setPurchase({
+        loading: false,
+        licenceId: null,
+        message:
+          error instanceof Error ? error.message : "Could not license this visual.",
+      });
     }
   }
 
@@ -448,12 +512,49 @@ export function MarketplaceStudio() {
           )}
 
           {selectedVisual && (
-            <div className="border-t pt-4 text-xs text-muted-foreground">
-              Visual by{" "}
-              <span className="text-foreground">
-                {selectedVisual.creator.username}
-              </span>
-            </div>
+            <>
+              <div className="border-t pt-4 text-xs text-muted-foreground">
+                Visual by{" "}
+                <span className="text-foreground">
+                  {selectedVisual.creator.username}
+                </span>
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Your credits</span>
+                  <span>{availableCredits ?? "—"}</span>
+                </div>
+                <button
+                  type="button"
+                  disabled={!selectedTrack || purchase.loading}
+                  onClick={() => void licenseVisual()}
+                  className="w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background disabled:opacity-40"
+                >
+                  {purchase.loading
+                    ? "Licensing…"
+                    : `License for ${selectedVisual.marketplacePriceCredits ?? "—"} credits`}
+                </button>
+                {!selectedTrack && (
+                  <p className="text-xs text-muted-foreground">
+                    Choose one of your tracks first.
+                  </p>
+                )}
+                {purchase.message && (
+                  <p
+                    role="status"
+                    className={cn(
+                      "text-xs",
+                      purchase.licenceId
+                        ? "text-emerald-500"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {purchase.message}
+                  </p>
+                )}
+              </div>
+            </>
           )}
         </div>
       </aside>
