@@ -46,6 +46,8 @@ export interface PropertyView {
   swatch?: string;
 }
 
+export type ParamView = PropertyView;
+
 export interface LogEntry {
   level: LogLevel;
   message: string;
@@ -58,7 +60,7 @@ export interface EngineModule {
   main_web(): void;
   set_animation_time(timeMs?: number): void;
   set_animation_paused(paused: boolean): void;
-  set_property(name: string, valueJson: string): void;
+  set_param(name: string, valueJson: string): void;
   queue_input(json: string): void;
   clear_input(): void;
   input_capabilities(code: string): number;
@@ -70,8 +72,10 @@ export interface EngineModule {
   set_audio_analysis(waveform: Float32Array, spectrum: Float32Array, sampleRate: number, level: number, beat: boolean, onset: boolean, onsetStrength: number): void;
   set_audio_frequency(frequency: Uint8Array): void;
   clear_audio_frame(): void;
-  /** JSON array of `PropertyView`; see `startPropertiesBridge`. */
+  /** JSON array of mutable `PropertyView`; see `startPropertiesBridge`. */
   get_properties(): string;
+  /** JSON array of immutable creator-defined params. */
+  get_params(): string;
   set_asset_texture(id: string, width: number, height: number, rgba: Uint8Array): boolean;
   set_asset_mesh(
     id: string,
@@ -112,13 +116,13 @@ export type ResolvedAsset =
       uvs: Float32Array;
     };
 
-export type ExternalPropertyValue = string | number | boolean;
+export type ExternalParamValue = string | number | boolean;
 
 export interface VisampCanvasHandle {
   /** Shared animation time, in milliseconds; null restores automatic playback. */
   setAnimationTime: (timeMs: number | null) => void;
-  /** Change a declared top-level Visript property without rewriting source. */
-  setProperty: (name: string, value: ExternalPropertyValue) => void;
+  /** Change a declared immutable Visript param through the host boundary. */
+  setParam: (name: string, value: ExternalParamValue) => void;
   /** Real-time canvas stream used by browser video export. */
   captureStream: (fps?: number) => MediaStream;
   queueInput: (packet: object | null) => void;
