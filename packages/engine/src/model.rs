@@ -635,6 +635,25 @@ impl Declarations {
             .find(|(slot, _)| &**slot == name)
             .map(|(_, value)| value)
     }
+
+    /// Updates a name in the outermost scope only.
+    ///
+    /// Marketplace controls use this rather than `set`: an external control
+    /// is allowed to change a declared `prop`, never a temporary local that
+    /// happens to reuse the same name while a frame is executing.
+    pub fn set_global(&mut self, name: &str, value: Value) -> Result<(), String> {
+        let end = self.marks.get(1).copied().unwrap_or(self.slots.len());
+        if let Some((_, existing)) = self.slots[..end]
+            .iter_mut()
+            .rev()
+            .find(|(slot, _)| &**slot == name)
+        {
+            *existing = value;
+            Ok(())
+        } else {
+            Err(format!("Unknown property '{name}'"))
+        }
+    }
 }
 
 // ── AST Types ──
@@ -992,4 +1011,70 @@ impl Model {
             prop_names,
         }
     }
+
+    /// Changes a declared top-level property from an external host control.
+    ///
+    /// The JSON boundary keeps wasm/JS callers simple while preserving Visript
+    /// types. A rejected value never changes the running model.
+    pub fn set_property_json(&mut self, name: &str, json: &str) -> Result<(), String> {
+        let current = self
+            .decels
+            .global(name)
+            .cloned()
+            .ok_or_else(|| format!("Unknown property '{name}'"))?;
+        let incoming: serde_json::Value =
+            serde_json::from_str(json).map_err(|_| format!("Invalid value for property '{name}'"))?;
+
+        let value = match current {
+            Value::Boolean(_) => incoming
+                .as_bool()
+                .map(Value::Boolean)
+                .ok_or_else(|| format!("Property '{name}' expects a boolean"))?,
+            Value::Integer(_) => incoming
+                .as_i64()
+                .map(Value::Integer)
+                .ok_or_else(|| format!("Property '{name}' expects an integer"))?,
+            Value::Float(_) => incoming
+                .as_f64()
+                .filter(|value| value.is_finite())
+                .map(Value::Float)
+                .ok_or_else(|| format!("Property '{name}' expects a finite number"))?,
+            Value::String(_) => incoming
+                .as_str()
+                .map(|value| Value::String(value.to_string()))
+                .ok_or_else(|| format!("Property '{name}' expects text"))?,
+            Value::Color(existing) => {
+                let text = incoming
+                    .as_str()
+                    .ok_or_else(|| format!("Property '{name}' expects a #rrggbb colour"))?;
+                Value::Color(parse_control_color(text, existing.a)
+                    .ok_or_else(|| format!("Property '{name}' expects a #rrggbb or #rrggbbaa colour"))?)
+            }
+            other => {
+                return Err(format!(
+                    "Property '{name}' of type {} cannot be externally controlled",
+                    other.type_tag()
+                ))
+            }
+        };
+
+        self.decels.set_global(name, value)
+    }
+}
+
+fn parse_control_color(value: &str, default_alpha: f64) -> Option<Color> {
+    let hex = value.strip_prefix('#')?;
+    if hex.len() != 6 && hex.len() != 8 {
+        return None;
+    }
+    let channel = |start: usize| u8::from_str_radix(&hex[start..start + 2], 16).ok();
+    let r = channel(0)? as f64 / 255.0;
+    let g = channel(2)? as f64 / 255.0;
+    let b = channel(4)? as f64 / 255.0;
+    let a = if hex.len() == 8 {
+        channel(6)? as f64 / 255.0
+    } else {
+        default_alpha
+    };
+    Some(Color::new(r, g, b, a))
 }
