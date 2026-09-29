@@ -6,7 +6,7 @@ import {
   type PropertyView,
   type VisampCanvasHandle,
 } from "@visamp/player";
-import { Pause, Play, Upload } from "lucide-react";
+import { Download, Pause, Play, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
@@ -14,7 +14,12 @@ import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { useAnalyser } from "@/hooks/use-analyser";
 import { useMarketplaceVisualisations } from "@/hooks/use-marketplace-visualisations";
 import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
+import { getAudioEngine } from "@/lib/audio/audio-engine";
 import type { HostedTrackSummary } from "@/lib/hosted-audio/types";
+import {
+  downloadRecordedVideo,
+  recordVideo,
+} from "@/lib/studio/export-video";
 import { useAudioStore, wireAudioEvents } from "@/lib/store/audio";
 import type { MarketplaceControl, Visualisation } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -64,13 +69,18 @@ export function MarketplaceStudio() {
     licenceId: string | null;
     message: string;
   }>({ loading: false, licenceId: null, message: "" });
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
 
   const canvas = useRef<VisampCanvasHandle>(null);
   const analyser = useAnalyser();
   const marketplace = useMarketplaceVisualisations();
   const isPlaying = useAudioStore((state) => state.isPlaying);
+  const position = useAudioStore((state) => state.position);
+  const duration = useAudioStore((state) => state.duration);
   const audioError = useAudioStore((state) => state.hostedError);
   const togglePlay = useAudioStore((state) => state.togglePlay);
+  const seek = useAudioStore((state) => state.seek);
 
   useEffect(() => {
     wireAudioEvents();
@@ -145,6 +155,7 @@ export function MarketplaceStudio() {
     setProperties([]);
     setOverrides({ visualId: vis.id, values: {} });
     setPurchase({ loading: false, licenceId: null, message: "" });
+    setExportMessage("");
     setPreviewError("");
   }
 
@@ -218,6 +229,60 @@ export function MarketplaceStudio() {
         message:
           error instanceof Error ? error.message : "Could not license this visual.",
       });
+    }
+  }
+
+  async function exportClip() {
+    if (
+      !selectedTrack ||
+      !selectedVisual ||
+      !purchase.licenceId ||
+      !canvas.current ||
+      exporting
+    )
+      return;
+
+    setExporting(true);
+    setExportMessage("Preparing 9:16 export…");
+    try {
+      // Let the canvas ResizeObserver settle after switching to portrait.
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+
+      if (!useAudioStore.getState().isPlaying)
+        await useAudioStore.getState().togglePlay();
+
+      const remainingSeconds =
+        useAudioStore.getState().duration > 0
+          ? Math.max(
+              1,
+              useAudioStore.getState().duration -
+                useAudioStore.getState().position,
+            )
+          : 15;
+      const seconds = Math.min(15, remainingSeconds);
+
+      setExportMessage(`Recording ${Math.round(seconds)} seconds…`);
+      const recorded = await recordVideo(
+        canvas.current.captureStream(30),
+        getAudioEngine().getRecordingStream(),
+        seconds * 1000,
+      );
+      const stem = `${selectedTrack.artist}-${selectedTrack.title}-visamp`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 100);
+
+      downloadRecordedVideo(recorded, stem || "visamp-export");
+      setExportMessage("Export ready.");
+    } catch (error) {
+      setExportMessage(
+        error instanceof Error ? error.message : "Video export failed.",
+      );
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -298,7 +363,12 @@ export function MarketplaceStudio() {
 
       <section className="min-w-0">
         <div className="overflow-hidden rounded-xl border bg-black">
-          <div className="aspect-video">
+          <div
+            className={cn(
+              "mx-auto transition-[aspect-ratio,width] duration-200",
+              exporting ? "aspect-[9/16] h-[70vh] max-h-[900px]" : "aspect-video w-full",
+            )}
+          >
             {selectedVisual ? (
               <VisampCanvas
                 ref={canvas}
@@ -343,6 +413,16 @@ export function MarketplaceStudio() {
                     {selectedTrack.artist}
                   </p>
                 </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(duration, 1)}
+                  step={0.1}
+                  value={Math.min(position, Math.max(duration, 1))}
+                  onChange={(event) => seek(Number(event.target.value))}
+                  className="ml-auto min-w-24 flex-1"
+                  aria-label="Track position"
+                />
               </>
             ) : (
               <p className="text-sm text-white/60">
@@ -551,6 +631,22 @@ export function MarketplaceStudio() {
                     )}
                   >
                     {purchase.message}
+                  </p>
+                )}
+                {purchase.licenceId && (
+                  <button
+                    type="button"
+                    disabled={exporting}
+                    onClick={() => void exportClip()}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium disabled:opacity-40"
+                  >
+                    <Download className="h-4 w-4" />
+                    {exporting ? "Recording…" : "Export 15s vertical clip"}
+                  </button>
+                )}
+                {exportMessage && (
+                  <p role="status" className="text-xs text-muted-foreground">
+                    {exportMessage}
                   </p>
                 )}
               </div>
