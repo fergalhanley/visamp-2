@@ -9,6 +9,7 @@ export type {
   Diagnostic,
   DiagnosticSeverity,
   EngineModule,
+  ExternalPropertyValue,
   LogEntry,
   LogLevel,
   PropertyView,
