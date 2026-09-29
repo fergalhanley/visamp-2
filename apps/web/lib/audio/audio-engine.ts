@@ -56,6 +56,8 @@ export class AudioEngine {
   private element: HTMLAudioElement | null = null;
   /** A media element may only be adopted by one source node, ever. */
   private elementSource: MediaElementAudioSourceNode | null = null;
+  private recordingDestination: MediaStreamAudioDestinationNode | null = null;
+  private recordingConnected = false;
   private objectUrl: string | null = null;
   /** Active hls.js session, when the current source needs one. */
   private hls: import("hls.js").default | null = null;
@@ -96,6 +98,9 @@ export class AudioEngine {
     if (this.ctx && !this.sharedContext) void this.ctx.close();
     this.element = null;
     this.elementSource = null;
+    this.recordingDestination?.disconnect();
+    this.recordingDestination = null;
+    this.recordingConnected = false;
     this.analyser = null;
     this.ctx = null;
     this.events = {};
@@ -198,6 +203,34 @@ export class AudioEngine {
     // itself to the destination would also route its microphone input to the
     // speakers, creating feedback.
     this.elementSource.connect(this.destination ?? ctx.destination);
+    this.connectRecordingDestination();
+  }
+
+  private connectRecordingDestination(): void {
+    if (
+      !this.elementSource ||
+      !this.recordingDestination ||
+      this.recordingConnected
+    )
+      return;
+    this.elementSource.connect(this.recordingDestination);
+    this.recordingConnected = true;
+  }
+
+  /**
+   * A clean audio-only stream for browser video export.
+   *
+   * It taps only the media element, not the analyser, so microphone input can
+   * never leak into an artist's rendered release clip.
+   */
+  getRecordingStream(): MediaStream {
+    const ctx = this.ensureContext();
+    if (!this.recordingDestination) {
+      this.recordingDestination = ctx.createMediaStreamDestination();
+      this.recordingConnected = false;
+    }
+    this.connectRecordingDestination();
+    return this.recordingDestination.stream;
   }
 
   /** Tears down any HLS session without disturbing the audio graph. */
