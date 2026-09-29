@@ -4,42 +4,36 @@ import { useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
+type Distribution = "private" | "public" | "protected" | "product";
+
 interface MarketplaceListingProps {
   visualisationId: string;
   canEdit: boolean;
-  visibility: "public" | "private";
-  initialListed: boolean;
+  visibility: Distribution;
   initialPrice: number | null;
 }
 
+/** Product-only commercial metadata; distribution itself is chosen in editor. */
 export function MarketplaceListing({
   visualisationId,
   canEdit,
   visibility,
-  initialListed,
   initialPrice,
 }: MarketplaceListingProps) {
-  const [listed, setListed] = useState(initialListed);
   const [price, setPrice] = useState(
     initialPrice === null ? "" : String(initialPrice),
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  if (!canEdit) return null;
+  if (!canEdit || visibility !== "product") return null;
 
   const numericPrice = Number(price);
-  const validPrice =
-    Number.isSafeInteger(numericPrice) && numericPrice > 0;
-  const canList = visibility === "public" && validPrice;
+  const validPrice = Number.isSafeInteger(numericPrice) && numericPrice > 0;
 
   async function save() {
     if (!validPrice) {
       setMessage("Enter a whole-number credit price.");
-      return;
-    }
-    if (listed && visibility !== "public") {
-      setMessage("Make the visual public before listing it.");
       return;
     }
 
@@ -47,30 +41,18 @@ export function MarketplaceListing({
     setMessage("");
     const { error } = await createClient()
       .from("visualisations")
-      .update({
-        marketplace_price_credits: numericPrice,
-        marketplace_listed: listed && visibility === "public",
-      })
+      .update({ marketplace_price_credits: numericPrice })
       .eq("id", visualisationId)
       .select("id")
       .single();
     setSaving(false);
 
-    setMessage(error ? error.message : "Marketplace settings saved.");
+    setMessage(error ? error.message : "Product price saved.");
   }
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5 text-xs">
-      <span className="font-medium">Marketplace</span>
-      <label className="flex items-center gap-1.5">
-        <input
-          type="checkbox"
-          checked={listed}
-          disabled={!canList && !listed}
-          onChange={(event) => setListed(event.target.checked)}
-        />
-        Listed
-      </label>
+      <span className="font-medium">Product</span>
       <label className="flex items-center gap-1.5 text-muted-foreground">
         Price
         <input
@@ -84,7 +66,7 @@ export function MarketplaceListing({
             setMessage("");
           }}
           className="w-20 rounded border bg-transparent px-2 py-1 text-foreground"
-          aria-label="Marketplace price in credits"
+          aria-label="Product price in credits"
         />
         credits
       </label>
@@ -94,23 +76,23 @@ export function MarketplaceListing({
         onClick={() => void save()}
         className="rounded border px-2 py-1 transition hover:bg-foreground/5 disabled:opacity-50"
       >
-        {saving ? "Saving…" : "Save"}
+        {saving ? "Saving…" : "Save price"}
       </button>
-      {visibility !== "public" && (
-        <span className="text-muted-foreground">Public visuals only</span>
-      )}
+      <span className="text-muted-foreground">
+        Customisation comes from Visript params.
+      </span>
       {message && (
         <span
           role="status"
-          className={errorTone(message) ? "text-destructive" : "text-muted-foreground"}
+          className={
+            message.endsWith("saved.")
+              ? "text-muted-foreground"
+              : "text-destructive"
+          }
         >
           {message}
         </span>
       )}
     </div>
   );
-}
-
-function errorTone(message: string) {
-  return !message.endsWith("saved.");
 }
