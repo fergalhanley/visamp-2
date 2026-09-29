@@ -3,33 +3,19 @@
 import type { PropertyView } from "@visamp/player";
 
 import { useFps } from "@/hooks/use-fps";
-import { controlForProperty } from "@/lib/marketplace/controls";
-import type { MarketplaceControl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface PropertiesInspectorProps {
   properties: PropertyView[];
-  marketplaceControls?: MarketplaceControl[];
-  canEditMarketplace?: boolean;
-  onMarketplaceControlChange?: (
-    property: PropertyView,
-    enabled: boolean,
-  ) => void;
 }
 
 /**
- * Live readout of every `prop` in the script.
+ * Live readout of mutable `prop` state in the script.
  *
- * Values arrive already formatted from the engine — including `NaN` and `∞`,
- * which are worth seeing rather than hiding, since a property quietly going
- * non-finite is exactly the kind of thing that makes a visualisation vanish.
+ * Host-controlled `param` values are deliberately separate: they are inputs,
+ * not creator-owned mutable state.
  */
-export function PropertiesInspector({
-  properties,
-  marketplaceControls = [],
-  canEditMarketplace = false,
-  onMarketplaceControlChange,
-}: PropertiesInspectorProps) {
+export function PropertiesInspector({ properties }: PropertiesInspectorProps) {
   const fps = useFps();
 
   return (
@@ -46,59 +32,34 @@ export function PropertiesInspector({
           <p className="text-muted-foreground">No properties declared.</p>
         ) : (
           <ul className="space-y-0.5">
-            {properties.map((property) => {
-              const supported = controlForProperty(property);
-              const exposed = marketplaceControls.some(
-                (control) => control.prop === property.name,
-              );
-              return (
-                <li key={property.name} className="flex items-baseline gap-2">
-                  {canEditMarketplace && supported && onMarketplaceControlChange && (
-                    <input
-                      type="checkbox"
-                      checked={exposed}
-                      onChange={(event) =>
-                        onMarketplaceControlChange(property, event.target.checked)
-                      }
-                      aria-label={`Expose ${property.name} to musicians`}
-                      title="Expose this property as a marketplace control"
-                      className="relative top-px"
+            {properties.map((property) => (
+              <li key={property.name} className="flex items-baseline gap-2">
+                <span className="shrink-0 text-[#89ddff]" title={property.type}>
+                  {property.name}
+                </span>
+                <span
+                  className="ml-auto min-w-0 truncate text-right text-foreground/80"
+                  title={`${property.value} (${property.type})`}
+                >
+                  {property.swatch && (
+                    <span
+                      aria-hidden
+                      className="mr-1 inline-block h-2 w-2 rounded-full align-middle ring-1 ring-foreground/20"
+                      style={{ backgroundColor: property.swatch }}
                     />
                   )}
-                  <span
-                    className="shrink-0 text-[#89ddff]"
-                    title={property.type}
-                  >
-                    {property.name}
-                  </span>
-                  <span
-                    className="ml-auto min-w-0 truncate text-right text-foreground/80"
-                    title={`${property.value} (${property.type})`}
-                  >
-                    {property.swatch && (
-                      <span
-                        aria-hidden
-                        className="mr-1 inline-block h-2 w-2 rounded-full align-middle ring-1 ring-foreground/20"
-                        style={{ backgroundColor: property.swatch }}
-                      />
-                    )}
-                    {property.value}
-                  </span>
-                </li>
-              );
-            })}
+                  {property.value}
+                </span>
+              </li>
+            ))}
           </ul>
         )}
       </div>
 
-      {/* Under the values, because it is the same kind of readout: something
-          the script is doing right now. */}
       <footer className="flex shrink-0 items-baseline justify-between border-t px-3 py-1.5 font-mono text-[11px]">
         <span className="text-muted-foreground">fps</span>
         <span
           className={cn(
-            // A visualisation is meant to run at the display's rate; falling
-            // well short of it is worth noticing without having to profile.
             fps >= 50
               ? "text-foreground/80"
               : fps >= 30
