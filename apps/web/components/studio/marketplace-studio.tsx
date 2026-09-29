@@ -140,6 +140,8 @@ export function MarketplaceStudio() {
 
   async function selectTrack(track: HostedTrackSummary) {
     setSelectedTrackId(track.id);
+    setPurchase({ loading: false, licenceId: null, message: "" });
+    setExportMessage("");
     setPreviewError("");
     try {
       await useAudioStore.getState().playHostedSelection(track.id, [track]);
