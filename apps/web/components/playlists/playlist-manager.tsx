@@ -20,7 +20,6 @@ export function PlaylistManager({ initialId }: { initialId: string }) {
   const [filter, setFilter] = useState("");
   useEffect(() => {
     let active = true;
-    setLoading(true);
     musicRequest<{ playlists: Playlist[] }>("/api/music/collections")
       .then((data) => {
         if (active) setPlaylists(data.playlists);
