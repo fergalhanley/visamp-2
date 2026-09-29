@@ -7,7 +7,7 @@ import {
   type VisampCanvasHandle,
 } from "@visamp/player";
 import { Download, Pause, Play, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInDialog } from "@/components/auth/sign-in-dialog";
