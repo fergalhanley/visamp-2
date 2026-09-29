@@ -342,6 +342,11 @@ export function VisampCanvas({
         if (!engine) throw new Error("The visualisation engine is not ready");
         engine.set_property(name, JSON.stringify(value));
       },
+      captureStream: (fps = 30) => {
+        const canvas = canvasRef.current;
+        if (!canvas) throw new Error("The visualisation canvas is not ready");
+        return canvas.captureStream(fps);
+      },
       queueInput: (packet: object | null) => {
         if (packet) engineRef.current?.queue_input(JSON.stringify(packet));
         else engineRef.current?.clear_input();
