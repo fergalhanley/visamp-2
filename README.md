@@ -1,20 +1,19 @@
 # Visamp 2
 
-VisAmp is a visual music platform powered by **Visript**, its visualisation language. Write declarative code to create audio-reactive graphics using Canvas 2D and WebGL 3D.
+Visamp is a visual release platform for musicians and visual creators. Musicians can pair their tracks with programmable audio-reactive visuals, customise and license creator work, and turn those pairings into release-ready video content. **Visript** is Visamp's visualisation language.
 
 ## Language naming
 
 The visualisation language is **Visript**, with `.viscript` as its standard source
 extension and `visript` as its editor/Markdown language identifier. `.vdsl` remains
-supported as a legacy source extension. VisAmp is the product name; `@visamp/engine`, the `visamp_2` Rust crate, `visamp-validate`, database fields
+supported as a legacy source extension. Visamp is the product name; `@visamp/engine`, the `visamp_2` Rust crate, `visamp-validate`, database fields
 and the WebAssembly string API retain their existing integration names.
 The grammar is `packages/engine/visript.pest`; web language tooling lives in
 `apps/web/lib/visript`.
 
-## MVP planning
+## Product planning
 
-The current application is a PoC being developed into an open beta. Start with the
-[MVP specification](dev/mvp.md) and [ticket drafts](dev/mvp-backlog.md).
+The current application is being refocused around the visual marketplace and release-content workflow. Start with [requirements](agents/requirements.md), [milestones](agents/milestones.md) and the active [todo](agents/todo.md). The former `dev/mvp*.md` planning documents are retained as historical context.
 
 ## Repository
 
@@ -32,9 +31,7 @@ packages/
 
 ## Coding agents
 
-Codex CLI and Claude Code can access the Visamp backlog through the checked-in
-Linear MCP configurations. Follow [Linear agent setup and task pickup](agents/linear-workflow.md)
-for local authentication, connection checks and the shared delivery workflow.
+Codex CLI and Claude Code follow the lightweight repository workflow in [AGENTS.md](AGENTS.md). Active work is intentionally kept in the concise files under [`agents/`](agents/); Linear is no longer part of the default agent workflow.
 
 ## Quick Start
 
