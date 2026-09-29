@@ -6,23 +6,39 @@
 -- private   = creator only
 
 drop policy if exists "Readable when public or owned" on public.visualisations;
+drop policy if exists "Reference rows follow the visual and the asset" on public.visualisation_assets;
 drop index if exists public.visualisations_public_created_idx;
 drop index if exists public.visualisations_marketplace_idx;
+drop index if exists public.visualisations_preferred_track_public_idx;
 drop trigger if exists visualisations_sync_vis_count on public.visualisations;
+-- UPDATE OF visibility binds this trigger to the column's existing type.
+-- Remove it during the enum replacement, then restore its edit-only scope.
+drop trigger if exists visualisations_touch_updated_at on public.visualisations;
+drop trigger if exists visualisations_sync_assets on public.visualisations;
 
 alter table public.visualisations alter column visibility drop default;
 
-alter type public.visibility rename to visibility_old;
+-- Assets share the original public/private enum. Keep their type and all its
+-- constraints/policies intact; only visualisations gain distribution classes.
+alter type public.visibility rename to asset_visibility;
 create type public.visibility as enum ('private', 'public', 'protected', 'product');
 
 alter table public.visualisations
   alter column visibility type public.visibility
   using visibility::text::public.visibility;
 
-drop type public.visibility_old;
-
 alter table public.visualisations
   alter column visibility set default 'private';
+
+create trigger visualisations_touch_updated_at
+  before update of title, description, source, thumb_path, thumb_pinned,
+                   uses_audio, visibility
+  on public.visualisations
+  for each row execute function public.touch_updated_at();
+
+create trigger visualisations_sync_assets
+  after insert or update of source, visibility on public.visualisations
+  for each row execute function public.sync_visualisation_assets();
 
 -- The explicit listing bit/control metadata belonged to the first marketplace
 -- spike. Distribution class + Visript params are now the source of truth.
@@ -32,6 +48,10 @@ alter table public.visualisations
 
 create index visualisations_public_created_idx
   on public.visualisations (created_at desc)
+  where visibility = 'public';
+
+create index visualisations_preferred_track_public_idx
+  on public.visualisations (preferred_track_id, created_at desc)
   where visibility = 'public';
 
 create index visualisations_product_idx
@@ -47,6 +67,19 @@ create policy "Readable when public or owned"
   using (
     visibility = 'public'
     or owner_id = (select auth.uid())
+  );
+
+-- Preserve the existing asset-reference read boundary after replacing its
+-- dependency on the old visibility enum.
+create policy "Reference rows follow the visual and the asset"
+  on public.visualisation_assets
+  for select
+  using (
+    exists (
+      select 1 from public.visualisations v
+      where v.id = visualisation_id
+        and (v.visibility = 'public' or v.owner_id = (select auth.uid()))
+    )
   );
 
 create or replace function public.sync_vis_count()

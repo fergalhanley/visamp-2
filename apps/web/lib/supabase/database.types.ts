@@ -242,7 +242,7 @@ export type Database = {
   id: string; owner_id: string | null; kind: Database["public"]["Enums"]["asset_kind"];
   mime_type: string; file_name: string; object_key: string; bytes: number; sha256: string;
   status: string; error: string | null;
-  visibility: Database["public"]["Enums"]["visibility"]; published_at: string | null;
+  visibility: Database["public"]["Enums"]["asset_visibility"]; published_at: string | null;
   withdrawn_at: string | null; withdrawn_by: string | null; replacement_asset_id: string | null;
   created_at: string; updated_at: string;
 }
@@ -252,7 +252,7 @@ export type Database = {
           mime_type: string; file_name: string; object_key: string; bytes: number; sha256: string;
         }
         Update: {
-          visibility?: Database["public"]["Enums"]["visibility"];
+          visibility?: Database["public"]["Enums"]["asset_visibility"];
           status?: string; error?: string | null;
         }
         Relationships: []
@@ -1266,6 +1266,7 @@ export type Database = {
       licence_status: "pending" | "active" | "terminated"
       track_status: "ingesting" | "draft" | "live" | "withdrawn"
       video_status: "draft" | "rendering" | "ready" | "error"
+      asset_visibility: "public" | "private"
       visibility: "private" | "public" | "protected" | "product"
     }
     CompositeTypes: {
@@ -1410,7 +1411,8 @@ export const Constants = {
       asset_kind: ["bitmap", "vector", "model"],
       licence_status: ["pending", "active", "terminated"],
       track_status: ["ingesting", "draft", "live", "withdrawn"],
-      visibility: ["public", "private"],
+      asset_visibility: ["public", "private"],
+      visibility: ["private", "public", "protected", "product"],
     },
   },
 } as const

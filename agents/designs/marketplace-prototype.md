@@ -216,8 +216,8 @@ track duration), with timeline drag/trim and numeric timing/offset edits.
 
 Verified: shared timeline regressions, Video model/API tests, component
 create/edit/save/reopen and failure tests, Chromium authoring with isolated API
-fixtures, web type check, lint and production build. The new migration and live
-authenticated database round trip remain unverified. No product requirement is
+fixtures, web type check, lint and production build. Local Supabase migrations are applied and verified; the live
+authenticated browser/database round trip remains unverified. No product requirement is
 marked complete on the strength of fixture verification alone.
 
 Next integration: reuse set playback scheduling/audio infrastructure with a
@@ -226,3 +226,14 @@ performance-set resolver. Then reconnect licensing and export to this authored
 timeline. The retired MarketplaceStudio remains code for reusing those pieces;
 it is no longer the Studio workspace. Preview, live params, licensing UI and
 export are not yet connected to the new timeline.
+
+### Distribution migration dependencies
+
+`20260929143000_visual_distribution_classes.sql` preserves the original shared
+enum as `asset_visibility` for assets, which remain public/private. Visualisations
+alone receive the four-class `visibility` enum. Timestamp and asset-sync triggers,
+the asset-reference read policy, and public/preferred-track indexes are removed
+before the column type change and restored afterward with their existing scope.
+Verified against local PostgreSQL 17, including `visual_distribution_classes.sql`
+and the existing `assets_access.sql` regression tests. Remote application is
+separate from this local verification.
