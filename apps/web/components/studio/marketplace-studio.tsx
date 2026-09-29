@@ -3,7 +3,7 @@
 import {
   VisampCanvas,
   type ExternalParamValue,
-  type PropertyView,
+  type ParamView,
   type VisampCanvasHandle,
 } from "@visamp/player";
 import { Download, Pause, Play, Upload } from "lucide-react";
@@ -21,7 +21,7 @@ import {
   recordVideo,
 } from "@/lib/studio/export-video";
 import { useAudioStore, wireAudioEvents } from "@/lib/store/audio";
-import type { MarketplaceControl, Visualisation } from "@/lib/types";
+import type { Visualisation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type TracksState = {
@@ -29,23 +29,19 @@ type TracksState = {
   error: string | null;
 } | null;
 
-function propertyValue(
-  property: PropertyView | undefined,
-  control: MarketplaceControl,
-): ExternalParamValue | undefined {
-  if (!property) return undefined;
-  if (control.kind === "number") {
-    const value = Number(property.value);
+function paramValue(param: ParamView): ExternalParamValue | undefined {
+  if (param.type === "integer" || param.type === "float") {
+    const value = Number(param.value);
     return Number.isFinite(value) ? value : undefined;
   }
-  if (control.kind === "boolean") return property.value === "true";
-  if (control.kind === "colour") return property.swatch ?? undefined;
-  if (control.kind === "text") {
+  if (param.type === "boolean") return param.value === "true";
+  if (param.type === "color") return param.swatch ?? undefined;
+  if (param.type === "string") {
     try {
-      const value = JSON.parse(property.value);
-      return typeof value === "string" ? value : property.value;
+      const value = JSON.parse(param.value);
+      return typeof value === "string" ? value : param.value;
     } catch {
-      return property.value.replace(/^"|"$/g, "");
+      return param.value.replace(/^"|"$/g, "");
     }
   }
   return undefined;
@@ -57,7 +53,7 @@ export function MarketplaceStudio() {
   const [tracksState, setTracksState] = useState<TracksState>(null);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [selectedVisualId, setSelectedVisualId] = useState<string | null>(null);
-  const [properties, setProperties] = useState<PropertyView[]>([]);
+  const [params, setParams] = useState<ParamView[]>([]);
   const [overrides, setOverrides] = useState<{
     visualId: string | null;
     values: Record<string, ExternalParamValue>;
@@ -133,11 +129,6 @@ export function MarketplaceStudio() {
     selectedVisual?.id,
   );
 
-  const propertyMap = useMemo(
-    () => new Map(properties.map((property) => [property.name, property])),
-    [properties],
-  );
-
   async function selectTrack(track: HostedTrackSummary) {
     setSelectedTrackId(track.id);
     setPurchase({ loading: false, licenceId: null, message: "" });
@@ -154,25 +145,25 @@ export function MarketplaceStudio() {
 
   function selectVisual(vis: Visualisation) {
     setSelectedVisualId(vis.id);
-    setProperties([]);
+    setParams([]);
     setOverrides({ visualId: vis.id, values: {} });
     setPurchase({ loading: false, licenceId: null, message: "" });
     setExportMessage("");
     setPreviewError("");
   }
 
-  function applyControl(
-    control: MarketplaceControl,
+  function applyParam(
+    param: ParamView,
     value: ExternalParamValue,
   ) {
     if (!selectedVisual) return;
     try {
-      canvas.current?.setParam(control.prop, value);
+      canvas.current?.setParam(param.name, value);
       setOverrides((current) => ({
         visualId: selectedVisual.id,
         values: {
           ...(current.visualId === selectedVisual.id ? current.values : {}),
-          [control.prop]: value,
+          [param.name]: value,
         },
       }));
       setPreviewError("");
@@ -288,7 +279,9 @@ export function MarketplaceStudio() {
     }
   }
 
-  const controls = selectedVisual?.marketplaceControls ?? [];
+  const controls = params.filter((param) =>
+    ["integer", "float", "boolean", "color", "string"].includes(param.type),
+  );
   const activeOverrides =
     overrides.visualId === selectedVisual?.id ? overrides.values : {};
 
@@ -380,7 +373,7 @@ export function MarketplaceStudio() {
                 posterUrl={selectedVisual.thumbUrl}
                 active
                 analyser={analyser}
-                onProperties={setProperties}
+                onParams={setParams}
                 onLog={(entry) => {
                   if (entry.level === "error") setPreviewError(entry.message);
                 }}
@@ -514,33 +507,32 @@ export function MarketplaceStudio() {
               This creator has not exposed any controls.
             </p>
           ) : (
-            controls.map((control) => {
-              const property = propertyMap.get(control.prop);
-              const initial = propertyValue(property, control);
-              const value = activeOverrides[control.prop] ?? initial;
+            controls.map((param) => {
+              const initial = paramValue(param);
+              const value = activeOverrides[param.name] ?? initial;
 
-              if (control.kind === "boolean") {
+              if (param.type === "boolean") {
                 return (
                   <label
-                    key={control.prop}
+                    key={param.name}
                     className="flex items-center justify-between gap-3 text-sm"
                   >
-                    <span>{control.label}</span>
+                    <span>{param.name}</span>
                     <input
                       type="checkbox"
                       checked={Boolean(value)}
                       onChange={(event) =>
-                        applyControl(control, event.target.checked)
+                        applyParam(param, event.target.checked)
                       }
                     />
                   </label>
                 );
               }
 
-              if (control.kind === "colour") {
+              if (param.type === "color") {
                 return (
-                  <label key={control.prop} className="block text-sm">
-                    <span className="mb-2 block">{control.label}</span>
+                  <label key={param.name} className="block text-sm">
+                    <span className="mb-2 block">{param.name}</span>
                     <input
                       type="color"
                       value={
@@ -549,7 +541,7 @@ export function MarketplaceStudio() {
                           : "#ffffff"
                       }
                       onChange={(event) =>
-                        applyControl(control, event.target.value)
+                        applyParam(param, event.target.value)
                       }
                       className="h-10 w-full"
                     />
@@ -557,15 +549,15 @@ export function MarketplaceStudio() {
                 );
               }
 
-              if (control.kind === "text") {
+              if (param.type === "string") {
                 return (
-                  <label key={control.prop} className="block text-sm">
-                    <span className="mb-2 block">{control.label}</span>
+                  <label key={param.name} className="block text-sm">
+                    <span className="mb-2 block">{param.name}</span>
                     <input
                       type="text"
                       value={typeof value === "string" ? value : ""}
                       onChange={(event) =>
-                        applyControl(control, event.target.value)
+                        applyParam(param, event.target.value)
                       }
                       className="w-full rounded-md border bg-transparent px-3 py-2"
                     />
@@ -574,17 +566,17 @@ export function MarketplaceStudio() {
               }
 
               return (
-                <label key={control.prop} className="block text-sm">
-                  <span className="mb-2 block">{control.label}</span>
+                <label key={param.name} className="block text-sm">
+                  <span className="mb-2 block">{param.name}</span>
                   <input
                     type="number"
                     value={typeof value === "number" ? value : ""}
-                    min={control.min}
-                    max={control.max}
-                    step={control.step ?? "any"}
+                    min={undefined}
+                    max={undefined}
+                    step="any"
                     onChange={(event) => {
                       const next = Number(event.target.value);
-                      if (Number.isFinite(next)) applyControl(control, next);
+                      if (Number.isFinite(next)) applyParam(param, next);
                     }}
                     className="w-full rounded-md border bg-transparent px-3 py-2"
                   />
