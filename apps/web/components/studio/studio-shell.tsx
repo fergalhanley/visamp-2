@@ -1,285 +1,193 @@
 "use client";
 
-import { Film, Plus, WandSparkles } from "lucide-react";
-import { useEffect, useState } from "react";
-
-import { VideoMaker } from "@/components/studio/video-maker";
-import type { VideoSummary } from "@/lib/videos/model";
-import { cn } from "@/lib/utils";
-
-type StudioTab = "videos" | "maker";
+import { useEffect, useRef, useState } from "react";
+import { request } from "@/lib/sets/client";
+import { duration, timecode, type SetDocument } from "@/lib/sets/model";
+import type { StudioSelection, StudioSets } from "@/lib/studio/model";
 
 export function StudioShell() {
-  const [tab, setTab] = useState<StudioTab>("videos");
-  const [videos, setVideos] = useState<VideoSummary[] | null>(null);
-  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [data, setData] = useState<StudioSets | null>(null);
   const [error, setError] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [selecting, setSelecting] = useState<string | null>(null);
+  const pending = useRef(false);
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/studio/videos", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = (await response.json()) as {
-          videos?: VideoSummary[];
-          error?: string;
-        };
-        if (!response.ok)
-          throw new Error(payload.error ?? "Could not load videos.");
-        if (active) setVideos(payload.videos ?? []);
+    void request<StudioSets>("/api/studio/sets")
+      .then((result) => {
+        if (active) setData(result);
       })
       .catch((cause) => {
-        if (active) {
-          setVideos([]);
+        if (active)
           setError(
-            cause instanceof Error ? cause.message : "Could not load videos.",
+            cause instanceof Error
+              ? cause.message
+              : "Could not load your Sets.",
           );
-        }
       });
     return () => {
       active = false;
     };
   }, []);
 
-  async function createVideo() {
-    if (
-      creating ||
-      (dirty &&
-        !window.confirm(
-          "Discard unsaved video changes and create a new video?",
-        ))
-    )
-      return;
-    setCreating(true);
+  async function selectSet(setId: string) {
+    if (pending.current) return;
+    pending.current = true;
+    setSelecting(setId);
     setError("");
     try {
-      const response = await fetch("/api/studio/videos", { method: "POST" });
-      const payload = (await response.json()) as {
-        video?: VideoSummary;
-        error?: string;
-      };
-      if (!response.ok || !payload.video)
-        throw new Error(payload.error ?? "Could not create a video.");
-      setVideos((current) => [payload.video!, ...(current ?? [])]);
-      setDirty(false);
-      setActiveVideoId(payload.video.id);
-      setTab("maker");
+      const { selection } = await request<{ selection: StudioSelection }>(
+        "/api/studio/sets",
+        "POST",
+        { setId },
+      );
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              selections: [
+                selection,
+                ...current.selections.filter(
+                  (item) => item.setId !== selection.setId,
+                ),
+              ],
+            }
+          : current,
+      );
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not create a video.",
+        cause instanceof Error ? cause.message : "Could not select this Set.",
       );
     } finally {
-      setCreating(false);
+      pending.current = false;
+      setSelecting(null);
     }
   }
 
-  function openVideo(id: string) {
-    if (
-      id !== activeVideoId &&
-      dirty &&
-      !window.confirm("Discard unsaved video changes and open another video?")
-    )
-      return;
-    if (id !== activeVideoId) setDirty(false);
-    setActiveVideoId(id);
-    setTab("maker");
-  }
+  const selected = new Map(data?.selections.map((item) => [item.setId, item]));
+  const selectedSets = data?.sets.filter((set) => selected.has(set.id)) ?? [];
+  const availableSets = data?.sets.filter((set) => !selected.has(set.id)) ?? [];
 
   return (
     <div>
-      <div
-        role="tablist"
-        aria-label="Visamp Studio"
-        className="mb-6 flex gap-1 border-b"
-      >
-        <Tab
-          active={tab === "videos"}
-          icon={<Film className="h-4 w-4" />}
-          onClick={() => setTab("videos")}
-        >
-          My Videos
-        </Tab>
-        <Tab
-          active={tab === "maker"}
-          icon={<WandSparkles className="h-4 w-4" />}
-          onClick={() => setTab("maker")}
-        >
-          Video Maker
-        </Tab>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="site-eyebrow">STUDIO</p>
+          <h1>Take your Sets further.</h1>
+          <p className="max-w-2xl text-muted-foreground">
+            Choose the Sets you want to distribute. Create, edit and preview
+            your music and visuals in Set Builder.
+          </p>
+        </div>
+        <a href="/sets/new" className="site-button">
+          Create a Set
+        </a>
       </div>
-
       {error && (
         <p role="alert" className="mb-4 text-sm text-destructive">
           {error}
         </p>
       )}
-
-      <div hidden={tab !== "videos"}>
-        <MyVideos
-          videos={videos}
-          creating={creating}
-          onCreate={() => void createVideo()}
-          onOpen={openVideo}
-        />
-      </div>
-      <section
-        hidden={tab !== "maker"}
-        role="tabpanel"
-        aria-label="Video Maker"
-      >
-        <div className="mb-6">
-          <p className="site-eyebrow">VIDEO MAKER</p>
-          <h1>Build a video around your music.</h1>
-          <p className="max-w-3xl">
-            Use your tracks with public, protected and product visuals. Arrange
-            and trim clips on your video timeline.
-          </p>
-        </div>
-        {activeVideoId ? (
-          <VideoMaker
-            key={activeVideoId}
-            id={activeVideoId}
-            onDirty={setDirty}
-            onSaved={(video) =>
-              setVideos((current) =>
-                (current ?? []).map((item) =>
-                  item.id === video.id ? video : item,
-                ),
-              )
-            }
-          />
-        ) : (
-          <button
-            type="button"
-            className="site-button"
-            disabled={creating}
-            onClick={() => void createVideo()}
-          >
-            Create video
-          </button>
-        )}
-      </section>
+      {!data && !error && <p role="status">Loading your Sets…</p>}
+      {data && (
+        <>
+          <section aria-labelledby="studio-selected-heading" className="mb-10">
+            <h2 id="studio-selected-heading">Selected for distribution</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Selection saves a Set here. Music rights and visual licences must
+              be checked before export.
+            </p>
+            {selectedSets.length ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {selectedSets.map((set) => (
+                  <SetCard key={set.id} set={set}>
+                    <p className="text-xs text-muted-foreground">
+                      Selected{" "}
+                      {new Date(
+                        selected.get(set.id)!.selectedAt,
+                      ).toLocaleDateString()}
+                    </p>
+                    <span className="rounded-full border px-2 py-1 text-xs">
+                      Awaiting export
+                    </span>
+                  </SetCard>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+                No Sets selected yet. Choose one from your library below.
+              </p>
+            )}
+          </section>
+          <section aria-labelledby="studio-library-heading">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 id="studio-library-heading">Your Set library</h2>
+              <a href="/sets" className="text-sm underline underline-offset-4">
+                Open Set Builder
+              </a>
+            </div>
+            {availableSets.length ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {availableSets.map((set) => (
+                  <SetCard key={set.id} set={set}>
+                    <button
+                      type="button"
+                      className="site-button"
+                      disabled={selecting !== null}
+                      onClick={() => void selectSet(set.id)}
+                    >
+                      {selecting === set.id
+                        ? "Selecting…"
+                        : "Select for distribution"}
+                    </button>
+                  </SetCard>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+                {data.sets.length
+                  ? "All your Sets are selected. You can create another in Set Builder."
+                  : "Create your first Set in Set Builder, then select it here for distribution."}
+              </p>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
 
-function Tab({
-  active,
-  icon,
+function SetCard({
+  set,
   children,
-  onClick,
 }: {
-  active: boolean;
-  icon: React.ReactNode;
+  set: SetDocument;
   children: React.ReactNode;
-  onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={cn(
-        "-mb-px flex items-center gap-2 border-b-2 px-4 py-3 text-sm transition",
-        active
-          ? "border-foreground text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground",
+    <article aria-label={set.name} className="rounded-xl border p-4">
+      <h3 className="truncate font-medium">{set.name}</h3>
+      {set.description && (
+        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+          {set.description}
+        </p>
       )}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
-
-function MyVideos({
-  videos,
-  creating,
-  onCreate,
-  onOpen,
-}: {
-  videos: VideoSummary[] | null;
-  creating: boolean;
-  onCreate: () => void;
-  onOpen: (id: string) => void;
-}) {
-  return (
-    <section role="tabpanel" aria-label="My Videos">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="site-eyebrow">MY VIDEOS</p>
-          <h1>Your visual releases.</h1>
-          <p className="max-w-3xl">
-            Create, edit and preview videos here. Distribution and scheduling
-            state stay attached to the video as the publishing pipeline grows.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onCreate}
-          disabled={creating}
-          className="site-button inline-flex items-center gap-2 disabled:opacity-50"
+      <p className="mt-3 text-xs text-muted-foreground">
+        {timecode(duration(set))} · {set.audioClips.length} audio ·{" "}
+        {set.visualClips.length} visual clips
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Edited {new Date(set.updatedAt).toLocaleString()}
+      </p>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <a
+          href={`/sets/${set.id}/edit`}
+          className="text-sm underline underline-offset-4"
         >
-          <Plus className="h-4 w-4" />
-          {creating ? "Creating…" : "Create video"}
-        </button>
+          Edit / preview in Set Builder
+        </a>
+        {children}
       </div>
-
-      {videos === null ? (
-        <p className="text-sm text-muted-foreground">Loading videos…</p>
-      ) : videos.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center">
-          <Film className="mx-auto h-8 w-8 text-muted-foreground" />
-          <h2 className="mt-4 text-lg font-medium">No videos yet</h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-            Start in Video Maker by pairing one of your tracks with an eligible
-            visualisation.
-          </p>
-          <button type="button" onClick={onCreate} className="site-button mt-5">
-            Create your first video
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {videos.map((video) => (
-            <button
-              key={video.id}
-              type="button"
-              onClick={() => onOpen(video.id)}
-              className="rounded-xl border p-4 text-left transition hover:border-foreground/40 hover:bg-foreground/[0.03]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="truncate font-medium">{video.title}</h2>
-                <span className="rounded-full border px-2 py-0.5 text-[11px] capitalize text-muted-foreground">
-                  {video.status}
-                </span>
-              </div>
-              <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <dt className="text-muted-foreground">Distribution</dt>
-                  <dd className="mt-1">
-                    {stateLabel(video.distributionState)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Schedule</dt>
-                  <dd className="mt-1">{stateLabel(video.scheduleState)}</dd>
-                </div>
-              </dl>
-              <p className="mt-4 text-xs text-muted-foreground">
-                Updated {new Date(video.updatedAt).toLocaleString()}
-              </p>
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
+    </article>
   );
-}
-
-function stateLabel(state: Record<string, unknown>): string {
-  const status = state.status;
-  return typeof status === "string" && status ? status : "Not set";
 }

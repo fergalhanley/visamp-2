@@ -14,6 +14,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      studio_sets: {
+        Row: { set_id: string; selected_at: string };
+        Insert: { set_id: string; selected_at?: string };
+        Update: { selected_at?: string };
+        Relationships: [{
+          foreignKeyName: "studio_sets_set_id_fkey";
+          columns: ["set_id"];
+          isOneToOne: true;
+          referencedRelation: "performance_sets";
+          referencedColumns: ["id"];
+        }];
+      };
       videos: {
         Row: {
           id: string;

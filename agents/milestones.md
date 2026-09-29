@@ -10,7 +10,9 @@ Replace Linear-led planning with the lightweight agent workflow in this director
 ## M1 — Studio + marketplace prototype
 **Status:** current
 
-Prove the integrated artist workflow: My Videos → Video Maker → eligible visual → params → product licence when required → export.
+Prove the integrated artist workflow: author in Set Builder → select a Set in Studio → check music/visual eligibility → product licence when required → render/export → manage the output in Studio.
+
+Set Builder is the single authoring UI. Studio is the distribution workspace. Social-account connections, scheduling and publishing belong in Studio as M5 capabilities; this direction change does not promote their implementation into M1.
 
 **Exit:** R090-R094 are implemented and the flow is ready to put in front of real musicians and visual creators.
 
@@ -30,7 +32,7 @@ Artists can turn a track + licensed visual into a useful set of release-ready co
 
 ## M5 — Campaigns and publishing
 
-Artists can organise releases, build campaigns, connect supported social accounts and schedule/publish content.
+Studio lets artists connect supported social accounts, manage and schedule distribution of their selected Sets/rendered outputs, and organise releases and campaigns.
 
 ## M6 — Visamp network
 

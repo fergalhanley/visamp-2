@@ -1,43 +1,39 @@
 # M1 Studio + marketplace prototype
 
-Status: active design for M1 only.
+Status: active design. The Set-based direction below supersedes the separate
+My Videos / Video Maker authoring model from earlier on 2026-09-29.
 
 ## Goal
 
-Prove one integrated artist workflow:
+`Set Builder → author a Set → Studio → select the Set for distribution → validate rights → license products if needed → render/export → manage outputs`.
 
-`My Videos → Video Maker → owned track → eligible visual → customise params → license product if required → export → My Videos`.
+## Authoring and distribution
 
-The visual marketplace supplies Video Maker; it is not a separate artist experience.
+Set Builder is the authoring UI, using the existing editor, timeline, transport,
+preview, clip properties and persistence. Do not build another timeline editor
+inside Studio or require a separate Video authoring project.
 
-## Studio
+Studio is the workspace for selecting the user's existing Sets for distribution
+and managing their rendered outputs. It links directly to the existing Set
+Builder for creating, editing and previewing Sets. Social-account connections,
+distribution scheduling and publishing belong in Studio when M5 is implemented.
+The navigation layout for those later capabilities is not fixed by M1.
 
-Studio has two primary tabs.
+The owner explicitly chose direct Set distribution: the Set remains the source
+project. Renders and distribution records refer to it. A render must eventually
+pin the Set revision/content and provenance used to create it, so later Set
+edits cannot silently change an existing output, licence snapshot or scheduled
+publication. Selecting a Set does not itself render, license or publish it.
 
-### My Videos
+Performance authoring can retain its existing media support. Distribution
+requires artist-controlled hosted audio and eligible public/protected/product
+visuals. Validate these rules below the UI before rendering or distribution;
+being playable in Set Builder does not imply distribution rights. Surface
+ineligible references so the artist can repair the Set in the same editor.
 
-The artist's durable workspace for authored output.
-
-M1 needs:
-- list existing videos;
-- create a video;
-- open/edit a video;
-- preview a video;
-- show distribution/scheduling state;
-- receive newly exported videos from Video Maker.
-
-Detailed campaign scheduling/publishing mechanics can remain later work; the data model must have a place for that state now.
-
-### Video Maker
-
-Derived from the existing set-builder/timeline rather than the temporary marketplace audition page.
-
-Differences from the general set builder:
-- audio catalogue contains only tracks controlled by the signed-in artist;
-- visual catalogue contains only visuals whose distribution class permits video use;
-- visual clips surface the visual's params;
-- product visuals can be previewed before purchase but require a licence before final export/distribution;
-- output is a Video entity owned by the artist, not a performance set.
+M1 extends Set Builder only where needed: declared params stored per visual
+clip, eligible visual discovery/preview and the output settings required for
+one practical promotional render. Existing performance behavior is preserved.
 
 ## Visual distribution classes
 
@@ -61,7 +57,7 @@ Differences from the general set builder:
 - params may be customised.
 
 ### product
-- discoverable in Video Maker/marketplace;
+- discoverable in Set Builder/marketplace;
 - source not exposed through Visamp product UI/API;
 - not forkable;
 - preview permitted;
@@ -103,8 +99,8 @@ Rules:
 - immutable from Visript: assignment, compound assignment, increment/decrement and indexed mutation are rejected;
 - writable only through the engine host boundary;
 - a new script load restores the creator's declared defaults;
-- Studio derives the musician-facing controls from declared params rather than exposing arbitrary props;
-- the engine/host will also provide a reserved standard parameter set; exact standard names are defined separately before Video Maker integration.
+- Set Builder derives the musician-facing controls from declared params rather than exposing arbitrary props;
+- the engine/host will also provide a reserved standard parameter set; exact standard names are defined separately before Set Builder integration.
 
 This is a deliberate language-level contract, not a Studio convention.
 
@@ -154,78 +150,58 @@ Product purchase must be atomic:
 
 Creator earnings remain a separate non-spendable ledger. Cash payout mechanics are post-M1.
 
-## Video persistence
+## Persistence and transition
 
-A Video is a durable Studio object, separate from performance sets.
+`performance_sets` is the existing durable authoring store. Keep it and the
+`/sets/[setId]/edit` route as the canonical project/editor. Studio selections
+are lightweight Set references, not copies of authoring content. Render and
+distribution records attach to Set IDs with immutable render-time snapshots.
 
-It stores enough authoring state to reopen Video Maker, including:
-- owned track references/timing;
-- visual references/timing;
-- param values per visual use;
-- licence/provenance references;
-- output format/aspect ratio;
-- distribution and scheduling state;
-- generated/exported asset references.
+The interim `videos` table, Video authoring APIs and VideoMaker component already
+exist. Preserve existing drafts and migrations while retiring that UI from
+Studio. Do not erase them or silently reinterpret them as performance Sets.
+Before retiring their API/storage, provide an explicit draft conversion path
+that retains timing, params, attribution and any licence references. No new
+separate Video authoring workflow should be built.
 
-The existing set model/timeline is implementation leverage, not the final Video data model.
+Reuse useful validation, param, licensing and export code from the interim
+Studio implementation. The older `/api/studio/visuals` response still delivers
+runtime source; enforcing the product source/fork boundary remains open.
 
-## Export
+## Export and licensing
 
-M1 requires one usable promotional video from the authored Video Maker project, with track audio and visual output, and the result must appear in My Videos.
+M1 needs one usable promotional render from a selected Set, including its track
+audio and visuals, visible in Studio with source-Set and licence provenance.
+Product visuals require server-validated licences before final export. A
+client-stored licence ID is provenance, not authorisation. Preserve the existing
+track/visual licence unit unless a deliberate commercial decision changes it.
 
 ## Deliberately outside M1
 
-- full campaign generation;
-- social platform publishing implementation;
-- creator cash payout execution;
-- subscriptions/auto-top-up;
-- exclusive licences;
-- Visamp network discovery;
-- livestream/TV;
-- MCP exposure.
+- social-account connection and platform publishing implementation;
+- scheduling execution and full campaigns;
+- creator cash payouts, subscriptions and auto-top-up;
+- exclusive licences, Visamp network discovery, livestream/TV and MCP.
 
-## Video Maker implementation slice (2026-09-29)
+## Current Studio selection implementation
 
-Studio now mounts `components/studio/video-maker.tsx` for a durable Video ID.
-It reuses `components/sets/timeline.tsx`, clip transitions, and the existing
-history reducer (now generic), rather than copying SetEditor or adopting its
-performance transport. `lib/videos/timeline.ts` adapts VideoContent to the
-set-shaped timeline view and back. That view is never persisted as a set.
-Per-use params and licence references survive timing edits by clip ID; replacing
-a visual clears them. Video aspect ratio remains outside the timeline adapter.
+`StudioShell` lists owner-scoped Sets and persists selection through
+`/api/studio/sets`. `studio_sets` stores only the Set ID and selection timestamp;
+its primary key makes selection idempotent and its foreign key prevents orphan
+selections. The API checks ownership before writes and RLS protects owner reads.
+The service never creates a Video or copies Set content when selecting.
 
-`/api/studio/videos/[id]` loads and saves owner-scoped Video documents with an
-`updated_at` concurrency check. Save canonicalises media attribution/duration and
-checks live hosted tracks against artist ownership and visuals against current
-distribution/price eligibility. Empty drafts are valid. Product clips can be
-saved before purchase; a stored licence ID is only provenance, never export
-authorisation. Export must independently validate the actual licence.
+Create/edit/preview links use `/sets/new` and `/sets/[setId]/edit`. The standalone
+VideoMaker and MarketplaceStudio components are no longer mounted by Studio.
+Selected Sets currently await export; no scheduling, publication or licence
+status is fabricated. Export and distribution state will be added with their
+actual services.
 
-`/api/studio/videos/catalogue` returns only authoring metadata, never Visript
-source. The older `/api/studio/visuals` runtime-source response still needs the
-separate distribution/source-boundary task; this slice does not claim to fix it.
-
-Apply `20260929160000_video_authoring_boundary.sql` with this code. It revokes
-direct authenticated inserts and title/content updates so the validated service
-is the authoring write boundary. Collection create/list now use the service role
-with explicit owner scoping; row-level security still protects direct reads.
-
-Saving is explicit. Tab switches retain the editor; leaving a dirty document
-warns before discarding it. New clips default to 30 seconds (or the shorter
-track duration), with timeline drag/trim and numeric timing/offset edits.
-
-Verified: shared timeline regressions, Video model/API tests, component
-create/edit/save/reopen and failure tests, Chromium authoring with isolated API
-fixtures, web type check, lint and production build. Local Supabase migrations are applied and verified; the live
-authenticated browser/database round trip remains unverified. No product requirement is
-marked complete on the strength of fixture verification alone.
-
-Next integration: reuse set playback scheduling/audio infrastructure with a
-Video-specific resolver and clip-param application. Do not send Videos to the
-performance-set resolver. Then reconnect licensing and export to this authored
-timeline. The retired MarketplaceStudio remains code for reusing those pieces;
-it is no longer the Studio workspace. Preview, live params, licensing UI and
-export are not yet connected to the new timeline.
+`20260929170000_studio_set_selection.sql` is applied locally and still needs
+application to the remote database. Verified with SQL ownership/idempotency/
+reference tests, API and component tests, browser selection/reload fixtures,
+web type check, lint and production build. The full authenticated browser →
+licence → render workflow remains an open M1 task.
 
 ### Distribution migration dependencies
 

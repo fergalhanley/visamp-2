@@ -4,13 +4,15 @@
 
 Keep this list short. Maximum target: 10 active tasks.
 
-- [x] Audit reusable player, music, set-builder, credit and marketplace work; see [M1 design](designs/marketplace-prototype.md).
-- [ ] Replace exposed-prop controls with first-class Visript `param` declarations and host setters. [R011 R012 R092]
-- [ ] Add private/public/protected/product distribution semantics and enforce fork/source/use rules. [R010 R017 R018 R026]
-- [x] Replace the temporary Studio page with My Videos and Video Maker tabs. [R030 R090]
-- [x] Adapt the set-builder timeline into Video Maker with owned tracks only (API/component tests and browser fixtures verified; live save verification below). [R033 R035 R091]
-- [ ] Add timeline preview and live declared-param controls; eligible visual catalogue is in place. [R034 R036 R092]
-- [ ] Apply the Video authoring migration, verify live create/save/reopen, and add My Videos preview. [R031 R094]
-- [ ] Integrate product licensing, credit debit and creator earnings into Video Maker. [R023 R025 R037 R093]
-- [ ] Export a finished authored video and attach it to My Videos. [R038 R039 R094]
-- [ ] Seed the prototype and prepare structured testing with initial musicians and visual creators.
+- [x] Replace Studio's separate Video Maker with persistent selection of existing Sets and links to the exact Set Builder. [R030 R031 R035 R090]
+- [ ] Verify first-class Visript params and add live per-clip param editing/persistence to Set Builder. [R011 R012 R036 R092]
+- [ ] Complete distribution/source/fork semantics and eligible visual discovery/preview in Set Builder. [R010 R017 R018 R026 R034]
+- [ ] Validate selected Sets for artist-owned hosted tracks, eligible visuals and render readiness below the UI. [R033 R034 R091]
+- [ ] Integrate product licensing, credit debit and creator earnings into the Set distribution flow. [R023 R025 R037 R093]
+- [ ] Export a selected Set and attach the rendered output and revision/provenance to Studio. [R038 R039 R094]
+- [ ] Preserve/convert existing interim Video drafts into Sets before retiring Video authoring APIs/storage. [R031 R039]
+- [ ] Verify the authenticated Set Builder → Studio → licence → export flow and prepare musician/creator testing. [R090-R094]
+
+See [M1 design](designs/marketplace-prototype.md). The earlier separate Video
+Maker implementation is superseded by the owner's direct-Set distribution
+decision; its completed tasks are retained in Git history.

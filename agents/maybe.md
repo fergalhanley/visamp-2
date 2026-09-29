@@ -7,7 +7,7 @@ Ideas worth retaining, but not committed roadmap work. Agents must not implement
 - Smart TV apps.
 - TV browser experience.
 - Expanded VJ mode.
-- Set builder and performance tooling.
+- Additional performance-only tooling beyond the committed Set Builder authoring workflow.
 - Following and social graph.
 - Expanded comments/community features.
 - Visual playlists.

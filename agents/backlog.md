@@ -22,8 +22,8 @@ Committed later work. Do not implement an item merely because it appears here; p
 - Release entity and workflow.
 - Campaign builder.
 - Campaign calendar.
-- Social account connections.
-- Scheduled social publishing.
+- Studio social-account connection and management.
+- Studio distribution management, scheduling and social publishing for selected Sets and rendered outputs.
 - Campaign analytics.
 
 ## Commerce

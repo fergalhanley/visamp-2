@@ -1,11 +1,10 @@
-import "@/app/sets.css";
 import { TopBar } from "@/components/chrome/top-bar";
 import { StudioShell } from "@/components/studio/studio-shell";
 
 export const metadata = {
   robots: { index: false, follow: true },
   title: "Studio",
-  description: "Create and manage visual music videos in Visamp Studio.",
+  description: "Select your Sets for distribution and manage their outputs in Visamp Studio.",
 };
 
 export default function StudioPage() {

@@ -20,6 +20,7 @@ export default defineConfig({
       "hooks/**/*.test.ts",
       "lib/sets/**/*.test.ts",
       "lib/videos/**/*.test.ts",
+      "lib/studio/**/*.test.ts",
       "app/auth/**/*.test.ts",
       "lib/editor/**/*.test.ts",
       "lib/analytics/**/*.test.ts",

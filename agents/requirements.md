@@ -30,14 +30,14 @@ Requirements describe product capabilities, not implementation tasks. Check an i
 - [ ] **R025** Product revenue is split between the visual creator and Visamp.
 - [ ] **R026** Distribution, source visibility, forkability, licensing and attribution rules are enforced below the UI layer.
 
-## Studio and video creation
-- [ ] **R030** Studio provides a My Videos workspace and a Video Maker workspace.
-- [ ] **R031** My Videos lists an artist's videos and supports create, open/edit and preview.
-- [ ] **R032** My Videos shows current distribution and scheduling state for each video.
-- [ ] **R033** Video Maker uses only music controlled by the signed-in artist.
-- [ ] **R034** Video Maker offers only visualisations whose distribution class permits video use.
-- [ ] **R035** Video Maker provides a timeline-based authoring experience derived from the existing set builder.
-- [ ] **R036** Artists can change visual params while authoring a video.
+## Set authoring and Studio distribution
+- [ ] **R030** Studio is the workspace for selecting user-created Sets for distribution and managing their outputs.
+- [ ] **R031** Studio lists the signed-in user's Sets for selection and provides access to creation, editing and preview through the existing Set Builder.
+- [ ] **R032** Studio shows distribution and scheduling state for selected Sets and their rendered outputs.
+- [ ] **R033** Sets selected for distribution may use only hosted music controlled by the signed-in artist; this is enforced before rendering/distribution.
+- [ ] **R034** Sets selected for distribution may use only visualisations whose distribution class permits video use.
+- [ ] **R035** The existing Set Builder is the authoring UI for videos intended for distribution, including its timeline, preview, transport and clip editing.
+- [ ] **R036** Artists can change declared visual params per clip in Set Builder; those values are saved with the Set.
 - [ ] **R037** Product visuals require a valid licence before final export/distribution.
 - [ ] **R038** Visamp can render/export common social-video aspect ratios and durations.
 - [ ] **R039** Generated videos retain track, visualisation, creator, param and licensing provenance.
@@ -47,8 +47,8 @@ Requirements describe product capabilities, not implementation tasks. Check an i
 - [ ] **R041** Artists can create a campaign for a release.
 - [ ] **R042** Campaigns can contain multiple generated content assets.
 - [ ] **R043** Campaign content can be scheduled for publication.
-- [ ] **R044** Artists can connect supported social accounts.
-- [ ] **R045** Visamp can publish scheduled content where platform APIs permit.
+- [ ] **R044** Artists can connect and manage supported social accounts in Studio.
+- [ ] **R045** Artists can manage and schedule distribution in Studio, and Visamp can publish where platform APIs permit.
 - [ ] **R046** Campaign performance can be measured where platform APIs provide the data.
 
 ## Credits and commerce
@@ -78,8 +78,8 @@ Requirements describe product capabilities, not implementation tasks. Check an i
 ## Prototype validation
 These are the immediate requirements for the first testable Studio/marketplace prototype.
 
-- [ ] **R090** Studio has My Videos and Video Maker tabs.
-- [ ] **R091** Video Maker can pair an owned track with an eligible visualisation.
+- [ ] **R090** Studio lets the signed-in user select their existing Sets for distribution and open the existing Set Builder for authoring.
+- [ ] **R091** Set Builder can pair an owned hosted track with an eligible visualisation for distribution.
 - [ ] **R092** A product visual's declared params are editable live without source access.
 - [ ] **R093** A musician can spend credits to license a product visual and the creator receives an earnings record.
-- [ ] **R094** The authored pairing can produce a usable promotional video which appears in My Videos.
+- [ ] **R094** A Set selected in Studio can produce a usable promotional video whose output and provenance are accessible from Studio.
