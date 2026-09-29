@@ -957,6 +957,9 @@ export type Database = {
           forked_from_id: string | null
           id: string
           like_count: number
+          marketplace_controls: Json
+          marketplace_listed: boolean
+          marketplace_price_credits: number | null
           owner_id: string
           source: string
           thumb_pinned: boolean
@@ -977,6 +980,9 @@ export type Database = {
           forked_from_id?: string | null
           id?: string
           like_count?: number
+          marketplace_controls?: Json
+          marketplace_listed?: boolean
+          marketplace_price_credits?: number | null
           owner_id: string
           source?: string
           thumb_pinned?: boolean
@@ -997,6 +1003,9 @@ export type Database = {
           forked_from_id?: string | null
           id?: string
           like_count?: number
+          marketplace_controls?: Json
+          marketplace_listed?: boolean
+          marketplace_price_credits?: number | null
           owner_id?: string
           source?: string
           thumb_pinned?: boolean
