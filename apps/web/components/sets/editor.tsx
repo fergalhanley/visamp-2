@@ -10,7 +10,6 @@ import {
   emptySet,
   parseSet,
   clips,
-  duration,
   end,
   validate,
   transitions,
@@ -56,12 +55,9 @@ export function SetEditor({ id }: { id: string }) {
   const p = usePerformance();
   const clipboard = useRef<Clip | null>(null);
   const playRef = useRef<() => void>(() => {});
-  const [shortcutModifier, setShortcutModifier] = useState("Ctrl");
-  useEffect(() => {
-    setShortcutModifier(
-      /Mac|iPhone|iPad/.test(navigator.platform) ? "Cmd" : "Ctrl",
-    );
-  }, []);
+  const [shortcutModifier] = useState(() =>
+    /Mac|iPhone|iPad/.test(navigator.platform) ? "Cmd" : "Ctrl",
+  );
   useEffect(() => {
     playRef.current = () => {
       if (loaded && !checking) void play();
