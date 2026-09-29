@@ -119,6 +119,8 @@ export interface VisampCanvasHandle {
   setAnimationTime: (timeMs: number | null) => void;
   /** Change a declared top-level Visript property without rewriting source. */
   setProperty: (name: string, value: ExternalPropertyValue) => void;
+  /** Real-time canvas stream used by browser video export. */
+  captureStream: (fps?: number) => MediaStream;
   queueInput: (packet: object | null) => void;
   /**
    * Resolves a PNG Blob at a fixed 1280×720, whatever size the canvas is on
