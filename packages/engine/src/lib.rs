@@ -133,6 +133,24 @@ pub fn set_animation_paused(paused: bool) {
     });
 }
 
+/// Update one declared top-level Visript property from the host UI.
+///
+/// Values cross the wasm boundary as JSON so JS callers preserve booleans,
+/// numbers and strings without type guessing. The model validates the incoming
+/// value against the property's existing Visript type.
+#[wasm_bindgen]
+pub fn set_property(name: &str, value_json: &str) -> Result<(), String> {
+    STATE.with(|state| {
+        let state = state.borrow();
+        let state = state.as_ref().ok_or("engine is not initialized")?;
+        let mut model = state
+            .model
+            .try_borrow_mut()
+            .map_err(|_| "engine is busy; try the property change again".to_string())?;
+        model.set_property_json(name, value_json)
+    })
+}
+
 /// Hands the engine decoded pixels for an asset the page has already fetched.
 ///
 /// `rgba` must be `width * height * 4` bytes. The engine does no fetching of
