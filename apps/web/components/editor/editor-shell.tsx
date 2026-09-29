@@ -68,11 +68,6 @@ import { useFullscreen } from "@/hooks/use-fullscreen";
 import type { GenerationEvent, RepairAttempt } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
-import {
-  controlForProperty,
-  parseMarketplaceControls,
-} from "@/lib/marketplace/controls";
-import type { MarketplaceControl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Visualisation = Database["public"]["Tables"]["visualisations"]["Row"];
@@ -121,9 +116,6 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
   const [compile, setCompile] = useState<CompileResult | null>(null);
   const [logLines, setLogLines] = useState<LogLine[]>([]);
   const [properties, setProperties] = useState<PropertyView[]>([]);
-  const [marketplaceControls, setMarketplaceControls] = useState<
-    MarketplaceControl[]
-  >(() => parseMarketplaceControls(visualisation?.marketplace_controls));
   const [logCollapsed, setLogCollapsed] = useState(false);
   const [compiledSource, setCompiledSource] = useState<string | null>(null);
 
@@ -430,46 +422,6 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
     persist,
     onError: onSaveError,
   });
-
-  const updateMarketplaceControl = useCallback(
-    async (property: PropertyView, enabled: boolean) => {
-      if (!visualisation || !canEdit) return;
-      const definition = controlForProperty(property);
-      if (!definition) return;
-
-      const previous = marketplaceControls;
-      const withoutProperty = previous.filter(
-        (control) => control.prop !== property.name,
-      );
-      const next = enabled
-        ? [...withoutProperty, definition]
-        : withoutProperty;
-
-      setMarketplaceControls(next);
-      setSaveError(null);
-
-      const { error } = await createClient()
-        .from("visualisations")
-        .update({
-          marketplace_controls:
-            next as unknown as Database["public"]["Tables"]["visualisations"]["Update"]["marketplace_controls"],
-        })
-        .eq("id", visualisation.id)
-        .select("id")
-        .single();
-
-      if (error) {
-        setMarketplaceControls(previous);
-        setSaveError(visualisationSaveError(error));
-      }
-    },
-    [
-      canEdit,
-      marketplaceControls,
-      setSaveError,
-      visualisation,
-    ],
-  );
 
   const captureThumbnail = useCallback(async () => {
     if (!visualisation) return;
@@ -943,16 +895,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
               onJumpToLine={(line) => editorHandle.current?.goToLine(line)}
             />
 
-            {!logCollapsed && (
-              <PropertiesInspector
-                properties={properties}
-                marketplaceControls={marketplaceControls}
-                canEditMarketplace={canEdit}
-                onMarketplaceControlChange={(property, enabled) => {
-                  void updateMarketplaceControl(property, enabled);
-                }}
-              />
-            )}
+            {!logCollapsed && <PropertiesInspector properties={properties} />}
           </div>
         </div>
       </div>
