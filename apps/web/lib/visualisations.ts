@@ -1,7 +1,6 @@
 import type { Database } from "@/lib/supabase/database.types";
 import { profileAvatarUrl, publicStorageUrl } from "@/lib/storage-urls";
 import type { Creator, Visualisation } from "@/lib/types";
-import { parseMarketplaceControls } from "@/lib/marketplace/controls";
 
 type Row = Database["public"]["Tables"]["visualisations"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -35,9 +34,7 @@ export function visualisationFromRow(row: Row, creator: Creator): Visualisation 
     source: row.source,
     creator,
     ownerId: row.owner_id,
-    marketplaceListed: row.marketplace_listed,
     marketplacePriceCredits: row.marketplace_price_credits ?? undefined,
-    marketplaceControls: parseMarketplaceControls(row.marketplace_controls),
     forkedFromId: row.forked_from_id ?? undefined,
     thumbUrl: publicStorageUrl("thumbnails", row.thumb_path, row.updated_at),
     usesAudio: row.uses_audio,
