@@ -7,10 +7,10 @@ Milestones define coherent product states. Requirements are the definition of ca
 
 Replace Linear-led planning with the lightweight agent workflow in this directory and realign the roadmap around the new Visamp vision.
 
-## M1 — Marketplace prototype
+## M1 — Studio + marketplace prototype
 **Status:** current
 
-Prove the core artist ↔ visual creator transaction.
+Prove the integrated artist workflow: My Videos → Video Maker → eligible visual → params → product licence when required → export.
 
 **Exit:** R090-R094 are implemented and the flow is ready to put in front of real musicians and visual creators.
 
