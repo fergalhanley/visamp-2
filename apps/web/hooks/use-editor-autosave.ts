@@ -6,7 +6,7 @@ export interface EditorSnapshot {
   preferred_track_id?: string | null;
   title: string;
   source: string;
-  visibility: "public" | "private";
+  visibility: "private" | "public" | "protected" | "product";
 }
 
 export const AUTOSAVE_MS = 8000;
