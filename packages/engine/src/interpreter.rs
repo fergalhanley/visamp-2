@@ -448,7 +448,9 @@ fn interpret_statement_kind(
     charge_execution_step()?;
     match statement {
         StatementKind::LetDecl(let_decl) => {
-            if decels.contains(&let_decl.ident) && !decels.is_read_only(&let_decl.ident) {
+            if decels.contains(&let_decl.ident)
+                && (!decels.is_read_only(&let_decl.ident) || decels.is_param(&let_decl.ident))
+            {
                 return Err(format!("Variable '{}' already declared", let_decl.ident));
             }
             let evaluated = evaluate_expression(&let_decl.expression, decels, runtime, functions)?;
