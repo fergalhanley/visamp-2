@@ -957,8 +957,6 @@ export type Database = {
           forked_from_id: string | null
           id: string
           like_count: number
-          marketplace_controls: Json
-          marketplace_listed: boolean
           marketplace_price_credits: number | null
           owner_id: string
           source: string
@@ -980,8 +978,6 @@ export type Database = {
           forked_from_id?: string | null
           id?: string
           like_count?: number
-          marketplace_controls?: Json
-          marketplace_listed?: boolean
           marketplace_price_credits?: number | null
           owner_id: string
           source?: string
@@ -1003,8 +999,6 @@ export type Database = {
           forked_from_id?: string | null
           id?: string
           like_count?: number
-          marketplace_controls?: Json
-          marketplace_listed?: boolean
           marketplace_price_credits?: number | null
           owner_id?: string
           source?: string
@@ -1089,7 +1083,7 @@ export type Database = {
           p_user_id: string
           p_track_id: string
           p_visualisation_id: string
-          p_control_values?: Json
+          p_param_values?: Json
         }
         Returns: Json
       }
@@ -1229,7 +1223,7 @@ export type Database = {
       asset_kind: "bitmap" | "vector" | "model"
       licence_status: "pending" | "active" | "terminated"
       track_status: "ingesting" | "draft" | "live" | "withdrawn"
-      visibility: "public" | "private"
+      visibility: "private" | "public" | "protected" | "product"
     }
     CompositeTypes: {
       [_ in never]: never
