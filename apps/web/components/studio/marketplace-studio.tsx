@@ -229,7 +229,7 @@ export function MarketplaceStudio() {
     if (
       !selectedTrack ||
       !selectedVisual ||
-      !purchase.licenceId ||
+      (selectedVisual.visibility === "product" && !purchase.licenceId) ||
       !canvas.current ||
       exporting
     )
@@ -284,6 +284,11 @@ export function MarketplaceStudio() {
   );
   const activeOverrides =
     overrides.visualId === selectedVisual?.id ? overrides.values : {};
+  const canExport = Boolean(
+    selectedTrack &&
+      selectedVisual &&
+      (selectedVisual.visibility !== "product" || purchase.licenceId),
+  );
 
   if (!user) {
     return (
@@ -595,20 +600,30 @@ export function MarketplaceStudio() {
               </div>
 
               <div className="space-y-2 border-t pt-4">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Your credits</span>
-                  <span>{availableCredits ?? "—"}</span>
-                </div>
-                <button
-                  type="button"
-                  disabled={!selectedTrack || purchase.loading}
-                  onClick={() => void licenseVisual()}
-                  className="w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background disabled:opacity-40"
-                >
-                  {purchase.loading
-                    ? "Licensing…"
-                    : `License for ${selectedVisual.marketplacePriceCredits ?? "—"} credits`}
-                </button>
+                {selectedVisual.visibility === "product" ? (
+                  <>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Your credits</span>
+                      <span>{availableCredits ?? "—"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!selectedTrack || purchase.loading}
+                      onClick={() => void licenseVisual()}
+                      className="w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background disabled:opacity-40"
+                    >
+                      {purchase.loading
+                        ? "Licensing…"
+                        : `License for ${selectedVisual.marketplacePriceCredits ?? "—"} credits`}
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedVisual.visibility === "protected"
+                      ? "Protected visual — free to use; source and forking are disabled."
+                      : "Public visual — free to use commercially with creator attribution."}
+                  </p>
+                )}
                 {!selectedTrack && (
                   <p className="text-xs text-muted-foreground">
                     Choose one of your tracks first.
@@ -627,7 +642,7 @@ export function MarketplaceStudio() {
                     {purchase.message}
                   </p>
                 )}
-                {purchase.licenceId && (
+                {canExport && (
                   <button
                     type="button"
                     disabled={exporting}
