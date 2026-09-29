@@ -41,14 +41,14 @@ export async function POST(request: Request) {
     if (!UUID.test(trackId) || !UUID.test(visualisationId))
       throw new MusicError(400, "Choose a valid track and visual.");
 
-    const controlValues = jsonObject(body.controlValues ?? {});
+    const paramValues = jsonObject(body.paramValues ?? {});
     const { db, userId } = await musicIdentity();
 
     const { data, error } = await db.rpc("purchase_visual_licence", {
       p_user_id: userId!,
       p_track_id: trackId,
       p_visualisation_id: visualisationId,
-      p_control_values: controlValues,
+      p_param_values: paramValues,
     });
     if (error) throw error;
 
