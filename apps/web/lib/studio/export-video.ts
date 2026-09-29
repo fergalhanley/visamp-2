@@ -43,10 +43,8 @@ export function recordVideo(
 
   return new Promise((resolve, reject) => {
     let recorder: MediaRecorder;
-    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const cleanup = () => {
-      clearTimeout(timer);
+    const stopTracks = () => {
       stream.getTracks().forEach((track) => track.stop());
     };
 
@@ -57,7 +55,7 @@ export function recordVideo(
         audioBitsPerSecond: 192_000,
       });
     } catch (error) {
-      cleanup();
+      stopTracks();
       reject(
         error instanceof Error
           ? error
@@ -65,6 +63,15 @@ export function recordVideo(
       );
       return;
     }
+
+    const timer = setTimeout(() => {
+      if (recorder.state !== "inactive") recorder.stop();
+    }, durationMs);
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      stopTracks();
+    };
 
     recorder.addEventListener("dataavailable", (event) => {
       if (event.data.size > 0) chunks.push(event.data);
@@ -95,9 +102,6 @@ export function recordVideo(
     );
 
     recorder.start(1000);
-    timer = setTimeout(() => {
-      if (recorder.state !== "inactive") recorder.stop();
-    }, durationMs);
   });
 }
 
