@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      videos: {
+        Row: {
+          id: string;
+          owner_id: string;
+          title: string;
+          content: import("@/lib/videos/model").VideoContent;
+          status: Database["public"]["Enums"]["video_status"];
+          rendered_key: string | null;
+          rendered_mime: string | null;
+          distribution_state: Json;
+          schedule_state: Json;
+          error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          title?: string;
+          content?: import("@/lib/videos/model").VideoContent;
+          status?: Database["public"]["Enums"]["video_status"];
+          rendered_key?: string | null;
+          rendered_mime?: string | null;
+          distribution_state?: Json;
+          schedule_state?: Json;
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          content?: import("@/lib/videos/model").VideoContent;
+          status?: Database["public"]["Enums"]["video_status"];
+          rendered_key?: string | null;
+          rendered_mime?: string | null;
+          distribution_state?: Json;
+          schedule_state?: Json;
+          error?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       performance_sets: {
         Row: import("@/lib/sets/model").SetRow;
         Insert: { id?: string; owner_id: string; content: import("@/lib/sets/model").SetContent; created_at?: string; updated_at?: string };
@@ -1223,6 +1265,7 @@ export type Database = {
       asset_kind: "bitmap" | "vector" | "model"
       licence_status: "pending" | "active" | "terminated"
       track_status: "ingesting" | "draft" | "live" | "withdrawn"
+      video_status: "draft" | "rendering" | "ready" | "error"
       visibility: "private" | "public" | "protected" | "product"
     }
     CompositeTypes: {
