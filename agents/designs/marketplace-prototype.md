@@ -91,13 +91,14 @@ The script can read and write it.
 `param` is host/musician-controlled input with a creator-supplied default.
 
 ```visript
-param hello = "hello"
-param value_int = 123
-param intensity = 0.7
+param HELLO = "hello"
+param VALUE_INT = 123
+param INTENSITY = 0.7
 ```
 
 Rules:
 - declared at top level like `prop`;
+- param identifiers use `UPPER_SNAKE_CASE`; built-in/default params follow the same convention so immutability is visually obvious;
 - readable anywhere a normal identifier is readable;
 - immutable from Visript: assignment, compound assignment, increment/decrement and indexed mutation are rejected;
 - writable only through the engine host boundary;
