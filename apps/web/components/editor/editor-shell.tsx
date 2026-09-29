@@ -40,6 +40,7 @@ import { CreateVisButton } from "@/components/chrome/create-vis-button";
 import { TopBar } from "@/components/chrome/top-bar";
 import { GenerationFailureDialog, type GenerationFailure } from "@/components/editor/generation-failure-dialog";
 import { PreferredTrack } from "@/components/editor/preferred-track";
+import { MarketplaceListing } from "@/components/editor/marketplace-listing";
 import { AiPrompt } from "@/components/editor/ai-prompt";
 import { CodeEditor, type CodeEditorHandle } from "@/components/editor/code-editor";
 import { EditorLog, type LogLine } from "@/components/editor/editor-log";
@@ -881,7 +882,27 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
             )}
           </div>
 
-          {!empty && <PreferredTrack value={preferredTrackId} onChange={id => { setPreferredTrackId(id); setSaveError(null); }} disabled={!canEdit || generating} />}
+          {!empty && (
+            <>
+              <PreferredTrack
+                value={preferredTrackId}
+                onChange={(id) => {
+                  setPreferredTrackId(id);
+                  setSaveError(null);
+                }}
+                disabled={!canEdit || generating}
+              />
+              {visualisation && (
+                <MarketplaceListing
+                  visualisationId={visualisation.id}
+                  canEdit={canEdit}
+                  visibility={visibility}
+                  initialListed={visualisation.marketplace_listed}
+                  initialPrice={visualisation.marketplace_price_credits}
+                />
+              )}
+            </>
+          )}
 
           {/* E6.3 — 16:9 sized to the column; the log takes what's left. */}
           {/* Fullscreen expands just this box, so the visualisation fills the
