@@ -35,6 +35,7 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
     let mut script: Script = Script::new();
     let mut context_seen = false;
     let mut render_seen = false;
+    let mut global_names = std::collections::HashSet::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -53,8 +54,25 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
                 script.context = ContextKind::parse(kind_pair.as_str())
                     .ok_or_else(|| located_error(&kind_pair, "expected 2d or 3d"))?;
             }
+            Rule::param_def => {
+                let definition = build_script_param_def(inner.clone())?;
+                if !global_names.insert(definition.name.clone()) {
+                    return Err(located_error(
+                        &inner,
+                        &format!("'{}' is already declared", definition.name),
+                    ));
+                }
+                script.params.push(definition);
+            }
             Rule::prop_def => {
-                script.props.push(build_prop_def(inner));
+                let definition = build_prop_def(inner.clone());
+                if !global_names.insert(definition.name.clone()) {
+                    return Err(located_error(
+                        &inner,
+                        &format!("'{}' is already declared", definition.name),
+                    ));
+                }
+                script.props.push(definition);
             }
             Rule::function_def => {
                 script.functions.push(build_function_def(inner));
@@ -77,6 +95,29 @@ pub fn build_ast(script: &str) -> Result<Script, String> {
     crate::resolver::resolve(for_resolution.into_inner(), script.context)?;
 
     Ok(script)
+}
+
+fn build_script_param_def(
+    pair: pest::iterators::Pair<Rule>,
+) -> Result<ScriptParamDef, String> {
+    let mut inner_rules = pair.clone().into_inner();
+    let name_pair = inner_rules.next().unwrap();
+    let name = name_pair.as_str().to_string();
+    if !is_param_name(&name) {
+        return Err(located_error(
+            &name_pair,
+            "params use UPPER_SNAKE_CASE (for example: param INTENSITY = 1.0)",
+        ));
+    }
+    let value_pair = inner_rules.next().unwrap();
+    let value = build_value(value_pair);
+    Ok(ScriptParamDef { name, value })
+}
+
+fn is_param_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some('A'..='Z'))
+        && chars.all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_')
 }
 
 fn build_prop_def(pair: pest::iterators::Pair<Rule>) -> PropertyDef {
