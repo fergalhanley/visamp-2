@@ -995,33 +995,44 @@ pub struct Model {
     pub decels: Declarations,
     pub functions: Vec<FunctionDef>,
     pub blocks: Vec<Block>,
-    /// Property names in the order they were declared. The scope itself is a
-    /// `HashMap`, so this is the only record of the author's ordering — the
-    /// inspector lists them as written rather than in hash order.
+    /// Mutable creator-owned state, in declaration order.
     pub prop_names: Vec<String>,
+    /// Immutable host-controlled inputs, in declaration order.
+    pub param_names: Vec<String>,
 }
 
 impl Model {
     pub fn from_script(script: &Script) -> Self {
         let mut decels = Declarations::new();
         decels.push_scope();
-        // `prop tint = $COLOR_CRIMSON` parses to the bare token, so resolve
-        // system values here rather than leaving a name that every later use
-        // has to cope with. Constants like the palette and PI come out exact;
-        // frame-varying ones (`$WIDTH`, `$TIME_MS`) resolve against a fresh
-        // runtime, which is the right reading of an *initial* value.
-        let seed = crate::interpreter::Runtime::new();
 
+        // Top-level values are deliberately simple literals/constants. Resolve
+        // system constants once at script load so the declared default becomes
+        // the stable default restored on every reload.
+        let seed = crate::interpreter::Runtime::new();
         let resolve_initial = |value: &Value| match value {
             Value::SystemValue(name) => {
-                crate::interpreter::map_value_runtime(name.trim_start_matches('
-            decels.declare(prop.name.clone(), resolve_initial(&prop.value));
-            // A redeclared name keeps its first position rather than appearing
-            // twice in the inspector.
-            if !prop_names.contains(&prop.name) {
-                prop_names.push(prop.name.clone());
+                crate::interpreter::map_value_runtime(
+                    name.trim_start_matches('$'),
+                    &seed,
+                )
+                .unwrap_or_else(|_| value.clone())
             }
+            other => other.clone(),
+        };
+
+        let mut param_names = Vec::with_capacity(script.params.len());
+        for param in &script.params {
+            decels.declare_param(param.name.clone(), resolve_initial(&param.value));
+            param_names.push(param.name.clone());
         }
+
+        let mut prop_names = Vec::with_capacity(script.props.len());
+        for prop in &script.props {
+            decels.declare(prop.name.clone(), resolve_initial(&prop.value));
+            prop_names.push(prop.name.clone());
+        }
+
         Model {
             context: script.context,
             decels,
@@ -1040,6 +1051,7 @@ impl Model {
         if !self.param_names.iter().any(|param| param == name) {
             return Err(format!("Unknown param '{name}'"));
         }
+
         let current = self
             .decels
             .global(name)
@@ -1070,114 +1082,15 @@ impl Model {
                 let text = incoming
                     .as_str()
                     .ok_or_else(|| format!("Param '{name}' expects a #rrggbb colour"))?;
-                Value::Color(parse_control_color(text, existing.a)
-                    .ok_or_else(|| format!("Param '{name}' expects a #rrggbb or #rrggbbaa colour"))?)
+                Value::Color(
+                    parse_control_color(text, existing.a).ok_or_else(|| {
+                        format!("Param '{name}' expects a #rrggbb or #rrggbbaa colour")
+                    })?,
+                )
             }
             other => {
                 return Err(format!(
                     "Param '{name}' of type {} cannot be externally controlled",
-                    other.type_tag()
-                ))
-            }
-        };
-
-        self.decels.set_global(name, value)
-    }
-}
-fn parse_control_color(value: &str, default_alpha: f64) -> Option<Color> {
-    let hex = value.strip_prefix('#')?;
-    if hex.len() != 6 && hex.len() != 8 {
-        return None;
-    }
-    let channel = |start: usize| u8::from_str_radix(&hex[start..start + 2], 16).ok();
-    let r = channel(0)? as f64 / 255.0;
-    let g = channel(2)? as f64 / 255.0;
-    let b = channel(4)? as f64 / 255.0;
-    let a = if hex.len() == 8 {
-        channel(6)? as f64 / 255.0
-    } else {
-        default_alpha
-    };
-    Some(Color::new(r, g, b, a))
-}
-), &seed)
-                    .unwrap_or_else(|_| value.clone())
-            }
-            other => other.clone(),
-        };
-
-        let mut param_names = Vec::with_capacity(script.params.len());
-        for param in &script.params {
-            decels.declare_param(param.name.clone(), resolve_initial(&param.value));
-            param_names.push(param.name.clone());
-        }
-
-        let mut prop_names = Vec::with_capacity(script.props.len());
-        for prop in &script.props {
-            let value = match &prop.value {
-                Value::SystemValue(name) => {
-                    crate::interpreter::map_value_runtime(name.trim_start_matches('$'), &seed)
-                        .unwrap_or_else(|_| prop.value.clone())
-                }
-                other => other.clone(),
-            };
-            decels.declare(prop.name.clone(), value);
-            // A redeclared name keeps its first position rather than appearing
-            // twice in the inspector.
-            if !prop_names.contains(&prop.name) {
-                prop_names.push(prop.name.clone());
-            }
-        }
-        Model {
-            context: script.context,
-            decels,
-            functions: script.functions.clone(),
-            blocks: script.blocks.clone(),
-            prop_names,
-        }
-    }
-
-    /// Changes a declared top-level property from an external host control.
-    ///
-    /// The JSON boundary keeps wasm/JS callers simple while preserving Visript
-    /// types. A rejected value never changes the running model.
-    pub fn set_property_json(&mut self, name: &str, json: &str) -> Result<(), String> {
-        let current = self
-            .decels
-            .global(name)
-            .cloned()
-            .ok_or_else(|| format!("Unknown property '{name}'"))?;
-        let incoming: serde_json::Value =
-            serde_json::from_str(json).map_err(|_| format!("Invalid value for property '{name}'"))?;
-
-        let value = match current {
-            Value::Boolean(_) => incoming
-                .as_bool()
-                .map(Value::Boolean)
-                .ok_or_else(|| format!("Property '{name}' expects a boolean"))?,
-            Value::Integer(_) => incoming
-                .as_i64()
-                .map(Value::Integer)
-                .ok_or_else(|| format!("Property '{name}' expects an integer"))?,
-            Value::Float(_) => incoming
-                .as_f64()
-                .filter(|value| value.is_finite())
-                .map(Value::Float)
-                .ok_or_else(|| format!("Property '{name}' expects a finite number"))?,
-            Value::String(_) => incoming
-                .as_str()
-                .map(|value| Value::String(value.to_string()))
-                .ok_or_else(|| format!("Property '{name}' expects text"))?,
-            Value::Color(existing) => {
-                let text = incoming
-                    .as_str()
-                    .ok_or_else(|| format!("Property '{name}' expects a #rrggbb colour"))?;
-                Value::Color(parse_control_color(text, existing.a)
-                    .ok_or_else(|| format!("Property '{name}' expects a #rrggbb or #rrggbbaa colour"))?)
-            }
-            other => {
-                return Err(format!(
-                    "Property '{name}' of type {} cannot be externally controlled",
                     other.type_tag()
                 ))
             }
