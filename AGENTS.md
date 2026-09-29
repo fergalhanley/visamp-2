@@ -1,160 +1,101 @@
 # Agent Operating Protocol
 
-This file applies to the entire Visamp monorepo. All coding agents working in
-this repository must follow this protocol.
+This file applies to the entire Visamp monorepo.
 
-For Linear connection setup, eligible task selection, claim coordination and handoff,
-read [the Linear agent workflow](agents/linear-workflow.md). That guide supplements
-this protocol; it does not replace its prerequisite, progress or review requirements.
+Visamp is in a fast prototype/validation phase. The repository uses concise Markdown planning instead of Linear so agents can spend context and time on the product.
 
 ## Sources of truth
 
-- **Linear** is the source of truth for planned work, scope, priority,
-  dependencies, ownership, status, and acceptance criteria.
-- **GitHub** is the source of truth for code, branches, commits, pull requests,
-  reviews, and permanent technical documentation.
-- **The active task conversation** is the progress feed for concise updates,
-  blockers, questions, and handoffs. No Slack connection or reporting is required.
-- If these sources disagree, stop and ask for clarification. Do not silently
-  choose one interpretation.
+Read these in order:
 
-## Branches
+1. [`agents/requirements.md`](agents/requirements.md) — product capabilities and definition of done.
+2. [`agents/milestones.md`](agents/milestones.md) — the sequence of product states being pursued.
+3. [`agents/todo.md`](agents/todo.md) — the small active work queue for the current milestone.
+4. [`agents/backlog.md`](agents/backlog.md) — committed later work; do not implement until promoted.
+5. [`agents/maybe.md`](agents/maybe.md) — uncommitted ideas; do not implement until deliberately promoted.
 
-There are two long-lived branches and no others.
+Detailed design documents live under `agents/designs/` and are read only when a todo item links to them or the task clearly depends on them.
 
-- **`develop` is where work happens.** Commit to it directly. There are no
-  per-issue branches, no feature-branch naming convention, and no pull request
-  for ordinary work.
-- **`main` is production.** It changes only through a pull request from
-  `develop`, opened when the project owner decides the state of `develop` is
-  worth releasing. Merging to `main` deploys.
+The old `dev/mvp*.md` and Linear workflow documents are historical context, not current scope or task authority.
 
-A short-lived branch is the exception, not the rule. Use one only when a change
-genuinely needs review before it reaches `develop` — something risky,
-far-reaching, or that another person asked to see first — and merge it into
-`develop`, never into `main`.
+## Planning rules
 
-Committing straight to `develop` removes the review gate that a per-issue pull
-request used to provide, so what is committed has to stand on its own:
+- Requirements change deliberately and relatively slowly.
+- Milestones define sequencing, not detailed task breakdowns.
+- `todo.md` changes frequently and should normally contain no more than about 10 active tasks.
+- Keep todo items concise. Link requirement IDs rather than repeating acceptance prose.
+- Put known-later work in `backlog.md`.
+- Put plausible but uncommitted ideas in `maybe.md`.
+- Do not implement backlog or maybe items unless the project owner explicitly asks or they are promoted into todo.
+- If a task needs substantial design work, create a focused document under `agents/designs/` and link it from todo.
+- Do not create planning bureaucracy for its own sake.
 
-- Run the relevant checks **before** committing, not after.
-- Keep each commit to one coherent change, so a bad one can be reverted alone.
-- Never commit work you have not verified, and never leave `develop` broken.
-  If you break it, fixing it comes before anything else.
+## Starting work
 
-CI runs on every push to `develop`, so a broken commit is visible rather than
-silent — but it reports after the fact. It is not a substitute for running the
-checks yourself first.
-
-## Before starting work
-
-1. Work from a Linear issue whenever an issue has been provided.
-2. Read the complete issue, its acceptance criteria, dependencies, and linked
-   decisions before changing code.
-3. Confirm that prerequisite work is complete. If it is not, report the blocker
-   rather than implementing around an unresolved dependency.
-4. Move the issue to **In Progress**, or ask the project owner to do so if the
-   agent cannot update Linear.
-5. Post a concise progress update in the active task conversation:
+1. Read requirements, milestones and todo.
+2. If the project owner supplied a specific task, work on that task. Otherwise take the first sensible unchecked todo item whose prerequisites are met.
+3. Read any linked design document and only the repository context needed for the task.
+4. Work from the latest `develop`.
+5. Post a concise task update in the active conversation when useful:
 
    ```text
-   STARTING <ISSUE-ID> — <short description>
+   STARTING — <short description>
    ```
 
-6. Work on `develop`. Pull before you start, so you are building on what
-   everyone else has already integrated.
+If another agent is visibly working on the same area, avoid duplicating or overwriting that work.
 
 ## While working
 
-- Stay within the Linear issue's stated scope.
-- Treat acceptance criteria as the definition of completion.
-- Do not make unrelated refactors or opportunistic changes in the same commit.
-- Preserve existing user or agent work. Never discard changes merely because
-  they are outside the current task.
+- Stay within the selected task and linked requirements.
+- Prefer small, coherent changes over broad refactors.
+- Preserve existing user and agent work.
+- Reuse existing Visamp capabilities before adding parallel implementations.
+- Keep core business capabilities below the UI where practical so they can later serve web, API and MCP clients.
 - Add or update tests for changed behaviour where practical.
-- Run the smallest relevant checks during development and the full relevant
-  verification before handoff.
-- Record durable product or architectural decisions in Linear and, when they
-  affect future implementation, in repository documentation. Conversation updates
-  alone are not a sufficient decision record.
-- Reference the Linear issue ID in every commit message, and in the release
-  pull request when the work is part of one.
-- When work overlaps another active issue, coordinate through Linear and post
-  the conflict in the active task conversation before editing the shared area.
+- Run the smallest relevant checks during development and the full relevant verification before handoff.
+- Record durable architectural/product detail in a focused design doc when future agents would otherwise need to reconstruct it from code or chat.
+- Do not silently change product requirements to fit an implementation.
 
-## Progress updates
+## Updating the planning files
 
-Conversation updates are intended to let the project owner track agent activity without
-reading every commit. Post an update when:
+When a task is complete:
 
-- work starts;
-- a meaningful milestone is reached;
-- the task becomes blocked;
-- scope or acceptance criteria need clarification;
-- the work is integrated into `develop` and ready to be looked at.
+- mark its todo checkbox complete;
+- mark a requirement complete only when the capability itself has been verified;
+- add newly discovered immediate work to todo only if it is genuinely needed for the current milestone;
+- put definite later work in backlog;
+- put speculative ideas in maybe.
 
-Keep routine updates short. Put detailed technical reasoning, requirements
-changes, and durable decisions in Linear or repository documentation.
+If todo grows beyond roughly 10 active tasks, prune/reorder it rather than letting it become a second backlog.
 
-Use these formats:
+## Branches and commits
 
-```text
-PROGRESS <ISSUE-ID> — <completed milestone>; next: <next step>
-BLOCKED <ISSUE-ID> — <blocker>; needs: <specific decision or action>
-READY <ISSUE-ID> — on develop at <commit>; <verification summary>
-```
-
-## Finishing a piece of work
-
-There is no pull request for ordinary work. When the implementation is ready:
-
-1. Run the relevant checks and confirm they pass.
-2. Commit to `develop` and push.
-3. Move the Linear issue to **In Review**, or ask the project owner to do so.
-4. Post the `READY` update in the active task conversation, naming the commit.
-5. Leave the issue open until its acceptance criteria have been verified.
-6. Do not mark the issue **Done** unless authorised by the project owner or the
-   task instructions explicitly grant that authority.
-
-## Releasing to production
-
-`main` is updated by a pull request from `develop`, and only when the project
-owner asks for one. Do not open it because work looks finished.
-
-That pull request must:
-
-- say what is being released, as a summary of the issues included rather than a
-  commit list;
-- name anything a reviewer should weigh: deliberate deviations, unmet
-  acceptance criteria, known limitations, follow-up work;
-- list the checks performed against `develop`;
-- avoid claiming completion for anything whose acceptance criteria are unmet.
-
-Do not merge it unless the project owner authorises that specifically.
-Merging deploys production.
+- **`develop` is where ordinary work happens.** Commit to it directly.
+- **`main` is production.** Update it only through a pull request from `develop` when the project owner asks for a release.
+- Use a short-lived branch only when a risky or far-reaching change genuinely needs isolated review.
+- Keep each commit to one coherent change.
+- Run relevant checks before committing.
+- Never knowingly leave `develop` broken.
+- Commit messages should describe the change; Linear issue IDs are not required.
 
 ## Blockers and ambiguity
 
-Stop and request clarification when:
+Stop and surface the problem when:
 
-- requirements conflict;
-- a choice would materially change product behaviour or architecture;
-- required credentials, permissions, assets, or dependencies are unavailable;
-- the requested action is destructive or would overwrite another contributor's
-  work;
-- acceptance criteria cannot be verified.
+- current requirements conflict;
+- a choice materially changes product behaviour or architecture;
+- required credentials, permissions, assets or dependencies are unavailable;
+- the requested action would destructively overwrite another contributor's work;
+- a linked requirement cannot be interpreted or verified safely.
 
-When blocked, do not leave `develop` half-changed. Either commit something that
-stands on its own, or keep the work uncommitted and say so. Describe the current
-state in the Linear issue and post a `BLOCKED` update in the active task conversation.
+Do not invent scope from legacy planning documents.
 
 ## Completion standard
 
-Work is ready for review only when:
+Work is ready when:
 
-- the implementation matches the issue scope;
-- every acceptance criterion is satisfied or explicitly identified as pending;
-- relevant tests and checks pass;
-- documentation is updated where behaviour or architecture changed;
-- the commit messages and the Linear issue contain enough context for another
-  agent or human to continue without reconstructing the work from chat history.
+- the selected todo scope is implemented;
+- linked requirements/acceptance behaviour are satisfied or remaining gaps are explicit;
+- relevant checks pass;
+- planning/design documentation is updated only where needed;
+- another agent can continue without reconstructing the task from chat history.
