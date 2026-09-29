@@ -1084,6 +1084,15 @@ export type Database = {
         Returns: string
       }
       ai_available_credits: { Args: { p_user_id: string }; Returns: number }
+      purchase_visual_licence: {
+        Args: {
+          p_user_id: string
+          p_track_id: string
+          p_visualisation_id: string
+          p_control_values?: Json
+        }
+        Returns: Json
+      }
       begin_audio_upload: {
         Args: { p_id: string; p_user_id: string; p_artist_id: string; p_licence_id: string; p_title: string; p_file_name: string; p_object_key: string; p_bytes: number; p_sha256: string }
         Returns: string
