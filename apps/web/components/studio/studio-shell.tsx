@@ -1,193 +1,434 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Download, Plus, Search } from "lucide-react";
 import { request } from "@/lib/sets/client";
-import { duration, timecode, type SetDocument } from "@/lib/sets/model";
-import type { StudioSelection, StudioSets } from "@/lib/studio/model";
+import { duration, timecode } from "@/lib/sets/model";
+import type { StudioSets } from "@/lib/studio/model";
+import {
+  distributionTargets,
+  type Distribution,
+  type MasterSettings,
+} from "@/lib/studio/distributions-model";
+import {
+  filterStudioSets,
+  setStatusLabels,
+  studioSetStatus,
+  type SetSort,
+  type SetStatus,
+} from "@/lib/studio/set-library";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MasterDownloadSettings } from "./master-download-settings";
 
 export function StudioShell() {
   const [data, setData] = useState<StudioSets | null>(null);
+  const [distributions, setDistributions] = useState<Distribution[] | null>(
+    null,
+  );
+  const [setId, setSetId] = useState<string | null>(null);
+  const [distributionId, setDistributionId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [order, setOrder] = useState<SetSort>("date_desc");
+  const [status, setStatus] = useState<"all" | SetStatus>("all");
   const [error, setError] = useState("");
-  const [selecting, setSelecting] = useState<string | null>(null);
-  const pending = useRef(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const lock = useRef(false);
+  const activeSetId = useRef<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, MasterSettings>>({});
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let active = true;
-    void request<StudioSets>("/api/studio/sets")
-      .then((result) => {
-        if (active) setData(result);
+    void Promise.all([
+      request<StudioSets>("/api/studio/sets"),
+      request<{ distributions: Distribution[] }>("/api/studio/distributions"),
+    ])
+      .then(([sets, result]) => {
+        if (active) {
+          setData(sets);
+          setDistributions(result.distributions);
+          setError("");
+        }
       })
       .catch((cause) => {
         if (active)
           setError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not load your Sets.",
+            cause instanceof Error ? cause.message : "Could not load Studio.",
           );
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [reload]);
 
-  async function selectSet(setId: string) {
-    if (pending.current) return;
-    pending.current = true;
-    setSelecting(setId);
+  const dirty = Object.entries(drafts).some(
+    ([id, settings]) =>
+      JSON.stringify(settings) !==
+      JSON.stringify(distributions?.find((item) => item.id === id)?.settings),
+  );
+  useEffect(() => {
+    if (!dirty) return;
+    const unload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const navigate = (event: MouseEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest("a[href]") &&
+        !window.confirm("Leave with unsaved distribution settings?")
+      )
+        event.preventDefault();
+    };
+    window.addEventListener("beforeunload", unload);
+    document.addEventListener("click", navigate, true);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      document.removeEventListener("click", navigate, true);
+    };
+  }, [dirty]);
+
+  const library =
+    data && distributions
+      ? filterStudioSets(
+          data.sets,
+          distributions,
+          data.selections,
+          search,
+          status,
+          order,
+        )
+      : [];
+  // Filtering hides the active Set rather than silently pointing its distribution at another one.
+  const selectedSet = library.find((set) => set.id === setId) ?? null;
+  const configured =
+    distributions?.filter((item) => item.setId === selectedSet?.id) ?? [];
+  const selectedDistribution =
+    configured.find((item) => item.id === distributionId) ?? null;
+
+  async function addMaster() {
+    if (!selectedSet || lock.current) return;
+    const existing = configured.find(
+      (item) => item.target === "master_download",
+    );
+    if (existing) {
+      setDistributionId(existing.id);
+      return;
+    }
+    lock.current = true;
+    setPending("add");
     setError("");
+    const sourceId = selectedSet.id;
     try {
-      const { selection } = await request<{ selection: StudioSelection }>(
-        "/api/studio/sets",
+      const { distribution } = await request<{ distribution: Distribution }>(
+        "/api/studio/distributions",
         "POST",
-        { setId },
+        { setId: sourceId, target: "master_download" },
       );
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              selections: [
-                selection,
-                ...current.selections.filter(
-                  (item) => item.setId !== selection.setId,
-                ),
-              ],
-            }
-          : current,
-      );
+      setDistributions((current) => [
+        distribution,
+        ...(current ?? []).filter((item) => item.id !== distribution.id),
+      ]);
+      if (activeSetId.current === sourceId) setDistributionId(distribution.id);
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not select this Set.",
+        cause instanceof Error ? cause.message : "Could not add distribution.",
       );
     } finally {
-      pending.current = false;
-      setSelecting(null);
+      lock.current = false;
+      setPending(null);
+    }
+  }
+  async function save(distribution: Distribution, settings: MasterSettings) {
+    if (lock.current) return;
+    lock.current = true;
+    setPending(distribution.id);
+    setError("");
+    try {
+      const result = await request<{ distribution: Distribution }>(
+        `/api/studio/distributions/${distribution.id}`,
+        "PUT",
+        { settings, updatedAt: distribution.updatedAt },
+      );
+      setDistributions((current) =>
+        (current ?? []).map((item) =>
+          item.id === distribution.id ? result.distribution : item,
+        ),
+      );
+      setDrafts((current) => {
+        if (
+          JSON.stringify(current[distribution.id]) !== JSON.stringify(settings)
+        )
+          return current;
+        const next = { ...current };
+        delete next[distribution.id];
+        return next;
+      });
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not save distribution.",
+      );
+    } finally {
+      lock.current = false;
+      setPending(null);
     }
   }
 
-  const selected = new Map(data?.selections.map((item) => [item.setId, item]));
-  const selectedSets = data?.sets.filter((set) => selected.has(set.id)) ?? [];
-  const availableSets = data?.sets.filter((set) => !selected.has(set.id)) ?? [];
-
   return (
-    <div>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="site-eyebrow">STUDIO</p>
-          <h1>Take your Sets further.</h1>
-          <p className="max-w-2xl text-muted-foreground">
-            Choose the Sets you want to distribute. Create, edit and preview
-            your music and visuals in Set Builder.
-          </p>
-        </div>
-        <a href="/sets/new" className="site-button">
-          Create a Set
-        </a>
-      </div>
+    <div className="studio-workspace">
       {error && (
-        <p role="alert" className="mb-4 text-sm text-destructive">
+        <div role="alert" className="studio-error">
           {error}
-        </p>
+          {!data && (
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setReload((value) => value + 1);
+              }}
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
-      {!data && !error && <p role="status">Loading your Sets…</p>}
-      {data && (
-        <>
-          <section aria-labelledby="studio-selected-heading" className="mb-10">
-            <h2 id="studio-selected-heading">Selected for distribution</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Selection saves a Set here. Music rights and visual licences must
-              be checked before export.
-            </p>
-            {selectedSets.length ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {selectedSets.map((set) => (
-                  <SetCard key={set.id} set={set}>
-                    <p className="text-xs text-muted-foreground">
-                      Selected{" "}
-                      {new Date(
-                        selected.get(set.id)!.selectedAt,
-                      ).toLocaleDateString()}
-                    </p>
-                    <span className="rounded-full border px-2 py-1 text-xs">
-                      Awaiting export
-                    </span>
-                  </SetCard>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-                No Sets selected yet. Choose one from your library below.
+      <div className="studio-columns">
+        <section className="studio-column" aria-label="Set library">
+          <header className="studio-column-header">
+            <h1>Sets</h1>
+            <a href="/sets/new" className="studio-action">
+              <Plus size={15} /> Create Set
+            </a>
+          </header>
+          <div className="studio-filters">
+            <label className="studio-search">
+              <Search size={16} />
+              <input
+                aria-label="Search Sets"
+                type="search"
+                placeholder="Search Sets…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <div className="studio-settings-pair">
+              <label>
+                Sort by
+                <select
+                  value={order}
+                  onChange={(event) => setOrder(event.target.value as SetSort)}
+                >
+                  <option value="date_desc">Date · newest first</option>
+                  <option value="date_asc">Date · oldest first</option>
+                  <option value="name_asc">Name · A–Z</option>
+                  <option value="name_desc">Name · Z–A</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select
+                  value={status}
+                  onChange={(event) =>
+                    setStatus(event.target.value as "all" | SetStatus)
+                  }
+                >
+                  <option value="all">All statuses</option>
+                  {Object.entries(setStatusLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          <div className="studio-column-body">
+            {(!data || !distributions) && !error ? (
+              <p role="status" className="studio-empty">
+                Loading Sets…
+              </p>
+            ) : null}
+            {data && distributions && !library.length && (
+              <p className="studio-empty">
+                {data.sets.length
+                  ? "No Sets match your filters."
+                  : "Create a Set in Set Builder to get started."}
               </p>
             )}
-          </section>
-          <section aria-labelledby="studio-library-heading">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 id="studio-library-heading">Your Set library</h2>
-              <a href="/sets" className="text-sm underline underline-offset-4">
-                Open Set Builder
+            <ul className="studio-list">
+              {library.map((set) => (
+                <li key={set.id}>
+                  <button
+                    type="button"
+                    className="studio-card"
+                    aria-pressed={selectedSet?.id === set.id}
+                    onClick={() => {
+                      activeSetId.current = set.id;
+                      setSetId(set.id);
+                      setDistributionId(null);
+                    }}
+                  >
+                    <strong>{set.name}</strong>
+                    <span className="studio-muted">
+                      {timecode(duration(set))} · Updated{" "}
+                      {new Date(set.updatedAt).toLocaleDateString()}
+                    </span>
+                    <span className="studio-badge">
+                      {
+                        setStatusLabels[
+                          studioSetStatus(
+                            set.id,
+                            distributions!,
+                            data!.selections,
+                          )
+                        ]
+                      }
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <footer className="studio-column-footer">
+            <a href="/sets">Open Set Builder</a>
+            {data && (
+              <span>
+                {library.length} of {data.sets.length} Sets
+              </span>
+            )}
+          </footer>
+        </section>
+        <section className="studio-column" aria-label="Set distributions">
+          <header className="studio-column-header">
+            <h2>Distributions</h2>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="studio-action"
+                disabled={!selectedSet || pending !== null}
+              >
+                <Plus size={15} /> Add distribution <ChevronDown size={14} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-56">
+                {distributionTargets.map((target) => (
+                  <DropdownMenuItem
+                    key={target.id}
+                    disabled={!target.available}
+                    onClick={
+                      target.available ? () => void addMaster() : undefined
+                    }
+                  >
+                    {target.label}
+                    {!target.available && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Coming later
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </header>
+          {selectedSet && (
+            <div className="studio-context">
+              <strong>{selectedSet.name}</strong>
+              <a href={`/sets/${selectedSet.id}/edit`}>
+                Edit / preview in Set Builder
               </a>
             </div>
-            {availableSets.length ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {availableSets.map((set) => (
-                  <SetCard key={set.id} set={set}>
+          )}
+          <div className="studio-column-body">
+            {!selectedSet ? (
+              <p className="studio-empty">
+                Select a Set to see its distributions.
+              </p>
+            ) : configured.length === 0 ? (
+              <p className="studio-empty">
+                No distributions yet. Add Master Downloads to set up a
+                downloadable video.
+              </p>
+            ) : (
+              <ul className="studio-list">
+                {configured.map((item) => (
+                  <li key={item.id}>
                     <button
                       type="button"
-                      className="site-button"
-                      disabled={selecting !== null}
-                      onClick={() => void selectSet(set.id)}
+                      className="studio-card"
+                      aria-pressed={selectedDistribution?.id === item.id}
+                      onClick={() => setDistributionId(item.id)}
                     >
-                      {selecting === set.id
-                        ? "Selecting…"
-                        : "Select for distribution"}
+                      <strong className="flex items-center gap-2">
+                        <Download size={16} /> Master Downloads
+                      </strong>
+                      <span className="studio-muted">
+                        {item.settings.resolution} · {item.settings.frameRate}{" "}
+                        fps · {item.settings.format.toUpperCase()}
+                      </span>
+                      <span className="studio-badge">
+                        Draft
+                        {drafts[item.id] &&
+                        JSON.stringify(drafts[item.id]) !==
+                          JSON.stringify(item.settings)
+                          ? " · Unsaved changes"
+                          : ""}
+                      </span>
                     </button>
-                  </SetCard>
+                  </li>
                 ))}
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-                {data.sets.length
-                  ? "All your Sets are selected. You can create another in Set Builder."
-                  : "Create your first Set in Set Builder, then select it here for distribution."}
+              </ul>
+            )}
+            {pending === "add" && (
+              <p role="status" className="studio-empty">
+                Adding Master Downloads…
               </p>
             )}
-          </section>
-        </>
-      )}
-    </div>
-  );
-}
-
-function SetCard({
-  set,
-  children,
-}: {
-  set: SetDocument;
-  children: React.ReactNode;
-}) {
-  return (
-    <article aria-label={set.name} className="rounded-xl border p-4">
-      <h3 className="truncate font-medium">{set.name}</h3>
-      {set.description && (
-        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-          {set.description}
-        </p>
-      )}
-      <p className="mt-3 text-xs text-muted-foreground">
-        {timecode(duration(set))} · {set.audioClips.length} audio ·{" "}
-        {set.visualClips.length} visual clips
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Edited {new Date(set.updatedAt).toLocaleString()}
-      </p>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <a
-          href={`/sets/${set.id}/edit`}
-          className="text-sm underline underline-offset-4"
-        >
-          Edit / preview in Set Builder
-        </a>
-        {children}
+          </div>
+        </section>
+        <section className="studio-column" aria-label="Distribution settings">
+          <header className="studio-column-header">
+            <h2>Settings</h2>
+          </header>
+          <div className="studio-column-body">
+            {selectedSet && selectedDistribution ? (
+              <MasterDownloadSettings
+                distribution={selectedDistribution}
+                set={selectedSet}
+                settings={
+                  drafts[selectedDistribution.id] ??
+                  selectedDistribution.settings
+                }
+                dirty={
+                  !!drafts[selectedDistribution.id] &&
+                  JSON.stringify(drafts[selectedDistribution.id]) !==
+                    JSON.stringify(selectedDistribution.settings)
+                }
+                saving={pending === selectedDistribution.id}
+                onChange={(settings) =>
+                  setDrafts((current) => ({
+                    ...current,
+                    [selectedDistribution.id]: settings,
+                  }))
+                }
+                onSave={() =>
+                  void save(
+                    selectedDistribution,
+                    drafts[selectedDistribution.id] ??
+                      selectedDistribution.settings,
+                  )
+                }
+              />
+            ) : (
+              <p className="studio-empty">
+                Select a distribution to configure it.
+              </p>
+            )}
+          </div>
+        </section>
       </div>
-    </article>
+    </div>
   );
 }

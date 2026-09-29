@@ -5,6 +5,7 @@
 Keep this list short. Maximum target: 10 active tasks.
 
 - [x] Replace Studio's separate Video Maker with persistent selection of existing Sets and links to the exact Set Builder. [R030 R031 R035 R090]
+- [x] Refactor Studio into Set library, distributions and settings columns; persist Master Downloads setup (rendering deferred). [R030 R032 R035]
 - [ ] Verify first-class Visript params and add live per-clip param editing/persistence to Set Builder. [R011 R012 R036 R092]
 - [ ] Complete distribution/source/fork semantics and eligible visual discovery/preview in Set Builder. [R010 R017 R018 R026 R034]
 - [ ] Validate selected Sets for artist-owned hosted tracks, eligible visuals and render readiness below the UI. [R033 R034 R091]

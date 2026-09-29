@@ -213,3 +213,32 @@ before the column type change and restored afterward with their existing scope.
 Verified against local PostgreSQL 17, including `visual_distribution_classes.sql`
 and the existing `assets_access.sql` regression tests. Remote application is
 separate from this local verification.
+
+### Three-column Studio / Master Downloads setup
+
+The owner refined Studio to one full-width workspace: all owned Sets on the
+left (search, updated-date/name ordering, status filter), distributions for the
+active Set in the centre, and settings/status for the active distribution on
+the right. Set Builder remains the authoring and preview UI.
+
+`set_distributions` stores one draft Master Downloads setup per Set, with
+filename, container, resolution and frame rate. `/api/studio/distributions`
+provides owner-scoped list/add; `/api/studio/distributions/[id]` saves validated
+settings with an `updated_at` concurrency check. Repeat add preserves settings.
+RLS permits owner reads; writes go through the authenticated service. Set
+deletion cascades. Existing `studio_sets` selections remain visible in filters;
+a distribution draft is itself selection for distribution.
+
+The owner explicitly chose saved setup/settings first. These output preferences
+are not a claim of render support or export eligibility: full Set rendering,
+licensing/readiness checks, provenance and downloads remain open M1 work. Social
+targets are listed but disabled. When individual channels are implemented, their
+selection should start account connection if needed; no account is required for
+Master Downloads. Unsaved settings survive Set switches and failed saves in the
+current page, with a warning before leaving.
+
+Apply `20260930010000_studio_distributions.sql` after the existing migrations.
+It has been applied and tested locally, not remotely. Verification covers SQL
+ownership/constraints, API ownership/validation/concurrency, component state,
+and the real dropdown/layout with isolated browser API fixtures. Authenticated
+remote browser-to-database verification remains part of the open M1 flow task.

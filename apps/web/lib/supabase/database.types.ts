@@ -14,6 +14,15 @@ export type Database = {
   }
   public: {
     Tables: {
+      set_distributions: {
+        Row: { id: string; set_id: string; target: "master_download"; status: "draft";
+          settings: import("@/lib/studio/distributions-model").MasterSettings; created_at: string; updated_at: string };
+        Insert: { id?: string; set_id: string; target: "master_download";
+          settings: import("@/lib/studio/distributions-model").MasterSettings };
+        Update: { settings?: import("@/lib/studio/distributions-model").MasterSettings };
+        Relationships: [{ foreignKeyName: "set_distributions_set_id_fkey"; columns: ["set_id"];
+          isOneToOne: false; referencedRelation: "performance_sets"; referencedColumns: ["id"] }];
+      };
       studio_sets: {
         Row: { set_id: string; selected_at: string };
         Insert: { set_id: string; selected_at?: string };
