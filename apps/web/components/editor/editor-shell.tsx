@@ -816,6 +816,8 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
                 >
                   <option value="private">Private</option>
                   <option value="public">Public</option>
+                  <option value="protected">Protected</option>
+                  <option value="product">Product</option>
                 </select>
 
                 <button
@@ -849,7 +851,6 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
                   visualisationId={visualisation.id}
                   canEdit={canEdit}
                   visibility={visibility}
-                  initialListed={visualisation.marketplace_listed}
                   initialPrice={visualisation.marketplace_price_credits}
                 />
               )}
