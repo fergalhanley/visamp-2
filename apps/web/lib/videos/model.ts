@@ -46,6 +46,14 @@ export type VideoSummary = {
   scheduleState: Record<string, unknown>;
 };
 
+export type VideoDocument = VideoSummary & { content: VideoContent };
+
+export type VideoCatalogueItem = {
+  media: VideoMediaRef;
+  distribution?: "public" | "protected" | "product";
+  priceCredits?: number;
+};
+
 export const emptyVideo = (): VideoContent => ({
   schemaVersion: 1,
   aspectRatio: "9:16",

@@ -9,7 +9,8 @@ import { useFavouriteVisualisations } from "@/hooks/use-favourite-visualisations
 import { MusicLibrary } from "@/components/panels/music-library";
 import { type MediaRef } from "@/lib/sets/model";
 import { fileRef, request } from "@/lib/sets/client";
-export const DRAG_MEDIA = "application/x-visamp-set-media";
+import { DRAG_MEDIA } from "@/lib/sets/drag-media";
+export { DRAG_MEDIA } from "@/lib/sets/drag-media";
 export function Catalogue({
   kind,
   onAdd,

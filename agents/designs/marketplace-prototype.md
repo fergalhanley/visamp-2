@@ -183,3 +183,46 @@ M1 requires one usable promotional video from the authored Video Maker project, 
 - Visamp network discovery;
 - livestream/TV;
 - MCP exposure.
+
+## Video Maker implementation slice (2026-09-29)
+
+Studio now mounts `components/studio/video-maker.tsx` for a durable Video ID.
+It reuses `components/sets/timeline.tsx`, clip transitions, and the existing
+history reducer (now generic), rather than copying SetEditor or adopting its
+performance transport. `lib/videos/timeline.ts` adapts VideoContent to the
+set-shaped timeline view and back. That view is never persisted as a set.
+Per-use params and licence references survive timing edits by clip ID; replacing
+a visual clears them. Video aspect ratio remains outside the timeline adapter.
+
+`/api/studio/videos/[id]` loads and saves owner-scoped Video documents with an
+`updated_at` concurrency check. Save canonicalises media attribution/duration and
+checks live hosted tracks against artist ownership and visuals against current
+distribution/price eligibility. Empty drafts are valid. Product clips can be
+saved before purchase; a stored licence ID is only provenance, never export
+authorisation. Export must independently validate the actual licence.
+
+`/api/studio/videos/catalogue` returns only authoring metadata, never Visript
+source. The older `/api/studio/visuals` runtime-source response still needs the
+separate distribution/source-boundary task; this slice does not claim to fix it.
+
+Apply `20260929160000_video_authoring_boundary.sql` with this code. It revokes
+direct authenticated inserts and title/content updates so the validated service
+is the authoring write boundary. Collection create/list now use the service role
+with explicit owner scoping; row-level security still protects direct reads.
+
+Saving is explicit. Tab switches retain the editor; leaving a dirty document
+warns before discarding it. New clips default to 30 seconds (or the shorter
+track duration), with timeline drag/trim and numeric timing/offset edits.
+
+Verified: shared timeline regressions, Video model/API tests, component
+create/edit/save/reopen and failure tests, Chromium authoring with isolated API
+fixtures, web type check, lint and production build. The new migration and live
+authenticated database round trip remain unverified. No product requirement is
+marked complete on the strength of fixture verification alone.
+
+Next integration: reuse set playback scheduling/audio infrastructure with a
+Video-specific resolver and clip-param application. Do not send Videos to the
+performance-set resolver. Then reconnect licensing and export to this authored
+timeline. The retired MarketplaceStudio remains code for reusing those pieces;
+it is no longer the Studio workspace. Preview, live params, licensing UI and
+export are not yet connected to the new timeline.

@@ -48,14 +48,14 @@ export function visualFallback(items: Scheduled[]): Scheduled | null {
     ? { ...a!, level: Math.max(0, 1 - 2 * b!.level) }
     : { ...b!, level: Math.max(0, 2 * b!.level - 1) };
 }
-export type History = {
-  past: SetContent[];
-  present: SetContent;
-  future: SetContent[];
+export type History<T = SetContent> = {
+  past: T[];
+  present: T;
+  future: T[];
 };
-export type HistoryAction =
-  { type: "edit" | "reset"; value: SetContent } | { type: "undo" | "redo" };
-export function history(h: History, a: HistoryAction): History {
+export type HistoryAction<T = SetContent> =
+  { type: "edit" | "reset"; value: T } | { type: "undo" | "redo" };
+export function history<T>(h: History<T>, a: HistoryAction<T>): History<T> {
   if (a.type === "reset") return { past: [], present: a.value, future: [] };
   if (a.type === "edit")
     return {

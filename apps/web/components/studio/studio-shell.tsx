@@ -3,7 +3,7 @@
 import { Film, Plus, WandSparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { MarketplaceStudio } from "@/components/studio/marketplace-studio";
+import { VideoMaker } from "@/components/studio/video-maker";
 import type { VideoSummary } from "@/lib/videos/model";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export function StudioShell() {
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -24,7 +25,8 @@ export function StudioShell() {
           videos?: VideoSummary[];
           error?: string;
         };
-        if (!response.ok) throw new Error(payload.error ?? "Could not load videos.");
+        if (!response.ok)
+          throw new Error(payload.error ?? "Could not load videos.");
         if (active) setVideos(payload.videos ?? []);
       })
       .catch((cause) => {
@@ -41,7 +43,14 @@ export function StudioShell() {
   }, []);
 
   async function createVideo() {
-    if (creating) return;
+    if (
+      creating ||
+      (dirty &&
+        !window.confirm(
+          "Discard unsaved video changes and create a new video?",
+        ))
+    )
+      return;
     setCreating(true);
     setError("");
     try {
@@ -53,6 +62,7 @@ export function StudioShell() {
       if (!response.ok || !payload.video)
         throw new Error(payload.error ?? "Could not create a video.");
       setVideos((current) => [payload.video!, ...(current ?? [])]);
+      setDirty(false);
       setActiveVideoId(payload.video.id);
       setTab("maker");
     } catch (cause) {
@@ -65,6 +75,13 @@ export function StudioShell() {
   }
 
   function openVideo(id: string) {
+    if (
+      id !== activeVideoId &&
+      dirty &&
+      !window.confirm("Discard unsaved video changes and open another video?")
+    )
+      return;
+    if (id !== activeVideoId) setDirty(false);
     setActiveVideoId(id);
     setTab("maker");
   }
@@ -98,26 +115,51 @@ export function StudioShell() {
         </p>
       )}
 
-      {tab === "videos" ? (
+      <div hidden={tab !== "videos"}>
         <MyVideos
           videos={videos}
           creating={creating}
           onCreate={() => void createVideo()}
           onOpen={openVideo}
         />
-      ) : (
-        <section role="tabpanel" aria-label="Video Maker">
-          <div className="mb-6">
-            <p className="site-eyebrow">VIDEO MAKER</p>
-            <h1>Build a video around your music.</h1>
-            <p className="max-w-3xl">
-              Use your tracks with public, protected and product visuals.
-              Creator-defined Visript params are the customisation surface.
-            </p>
-          </div>
-          <MarketplaceStudio videoId={activeVideoId} />
-        </section>
-      )}
+      </div>
+      <section
+        hidden={tab !== "maker"}
+        role="tabpanel"
+        aria-label="Video Maker"
+      >
+        <div className="mb-6">
+          <p className="site-eyebrow">VIDEO MAKER</p>
+          <h1>Build a video around your music.</h1>
+          <p className="max-w-3xl">
+            Use your tracks with public, protected and product visuals. Arrange
+            and trim clips on your video timeline.
+          </p>
+        </div>
+        {activeVideoId ? (
+          <VideoMaker
+            key={activeVideoId}
+            id={activeVideoId}
+            onDirty={setDirty}
+            onSaved={(video) =>
+              setVideos((current) =>
+                (current ?? []).map((item) =>
+                  item.id === video.id ? video : item,
+                ),
+              )
+            }
+          />
+        ) : (
+          <button
+            type="button"
+            className="site-button"
+            disabled={creating}
+            onClick={() => void createVideo()}
+          >
+            Create video
+          </button>
+        )}
+      </section>
     </div>
   );
 }
@@ -217,7 +259,9 @@ function MyVideos({
               <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <dt className="text-muted-foreground">Distribution</dt>
-                  <dd className="mt-1">{stateLabel(video.distributionState)}</dd>
+                  <dd className="mt-1">
+                    {stateLabel(video.distributionState)}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Schedule</dt>

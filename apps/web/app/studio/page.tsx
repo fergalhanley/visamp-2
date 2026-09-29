@@ -1,3 +1,4 @@
+import "@/app/sets.css";
 import { TopBar } from "@/components/chrome/top-bar";
 import { StudioShell } from "@/components/studio/studio-shell";
 

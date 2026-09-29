@@ -1,3 +1,4 @@
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { emptyVideo, type VideoSummary } from "@/lib/videos/model";
 
@@ -6,7 +7,7 @@ async function identity() {
   const {
     data: { user },
   } = await db.auth.getUser();
-  return { db, user };
+  return { db: createAdminClient(), user };
 }
 
 function summary(row: {
@@ -45,6 +46,7 @@ export async function GET() {
   const { data, error } = await db
     .from("videos")
     .select("id,title,status,updated_at,distribution_state,schedule_state")
+    .eq("owner_id", user.id)
     .order("updated_at", { ascending: false })
     .limit(200);
 
