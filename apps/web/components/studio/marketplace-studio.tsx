@@ -47,7 +47,11 @@ function paramValue(param: ParamView): ExternalParamValue | undefined {
   return undefined;
 }
 
-export function MarketplaceStudio() {
+export function MarketplaceStudio({
+  videoId,
+}: {
+  videoId?: string | null;
+}) {
   const { user } = useAuth();
   const [signIn, setSignIn] = useState(false);
   const [tracksState, setTracksState] = useState<TracksState>(null);
@@ -310,7 +314,10 @@ export function MarketplaceStudio() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
+    <div
+      data-video-id={videoId ?? undefined}
+      className="grid gap-5 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]"
+    >
       <aside className="min-w-0 rounded-xl border bg-background/60">
         <header className="border-b p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
