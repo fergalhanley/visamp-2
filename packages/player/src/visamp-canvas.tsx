@@ -359,8 +359,9 @@ export function VisampCanvas({
         engine.set_param(name, JSON.stringify(value));
       },
       captureStream: (fps = 30) => {
-        const canvas = canvasRef.current;
-        if (!canvas) throw new Error("The visualisation canvas is not ready");
+        const canvas = stageRef.current?.querySelector("canvas");
+        if (!(canvas instanceof HTMLCanvasElement))
+          throw new Error("The visualisation canvas is not ready");
         return canvas.captureStream(fps);
       },
       queueInput: (packet: object | null) => {
