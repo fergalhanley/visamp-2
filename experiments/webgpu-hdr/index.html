@@ -26,9 +26,11 @@
 </head>
 <body>
 <h1>Visamp · WebGPU HDR brightness experiment</h1>
-<p>Compare a shader-rendered highlight against a real CSS <code>#FFFFFF</code> reference. On an XDR display in extended mode, the circle should grow <em>physically brighter</em> as the slider goes above 1—not merely larger or whiter. No Visamp engine code is involved.</p>
+<p>Compare eight HDR colours against a real CSS <code>#FFFFFF</code> reference, or select one colour to examine. On an XDR display in extended mode, the circle should grow <em>physically brighter</em> as the slider goes above 1—not merely larger or whiter. No Visamp engine code is involved.</p>
 <section class="panel controls">
   <label>Highlight intensity <input id="intensity" type="range" min="0.5" max="6" step="0.1" value="2.5"><output id="intensityValue">2.5×</output></label>
+  <label>Colour <select id="colour"><option value="0">White</option><option value="1">Red</option><option value="2">Green</option><option value="3">Blue</option><option value="4">Cyan</option><option value="5">Magenta</option><option value="6">Yellow</option><option value="7">Orange</option></select></label>
+  <label><input id="grid" type="checkbox" checked> Show all eight colours</label>
   <label>Canvas mode <select id="mode"><option value="extended">HDR extended</option><option value="standard">SDR standard</option></select></label>
   <label><input id="animate" type="checkbox" checked> Slow breathing pulse</label>
   <label><input id="compositing" type="checkbox" checked> Compositing workaround (Chrome 155)</label>
@@ -36,7 +38,7 @@
 </section>
 <div class="stage">
   <div id="compositingLayer" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;z-index:1;backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px)"></div>
-  <canvas id="canvas" aria-label="GPU-rendered white circle, coloured halo and comparison bars"></canvas>
+  <canvas id="canvas" aria-label="GPU-rendered HDR colour comparisons"></canvas>
   <div class="reference" style="z-index:2"><span>CSS #FFFFFF</span>SDR white reference</div>
 </div>
 <section class="panel"><strong>Diagnostics</strong><div id="status" role="status">Initialising WebGPU…</div></section>
@@ -48,6 +50,8 @@ const status = $('status');
 const intensity = $('intensity');
 const mode = $('mode');
 const animate = $('animate');
+const colour = $('colour');
+const grid = $('grid');
 const compositing = $('compositing');
 const compositingLayer = $('compositingLayer');
 compositing.addEventListener('change', () => { compositingLayer.style.display = compositing.checked ? 'block' : 'none'; diagnostics(); });
@@ -83,7 +87,7 @@ async function init() {
   context = canvas.getContext('webgpu');
   if (!context) throw Error('Could not create a WebGPU canvas context.');
   const shader = device.createShaderModule({ code: `
-struct Params { size: vec2f, intensity: f32, time: f32, pulse: f32, padding: vec3f };
+struct Params { size: vec2f, intensity: f32, time: f32, pulse: f32, colour: f32, grid: f32, padding: vec2f };
 @group(0) @binding(0) var<uniform> params: Params;
 struct VertexOut { @builtin(position) position: vec4f };
 @vertex fn vs(@builtin(vertex_index) index: u32) -> VertexOut {
@@ -92,21 +96,40 @@ struct VertexOut { @builtin(position) position: vec4f };
   o.position = vec4f(p[index], 0.0, 1.0);
   return o;
 }
+fn palette(i: i32) -> vec3f {
+  switch i {
+    case 1: { return vec3f(1.0, 0.0, 0.0); }
+    case 2: { return vec3f(0.0, 1.0, 0.0); }
+    case 3: { return vec3f(0.0, 0.0, 1.0); }
+    case 4: { return vec3f(0.0, 1.0, 1.0); }
+    case 5: { return vec3f(1.0, 0.0, 1.0); }
+    case 6: { return vec3f(1.0, 1.0, 0.0); }
+    case 7: { return vec3f(1.0, 0.32, 0.0); }
+    default: { return vec3f(1.0, 1.0, 1.0); }
+  }
+}
 @fragment fn fs(@builtin(position) frag: vec4f) -> @location(0) vec4f {
-  let uv = (frag.xy - params.size * 0.5) / params.size.y;
-  let d = length(uv);
-  let core = 1.0 - smoothstep(0.135, 0.152, d);
-  let halo = exp(-d*d*36.0) * 0.22;
-  let power = params.intensity * (1.0 + params.pulse);
-  let whiteLight = vec3f(1.0, 1.0, 1.0) * power * core;
-  let blueGlow = vec3f(0.08, 0.23, 0.8) * power * halo * (1.0-core);
   let background = vec3f(0.006, 0.008, 0.015);
-  // Four fixed grey bands: 0.5, 1, 2, 4 x SDR white for comparison.
-  let inBand = frag.y > params.size.y * 0.79 && frag.y < params.size.y * 0.88;
-  let slot = floor(frag.x / (params.size.x * 0.25));
-  let band = select(0.0, pow(2.0, slot - 1.0), inBand && slot < 4.0);
-  let colour = select(background + blueGlow + whiteLight, vec3f(band), inBand);
-  return vec4f(colour, 1.0);
+  let power = params.intensity * (1.0 + params.pulse);
+  var centre = params.size * 0.5;
+  var radius = params.size.y * 0.15;
+  var selected = i32(params.colour);
+  if (params.grid > 0.5) {
+    let col = min(3, i32(floor(frag.x / (params.size.x / 4.0))));
+    let row = min(1, i32(floor(frag.y / (params.size.y / 2.0))));
+    selected = row * 4 + col;
+    centre = vec2f((f32(col) + 0.5) * params.size.x / 4.0,
+                   (f32(row) + 0.5) * params.size.y / 2.0);
+    radius = min(params.size.x / 4.0, params.size.y / 2.0) * 0.29;
+  }
+  let distance = length(frag.xy - centre);
+  let core = 1.0 - smoothstep(radius * 0.92, radius, distance);
+  let halo = exp(-pow(distance / radius, 2.0) * 1.5) * 0.12;
+  let base = palette(selected);
+  // Float channels can exceed 1.0, but strongly saturated emitters may
+  // clip or desaturate according to the display's HDR tone mapping.
+  let colourOut = background + base * power * (core + halo * (1.0-core));
+  return vec4f(colourOut, 1.0);
 }
 `});
   const moduleInfo = await shader.getCompilationInfo();
@@ -118,7 +141,7 @@ struct VertexOut { @builtin(position) position: vec4f };
     fragment: { module: shader, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
     primitive: { topology: 'triangle-list' }
   });
-  // WGSL uniform Params occupies 32 bytes (two vec2/f32 pairs plus padded vec3).
+  // 48-byte uniform allocation provides space for scalar controls and padding.
   uniforms = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   bindGroup = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
   configure();
@@ -148,10 +171,11 @@ function frame(ms) {
   const t = ms / 1000;
   const breathing = animate.checked ? 0.12 * Math.sin(t * 2.4) : 0;
   const beat = 1.5 * Math.exp(-Math.max(0, t - lastBeat) * 9);
-  // Params alignment: vec2(size) then intensity, time, pulse then padding.
+  // Params alignment: vec2(size), intensity, time, pulse, colour, grid, padding.
   const values = new Float32Array(12);
   values[0] = w; values[1] = h;
   values[2] = Number(intensity.value); values[3] = t; values[4] = breathing + beat;
+  values[5] = Number(colour.value); values[6] = grid.checked ? 1 : 0;
   device.queue.writeBuffer(uniforms, 0, values);
   const encoder = device.createCommandEncoder();
   const pass = encoder.beginRenderPass({ colorAttachments: [{
