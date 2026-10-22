@@ -31,11 +31,13 @@
   <label>Highlight intensity <input id="intensity" type="range" min="0.5" max="6" step="0.1" value="2.5"><output id="intensityValue">2.5×</output></label>
   <label>Canvas mode <select id="mode"><option value="extended">HDR extended</option><option value="standard">SDR standard</option></select></label>
   <label><input id="animate" type="checkbox" checked> Slow breathing pulse</label>
+  <label><input id="compositing" type="checkbox" checked> Compositing workaround (Chrome 155)</label>
   <button id="burst" type="button">Single beat</button>
 </section>
 <div class="stage">
+  <div id="compositingLayer" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;z-index:1;backdrop-filter:blur(0px);-webkit-backdrop-filter:blur(0px)"></div>
   <canvas id="canvas" aria-label="GPU-rendered white circle, coloured halo and comparison bars"></canvas>
-  <div class="reference"><span>CSS #FFFFFF</span>SDR white reference</div>
+  <div class="reference" style="z-index:2"><span>CSS #FFFFFF</span>SDR white reference</div>
 </div>
 <section class="panel"><strong>Diagnostics</strong><div id="status" role="status">Initialising WebGPU…</div></section>
 <p>Test by switching between <strong>Apple XDR Display</strong> and <strong>Apple Display</strong> presets in macOS Displays, and toggling <strong>HDR extended</strong> versus <strong>SDR standard</strong> above. Be mindful of brightness and flashing sensitivity.</p>
@@ -46,6 +48,9 @@ const status = $('status');
 const intensity = $('intensity');
 const mode = $('mode');
 const animate = $('animate');
+const compositing = $('compositing');
+const compositingLayer = $('compositingLayer');
+compositing.addEventListener('change', () => { compositingLayer.style.display = compositing.checked ? 'block' : 'none'; diagnostics(); });
 const gpu = navigator.gpu;
 const hdrMedia = matchMedia('(dynamic-range: high)');
 let lastBeat = -100;
@@ -58,6 +63,7 @@ function diagnostics() {
     'HDR media query: ' + (hdrMedia.matches ? 'high' : 'not high'),
     'WebGPU: ' + (device ? 'available' : 'not initialised'),
     'Requested canvas mode: ' + mode.value,
+    'Compositing workaround: ' + (compositing.checked ? 'enabled' : 'disabled'),
     'Reported canvas mode: ' + (actual?.toneMapping?.mode ?? 'unavailable'),
     'Canvas format: ' + (actual?.format ?? 'unavailable'),
     'Colour space: ' + (actual?.colorSpace ?? 'default'),
