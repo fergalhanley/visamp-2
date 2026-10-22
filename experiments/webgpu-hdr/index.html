@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visamp — WebGPU HDR brightness experiment</title>
+<style>
+  :root { color-scheme: dark; font: 15px system-ui, -apple-system, sans-serif; background: #0c0f17; color: #e7eaf3; }
+  * { box-sizing: border-box; }
+  body { margin: 0 auto; max-width: 1060px; padding: 24px; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  p { color: #b9c1d4; line-height: 1.5; }
+  .panel { border: 1px solid #35405b; background: #171d2b; padding: 16px; border-radius: 12px; margin-block: 14px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+  label { display: flex; gap: 9px; align-items: center; }
+  input[type=range] { width: min(40vw, 300px); }
+  .stage { position: relative; margin-top: 16px; }
+  canvas { display: block; width: 100%; height: 440px; border: 1px solid #3d4761; border-radius: 8px; background: #080a10; }
+  .reference { position: absolute; left: 18px; top: 18px; padding: 12px; color: #111; background: white; font-size: 13px; border-radius: 4px; }
+  .reference span { display: block; font-weight: 700; }
+  output { font-variant-numeric: tabular-nums; }
+  #status { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 13px; }
+  button { padding: 8px 13px; border-radius: 6px; background: #343f64; color: white; border: 1px solid #7884a8; cursor: pointer; }
+  @media (max-width: 550px) { body { padding: 12px; } canvas { height: 330px; } .reference { font-size: 11px; padding: 8px; } }
+</style>
+</head>
+<body>
+<h1>Visamp · WebGPU HDR brightness experiment</h1>
+<p>Compare a shader-rendered highlight against a real CSS <code>#FFFFFF</code> reference. On an XDR display in extended mode, the circle should grow <em>physically brighter</em> as the slider goes above 1—not merely larger or whiter. No Visamp engine code is involved.</p>
+<section class="panel controls">
+  <label>Highlight intensity <input id="intensity" type="range" min="0.5" max="6" step="0.1" value="2.5"><output id="intensityValue">2.5×</output></label>
+  <label>Canvas mode <select id="mode"><option value="extended">HDR extended</option><option value="standard">SDR standard</option></select></label>
+  <label><input id="animate" type="checkbox" checked> Slow breathing pulse</label>
+  <button id="burst" type="button">Single beat</button>
+</section>
+<div class="stage">
+  <canvas id="canvas" aria-label="GPU-rendered white circle, coloured halo and comparison bars"></canvas>
+  <div class="reference"><span>CSS #FFFFFF</span>SDR white reference</div>
+</div>
+<section class="panel"><strong>Diagnostics</strong><div id="status" role="status">Initialising WebGPU…</div></section>
+<p>Test by switching between <strong>Apple XDR Display</strong> and <strong>Apple Display</strong> presets in macOS Displays, and toggling <strong>HDR extended</strong> versus <strong>SDR standard</strong> above. Be mindful of brightness and flashing sensitivity.</p>
+<script type="module">
+const $ = id => document.getElementById(id);
+const canvas = $('canvas');
+const status = $('status');
+const intensity = $('intensity');
+const mode = $('mode');
+const animate = $('animate');
+const gpu = navigator.gpu;
+const hdrMedia = matchMedia('(dynamic-range: high)');
+let lastBeat = -100;
+let configWarning = '';
+let device, context, pipeline, uniforms, bindGroup;
+
+function diagnostics() {
+  const actual = context?.getConfiguration?.();
+  status.textContent = [
+    'HDR media query: ' + (hdrMedia.matches ? 'high' : 'not high'),
+    'WebGPU: ' + (device ? 'available' : 'not initialised'),
+    'Requested canvas mode: ' + mode.value,
+    'Reported canvas mode: ' + (actual?.toneMapping?.mode ?? 'unavailable'),
+    'Canvas format: ' + (actual?.format ?? 'unavailable'),
+    'Colour space: ' + (actual?.colorSpace ?? 'default'),
+    configWarning,
+    'Note: reported HDR configuration does not guarantee physical HDR output.'
+  ].filter(Boolean).join('\n');
+}
+hdrMedia.addEventListener?.('change', diagnostics);
+intensity.addEventListener('input', () => { $('intensityValue').textContent = Number(intensity.value).toFixed(1) + '×'; });
+$('burst').addEventListener('click', () => { lastBeat = performance.now() / 1000; });
+
+async function init() {
+  if (!gpu) throw Error('WebGPU is unavailable. Try a recent Chrome build on macOS.');
+  const adapter = await gpu.requestAdapter();
+  if (!adapter) throw Error('No WebGPU adapter available.');
+  device = await adapter.requestDevice();
+  context = canvas.getContext('webgpu');
+  if (!context) throw Error('Could not create a WebGPU canvas context.');
+  const shader = device.createShaderModule({ code: `
+struct Params { size: vec2f, intensity: f32, time: f32, pulse: f32, padding: vec3f };
+@group(0) @binding(0) var<uniform> params: Params;
+struct VertexOut { @builtin(position) position: vec4f };
+@vertex fn vs(@builtin(vertex_index) index: u32) -> VertexOut {
+  var p = array<vec2f, 3>(vec2f(-1.0,-1.0), vec2f(3.0,-1.0), vec2f(-1.0,3.0));
+  var o: VertexOut;
+  o.position = vec4f(p[index], 0.0, 1.0);
+  return o;
+}
+@fragment fn fs(@builtin(position) frag: vec4f) -> @location(0) vec4f {
+  let uv = (frag.xy - params.size * 0.5) / params.size.y;
+  let d = length(uv);
+  let core = 1.0 - smoothstep(0.135, 0.152, d);
+  let halo = exp(-d*d*36.0) * 0.22;
+  let power = params.intensity * (1.0 + params.pulse);
+  let whiteLight = vec3f(1.0, 1.0, 1.0) * power * core;
+  let blueGlow = vec3f(0.08, 0.23, 0.8) * power * halo * (1.0-core);
+  let background = vec3f(0.006, 0.008, 0.015);
+  // Four fixed grey bands: 0.5, 1, 2, 4 x SDR white for comparison.
+  let inBand = frag.y > params.size.y * 0.79 && frag.y < params.size.y * 0.88;
+  let slot = floor(frag.x / (params.size.x * 0.25));
+  let band = select(0.0, pow(2.0, slot - 1.0), inBand && slot < 4.0);
+  let colour = select(background + blueGlow + whiteLight, vec3f(band), inBand);
+  return vec4f(colour, 1.0);
+}
+`});
+  const moduleInfo = await shader.getCompilationInfo();
+  const errors = moduleInfo.messages.filter(x => x.type === 'error');
+  if (errors.length) throw Error(errors.map(x => x.message).join('; '));
+  pipeline = device.createRenderPipeline({
+    layout: 'auto',
+    vertex: { module: shader, entryPoint: 'vs' },
+    fragment: { module: shader, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
+    primitive: { topology: 'triangle-list' }
+  });
+  // WGSL uniform Params occupies 32 bytes (two vec2/f32 pairs plus padded vec3).
+  uniforms = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  bindGroup = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniforms } }] });
+  configure();
+  mode.addEventListener('change', () => { configure(); diagnostics(); });
+  device.lost.then(info => { status.textContent = 'GPU device lost: ' + info.message; });
+  requestAnimationFrame(frame);
+}
+function configure() {
+  configWarning = '';
+  try {
+    context.configure({
+      device, format: 'rgba16float', alphaMode: 'opaque',
+      colorSpace: 'display-p3',
+      toneMapping: { mode: mode.value }
+    });
+  } catch (error) {
+    configWarning = 'Configuration failed: ' + error.message;
+    throw error;
+  }
+  diagnostics();
+}
+function frame(ms) {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+  const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const t = ms / 1000;
+  const breathing = animate.checked ? 0.12 * Math.sin(t * 2.4) : 0;
+  const beat = 1.5 * Math.exp(-Math.max(0, t - lastBeat) * 9);
+  // Params alignment: vec2(size) then intensity, time, pulse then padding.
+  const values = new Float32Array(12);
+  values[0] = w; values[1] = h;
+  values[2] = Number(intensity.value); values[3] = t; values[4] = breathing + beat;
+  device.queue.writeBuffer(uniforms, 0, values);
+  const encoder = device.createCommandEncoder();
+  const pass = encoder.beginRenderPass({ colorAttachments: [{
+    view: context.getCurrentTexture().createView(),
+    loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 }
+  }] });
+  pass.setPipeline(pipeline);
+  pass.setBindGroup(0, bindGroup);
+  pass.draw(3);
+  pass.end();
+  device.queue.submit([encoder.finish()]);
+  requestAnimationFrame(frame);
+}
+init().catch(err => { status.textContent = 'Experiment unavailable: ' + err.message; console.error(err); });
+</script>
+</body>
+</html>
