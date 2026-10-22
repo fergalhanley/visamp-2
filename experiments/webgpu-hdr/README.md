@@ -36,3 +36,7 @@ If this works reliably, we can consider an optional HDR output pipeline consumin
 ## Chrome 155 compositing workaround test
 
 A transparent, pointer-events-disabled overlay with `backdrop-filter: blur(0px)` is enabled by default. It is designed to encourage Chrome's compositor to activate HDR presentation without hovering the New Tab button. Toggle **Compositing workaround (Chrome 155)** off and on while leaving the cursor away from Chrome's tab strip. Compare HDR output with the same intensity and display preset. The overlay is experimental, not a guaranteed fix; the CSS compositor may vary by browser build. If it does not help, report the observed difference and Chrome build. No main application changes are made.
+
+## Colour brightness test
+
+The experiment now defaults to an eight-colour grid: white, red, green, blue, cyan, magenta, yellow and orange. All samples share the same floating-point shader intensity, but **equal channel values do not correspond to equal perceived brightness or measured nits**. Compare the grid in extended versus standard tone mapping, with the Chrome 155 compositing workaround enabled. Uncheck **Show all eight colours** and use **Colour** to inspect individual highlights. The CSS white reference provides an SDR point of comparison. Pure saturated primaries may clip or shift hue at high intensity on some displays; this is a useful constraint to document before adding colour-sensitive HDR visuals to Visamp.
