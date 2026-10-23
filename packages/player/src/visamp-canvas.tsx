@@ -76,6 +76,8 @@ export interface VisampCanvasProps {
   interactive?: boolean;
   /** Clean capture surfaces report failures to their operator instead. */
   hideErrors?: boolean;
+  /** Experimental side-by-side WebGPU HDR preview. Off by default. */
+  hdrPreview?: boolean;
   /**
    * Audio graph tap for the `audio::detect` standard library.
    *
@@ -115,6 +117,7 @@ export function VisampCanvas({
   active,
   interactive = false,
   hideErrors = false,
+  hdrPreview = false,
   analyser,
   onCompileResult,
   onProperties,
@@ -124,6 +127,8 @@ export function VisampCanvas({
   ref,
 }: VisampCanvasProps) {
   const stageRef = useRef<HTMLDivElement>(null);
+  const hdrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [hdrPreviewError, setHdrPreviewError] = useState("");
   const [activationRevision, setActivationRevision] = useState(0);
   const engineRef = useRef<EngineModule | null>(null);
   const bootedRef = useRef(false);
@@ -315,6 +320,48 @@ export function VisampCanvas({
     });
   }, [ready, watchProperties]);
 
+  // Side-by-side diagnostic only: WASM continues to render through WebGL.
+  // The snapshot contains last-frame geometry, so WebGPU may trail by a tick.
+  useEffect(() => {
+    if (!hdrPreview || !ready || !active || !activated) return;
+    const canvas = hdrCanvasRef.current;
+    const engine = engineRef.current;
+    if (!canvas || !engine) return;
+    let disposed = false;
+    let raf = 0;
+    let renderer: import("./webgpu-hdr-renderer").HdrSceneRenderer | undefined;
+    setHdrPreviewError("");
+    void (async () => {
+      try {
+        const [{ HdrSceneRenderer }, { readHdrScene }] = await Promise.all([
+          import("./webgpu-hdr-renderer"),
+          import("./hdr-scene-bridge"),
+        ]);
+        if (disposed) return;
+        const created = await HdrSceneRenderer.create(canvas);
+        if (disposed) { created.dispose(); return; }
+        renderer = created;
+        const render = () => {
+          if (disposed) return;
+          try {
+            renderer?.render(readHdrScene(engine));
+            raf = window.requestAnimationFrame(render);
+          } catch (error) {
+            setHdrPreviewError(error instanceof Error ? error.message : String(error));
+          }
+        };
+        raf = window.requestAnimationFrame(render);
+      } catch (error) {
+        if (!disposed) setHdrPreviewError(error instanceof Error ? error.message : String(error));
+      }
+    })();
+    return () => {
+      disposed = true;
+      window.cancelAnimationFrame(raf);
+      renderer?.dispose();
+    };
+  }, [hdrPreview, ready, active, activated, activationRevision]);
+
   const captureFrame = useCallback(async (): Promise<Blob> => {
     const engine = engineRef.current;
     if (
@@ -348,7 +395,8 @@ export function VisampCanvas({
   const pending = assetStatus !== "ready" || Boolean(activationError);
   return (
     <div className={className}>
-      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div style={{ display: hdrPreview ? "flex" : "block", width: "100%", height: "100%", gap: hdrPreview ? 8 : 0 }}>
+      <div style={{ position: "relative", width: hdrPreview ? "50%" : "100%", height: "100%", minWidth: 0 }}>
         <div
           ref={stageRef}
           id={HOST_ID}
@@ -408,6 +456,13 @@ export function VisampCanvas({
             )}
           </div>
         )}
+      </div>
+      {hdrPreview && (
+        <div style={{ width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
+          <canvas ref={hdrCanvasRef} aria-label="Experimental HDR WebGPU preview" style={{ width: "100%", height: "100%", display: "block" }} />
+          {hdrPreviewError && <div role="status" style={{ position: "absolute", left: 8, top: 8, background: "#171717", color: "#fff", padding: 8, fontSize: 12, maxWidth: "90%" }}>HDR preview unavailable: {hdrPreviewError}</div>}
+        </div>
+      )}
       </div>
     </div>
   );
