@@ -1335,7 +1335,9 @@ fn interpret_statement_function_call(
     let canvas_extension = function_call.namespace == "transform"
         || (function_call.namespace == "gfx" && function_call.function == "blend")
         || (planar
-            && (matches!(
+            && ((target.hdr_2d.is_some()
+                && matches!(function_call.function.as_str(), "circle" | "rect"))
+                || matches!(
                 function_call.function.as_str(),
                 "clear" | "background" | "polyline" | "bezier" | "arc" | "image"
             ) || function_call.args.iter().any(|a| {
