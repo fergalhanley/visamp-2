@@ -26,7 +26,7 @@ export function readHdr2DScene(engine: Pick<EngineModule, "get_hdr_2d_snapshot">
     }
   }
   return tessellateHdr2D({
-    width, height, clear: clear as Hdr2DFrame["clear"],
+    width, height, clear: [clear[0], clear[1], clear[2], clear[3]],
     shapes: shapes as unknown as Hdr2DFrame["shapes"],
   });
 }
