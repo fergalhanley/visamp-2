@@ -380,6 +380,7 @@ export function VisampCanvas({
     let disposed = false;
     let raf = 0;
     let lastDiagnostic = "";
+    let lastPresented = false;
     let renderer: import("./webgpu-hdr-renderer").HdrSceneRenderer | undefined;
     setHdrPreviewError("");
     setHdrPresenting(false);
@@ -413,7 +414,10 @@ export function VisampCanvas({
             renderer?.render(scene, hdrIntensityRef.current);
             if (autoHdr2D && isHdr2D) {
               const luminous = scene.triangles.some(triangle => triangle.color.slice(0, 3).some(channel => channel > 1));
-              setHdrPresenting(luminous);
+              if (luminous !== lastPresented) {
+                lastPresented = luminous;
+                setHdrPresenting(luminous);
+              }
               if (luminous) setAutoHdrStatus("HDR active");
               else setAutoHdrStatus("No HDR-bright shapes in frame");
             }
@@ -441,7 +445,6 @@ export function VisampCanvas({
     const timer = window.setTimeout(() => { void initialize(); }, 0);
     return () => {
       disposed = true;
-      setHdrPresenting(false);
       window.clearTimeout(timer);
       window.cancelAnimationFrame(raf);
       renderer?.dispose();
@@ -544,7 +547,7 @@ export function VisampCanvas({
         )}
       </div>
       {previewEnabled && (
-        <div style={autoHdr2D && !hdrPreview ? { position: "absolute", inset: 0, zIndex: 1, visibility: hdrPresenting ? "visible" : "hidden", pointerEvents: "none" } : { width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
+        <div style={autoHdr2D && !hdrPreview ? { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1, opacity: hdrPresenting ? 1 : 0, pointerEvents: "none" } : { width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
           <canvas ref={hdrCanvasRef} aria-label="Experimental HDR WebGPU preview" style={{ width: "100%", height: "100%", display: "block" }} />
           {hdrCompositingWorkaround && <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)" }} />}
           {hdrPreviewError && <div role="status" style={{ position: "absolute", left: 8, top: 8, background: "#171717", color: "#fff", padding: 8, fontSize: 12, maxWidth: "90%" }}>HDR preview unavailable: {hdrPreviewError}</div>}
