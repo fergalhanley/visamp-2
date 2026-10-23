@@ -80,6 +80,8 @@ export interface VisampCanvasProps {
   hdrPreview?: boolean;
   /** Use the live 2D Rust snapshot instead of the 3D snapshot in diagnostic preview. */
   hdr2dPreview?: boolean;
+  /** Diagnostic callback for experimental HDR 2D frame contents. */
+  onHdr2DDiagnostic?: (message: string) => void;
   /** Diagnostic HDR multiplier for the WebGPU preview, defaults to 1. */
   hdrIntensity?: number;
   /** Diagnostic Chrome 155 compositing overlay, disabled by default. */
@@ -125,6 +127,7 @@ export function VisampCanvas({
   hideErrors = false,
   hdrPreview = false,
   hdr2dPreview = false,
+  onHdr2DDiagnostic,
   hdrIntensity = 1,
   hdrCompositingWorkaround = false,
   analyser,
@@ -137,6 +140,8 @@ export function VisampCanvas({
 }: VisampCanvasProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const hdrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const hdrDiagnosticRef = useRef(onHdr2DDiagnostic);
+  hdrDiagnosticRef.current = onHdr2DDiagnostic;
   const hdrIntensityRef = useRef(hdrIntensity);
   hdrIntensityRef.current = hdrIntensity;
   const [hdrPreviewError, setHdrPreviewError] = useState("");
@@ -340,6 +345,7 @@ export function VisampCanvas({
     if (!canvas || !engine) return;
     let disposed = false;
     let raf = 0;
+    let lastDiagnostic = "";
     let renderer: import("./webgpu-hdr-renderer").HdrSceneRenderer | undefined;
     setHdrPreviewError("");
     void (async () => {
@@ -356,10 +362,21 @@ export function VisampCanvas({
         const render = () => {
           if (disposed) return;
           try {
-            renderer?.render(hdr2dPreview ? readHdr2DScene(engine) : readHdrScene(engine), hdrIntensityRef.current);
+            const scene = hdr2dPreview ? readHdr2DScene(engine) : readHdrScene(engine);
+            if (hdr2dPreview && hdrDiagnosticRef.current) {
+              const peak = scene.triangles.reduce((max, triangle) =>
+                Math.max(max, triangle.color[0], triangle.color[1], triangle.color[2]), 0);
+              const message = `WebGPU extended ready · ${scene.triangles.length} triangles · peak RGB ${peak.toFixed(2)}× SDR reference`;
+              if (message !== lastDiagnostic) {
+                lastDiagnostic = message;
+                hdrDiagnosticRef.current(message);
+              }
+            }
+            renderer?.render(scene, hdrIntensityRef.current);
             raf = window.requestAnimationFrame(render);
           } catch (error) {
             setHdrPreviewError(error instanceof Error ? error.message : String(error));
+            if (hdr2dPreview) hdrDiagnosticRef.current?.("HDR snapshot/render error: " + String(error));
           }
         };
         raf = window.requestAnimationFrame(render);
