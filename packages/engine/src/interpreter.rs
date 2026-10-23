@@ -289,6 +289,7 @@ pub struct Target<'a> {
     pub scramble: Option<&'a RefCell<Option<crate::scramble::Scramble>>>,
     pub location: Option<SourceLocation>,
     pub canvas_state: Option<&'a RefCell<crate::drawing::CanvasState>>,
+    pub hdr_2d: Option<&'a RefCell<crate::hdr_2d_frame::Frame>>,
 }
 
 impl<'a> Target<'a> {
@@ -302,6 +303,7 @@ impl<'a> Target<'a> {
             filter: Some(filter),
             scramble: None,
             canvas_state: None,
+            hdr_2d: None,
             location: None,
         }
     }
@@ -316,6 +318,7 @@ impl<'a> Target<'a> {
             filter: Some(filter),
             scramble: None,
             canvas_state: None,
+            hdr_2d: None,
             location: None,
         }
     }
@@ -1388,13 +1391,24 @@ fn interpret_statement_function_call(
             );
         }
         if let (Some(ctx), Some(state)) = (target.ctx, target.canvas_state) {
-            return crate::drawing::canvas(
+            let result = crate::drawing::canvas(
                 &call,
                 ctx,
                 state,
                 runtime.canvas_width,
                 runtime.canvas_height,
             );
+            if result.is_ok() {
+                if let Some(recorder) = target.hdr_2d {
+                    let mut recorder = recorder.borrow_mut();
+                    if recorder.error.is_none() {
+                        if let Err(error) = recorder.record(&call) {
+                            recorder.error = Some(error);
+                        }
+                    }
+                }
+            }
+            return result;
         }
     }
 
