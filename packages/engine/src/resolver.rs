@@ -749,8 +749,8 @@ mod hdr_2d_intensity_tests {
     }
 
     #[test]
-    fn unsupported_2d_shape_still_rejects_intensity() {
+    fn text_allows_intensity_in_2d() {
         let source = "context 2d\nrender {\n draw::text(content: \"hi\", intensity: 3.0)\n}";
-        assert!(build_ast(source).is_err());
+        assert!(build_ast(source).is_ok());
     }
 }

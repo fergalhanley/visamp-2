@@ -362,6 +362,9 @@ pub fn interpret_render_block(
             ..target
         };
         if let Some(ctx) = target.ctx {
+            if let Some(recorder) = target.hdr_2d {
+                recorder.borrow_mut().begin_block();
+            }
             ctx.save();
             ctx.reset_transform()
                 .map_err(|_| "could not reset canvas transform")?;
@@ -1403,7 +1406,7 @@ fn interpret_statement_function_call(
                 if let Some(recorder) = target.hdr_2d {
                     let mut recorder = recorder.borrow_mut();
                     if recorder.error.is_none() {
-                        if let Err(error) = recorder.record(&call) {
+                        if let Err(error) = recorder.record(&call, &state.borrow()) {
                             recorder.error = Some(error);
                         }
                     }

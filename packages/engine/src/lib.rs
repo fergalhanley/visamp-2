@@ -79,8 +79,8 @@ pub fn get_hdr_scene_snapshot() -> Result<String, String> {
     })
 }
 
-/// Experimental read-only 2D frame from the last Viscript render tick.
-/// Unsupported draws yield an error, never a misleading partial preview.
+/// Versioned 2D commands and effects from the last Viscript render tick.
+/// Failed frames yield an error rather than presenting incomplete geometry.
 #[wasm_bindgen]
 pub fn get_hdr_2d_snapshot() -> Result<String, String> {
     STATE.with(|slot| {
@@ -511,9 +511,14 @@ fn init_app() -> Result<(), String> {
                         &*runtime,
                         functions,
                     ) {
+                        state_ref.hdr_2d.borrow_mut().error = Some(e.to_string());
                         *state_ref.last_error.borrow_mut() = Some(e);
                     }
                 }
+                state_ref.hdr_2d.borrow_mut().finish(
+                    &frame_filter.borrow(), *frame_scramble.borrow(), seconds,
+                    state_ref.uses_scramble.get(),
+                );
                 if let Some(feedback) = feedback {
                     let result = feedback
                         .prepare(runtime.canvas_width as u32, runtime.canvas_height as u32)
@@ -713,6 +718,7 @@ pub fn load_script(code: &str) -> String {
             STATE.with(|s| {
                 if let Some(ref state) = *s.borrow() {
                     *state.model.borrow_mut() = model;
+                    *state.hdr_2d.borrow_mut() = hdr_2d_frame::Frame::default();
                     *state.last_error.borrow_mut() = init_error;
                 }
             });

@@ -66,7 +66,7 @@ export interface EngineModule {
   get_last_error(): string;
   /** Experimental read-only 3D scene snapshot for opt-in HDR preview. */
   get_hdr_scene_snapshot(): string;
-  /** Experimental live 2D command snapshot; rejects unsupported drawing. */
+  /** Versioned live 2D draw/effects snapshot, including a monotonic frame sequence. */
   get_hdr_2d_snapshot(): string;
   /** PNG snapshot with engine post-processing baked into the pixels. */
   capture_frame(): Promise<Blob>;

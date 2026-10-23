@@ -1,121 +1,260 @@
-//! Experimental read-only frame contract for simple 2D HDR shapes.
-//! This does not replace the Canvas2D backend or capture its pixels.
-use crate::drawing::Call;
+//! Versioned, ordered 2D presentation commands. Geometry is resolved by the same
+//! path builder as Canvas2D; effects are recorded after the render blocks finish.
+use crate::{
+    drawing::{self, Call, CanvasState},
+    filters::Filter,
+    model::{Color, Value as ScriptValue, BLACK, WHITE},
+    scramble::Scramble,
+};
 use serde_json::{json, Value};
 
-const MAX_SHAPES: usize = 2048;
-
+const MAX_COMMANDS: usize = 2048;
 #[derive(Default)]
 pub struct Frame {
-    shapes: Vec<Value>,
-    clear: Option<[f64; 4]>,
+    commands: Vec<Value>,
+    sequence: u64,
+    blend: String,
+    effects: Vec<Value>,
+    scramble: Option<Value>,
+    seconds: f64,
+    clear_scene: bool,
     pub error: Option<String>,
 }
-
+fn rgba(c: Color) -> [f64; 4] {
+    [c.r, c.g, c.b, c.a].map(|v| v.clamp(0.0, 1.0))
+}
 impl Frame {
     pub fn reset(&mut self) {
-        self.shapes.clear();
-        self.clear = None;
+        self.commands.clear();
+        self.effects.clear();
+        self.scramble = None;
         self.error = None;
+        self.sequence += 1;
+        self.begin_block();
     }
-
-    /// Record only the currently supported subset. Never silently omit a draw.
-    /// Call after successful Canvas2D dispatch, not before validation.
-    pub fn record(&mut self, call: &Call) -> Result<(), String> {
-        if call.namespace != "draw" {
-            return Err("HDR 2D preview does not support transforms or blend modes yet".into());
-        }
-        if call.args.contains_key("gradient") || call.args.contains_key("rotation_deg")
-            || call.args.contains_key("rotation_rad") || call.args.contains_key("stroke_width")
-            || call.args.contains_key("stroke_color")
-        {
-            return Err("HDR 2D preview does not support gradients, rotation or strokes".into());
-        }
-        if call.name == "clear" {
-            self.reset();
+    pub fn begin_block(&mut self) {
+        self.blend = "alpha".into();
+    }
+    pub fn finish(
+        &mut self,
+        filters: &[Filter],
+        scramble: Option<Scramble>,
+        seconds: f64,
+        clear_scene: bool,
+    ) {
+        self.effects = filters.iter().map(|f| json!({"kind":f.kind as i32,"amount":f.amount,"params":f.params,"color":f.color,"asset":f.asset})).collect();
+        self.scramble = scramble.map(|s| json!({"kind":s.kind,"refresh":rgba(s.refresh)}));
+        self.seconds = seconds.max(0.0);
+        self.clear_scene = clear_scene;
+    }
+    /// Called only after successful Canvas2D validation/dispatch.
+    pub fn record(&mut self, c: &Call, state: &CanvasState) -> Result<(), String> {
+        if c.namespace == "transform" {
             return Ok(());
         }
-        let base = call.color("color", crate::model::WHITE)?;
-        if base.a != 1.0 || call.boolean("stroke", false)? {
-            return Err("HDR 2D preview does not yet support transparency or strokes".into());
-        }
-        let rgba = [base.r, base.g, base.b, base.a];
-        if call.name == "background" {
-            self.reset();
-            self.clear = Some(rgba);
+        if c.namespace == "gfx" && c.name == "blend" {
+            self.blend = c.text("mode", "alpha")?;
             return Ok(());
         }
-        let intensity = call.number("intensity", 1.0)?;
+        if c.namespace != "draw" {
+            return Err(format!("Unknown HDR command {}::{}", c.namespace, c.name));
+        }
+        if self.commands.len() >= MAX_COMMANDS {
+            return Err("HDR 2D command budget exceeded (2048)".into());
+        }
+        if c.name == "clear" {
+            self.commands.push(json!({"kind":"clear"}));
+            return Ok(());
+        }
+        let intensity = c.number("intensity", 1.0)?;
         if !(0.0..=6.0).contains(&intensity) {
-            return Err("HDR 2D intensity must be between 0 and 6".into());
+            return Err("draw intensity must be between 0 and 6".into());
         }
-        if self.shapes.len() >= MAX_SHAPES {
-            return Err("HDR 2D shape budget exceeded".into());
+        let matrix = state.matrix();
+        let m = matrix.as_slice();
+        let transform = [m[0], m[1], m[4], m[5], m[12], m[13]];
+        let stroke = matches!(c.name.as_str(), "line" | "polyline" | "bezier" | "arc")
+            || c.boolean("stroke", false)?;
+        let outline = stroke && !matches!(c.name.as_str(), "line" | "polyline" | "bezier" | "arc");
+        let color = c.color(
+            if outline { "stroke_color" } else { "color" },
+            if outline || c.name == "background" {
+                BLACK
+            } else {
+                WHITE
+            },
+        )?;
+        let gradient = c.args.get("gradient").cloned().map(ScriptValue::try_into_gradient).transpose()?.map(|g| json!({
+            "axis":[g.x0,g.y0,g.x1,g.y1], "radius":g.radial_radius,
+            "stops":g.stops.iter().map(|s| json!([s.offset,rgba(s.color)])).collect::<Vec<_>>()
+        }));
+        let mut command = json!({"kind":c.name,"transform":transform,"blend":self.blend,"intensity":intensity,"color":rgba(color),"gradient":gradient});
+        match c.name.as_str() {
+            "background" => {}
+            "text" => {
+                command["text"] = json!(c.text("content", "")?);
+                command["font"] = json!(format!(
+                    "{}px {}",
+                    c.number("size", 16.0)?,
+                    c.text("font", "monospace")?
+                ));
+                command["position"] = json!([c.number("x", 0.0)?, c.number("y", 0.0)?]);
+            }
+            "image" => {
+                let Some(ScriptValue::Asset(asset)) = c.args.get("asset") else {
+                    return Err("image requires a texture asset".into());
+                };
+                command["asset"] = json!(asset.id);
+                command["rect"] = json!([
+                    c.number("x", 0.0)?,
+                    c.number("y", 0.0)?,
+                    c.number("width", 0.0)?,
+                    c.number("height", 0.0)?
+                ]);
+                command["opacity"] = json!(c.number("opacity", 1.0)?);
+            }
+            _ => {
+                let angle = c.angle("rotation_")?;
+                let project_matrix = matrix.mul(&crate::math3::Mat4::rotation_z(angle as f32));
+                let project = |p: [f64; 3]| {
+                    let q = project_matrix.transform_point(p.map(|v| v as f32));
+                    [q[0] as f64, q[1] as f64]
+                };
+                let resolved;
+                let (points, closed, pivot) = match &state.last_path {
+                    Some(path) => path,
+                    None => {
+                        resolved = drawing::path(c, 2, &project)?;
+                        &resolved
+                    }
+                };
+                command["kind"] = json!("path");
+                command["points"] = json!(points.iter().map(|p| [p[0], p[1]]).collect::<Vec<_>>());
+                command["closed"] = json!(closed);
+                command["pivot"] = json!([pivot[0], pivot[1]]);
+                command["rotation"] = json!(angle);
+                command["stroke"] = if stroke {
+                    json!({"width":c.number("stroke_width",1.0)?,"cap":c.text("line_cap","butt")?,"join":c.text("line_join","bevel")?})
+                } else {
+                    Value::Null
+                };
+            }
         }
-        let x = call.number("x", 0.0)?;
-        let y = call.number("y", 0.0)?;
-        let shape = match call.name.as_str() {
-            "rect" => {
-                if call.number("corner_radius", 0.0)? != 0.0 {
-                    return Err("HDR 2D preview does not support rounded rectangles".into());
-                }
-                let width = call.number("width", 100.0)?;
-                let height = call.number("height", 100.0)?;
-                if width <= 0.0 || height <= 0.0 {
-                    return Err("HDR 2D rectangle dimensions must be positive".into());
-                }
-                json!({"kind":"rect","x":x,"y":y,"width":width,"height":height,"color":rgba,"intensity":intensity})
-            }
-            "circle" => {
-                let radius = call.number("radius", 50.0)?;
-                if radius <= 0.0 {
-                    return Err("HDR 2D circle radius must be positive".into());
-                }
-                json!({"kind":"circle","x":x,"y":y,"radius":radius,"color":rgba,"intensity":intensity})
-            }
-            _ => return Err(format!("HDR 2D preview does not support draw::{}", call.name)),
-        };
-        self.shapes.push(shape);
+        self.commands.push(command);
         Ok(())
     }
-
     pub fn snapshot(&self, width: u32, height: u32) -> Result<String, String> {
-        if let Some(error) = &self.error { return Err(error.clone()); }
+        if let Some(error) = &self.error {
+            return Err(error.clone());
+        }
         if width == 0 || height == 0 {
             return Err("HDR 2D frame requires nonzero canvas dimensions".into());
         }
-        serde_json::to_string(&json!({
-            "width": width, "height": height,
-            "clear": self.clear.unwrap_or([0.0, 0.0, 0.0, 0.0]),
-            "shapes": self.shapes
-        })).map_err(|error| error.to_string())
+        serde_json::to_string(&json!({"version":2,"sequence":self.sequence,"width":width,"height":height,"commands":self.commands,"effects":self.effects,"scramble":self.scramble,"seconds":self.seconds,"clearScene":self.clear_scene})).map_err(|e|e.to_string())
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Value;
     use std::collections::BTreeMap;
-
+    fn call(name: &str) -> Call {
+        Call {
+            location: None,
+            namespace: "draw".into(),
+            name: name.into(),
+            args: BTreeMap::new(),
+        }
+    }
+    fn output(frame: &Frame) -> Value {
+        serde_json::from_str(&frame.snapshot(640, 360).unwrap()).unwrap()
+    }
     #[test]
-    fn records_a_rectangle_with_direct_intensity() {
-        let mut args = BTreeMap::new();
-        args.insert("width".into(), Value::Float(90.0));
-        args.insert("intensity".into(), Value::Float(3.0));
-        let mut frame = Frame::default();
-        frame.record(&Call { location: None, namespace: "draw".into(), name: "rect".into(), args }).unwrap();
-        let output: ValueJson = serde_json::from_str(&frame.snapshot(640, 360).unwrap()).unwrap();
-        assert_eq!(output["shapes"][0]["intensity"], 3.0);
-        assert_eq!(output["shapes"][0]["width"], 90.0);
+    fn rotated_stroke_retains_intensity_and_shared_geometry() {
+        let mut c = call("rect");
+        c.args
+            .insert("rotation_rad".into(), ScriptValue::Float(1.2));
+        c.args.insert("intensity".into(), ScriptValue::Float(4.1));
+        c.args.insert("stroke".into(), ScriptValue::Boolean(true));
+        let mut f = Frame::default();
+        f.reset();
+        f.record(&c, &CanvasState::default()).unwrap();
+        let o = output(&f);
+        let p = &o["commands"][0];
+        assert_eq!(p["intensity"], 4.1);
+        assert_eq!(p["rotation"], 1.2);
+        assert_eq!(p["pivot"], json!([50.0, 50.0]));
+        assert_eq!(p["stroke"]["width"], 1.0);
+        assert_eq!(o["sequence"], 1);
+    }
+    #[test]
+    fn backgrounds_and_clears_remain_ordered() {
+        let mut f = Frame::default();
+        f.reset();
+        for name in ["line", "clear", "background", "ellipse", "text"] {
+            f.record(&call(name), &CanvasState::default()).unwrap();
+        }
+        let o = output(&f);
+        assert_eq!(o["commands"].as_array().unwrap().len(), 5);
+        assert_eq!(o["commands"][2]["color"], json!([0.0, 0.0, 0.0, 1.0]));
+    }
+    #[test]
+    fn block_boundaries_reset_blending_but_not_draws() {
+        let mut f = Frame::default();
+        f.reset();
+        let mut blend = call("blend");
+        blend.namespace = "gfx".into();
+        blend
+            .args
+            .insert("mode".into(), ScriptValue::String("additive".into()));
+        f.record(&blend, &CanvasState::default()).unwrap();
+        f.record(&call("circle"), &CanvasState::default()).unwrap();
+        f.begin_block();
+        f.record(&call("circle"), &CanvasState::default()).unwrap();
+        let o = output(&f);
+        assert_eq!(o["commands"][0]["blend"], "additive");
+        assert_eq!(o["commands"][1]["blend"], "alpha");
     }
 
-    type ValueJson = serde_json::Value;
-
     #[test]
-    fn refuses_unsupported_geometry_instead_of_dropping_it() {
-        let mut frame = Frame::default();
-        let call = Call { location: None, namespace: "draw".into(), name: "line".into(), args: BTreeMap::new() };
-        assert!(frame.record(&call).is_err());
+    fn frame_effects_keep_order_parameters_and_feedback_timing() {
+        use crate::filters::Kind;
+        let mut f = Frame::default();
+        f.reset();
+        f.finish(
+            &[
+                Filter {
+                    kind: Kind::Brightness,
+                    amount: 3.0,
+                    params: [0.0; 8],
+                    color: [0.0; 4],
+                    asset: None,
+                },
+                Filter {
+                    kind: Kind::Displace,
+                    amount: 1.0,
+                    params: [7.0; 8],
+                    color: [0.0; 4],
+                    asset: Some("map".into()),
+                },
+            ],
+            Some(Scramble {
+                kind: 40,
+                refresh: Color::new(0.2, 0.3, 0.4, 0.1),
+            }),
+            0.02,
+            true,
+        );
+        let o = output(&f);
+        assert_eq!(o["effects"][0]["kind"], 1);
+        assert_eq!(o["effects"][0]["amount"], 3.0);
+        assert_eq!(o["effects"][1]["kind"], 26);
+        assert_eq!(o["effects"][1]["asset"], "map");
+        assert_eq!(o["effects"][1]["params"], json!(vec![7.0; 8]));
+        assert_eq!(o["scramble"]["kind"], 40);
+        assert_eq!(o["seconds"], 0.02);
+        assert_eq!(o["clearScene"], true);
+        f.reset();
+        assert_eq!(output(&f)["effects"], json!([]));
+        assert_eq!(output(&f)["scramble"], Value::Null);
     }
 }

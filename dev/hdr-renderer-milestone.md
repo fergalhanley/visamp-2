@@ -1,3 +1,5 @@
+> The shape-only 2D milestone below is historical. See [the complete 2D implementation contract](hdr-2d-implementation.md) for the current backend and verification gates.
+
 # HDR rendering milestone — integration plan
 
 ## Implementation progress (2026-10-23)

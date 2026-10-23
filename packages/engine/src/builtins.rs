@@ -559,6 +559,9 @@ impl Builtin {
     /// Every argument name legal for this call in the given mode.
     pub fn accepted_args(&self, context: ContextKind) -> Vec<&'static str> {
         let mut names: Vec<&'static str> = self.args.to_vec();
+        if context == ContextKind::TwoD && self.namespace == "draw" && self.name != "clear" {
+            names.push("intensity");
+        }
         if context == ContextKind::ThreeD {
             names.extend_from_slice(self.args_3d);
             if self.takes_common_3d {

@@ -8,19 +8,18 @@ const engine = vi.hoisted(() => ({
   clear_assets: vi.fn(),
   get_last_error: vi.fn(() => ""),
   get_hdr_2d_snapshot: vi.fn(() => JSON.stringify({
-    width: 640, height: 360, clear: [0, 0, 0, 1],
-    shapes: [
-      { kind: "circle", x: 320, y: 180, radius: 80, color: [0.251, 0.878, 0.816, 1], intensity: 4.1 },
-      { kind: "rect", x: 280, y: 140, width: 80, height: 80, color: [0.863, 0.078, 0.235, 1], intensity: 3 },
-    ],
+    version: 2, sequence: 1, width: 640, height: 360, clearScene: false, seconds: 1 / 60,
+    effects: [], scramble: null,
+    commands: [{ kind: "background", transform: [1, 0, 0, 1, 0, 0], color: [1, 1, 1, 1],
+      gradient: null, blend: "alpha", intensity: 4 }],
   })),
 }));
 const gpu = vi.hoisted(() => ({
   create: vi.fn(), render: vi.fn(), dispose: vi.fn(),
 }));
 vi.mock("@visamp/engine", () => engine);
-vi.mock("../../../../packages/player/src/webgpu-hdr-renderer", () => ({
-  HdrSceneRenderer: { create: gpu.create },
+vi.mock("../../../../packages/player/src/webgpu-2d-renderer", () => ({
+  WebGpu2DRenderer: { create: gpu.create },
 }));
 import { VisampCanvas } from "@visamp/player";
 
@@ -43,6 +42,7 @@ beforeEach(() => {
   vi.spyOn(window, "cancelAnimationFrame").mockImplementation(id => { frames.delete(id); });
   vi.stubGlobal("navigator", { gpu: {} });
   vi.stubGlobal("matchMedia", () => ({ addEventListener() {}, removeEventListener() {} }));
+  gpu.render.mockReturnValue(true);
   gpu.create.mockResolvedValue({ render: gpu.render, dispose: gpu.dispose });
 });
 afterEach(() => {
@@ -89,4 +89,50 @@ it("keeps HDR diagnostics and canvas buffers out of the viewport's layout flow",
   expect(getComputedStyle(status).position).toBe("absolute");
   expect(getComputedStyle(canvas).position).toBe("absolute");
   expect(stage?.style.position).toBe("absolute");
+});
+
+it("selects 2D without an intensity literal and retains the renderer while paused", async () => {
+  const view = render(<VisampCanvas source="render { draw::circle() }" active />);
+  await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
+  await waitFor(() => expect(frames.size).toBe(1));
+  act(() => {
+    const callbacks = [...frames.values()]; frames.clear();
+    callbacks.forEach(callback => callback(16));
+  });
+  const stage = view.container.querySelector<HTMLElement>("#visamp-stage");
+  expect(stage?.style.opacity).toBe("0");
+  view.rerender(<VisampCanvas source="render { draw::circle() }" active={false} />);
+  expect(gpu.dispose).not.toHaveBeenCalled();
+  view.rerender(<VisampCanvas source="render { draw::circle() }" active />);
+  expect(gpu.create).toHaveBeenCalledOnce();
+  view.unmount();
+  expect(gpu.dispose).toHaveBeenCalledOnce();
+});
+
+it("restores the SDR stage after an asynchronous GPU failure", async () => {
+  const view = render(<VisampCanvas source={source} active />);
+  await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
+  await waitFor(() => expect(frames.size).toBe(1));
+  act(() => {
+    const callbacks = [...frames.values()]; frames.clear();
+    callbacks.forEach(callback => callback(16));
+  });
+  act(() => gpu.create.mock.calls[0]?.[1].onError(new Error("device lost")));
+  expect(view.container.querySelector<HTMLElement>("#visamp-stage")?.style.opacity).toBe("1");
+  expect(view.getByLabelText("Experimental HDR WebGPU preview").parentElement?.style.opacity).toBe("0");
+  expect(frames.size).toBe(0);
+});
+
+it("restores the stage when switching from 2D HDR to a 3D script", async () => {
+  const view = render(<VisampCanvas source={source} active />);
+  await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
+  await waitFor(() => expect(frames.size).toBe(1));
+  act(() => {
+    const callbacks = [...frames.values()]; frames.clear();
+    callbacks.forEach(callback => callback(16));
+  });
+  expect(view.container.querySelector<HTMLElement>("#visamp-stage")?.style.opacity).toBe("0");
+  view.rerender(<VisampCanvas source="context 3d render { draw::cube() }" active />);
+  await waitFor(() => expect(view.queryByLabelText("Experimental HDR WebGPU preview")).toBeNull());
+  expect(view.container.querySelector<HTMLElement>("#visamp-stage")?.style.opacity).toBe("1");
 });
