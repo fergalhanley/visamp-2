@@ -846,6 +846,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
           >
             <VisampCanvas
               interactive
+              autoHdr2D
               ref={canvasHandle}
               source={liveSource}
               assets={assets}
