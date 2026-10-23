@@ -16,6 +16,7 @@ pub mod filters;
 pub mod frame_clock;
 pub mod geometry;
 mod hdr_snapshot;
+mod hdr_2d_frame;
 pub mod input;
 pub mod interpreter;
 pub mod math3;
