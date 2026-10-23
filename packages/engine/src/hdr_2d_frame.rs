@@ -95,8 +95,8 @@ mod tests {
     #[test]
     fn records_a_rectangle_with_direct_intensity() {
         let mut args = BTreeMap::new();
-        args.insert("width".into(), Value::Number(90.0));
-        args.insert("intensity".into(), Value::Number(3.0));
+        args.insert("width".into(), Value::Float(90.0));
+        args.insert("intensity".into(), Value::Float(3.0));
         let mut frame = Frame::default();
         frame.record(&Call { location: None, namespace: "draw".into(), name: "rect".into(), args }).unwrap();
         let output: ValueJson = serde_json::from_str(&frame.snapshot(640, 360).unwrap()).unwrap();
