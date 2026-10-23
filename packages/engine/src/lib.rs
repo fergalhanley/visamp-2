@@ -79,6 +79,22 @@ pub fn get_hdr_scene_snapshot() -> Result<String, String> {
     })
 }
 
+/// Experimental read-only 2D frame from the last Viscript render tick.
+/// Unsupported draws yield an error, never a misleading partial preview.
+#[wasm_bindgen]
+pub fn get_hdr_2d_snapshot() -> Result<String, String> {
+    STATE.with(|slot| {
+        let slot = slot.borrow();
+        let state = slot.as_ref().ok_or("engine is not initialized")?;
+        if !matches!(*state.kind.borrow(), Some(ContextKind::TwoD)) {
+            return Err("HDR 2D preview requires a 2D Viscript context".into());
+        }
+        let canvas = state.canvas.borrow();
+        let canvas = canvas.as_ref().ok_or("engine canvas is unavailable")?;
+        state.hdr_2d.borrow().snapshot(canvas.width(), canvas.height())
+    })
+}
+
 /// What the canvas has actually been bound to.
 ///
 /// A canvas keeps whichever context it is first given for its whole life, so
@@ -114,6 +130,7 @@ struct AppState {
     backend: RefCell<Option<Backend>>,
     /// Rebuilt from scratch every 3d frame; see `Scene::reset`.
     scene: RefCell<Scene>,
+    hdr_2d: RefCell<hdr_2d_frame::Frame>,
     /// Reuse one detached context across captures, including script reloads.
     capture_gpu: RefCell<Option<CaptureGpu>>,
     last_error: RefCell<Option<String>>,
@@ -310,6 +327,7 @@ fn init_app() -> Result<(), String> {
         kind: RefCell::new(None),
         backend: RefCell::new(None),
         scene: RefCell::new(Scene::default()),
+        hdr_2d: RefCell::new(hdr_2d_frame::Frame::default()),
         capture_gpu: RefCell::new(None),
         last_error: RefCell::new(None),
         post_capable: Cell::new(false),
@@ -465,6 +483,7 @@ fn init_app() -> Result<(), String> {
         let frame_scramble = RefCell::new(None);
         match backend {
             Backend::TwoD(ctx, feedback) => {
+                state_ref.hdr_2d.borrow_mut().reset();
                 if feedback.is_some() {
                     let source = ctx.canvas().unwrap();
                     let width = runtime.canvas_width as u32;
@@ -485,6 +504,7 @@ fn init_app() -> Result<(), String> {
                         decels,
                         Target {
                             scramble: Some(&frame_scramble),
+                            hdr_2d: Some(&state_ref.hdr_2d),
                             ..Target::canvas(ctx, &frame_filter)
                         },
                         &*runtime,
