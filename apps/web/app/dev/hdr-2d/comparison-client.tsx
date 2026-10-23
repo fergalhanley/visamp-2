@@ -18,6 +18,7 @@ export function Hdr2DComparisonClient() {
   const [active, setActive] = useState(false);
   const [preview, setPreview] = useState(true);
   const [message, setMessage] = useState("");
+  const [hdrDiagnostic, setHdrDiagnostic] = useState("HDR not started");
   return (
     <main style={{ background: "#080b14", color: "#f5f7ff", minHeight: "100vh", padding: 24 }}>
       <h1 style={{ fontSize: 24 }}>Visamp experimental live 2D HDR</h1>
@@ -37,9 +38,11 @@ export function Hdr2DComparisonClient() {
       <div style={{ width: "100%", maxWidth: 1300, height: 400, minWidth: 0, border: "1px solid #555" }}>
         <VisampCanvas source={SOURCE} active={active} hdrPreview={preview} hdr2dPreview
           className="hdr-2d-player"
+          onHdr2DDiagnostic={setHdrDiagnostic}
           onCompileResult={result => setMessage(result.ok ? "Viscript loaded" : result.diagnostics.map(d => d.message).join("; "))}
           onLog={entry => setMessage(entry.message)} />
       </div>
+      <p role="status">{hdrDiagnostic}</p>
       <p role="status" style={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}>{message}</p>
     </main>
   );
