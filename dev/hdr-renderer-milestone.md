@@ -81,3 +81,7 @@ Implementation sequence:
 5. Add isolated 2D SDR/HDR comparison tests and browser acceptance on an XDR display. Feature-detect and keep Canvas 2D fallback on unsupported platforms.
 
 Acceptance: a basic audio-reactive 2D Visript script exhibits brighter-than-SDR coloured highlights on the XDR hardware, with unchanged Canvas 2D fallback; no 2D script must silently change appearance. This scope extension does not make the current 3D prototype merge-ready.
+
+## 2D renderer implementation progress
+
+A first independent 2D geometry translator is now implemented at `packages/player/src/hdr-2d-geometry.ts`. It converts Canvas-style pixel coordinates for solid rectangles and circles to normalized-device-coordinate triangles, with per-shape `intensity` multiplied into RGB and alpha unchanged. Those triangles can be passed to the existing `HdrSceneRenderer`. Unit tests cover coordinates, brightness, shape count and invalid inputs. This is a renderer foundation only: **it is not yet connected to Canvas 2D's live Rust drawing commands, not enabled in normal playback, and has no guaranteed parity for gradients, transforms, clipping or alpha blending**. Next is a Rust 2D command export or dual recorder and an isolated comparison harness, then lines and other primitives. Local type checking and test results remain unverified for these latest commits.
