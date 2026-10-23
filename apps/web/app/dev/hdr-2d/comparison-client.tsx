@@ -8,9 +8,9 @@ import { VisampCanvas } from "@visamp/player";
 const SOURCE = `context 2d
 
 render {
-  draw::background(color: #030306)
-  draw::circle(x: 175.0, y: 165.0, radius: 85.0, color: #00bfff, intensity: 3.0)
-  draw::rect(x: 355.0, y: 85.0, width: 175.0, height: 165.0, color: #ff3373, intensity: 3.0)
+  draw::background(color: color::rgb(r: 0.012, g: 0.012, b: 0.024))
+  draw::circle(x: 175.0, y: 165.0, radius: 85.0, color: color::rgb(r: 0.0, g: 0.75, b: 1.0), intensity: 3.0)
+  draw::rect(x: 355.0, y: 85.0, width: 175.0, height: 165.0, color: color::rgb(r: 1.0, g: 0.2, b: 0.45), intensity: 3.0)
 }
 `;
 
