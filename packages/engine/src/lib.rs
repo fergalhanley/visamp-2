@@ -15,6 +15,7 @@ mod feedback;
 pub mod filters;
 pub mod frame_clock;
 pub mod geometry;
+mod hdr_snapshot;
 pub mod input;
 pub mod interpreter;
 pub mod math3;
@@ -57,6 +58,23 @@ pub fn validate_script(code: &str) -> String {
 #[wasm_bindgen]
 pub fn compiler_version() -> String {
     COMPILER_VERSION.to_string()
+}
+
+/// Read-only experimental snapshot of the last recorded 3D frame.
+/// The normal Canvas2D/WebGL path remains the active renderer.
+/// Returns a descriptive error for scripts outside the currently supported subset.
+#[wasm_bindgen]
+pub fn get_hdr_scene_snapshot() -> Result<String, String> {
+    STATE.with(|slot| {
+        let state = slot.borrow();
+        let state = state.as_ref().ok_or("engine is not initialized")?;
+        if !matches!(*state.kind.borrow(), Some(ContextKind::ThreeD)) {
+            return Err("HDR preview requires a 3D Visript context".into());
+        }
+        let canvas = state.canvas.borrow();
+        let canvas = canvas.as_ref().ok_or("engine canvas is unavailable")?;
+        hdr_snapshot::snapshot(&state.scene.borrow(), canvas.width(), canvas.height())
+    })
 }
 
 /// What the canvas has actually been bound to.
