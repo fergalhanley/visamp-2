@@ -16,6 +16,7 @@ render {
 
 export function Hdr2DComparisonClient() {
   const [active, setActive] = useState(false);
+  const [script, setScript] = useState(SOURCE);
   const [preview, setPreview] = useState(true);
   const [message, setMessage] = useState("");
   const [hdrDiagnostic, setHdrDiagnostic] = useState("HDR not started");
@@ -30,13 +31,18 @@ export function Hdr2DComparisonClient() {
       <label style={{ marginLeft: 18 }}>
         <input type="checkbox" checked={preview} onChange={e => setPreview(e.target.checked)} /> WebGPU preview
       </label>
-      <p>Left: existing Canvas 2D. Right: WebGPU extended HDR. Viscript sets both shapes to intensity 3×; the Canvas 2D output remains SDR.</p>
+      <p>Left: existing Canvas 2D. Right: WebGPU extended HDR. Change the Viscript below, or paste the standalone dev/hdr-2d-acceptance.viscript scene. The SDR canvas ignores HDR intensity.</p>
+      <details style={{ marginBottom: 16 }}><summary>Edit live Viscript test scene</summary>
+        <textarea aria-label="Viscript scene" spellCheck={false} value={script} onChange={e => setScript(e.target.value)}
+          style={{ display: "block", width: "100%", minHeight: 240, marginTop: 8, fontFamily: "monospace", background: "#151a25", color: "#fff" }} />
+        <button type="button" onClick={() => setScript(SOURCE)}>Restore starter scene</button>
+      </details>
       <style>{`
         .hdr-2d-player { width: 100%; height: 100%; min-width: 0; }
         .hdr-2d-player #visamp-stage, .hdr-2d-player canvas { min-width: 0; }
       `}</style>
       <div style={{ width: "100%", maxWidth: 1300, height: 400, minWidth: 0, border: "1px solid #555" }}>
-        <VisampCanvas source={SOURCE} active={active} hdrPreview={preview} hdr2dPreview
+        <VisampCanvas source={script} active={active} hdrPreview={preview} hdr2dPreview
           className="hdr-2d-player"
           onHdr2DDiagnostic={setHdrDiagnostic}
           onCompileResult={result => setMessage(result.ok ? "Viscript loaded" : result.diagnostics.map(d => d.message).join("; "))}
