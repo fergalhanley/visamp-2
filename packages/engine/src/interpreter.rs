@@ -991,6 +991,10 @@ fn record_draw(
 
     let color = args.color("color")?.unwrap_or(WHITE);
     let opacity = args.number("opacity")?.unwrap_or(1.0).clamp(0.0, 1.0);
+    let intensity = args.number("intensity")?.unwrap_or(1.0);
+    if !intensity.is_finite() || !(0.0..=6.0).contains(&intensity) {
+        return Err("intensity must be a finite number between 0 and 6".into());
+    }
     let wireframe = args.boolean("wireframe")?.unwrap_or(false);
 
     // Read before the scene is borrowed, because interning the id needs it
@@ -1039,12 +1043,12 @@ fn record_draw(
         overlay: scene.gfx.overlay,
     };
 
-    scene.record(DrawCommand {
+    scene.record_with_intensity(DrawCommand {
         key,
         model,
         color,
         opacity,
-    });
+    }, intensity as f32);
     Ok(())
 }
 
