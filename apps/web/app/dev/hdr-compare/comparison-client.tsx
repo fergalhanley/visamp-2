@@ -8,7 +8,7 @@ import { VisampCanvas } from "@visamp/player";
 const SOURCE = `context 3d
 
 render {
-  draw::cube()
+  draw::cube(intensity: 3.0)
 }
 `;
 
