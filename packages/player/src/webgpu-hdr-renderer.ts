@@ -1,3 +1,4 @@
+/// <reference types="@webgpu/types" />
 /**
  * Experimental WebGPU scene renderer. Runs independently of the existing WASM
  * canvas and deliberately supports only clear + unlit flat-colour triangles.
