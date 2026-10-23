@@ -26,41 +26,57 @@ export function Hdr2DComparisonClient() {
   const [status, setStatus] = useState("Initializing WebGPU…");
   const rendererRef = useRef<HdrSceneRenderer | null>(null);
 
+  // Defer GPU setup until after React's development StrictMode effect replay.
+  // Without this, a cancelled async setup can unconfigure the newer canvas.
   useEffect(() => {
     let cancelled = false;
+    let renderer: HdrSceneRenderer | null = null;
     const media = window.matchMedia("(dynamic-range: high)");
     setHdrDetected(media.matches);
-    void HdrSceneRenderer.create(hdrRef.current!, "extended").then(renderer => {
-      if (cancelled) { renderer.dispose(); return; }
-      rendererRef.current = renderer;
-      setStatus("WebGPU extended canvas ready");
-    }).catch(e => { if (!cancelled) setStatus(String(e)); });
+    const timer = window.setTimeout(() => {
+      void HdrSceneRenderer.create(hdrRef.current!, "extended").then(created => {
+        if (cancelled) {
+          created.dispose();
+          return;
+        }
+        renderer = created;
+        rendererRef.current = created;
+        setStatus("WebGPU extended canvas ready");
+      }).catch(error => {
+        if (!cancelled) setStatus(error instanceof Error ? error.message : String(error));
+      });
+    }, 0);
     return () => {
       cancelled = true;
-      rendererRef.current?.dispose();
+      window.clearTimeout(timer);
       rendererRef.current = null;
+      renderer?.dispose();
     };
   }, []);
 
+  // Canvas2D reference is independent of the GPU lifecycle.
   useEffect(() => {
-    const canvas = sdrRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = "#030306";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      ctx.fillStyle = "rgb(0,191,255)";
-      ctx.beginPath();
-      ctx.arc(175, 165, 85, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "rgb(255,51,115)";
-      ctx.fillRect(355, 85, 175, 165);
-    }
+    const ctx = sdrRef.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#030306";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillStyle = "rgb(0,191,255)";
+    ctx.beginPath();
+    ctx.arc(175, 165, 85, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgb(255,51,115)";
+    ctx.fillRect(355, 85, 175, 165);
+  }, []);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer || status !== "WebGPU extended canvas ready") return;
     try {
-      rendererRef.current?.render(tessellateHdr2D(makeFrame(intensity)));
+      renderer.render(tessellateHdr2D(makeFrame(intensity)));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     }
-  }, [intensity, status === "WebGPU extended canvas ready"]);
+  }, [intensity, status]);
 
   return (
     <main style={{ background: "#080b14", color: "#f5f7ff", minHeight: "100vh", padding: 24 }}>
