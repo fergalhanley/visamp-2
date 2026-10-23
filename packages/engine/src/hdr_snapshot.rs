@@ -31,15 +31,16 @@ pub fn snapshot(scene: &Scene, width: u32, height: u32) -> Result<String, String
     let aspect = width as f32 / height as f32;
     let vp = scene.camera.projection_matrix(aspect).mul(&scene.camera.view());
     let mut triangles: Vec<Value> = Vec::new();
-    for command in &scene.commands {
+    for (index, command) in scene.commands.iter().enumerate() {
         if !matches!(command.key.primitive, Primitive::Cube | Primitive::Plane { .. }) {
             return Err("HDR preview currently supports cubes and planes only".into());
         }
         let mesh = geometry::build(command.key.primitive, &scene.meshes);
         let mvp = vp.mul(&command.model);
+        let intensity = scene.hdr_intensities.get(index).copied().unwrap_or(1.0);
         let color = [
-            command.color.r as f32, command.color.g as f32,
-            command.color.b as f32, (command.color.a as f32 * command.opacity),
+            command.color.r as f32 * intensity, command.color.g as f32 * intensity,
+            command.color.b as f32 * intensity, (command.color.a as f32 * command.opacity),
         ];
         for inds in mesh.indices.chunks_exact(3) {
             if triangles.len() >= MAX_HDR_TRIANGLES {
