@@ -36,6 +36,9 @@ impl Frame {
             return Ok(());
         }
         let base = call.color("color", crate::model::WHITE)?;
+        if base.a != 1.0 || call.boolean("stroke", false)? {
+            return Err("HDR 2D preview does not yet support transparency or strokes".into());
+        }
         let rgba = [base.r, base.g, base.b, base.a];
         if call.name == "background" {
             self.reset();
