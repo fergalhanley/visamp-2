@@ -9,12 +9,14 @@ const MAX_SHAPES: usize = 2048;
 pub struct Frame {
     shapes: Vec<Value>,
     clear: Option<[f64; 4]>,
+    pub error: Option<String>,
 }
 
 impl Frame {
     pub fn reset(&mut self) {
         self.shapes.clear();
         self.clear = None;
+        self.error = None;
     }
 
     /// Record only the currently supported subset. Never silently omit a draw.
@@ -75,6 +77,7 @@ impl Frame {
     }
 
     pub fn snapshot(&self, width: u32, height: u32) -> Result<String, String> {
+        if let Some(error) = &self.error { return Err(error.clone()); }
         if width == 0 || height == 0 {
             return Err("HDR 2D frame requires nonzero canvas dimensions".into());
         }
