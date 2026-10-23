@@ -52,6 +52,7 @@ pub const PROMOTED_3D_ARGS: &[&str] = &[
     "shading",
     "wireframe",
     "opacity",
+    "intensity",
 ];
 
 /// The §6.6 arguments every `draw::` call accepts in 3d.
@@ -64,6 +65,7 @@ pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
     "shading",
     "wireframe",
     "opacity",
+    "intensity",
     // An `asset::bitmap` or `asset::vector` reference. Modulates the shape's
     // colour rather than replacing it, so tint and opacity still apply.
     "texture",
