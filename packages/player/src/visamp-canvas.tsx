@@ -1,6 +1,7 @@
 "use client";
 
 import { activateScript } from "./activation";
+import { shouldPresentHdr2D } from "./hdr-2d-presentation";
 import {
   useCallback,
   useEffect,
@@ -413,7 +414,7 @@ export function VisampCanvas({
             }
             renderer?.render(scene, hdrIntensityRef.current);
             if (autoHdr2D && isHdr2D) {
-              const luminous = scene.triangles.some(triangle => triangle.color.slice(0, 3).some(channel => channel > 1));
+              const luminous = shouldPresentHdr2D(scene);
               if (luminous !== lastPresented) {
                 lastPresented = luminous;
                 setHdrPresenting(luminous);
