@@ -36,6 +36,36 @@ test('live WASM records all HDR drawing operations, rotation, assets and reloads
     const { instance } = await WebAssembly.instantiate(readFileSync(new URL('../../../packages/engine/pkg/visamp_2_bg.wasm', import.meta.url)), { './visamp_2_bg.js': bindings });
     bindings.__wbg_set_wasm(instance.exports);
     instance.exports.__wbindgen_start();
+    const lines = readFileSync(new URL('../../../dev/hdr-2d-lines.viscript', import.meta.url), 'utf8');
+    assert.equal(bindings.validate_script(lines), '');
+    // This stub has no WebGL. Exercise the exact drawing loop in real WASM;
+    // renderer tests separately verify the four-effect chain and GPU pass count.
+    const drawing = lines.replace(/^\s*effect::.*$/gm, '');
+    const sdr = drawing.replaceAll(', intensity: hdr_intensity', '');
+    assert.equal(bindings.load_script(sdr), '');
+    assert.equal(bindings.get_hdr_2d_requested(), false);
+    bindings.set_animation_time(Math.PI / 2 / 0.0001);
+    frames.shift()(0);
+    assert.equal(bindings.get_last_error(), '');
+    assert.equal(paints.filter(p => p === 'stroke').length, 640);
+    assert.equal(JSON.parse(bindings.get_hdr_2d_snapshot()).sequence, 0);
+    assert.equal(bindings.load_script(drawing), '');
+    assert.equal(bindings.get_hdr_2d_requested(), true);
+    bindings.set_hdr_2d_recording(true);
+    frames.shift()(16);
+    const dense = JSON.parse(bindings.get_hdr_2d_snapshot());
+    assert.equal(dense.commands.length, 641);
+    assert.equal(dense.clearScene, false);
+    for (const c of dense.commands.slice(1)) {
+      assert.equal(c.kind, 'path'); assert.equal(c.points.length, 2);
+      assert.equal(c.stroke.cap, 'butt'); assert.ok(c.stroke.width < 1);
+      assert.equal(c.intensity, 3);
+    }
+    bindings.set_hdr_2d_recording(false);
+    frames.shift()(32);
+    assert.equal(JSON.parse(bindings.get_hdr_2d_snapshot()).sequence, 0);
+    bindings.set_animation_time(undefined);
+    bindings.set_hdr_2d_recording(true);
     const source = readFileSync(new URL('../../../dev/hdr-2d-coverage.viscript', import.meta.url), 'utf8');
     assert.equal(bindings.validate_script(source), '');
     assert.equal(bindings.load_script(source), '');

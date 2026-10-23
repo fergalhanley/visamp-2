@@ -9,6 +9,7 @@ function frame(sequence = 1): HdrFrame {
     commands: [{ ...paint, kind: "path", points: [[0, 0], [20, 0], [20, 20]], closed: true, pivot: [10, 10], rotation: 0.7, stroke: null }] });
 }
 let records: number[][];
+let passes: { load: string; draws: number[][] }[];
 let textures: { destroyed: boolean; format: string; createView(): unknown; destroy(): void }[];
 let ctx: Record<string, ReturnType<typeof vi.fn>>;
 let device: Record<string, any>;
@@ -16,7 +17,7 @@ let canvas: HTMLCanvasElement;
 let lost: (value: { reason: string; message: string }) => void;
 let onGpuError: (event: { error: Error }) => void;
 beforeEach(() => {
-  records = []; textures = [];
+  records = []; textures = []; passes = [];
   const texture = (format = "rgba16float") => {
     const t = { destroyed: false, format, createView: () => ({ texture: t }), destroy: vi.fn(() => { t.destroyed = true; }) };
     textures.push(t); return t;
@@ -27,7 +28,7 @@ beforeEach(() => {
   ctx.createLinearGradient!.mockReturnValue({ addColorStop: vi.fn() });
   ctx.createRadialGradient!.mockReturnValue({ addColorStop: vi.fn() });
   vi.stubGlobal("document", { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) });
-  vi.stubGlobal("GPUBufferUsage", { UNIFORM: 1, COPY_DST: 2, STORAGE: 4 });
+  vi.stubGlobal("GPUBufferUsage", { UNIFORM: 1, COPY_DST: 2, STORAGE: 4, VERTEX: 8 });
   vi.stubGlobal("GPUTextureUsage", { TEXTURE_BINDING: 1, RENDER_ATTACHMENT: 2, COPY_DST: 4 });
   vi.stubGlobal("GPUShaderStage", { FRAGMENT: 2 });
   const layout = {};
@@ -35,19 +36,21 @@ beforeEach(() => {
     limits: { maxTextureDimension2D: 8192 },
     pushErrorScope: vi.fn(), popErrorScope: vi.fn(async () => null),
     createShaderModule: vi.fn(() => ({ getCompilationInfo: async () => ({ messages: [] }) })),
-    createRenderPipelineAsync: vi.fn(async () => ({})), createBindGroupLayout: vi.fn(() => layout), createPipelineLayout: vi.fn(() => ({})),
+    createRenderPipelineAsync: vi.fn(async () => ({ getBindGroupLayout: () => ({}) })), createBindGroupLayout: vi.fn(() => layout), createPipelineLayout: vi.fn(() => ({})),
     createBuffer: vi.fn(() => ({ destroy: vi.fn() })), createSampler: vi.fn(() => ({})),
     createTexture: vi.fn(({ format }) => texture(format)),
     createBindGroup: vi.fn((descriptor) => descriptor),
     createCommandEncoder: vi.fn(() => ({
-      beginRenderPass: ({ colorAttachments }: any) => ({
+      beginRenderPass: ({ colorAttachments }: any) => {
+        const record = { load: colorAttachments[0].loadOp, draws: [] as number[][] }; passes.push(record);
+        return {
         setPipeline() {},
         setBindGroup: (_index: number, group: any) => {
           // Catch the most consequential ping-pong mistake: reading and writing a texture in one pass.
           const destination = colorAttachments[0].view.texture;
-          for (const binding of group.entries.slice(0, 2)) expect(binding.resource.texture).not.toBe(destination);
-        }, draw() {}, end() {},
-      }), finish() { return {}; },
+          for (const binding of group.entries) if (binding.resource.texture) expect(binding.resource.texture).not.toBe(destination);
+        }, setVertexBuffer() {}, draw(...args: number[]) { record.draws.push(args); }, end() {},
+      }; }, finish() { return {}; },
     })),
     queue: { writeBuffer: vi.fn((_buffer, _offset, data) => { if (data instanceof Float32Array) records.push([...data]); }),
       writeTexture: vi.fn(), copyExternalImageToTexture: vi.fn(), submit: vi.fn() },
@@ -57,6 +60,38 @@ beforeEach(() => {
   vi.stubGlobal("navigator", { gpu: { requestAdapter: async () => ({ requestDevice: async () => device }) } });
 });
 afterEach(() => vi.unstubAllGlobals());
+
+function line() {
+  return { ...paint, kind: "path" as const, points: [[0, 0], [20, 20]] as [number, number][], closed: false,
+    pivot: [0, 0] as [number, number], rotation: 0.7, stroke: { width: 0.3, cap: "butt" as const, join: "bevel" as const } };
+}
+it("batches 640 HDR lines and a trail fade without per-line uploads or passes", async () => {
+  const renderer = await WebGpu2DRenderer.create(canvas);
+  const f = decodeHdrFrame({ ...frame(), width: 1920, height: 1080, commands: [
+    { ...paint, color: [0, 0, 0, 0.003], intensity: 1, kind: "path", points: [[0, 0], [1920, 0], [1920, 1080], [0, 1080]], closed: true, pivot: [960, 540], rotation: 0, stroke: null },
+    ...Array.from({ length: 640 }, line),
+  ], effects: [10, 5, 2, 3].map(kind => ({ kind, amount: 0.7, params: [4, 2, 0, 0, 0, 0, 0, 0], color: [0, 0, 0, 1], asset: null })) });
+  renderer.render(f);
+  const buffers = device.createBuffer.mock.calls.length;
+  passes = []; records = []; device.queue.submit.mockClear();
+  renderer.render({ ...f, sequence: 2 });
+  expect(passes).toHaveLength(6); // geometry + four effects + presentation
+  expect(passes[0]).toEqual({ load: "load", draws: [[6, 641]] });
+  expect(device.queue.submit).toHaveBeenCalledTimes(6);
+  expect(device.queue.copyExternalImageToTexture).not.toHaveBeenCalled();
+  expect(device.createBuffer.mock.calls.length).toBe(buffers);
+  expect(records[0]).toHaveLength(641 * 14);
+  renderer.dispose();
+});
+it("flushes geometry around raster fallback and clear without changing draw order", async () => {
+  const renderer = await WebGpu2DRenderer.create(canvas);
+  renderer.render(frame()); passes = []; device.queue.copyExternalImageToTexture.mockClear();
+  renderer.render(decodeHdrFrame({ ...frame(2), commands: [line(), frame().commands[0], line(), { kind: "clear" }, line()] }));
+  expect(passes.map(p => p.draws)).toEqual([[[6, 1]], [[3]], [[6, 1]], [], [[6, 1]], [[3]]]);
+  expect(passes.map(p => p.load)).toEqual(["load", "clear", "load", "clear", "load", "clear"]);
+  expect(device.queue.copyExternalImageToTexture).toHaveBeenCalledOnce();
+  renderer.dispose();
+});
 
 it("composites rotated paints in float targets and applies a frame only once", async () => {
   const renderer = await WebGpu2DRenderer.create(canvas);

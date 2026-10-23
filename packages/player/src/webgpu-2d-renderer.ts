@@ -1,5 +1,6 @@
 /// <reference types="@webgpu/types" />
 import type { HdrEffect, HdrFrame, Rgba } from "./hdr-2d-frame";
+import { HdrGeometryBatch, GEOMETRY_SHADER, INSTANCE_FLOATS } from "./hdr-2d-batch";
 import { HdrRasterizer } from "./hdr-2d-raster";
 import { COMPOSITE, EFFECTS, SCRAMBLE } from "./hdr-2d-shaders";
 import { SCRAMBLE_PRESETS, scrambleAddressMap } from "./hdr-2d-scramble";
@@ -10,11 +11,16 @@ type Options = { assets?: readonly ResolvedAsset[]; signal?: AbortSignal; onErro
 const owners = new WeakMap<HTMLCanvasElement, WebGpu2DRenderer>();
 const BLEND = { alpha: 0, additive: 1, multiply: 2, none: 3 } as const;
 
-/** Browser paint rasterisation + linear-light WebGPU HDR composition and effects. */
+/** Batched geometry and browser paint fallbacks with linear-light HDR effects. */
 export class WebGpu2DRenderer {
   private disposed = false;
   private failure: Error | undefined;
   private readonly raster: HdrRasterizer;
+  private readonly batch = new HdrGeometryBatch();
+  private vertexBuffer: GPUBuffer | undefined;
+  private vertexCapacity = 0;
+  private readonly geometryUniform: GPUBuffer;
+  private readonly geometryGroup: GPUBindGroup;
   private readonly uniform: GPUBuffer;
   private readonly sampler: GPUSampler;
   private map: GPUBuffer;
@@ -39,8 +45,13 @@ export class WebGpu2DRenderer {
     private readonly layout: GPUBindGroupLayout,
     private readonly pipelines: { composite: GPURenderPipeline; effects: GPURenderPipeline; scramble: GPURenderPipeline },
     private readonly options: Options,
+    private readonly geometryPipeline: GPURenderPipeline,
   ) {
     this.raster = new HdrRasterizer(options.assets ?? []);
+    this.geometryUniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.geometryGroup = device.createBindGroup({ layout: geometryPipeline.getBindGroupLayout(0), entries: [
+      { binding: 0, resource: { buffer: this.geometryUniform } },
+    ] });
     this.uniform = device.createBuffer({ size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.map = device.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.sampler = device.createSampler({ minFilter: "linear", magFilter: "linear" });
@@ -87,13 +98,32 @@ export class WebGpu2DRenderer {
         });
       };
       const [composite, effects, scramble] = await Promise.all([COMPOSITE, EFFECTS, SCRAMBLE].map(createPipeline));
+      const geometryModule = device.createShaderModule({ code: GEOMETRY_SHADER });
+      const geometryPipeline = await device.createRenderPipelineAsync({
+        layout: "auto",
+        vertex: { module: geometryModule, entryPoint: "vs", buffers: [{
+          arrayStride: INSTANCE_FLOATS * 4, stepMode: "instance", attributes: [
+            { shaderLocation: 0, offset: 0, format: "float32x2" },
+            { shaderLocation: 1, offset: 8, format: "float32x2" },
+            { shaderLocation: 2, offset: 16, format: "float32x2" },
+            { shaderLocation: 3, offset: 24, format: "float32x2" },
+            { shaderLocation: 4, offset: 32, format: "float32x4" },
+            { shaderLocation: 5, offset: 48, format: "float32x2" },
+          ],
+        }] },
+        fragment: { module: geometryModule, entryPoint: "fs", targets: [{ format: "rgba16float", blend: {
+          color: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
+          alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" },
+        } }] },
+        primitive: { topology: "triangle-list" },
+      });
       const error = await device.popErrorScope();
       if (error) throw new Error(error.message);
       abort();
       if (!composite || !effects || !scramble) throw new Error("HDR pipelines unavailable");
       const context = canvas.getContext("webgpu");
       if (!context) throw new Error("Could not obtain WebGPU canvas context");
-      renderer = new WebGpu2DRenderer(canvas, context, device, layout, { composite, effects, scramble }, options);
+      renderer = new WebGpu2DRenderer(canvas, context, device, layout, { composite, effects, scramble }, options, geometryPipeline);
       // Configure only after asynchronous setup, and only if this activation is current.
       owners.get(canvas)?.dispose();
       owners.set(canvas, renderer);
@@ -136,6 +166,25 @@ export class WebGpu2DRenderer {
     this.sequence = -1; this.output = undefined; this.scrambleActive = false; this.refreshRemainder = 0;
     this.mapKey = "";
     for (const t of [...this.scene, ...this.history]) this.clear(t);
+  }
+  private flushGeometry(): void {
+    if (!this.batch.count) return;
+    const vertices = this.batch.data.subarray(0, this.batch.count * INSTANCE_FLOATS);
+    if (vertices.byteLength > this.vertexCapacity) {
+      this.vertexBuffer?.destroy();
+      this.vertexCapacity = this.batch.data.byteLength;
+      this.vertexBuffer = this.device.createBuffer({ size: this.vertexCapacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+    }
+    this.device.queue.writeBuffer(this.vertexBuffer!, 0, vertices);
+    this.device.queue.writeBuffer(this.geometryUniform, 0, new Float32Array([this.width, this.height, 0, 0]));
+    const encoder = this.device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({ colorAttachments: [{
+      view: this.scene[this.current]!.texture.createView(), loadOp: "load", storeOp: "store",
+    }] });
+    pass.setPipeline(this.geometryPipeline); pass.setBindGroup(0, this.geometryGroup);
+    pass.setVertexBuffer(0, this.vertexBuffer!); pass.draw(6, this.batch.count); pass.end();
+    this.device.queue.submit([encoder.finish()]);
+    this.batch.reset();
   }
   private draw(
     pipeline: GPURenderPipeline, source: GPUTexture, destination: Target | GPUTexture,
@@ -245,16 +294,20 @@ export class WebGpu2DRenderer {
     if (frame.sequence === 0) return false;
     if (frame.width !== this.width || frame.height !== this.height || frame.sequence < this.sequence) this.reset(frame.width, frame.height);
     if (frame.sequence !== this.sequence) {
+      this.batch.reset();
       if (frame.clearScene) this.clear(this.scene[this.current]!);
       for (const command of frame.commands) {
-        if (command.kind === "clear") { this.clear(this.scene[this.current]!); continue; }
+        if (command.kind === "clear") { this.flushGeometry(); this.clear(this.scene[this.current]!); continue; }
         if (command.kind === "path" && command.points.length === 0 || command.kind === "text" && command.text.length === 0) continue;
+        if (this.batch.append(command, this.width, this.height)) continue;
+        this.flushGeometry();
         const canvas = this.raster.draw(command, this.width, this.height);
         this.device.queue.copyExternalImageToTexture({ source: canvas }, { texture: this.paint!.texture, premultipliedAlpha: false, colorSpace: "srgb" }, [this.width, this.height]);
         const previous = this.scene[this.current]!.texture;
         this.current = 1 - this.current;
         this.draw(this.pipelines.composite, this.paint!.texture, this.scene[this.current]!, 1, 0, undefined, previous, [0, 0, BLEND[command.blend], command.intensity]);
       }
+      this.flushGeometry();
       const feedback = this.feedback(this.scene[this.current]!.texture, frame);
       this.output = this.effects(feedback, frame.effects);
       this.sequence = frame.sequence;
@@ -270,6 +323,7 @@ export class WebGpu2DRenderer {
     this.device.removeEventListener("uncapturederror", this.onGpuError);
     for (const t of [...this.scene, ...this.history, ...this.pool]) t.texture.destroy();
     for (const t of this.maps.values()) t.destroy();
+    this.vertexBuffer?.destroy(); this.geometryUniform.destroy();
     this.paint?.texture.destroy(); this.uniform.destroy(); this.map.destroy(); this.raster.dispose();
     this.device.destroy();
   }

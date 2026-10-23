@@ -342,21 +342,15 @@ export function VisampCanvas({
     });
   }, [ready, watchProperties]);
 
-  // Eligibility is a hint, never a guarantee of working HDR presentation.
-  // The validated live frame and GPU setup decide whether presentation can proceed.
+  // Use the loaded AST's intent: ordinary SDR sources do no HDR work. A draw
+  // intensity expression opts in even when it currently evaluates to one/zero.
   useEffect(() => {
-    if (!autoHdr2D) { setHdrEligible(false); setHdrPresenting(false); setAutoHdrStatus(""); return; }
-    const media = window.matchMedia?.("(dynamic-range: high)");
-    // dynamic-range is advisory: false negatives occur with some browser/display
-    // combinations. The WebGPU configuration and actual frame decide viability.
-    const update = () => setHdrEligible(Boolean(navigator.gpu)
-      // Viscript defaults to 2D when the context declaration is omitted.
-      && !/^\s*context\s+3d\b/m.test(source));
-    update();
-    setAutoHdrStatus(!navigator.gpu ? "WebGPU unavailable" : "Checking Viscript HDR scene");
-    media?.addEventListener("change", update);
-    return () => media?.removeEventListener("change", update);
-  }, [autoHdr2D, source]);
+    const requested = engineRef.current?.get_hdr_2d_requested?.() ?? false;
+    const eligible = autoHdr2D && Boolean(navigator.gpu) && requested;
+    setHdrEligible(eligible);
+    if (!eligible) setHdrPresenting(false);
+    setAutoHdrStatus(!requested ? "SDR" : !navigator.gpu ? "WebGPU unavailable" : "Checking Viscript HDR scene");
+  }, [autoHdr2D, ready, activationRevision]);
 
   const previewEnabled = hdrPreview || (autoHdr2D && hdrEligible);
   const isHdr2D = hdr2dPreview || autoHdr2D;
@@ -380,11 +374,14 @@ export function VisampCanvas({
     let disposed = false;
     let raf = 0;
     let lastDiagnostic = "";
+    let presenting = false;
     const controller = new AbortController();
     let renderer: { dispose(): void } | undefined;
     const fallback = (error: unknown) => {
       if (disposed) return;
       window.cancelAnimationFrame(raf);
+      engine.set_hdr_2d_presenting?.(false);
+      engine.set_hdr_2d_recording?.(false);
       const message = error instanceof Error ? error.message : String(error);
       setHdrPreviewError(message);
       setHdrPresenting(false);
@@ -408,6 +405,7 @@ export function VisampCanvas({
           });
           if (disposed) { created.dispose(); return; }
           renderer = created;
+          engine.set_hdr_2d_recording?.(true);
           drawFrame = () => {
             const frame = readHdr2DFrame(engine);
             const presented = created.render(frame, hdrIntensityRef.current);
@@ -433,7 +431,9 @@ export function VisampCanvas({
           if (disposed) return;
           try {
             const presented = drawFrame();
-            if (autoHdr2D && presented) {
+            if (autoHdr2D && presented && !presenting) {
+              presenting = true;
+              engine.set_hdr_2d_presenting?.(true);
               setHdrPresenting(true);
               setAutoHdrStatus("HDR active");
             }
@@ -457,6 +457,8 @@ export function VisampCanvas({
     return () => {
       disposed = true;
       controller.abort();
+      engine.set_hdr_2d_presenting?.(false);
+      engine.set_hdr_2d_recording?.(false);
       window.clearTimeout(timer);
       window.cancelAnimationFrame(raf);
       renderer?.dispose();

@@ -7,6 +7,9 @@ const engine = vi.hoisted(() => ({
   load_script: vi.fn(() => ""),
   clear_assets: vi.fn(),
   get_last_error: vi.fn(() => ""),
+  get_hdr_2d_requested: vi.fn(() => true),
+  set_hdr_2d_recording: vi.fn(),
+  set_hdr_2d_presenting: vi.fn(),
   get_hdr_2d_snapshot: vi.fn(() => JSON.stringify({
     version: 2, sequence: 1, width: 640, height: 360, clearScene: false, seconds: 1 / 60,
     effects: [], scramble: null,
@@ -33,6 +36,7 @@ render {
 let frames: Map<number, FrameRequestCallback>;
 beforeEach(() => {
   vi.clearAllMocks();
+  engine.get_hdr_2d_requested.mockReturnValue(true);
   frames = new Map();
   let id = 0;
   vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => {
@@ -63,8 +67,24 @@ it("renders HDR for the default 2D context only after a frame is drawn", async (
     callbacks.forEach(callback => callback(16));
   });
   expect(gpu.render).toHaveBeenCalledOnce();
+  expect(engine.set_hdr_2d_recording).toHaveBeenCalledWith(true);
+  expect(engine.set_hdr_2d_presenting).toHaveBeenLastCalledWith(true);
   expect(canvas.parentElement?.style.opacity).toBe("1");
   expect(view.container.querySelector("#visamp-stage")).not.toBeNull();
+});
+
+it("leaves ordinary SDR scripts on the native path until explicit HDR is loaded", async () => {
+  engine.get_hdr_2d_requested.mockReturnValue(false);
+  const view = render(<VisampCanvas source="render { draw::line() }" active />);
+  await waitFor(() => expect(engine.load_script).toHaveBeenCalled());
+  expect(gpu.create).not.toHaveBeenCalled();
+  expect(engine.get_hdr_2d_snapshot).not.toHaveBeenCalled();
+  expect(engine.set_hdr_2d_recording).not.toHaveBeenCalledWith(true);
+  expect(view.queryByLabelText("Experimental HDR WebGPU preview")).toBeNull();
+  engine.get_hdr_2d_requested.mockReturnValue(true);
+  view.rerender(<VisampCanvas source={source} active />);
+  await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
+  expect(engine.set_hdr_2d_recording).toHaveBeenCalledWith(true);
 });
 
 it("keeps the SDR stage visible when WebGPU setup fails", async () => {
@@ -76,6 +96,20 @@ it("keeps the SDR stage visible when WebGPU setup fails", async () => {
   expect(stage?.style.width).toBe("100%");
   expect(stage?.style.height).toBe("100%");
   expect(view.getByLabelText("Experimental HDR WebGPU preview").parentElement?.style.opacity).toBe("0");
+});
+
+it("records explicit comparison previews without suppressing the SDR renderer", async () => {
+  engine.get_hdr_2d_requested.mockReturnValue(false);
+  render(<VisampCanvas source="render { draw::line() }" active hdrPreview hdr2dPreview />);
+  await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
+  expect(engine.set_hdr_2d_recording).toHaveBeenCalledWith(true);
+  await waitFor(() => expect(frames.size).toBe(1));
+  act(() => {
+    const callbacks = [...frames.values()]; frames.clear();
+    callbacks.forEach(callback => callback(16));
+  });
+  expect(gpu.render).toHaveBeenCalledOnce();
+  expect(engine.set_hdr_2d_presenting).not.toHaveBeenCalledWith(true);
 });
 
 it("keeps HDR diagnostics and canvas buffers out of the viewport's layout flow", async () => {
@@ -91,8 +125,9 @@ it("keeps HDR diagnostics and canvas buffers out of the viewport's layout flow",
   expect(stage?.style.position).toBe("absolute");
 });
 
-it("selects 2D without an intensity literal and retains the renderer while paused", async () => {
-  const view = render(<VisampCanvas source="render { draw::circle() }" active />);
+it("uses parsed dynamic HDR intent and retains the renderer while paused", async () => {
+  const dynamic = "prop gain = 3 render { draw::circle(intensity: gain) }";
+  const view = render(<VisampCanvas source={dynamic} active />);
   await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
   await waitFor(() => expect(frames.size).toBe(1));
   act(() => {
@@ -101,9 +136,9 @@ it("selects 2D without an intensity literal and retains the renderer while pause
   });
   const stage = view.container.querySelector<HTMLElement>("#visamp-stage");
   expect(stage?.style.opacity).toBe("0");
-  view.rerender(<VisampCanvas source="render { draw::circle() }" active={false} />);
+  view.rerender(<VisampCanvas source={dynamic} active={false} />);
   expect(gpu.dispose).not.toHaveBeenCalled();
-  view.rerender(<VisampCanvas source="render { draw::circle() }" active />);
+  view.rerender(<VisampCanvas source={dynamic} active />);
   expect(gpu.create).toHaveBeenCalledOnce();
   view.unmount();
   expect(gpu.dispose).toHaveBeenCalledOnce();
@@ -118,6 +153,8 @@ it("restores the SDR stage after an asynchronous GPU failure", async () => {
     callbacks.forEach(callback => callback(16));
   });
   act(() => gpu.create.mock.calls[0]?.[1].onError(new Error("device lost")));
+  expect(engine.set_hdr_2d_recording).toHaveBeenLastCalledWith(false);
+  expect(engine.set_hdr_2d_presenting).toHaveBeenLastCalledWith(false);
   expect(view.container.querySelector<HTMLElement>("#visamp-stage")?.style.opacity).toBe("1");
   expect(view.getByLabelText("Experimental HDR WebGPU preview").parentElement?.style.opacity).toBe("0");
   expect(frames.size).toBe(0);
@@ -132,6 +169,7 @@ it("restores the stage when switching from 2D HDR to a 3D script", async () => {
     callbacks.forEach(callback => callback(16));
   });
   expect(view.container.querySelector<HTMLElement>("#visamp-stage")?.style.opacity).toBe("0");
+  engine.get_hdr_2d_requested.mockReturnValue(false);
   view.rerender(<VisampCanvas source="context 3d render { draw::cube() }" active />);
   await waitFor(() => expect(view.queryByLabelText("Experimental HDR WebGPU preview")).toBeNull());
   expect(view.container.querySelector<HTMLElement>("#visamp-stage")?.style.opacity).toBe("1");

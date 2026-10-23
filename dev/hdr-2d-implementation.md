@@ -13,9 +13,11 @@ Rotation, transform stacks, rounded shapes, strokes, gradients, text, images,
 ordered compositing, effects and scramble must not disable HDR.
 
 Rust emits version 2 ordered commands after interpretation, using the same path
-builder and transform matrices as the Canvas2D backend. The player rasterises
-individual commands with browser Canvas2D, preserving browser font, path,
-gradient and image coverage semantics. This is a hybrid rasterisation backend:
+builder and transform matrices as the Canvas2D backend. Solid alpha-blended lines
+(butt/square caps), rectangle fills and backgrounds use instanced GPU geometry,
+including affine transforms and per-shape rotation. Analytic coverage retains
+fractional-pixel strokes. Other commands use browser Canvas2D, preserving browser
+font, complex path, gradient and image coverage semantics. This is a hybrid backend:
 Canvas2D supplies bounded SDR paint/coverage per operation; WebGPU decodes sRGB,
 applies intensity, and composites into persistent premultiplied `rgba16float`
 textures. It never uploads the final SDR scene to simulate HDR. All subsequent
@@ -33,8 +35,12 @@ output back into scene/scramble history. Scramble keeps its addressing and
 60 Hz refresh cadence, but uses float colour instead of legacy byte rounding.
 When a scramble preset moves RGB into alpha, alpha is bounded independently.
 
-WebGPU is attempted for any 2D source when automatic HDR is enabled, including
-implicit 2D and effects that generate HDR without an intensity argument. Once a
+Automatic HDR selects 2D scripts with an explicit drawing `intensity` argument,
+detected in the parsed AST, including functions and conditional branches. Dynamic
+values and explicit intensity 1 opt in. Comments, strings and effect intensity
+do not. Scripts without drawing intensity retain the native SDR path without
+command recording or a second rendering loop. Recording starts only after GPU
+setup succeeds, or when the explicit comparison preview is enabled. Once a
 valid frame is rendered, the HDR surface stays selected through dark/empty
 frames. Script activation, dimensions, device loss and teardown reset resources.
 Frame sequence numbers prevent applying feedback twice to the same engine frame.
@@ -62,8 +68,20 @@ Existing PNG thumbnail/capture remains the engine's SDR rendering, not HDR expor
 ## Performance bounds
 
 Retain renderer textures and pipelines between frames and cap command/path counts.
-Individual raster uploads currently cost one canvas upload per draw; dense scenes
-need browser profiling before claiming production performance parity. No GPU
+Contiguous compatible paints share one instanced draw; flush before a raster
+fallback or clear to preserve ordering. Instance buffers are reused. For the
+640-line scene plus translucent fade, geometry occupies at most 35,896 bytes and
+one pass, followed by four effects and presentation: six steady-state passes,
+with no canvas uploads in HDR replay. Unsupported geometry/paint combinations
+still cost one canvas upload per draw and need further optimisation if profiling
+identifies them as a bottleneck. Complex paths, gradients, text, images and
+non-alpha blend modes currently retain this fallback.
+
+The native scene stays current for SDR fallback. Its postprocessing is skipped
+while automatic HDR is presenting, except for scramble, whose independent SDR
+history must remain current. Capture re-renders through its own SDR pipeline.
+This avoids duplicating the user's four effects; it does not eliminate native
+scene drawing or JSON recording in HDR mode. No GPU
 readback is performed during playback. The full implementation must not silently
 omit commands when a resource limit is hit: show the SDR fallback with a diagnostic.
 
@@ -102,5 +120,32 @@ reference intensity 1 against SDR and brighter 2/4 highlights on an HDR display;
 exercise background-free trails, all blend modes, effects/scramble, resize,
 pause/resume and switching between 2D and 3D in the editor. Image/displacement
 checks need a registered bitmap/vector asset. Verify input still reaches the
-stage and that the viewport height stays fixed. Dense scenes require profiling
-because this implementation uploads rasterised paint per draw operation.
+stage and that the viewport height stays fixed.
+
+Performance regression fixture: `dev/hdr-2d-lines.viscript` reproduces the reported
+scene with `intensity: hdr_intensity` on both lines. Remove those two arguments
+to test the original SDR route; setting the property to 1 still selects HDR.
+Measure both versions with the same viewport/device scale and animation time,
+especially around 15.7 seconds (640 lines). Test intensity 3, rotated lines and
+thin strokes, trail retention and all four effects. Actual frame times and pixel
+output still require the user's browser; structural pass-count tests do not
+prove a return to 120 FPS.
+
+## Performance fix verification — 2026-10-23
+
+- Workspace suites pass: 328 native engine tests, player regressions, docs and
+  validator tests (five deployment/auth-dependent validator cases remain skipped).
+- Web suites pass: 385 Vitest tests and 60 Node tests. Updated engine mocks cover
+  the new intent query, including SDR-to-HDR activation, fallback and explicit
+  comparison previews keeping the SDR pipeline enabled.
+- Player and web typechecks, WASM build, production web build and edited web
+  files' ESLint checks pass. All 72 complete documentation examples compile.
+- Real WASM executes the dense fixture's drawing loop at peak time: 640 native
+  strokes, no recorded SDR frame, then 641 HDR commands after opting in. This
+  Canvas2D stub omits effects; the GPU mock separately verifies the four-effect
+  chain, six passes, zero image uploads, buffer reuse and ordered fallback/clear.
+- The new geometry WGSL module parses and validates with Naga 30.0.1. CPU packing
+  tests cover subpixel width, premultiplied HDR colour, affine/shape rotation,
+  reflection, square caps and fallback of unsupported paths/paints.
+- Browser FPS, visual parity of analytic antialiasing and physical HDR output
+  remain pending on the user's GPU, as described above.

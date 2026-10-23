@@ -9,6 +9,28 @@ use crate::{
 use serde_json::{json, Value};
 
 const MAX_COMMANDS: usize = 2048;
+
+/// Explicit draw intensity opts into HDR, including dynamic values in functions
+/// and conditional branches. Comments, strings and effect intensity do not.
+pub fn requested(script: &crate::model::Script) -> bool {
+    use crate::model::{ContextKind, Statement, StatementKind};
+    fn has(statements: &[Statement]) -> bool {
+        statements.iter().any(|s| match &s.kind {
+            StatementKind::FunctionCall(c) => {
+                c.namespace == "draw" && c.args.iter().any(|a| a.name == "intensity")
+            }
+            StatementKind::If(s) => {
+                has(&s.then_body) || s.else_body.as_ref().is_some_and(|b| has(b))
+            }
+            StatementKind::For(s) => has(&s.body),
+            StatementKind::While(s) => has(&s.body),
+            _ => false,
+        })
+    }
+    script.context == ContextKind::TwoD
+        && (script.blocks.iter().any(|b| has(&b.statements))
+            || script.functions.iter().any(|f| has(&f.body)))
+}
 #[derive(Default)]
 pub struct Frame {
     commands: Vec<Value>,
@@ -157,6 +179,25 @@ impl Frame {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+    #[test]
+    fn hdr_intent_comes_from_drawing_calls_not_source_text_or_effects() {
+        use crate::parser::build_ast;
+        for source in [
+            "render { draw::line() effect::bloom(intensity: 3) }",
+            "// draw::line(intensity: 4)\nrender { draw::text(content: \"intensity: 3\") }",
+            "context 3d render { draw::cube(intensity: 3) }",
+        ] {
+            assert!(!requested(&build_ast(source).unwrap()), "{source}");
+        }
+        for source in [
+            "prop gain = 3 render { draw::line(intensity: gain) }",
+            "fn dot(gain: 3) { draw::circle(intensity: gain) } render { dot() }",
+            "render { if false { draw::rect(intensity: 1) } }",
+            "render { let i = 0 while i < 1 { draw::line(intensity: 4) i = i + 1 } }",
+        ] {
+            assert!(requested(&build_ast(source).unwrap()), "{source}");
+        }
+    }
     fn call(name: &str) -> Call {
         Call {
             location: None,

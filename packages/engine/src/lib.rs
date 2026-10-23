@@ -15,8 +15,8 @@ mod feedback;
 pub mod filters;
 pub mod frame_clock;
 pub mod geometry;
-mod hdr_snapshot;
 mod hdr_2d_frame;
+mod hdr_snapshot;
 pub mod input;
 pub mod interpreter;
 pub mod math3;
@@ -96,6 +96,39 @@ pub fn get_hdr_2d_snapshot() -> Result<String, String> {
     })
 }
 
+/// Parsed script intent, independent of browser/display capability.
+#[wasm_bindgen]
+pub fn get_hdr_2d_requested() -> bool {
+    STATE.with(|s| {
+        s.borrow()
+            .as_ref()
+            .is_some_and(|s| s.hdr_2d_requested.get())
+    })
+}
+
+/// The host records only when a WebGPU consumer is actually starting/running.
+#[wasm_bindgen]
+pub fn set_hdr_2d_recording(enabled: bool) {
+    STATE.with(|s| {
+        if let Some(s) = s.borrow().as_ref() {
+            if s.hdr_2d_recording.replace(enabled) != enabled {
+                *s.hdr_2d.borrow_mut() = hdr_2d_frame::Frame::default();
+            }
+        }
+    });
+}
+
+/// Keep the SDR scene current, but avoid duplicate postprocessing while hidden.
+/// Scramble still maintains its separate SDR history for immediate fallback.
+#[wasm_bindgen]
+pub fn set_hdr_2d_presenting(enabled: bool) {
+    STATE.with(|s| {
+        if let Some(s) = s.borrow().as_ref() {
+            s.hdr_2d_presenting.set(enabled);
+        }
+    });
+}
+
 /// What the canvas has actually been bound to.
 ///
 /// A canvas keeps whichever context it is first given for its whole life, so
@@ -132,6 +165,9 @@ struct AppState {
     /// Rebuilt from scratch every 3d frame; see `Scene::reset`.
     scene: RefCell<Scene>,
     hdr_2d: RefCell<hdr_2d_frame::Frame>,
+    hdr_2d_requested: Cell<bool>,
+    hdr_2d_recording: Cell<bool>,
+    hdr_2d_presenting: Cell<bool>,
     /// Reuse one detached context across captures, including script reloads.
     capture_gpu: RefCell<Option<CaptureGpu>>,
     last_error: RefCell<Option<String>>,
@@ -329,6 +365,9 @@ fn init_app() -> Result<(), String> {
         backend: RefCell::new(None),
         scene: RefCell::new(Scene::default()),
         hdr_2d: RefCell::new(hdr_2d_frame::Frame::default()),
+        hdr_2d_requested: Cell::new(false),
+        hdr_2d_recording: Cell::new(false),
+        hdr_2d_presenting: Cell::new(false),
         capture_gpu: RefCell::new(None),
         last_error: RefCell::new(None),
         post_capable: Cell::new(false),
@@ -484,7 +523,10 @@ fn init_app() -> Result<(), String> {
         let frame_scramble = RefCell::new(None);
         match backend {
             Backend::TwoD(ctx, feedback) => {
-                state_ref.hdr_2d.borrow_mut().reset();
+                let recording = state_ref.hdr_2d_recording.get();
+                if recording {
+                    state_ref.hdr_2d.borrow_mut().reset();
+                }
                 if feedback.is_some() {
                     let source = ctx.canvas().unwrap();
                     let width = runtime.canvas_width as u32;
@@ -505,7 +547,7 @@ fn init_app() -> Result<(), String> {
                         decels,
                         Target {
                             scramble: Some(&frame_scramble),
-                            hdr_2d: Some(&state_ref.hdr_2d),
+                            hdr_2d: recording.then_some(&state_ref.hdr_2d),
                             ..Target::canvas(ctx, &frame_filter)
                         },
                         &*runtime,
@@ -515,11 +557,18 @@ fn init_app() -> Result<(), String> {
                         *state_ref.last_error.borrow_mut() = Some(e);
                     }
                 }
-                state_ref.hdr_2d.borrow_mut().finish(
-                    &frame_filter.borrow(), *frame_scramble.borrow(), seconds,
-                    state_ref.uses_scramble.get(),
-                );
-                if let Some(feedback) = feedback {
+                if recording {
+                    state_ref.hdr_2d.borrow_mut().finish(
+                        &frame_filter.borrow(),
+                        *frame_scramble.borrow(),
+                        seconds,
+                        state_ref.uses_scramble.get(),
+                    );
+                }
+                if let Some(feedback) = feedback
+                    .as_mut()
+                    .filter(|_| !state_ref.hdr_2d_presenting.get() || state_ref.uses_scramble.get())
+                {
                     let result = feedback
                         .prepare(runtime.canvas_width as u32, runtime.canvas_height as u32)
                         .and_then(|()| feedback.upload_canvas(&ctx.canvas().unwrap()))
@@ -719,6 +768,8 @@ pub fn load_script(code: &str) -> String {
                 if let Some(ref state) = *s.borrow() {
                     *state.model.borrow_mut() = model;
                     *state.hdr_2d.borrow_mut() = hdr_2d_frame::Frame::default();
+                    state.hdr_2d_requested.set(hdr_2d_frame::requested(&ast));
+                    state.hdr_2d_presenting.set(false);
                     *state.last_error.borrow_mut() = init_error;
                 }
             });

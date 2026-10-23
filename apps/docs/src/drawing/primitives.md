@@ -25,7 +25,11 @@ Intensity multiplies the paint for the whole operation, including gradient stops
 or image pixels. Alpha remains independent. Effects and blends operate in linear
 light, so translucent overlaps can differ from the legacy SDR rendering.
 
-The player attempts HDR automatically for 2D scripts when WebGPU is available.
+The player attempts HDR when a 2D drawing call explicitly supplies `intensity`
+and WebGPU is available. Dynamic values and calls inside functions or conditions
+also opt in; even explicit `intensity: 1` selects the HDR renderer. Scripts with
+no drawing intensity stay on the native SDR path, avoiding HDR recording and
+replay costs. Effect parameters alone do not opt a script into HDR.
 Actual highlight brightness depends on browser, display and system settings.
 If WebGPU cannot run, the existing SDR renderer displays the base colours and
 ignores intensity. PNG captures/thumbnails continue to use that SDR renderer.
