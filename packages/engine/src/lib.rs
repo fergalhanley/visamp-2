@@ -91,7 +91,8 @@ pub fn get_hdr_2d_snapshot() -> Result<String, String> {
         }
         let canvas = state.canvas.borrow();
         let canvas = canvas.as_ref().ok_or("engine canvas is unavailable")?;
-        state.hdr_2d.borrow().snapshot(canvas.width(), canvas.height())
+        let frame = state.hdr_2d.borrow();
+        frame.snapshot(canvas.width(), canvas.height())
     })
 }
 
