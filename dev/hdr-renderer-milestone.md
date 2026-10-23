@@ -1,5 +1,15 @@
 # HDR rendering milestone — integration plan
 
+## Implementation progress (2026-10-23)
+
+- Added `packages/player/src/webgpu-hdr-renderer.ts`: first working-code WebGPU render path for a clear colour and unlit triangles, with float RGBA colour values above 1. The module is **not yet connected** to the Rust scene command buffer, player, or Visript execution.
+- Added packing unit tests for HDR values and invalid vertex data.
+- Added `@webgpu/types` in player devDependencies. **Before merging**, run `pnpm install` to update and commit `pnpm-lock.yaml`, followed by `pnpm --filter @visamp/player test` and `pnpm --filter @visamp/player check-types`. These commands have not been run by this assistant.
+- Current implementation allocates a transient GPU buffer per render, and is intended only for validation; reuse buffers before production frame loops.
+- Next: expose/translate a minimal subset of `scene.rs` through a stable Rust-to-JS frame contract, add a side-by-side scene parity demo, then integrate guarded opt-in with device-loss fallback.
+
+
+
 Status: **foundation / not a working Visamp HDR renderer**. The standalone experiment is in `experiment/webgpu-hdr-brightness`.
 
 ## Confirmed from source inspection
