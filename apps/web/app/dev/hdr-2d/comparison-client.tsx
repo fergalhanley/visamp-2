@@ -21,11 +21,15 @@ export function Hdr2DComparisonClient() {
   const sdrRef = useRef<HTMLCanvasElement>(null);
   const hdrRef = useRef<HTMLCanvasElement>(null);
   const [intensity, setIntensity] = useState(3);
+  const [workaround, setWorkaround] = useState(true);
+  const [hdrDetected, setHdrDetected] = useState<boolean | null>(null);
   const [status, setStatus] = useState("Initializing WebGPU…");
   const rendererRef = useRef<HdrSceneRenderer | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const media = window.matchMedia("(dynamic-range: high)");
+    setHdrDetected(media.matches);
     void HdrSceneRenderer.create(hdrRef.current!, "extended").then(renderer => {
       if (cancelled) { renderer.dispose(); return; }
       rendererRef.current = renderer;
@@ -64,6 +68,7 @@ export function Hdr2DComparisonClient() {
       <p>Development-only standalone geometry comparison, not yet connected to live Visript 2D commands.</p>
       <label>HDR intensity <input type="range" min="1" max="6" step="0.1" value={intensity}
         onChange={e => setIntensity(Number(e.target.value))} /> {intensity.toFixed(1)}×</label>
+      <label style={{ display: "block", marginTop: 12 }}><input type="checkbox" checked={workaround} onChange={e => setWorkaround(e.target.checked)} /> Chrome 155 HDR compositor workaround</label>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 18 }}>
         <div style={{ flex: "1 1 400px", minWidth: 0 }}>
           <p>Canvas 2D reference</p>
@@ -71,10 +76,13 @@ export function Hdr2DComparisonClient() {
         </div>
         <div style={{ flex: "1 1 400px", minWidth: 0 }}>
           <p>WebGPU extended HDR</p>
-          <canvas ref={hdrRef} width={WIDTH} height={HEIGHT} style={{ width: "100%", height: "auto", display: "block" }} />
+          <div style={{ position: "relative" }}>
+            <canvas ref={hdrRef} width={WIDTH} height={HEIGHT} style={{ width: "100%", height: "auto", display: "block" }} />
+            {workaround && <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)" }} />}
+          </div>
         </div>
       </div>
-      <p role="status">{status}</p>
+      <p role="status">{status} · Display HDR query: {hdrDetected === null ? "checking" : hdrDetected ? "high" : "not high"}</p>
     </main>
   );
 }
