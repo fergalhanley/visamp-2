@@ -488,10 +488,11 @@ export function VisampCanvas({
     <div className={className}>
       <div style={{ position: "relative", display: hdrPreview ? "flex" : "block", width: "100%", height: "100%", gap: hdrPreview ? 8 : 0 }}>
       <div style={{ position: "relative", width: hdrPreview ? "50%" : "100%", height: "100%", minWidth: 0 }}>
+        {/* Drawing-buffer dimensions must never contribute to host layout. */}
         <div
           ref={stageRef}
           id={HOST_ID}
-          style={{ width: "100%", height: "100%" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden" }}
         />
         {pending && !hideErrors && (
           <div
@@ -550,17 +551,17 @@ export function VisampCanvas({
       </div>
       {previewEnabled && (
         <div style={autoHdr2D && !hdrPreview ? { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1, opacity: hdrPresenting ? 1 : 0, pointerEvents: "none" } : { width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
-          <canvas ref={hdrCanvasRef} aria-label="Experimental HDR WebGPU preview" style={{ width: "100%", height: "100%", display: "block" }} />
+          <canvas ref={hdrCanvasRef} aria-label="Experimental HDR WebGPU preview" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }} />
           {hdrCompositingWorkaround && <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)" }} />}
           {hdrPreviewError && <div role="status" style={{ position: "absolute", left: 8, top: 8, background: "#171717", color: "#fff", padding: 8, fontSize: 12, maxWidth: "90%" }}>HDR preview unavailable: {hdrPreviewError}</div>}
         </div>
       )}
-      </div>
       {autoHdr2D && process.env.NODE_ENV !== "production" && (
-        <div role="status" style={{ fontSize: 11, opacity: .8, padding: "3px 6px" }}>
+        <div role="status" style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 2, pointerEvents: "none", fontSize: 11, opacity: .8, padding: "3px 6px" }}>
           HDR: {autoHdrStatus || (hdrEligible ? "Waiting for player" : "Not eligible")}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -77,3 +77,16 @@ it("keeps the SDR stage visible when WebGPU setup fails", async () => {
   expect(stage?.style.height).toBe("100%");
   expect(view.getByLabelText("Experimental HDR WebGPU preview").parentElement?.style.opacity).toBe("0");
 });
+
+it("keeps HDR diagnostics and canvas buffers out of the viewport's layout flow", async () => {
+  const view = render(<VisampCanvas source={source} active autoHdr2D />);
+  await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
+  const stage = view.container.querySelector<HTMLElement>("#visamp-stage");
+  const viewport = stage?.parentElement?.parentElement;
+  const status = view.getByText(/^HDR:/);
+  const canvas = view.getByLabelText("Experimental HDR WebGPU preview");
+  expect(viewport?.contains(status)).toBe(true);
+  expect(getComputedStyle(status).position).toBe("absolute");
+  expect(getComputedStyle(canvas).position).toBe("absolute");
+  expect(stage?.style.position).toBe("absolute");
+});
