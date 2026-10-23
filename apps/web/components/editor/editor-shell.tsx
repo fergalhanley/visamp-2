@@ -116,8 +116,6 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
   const [logLines, setLogLines] = useState<LogLine[]>([]);
   const [properties, setProperties] = useState<PropertyView[]>([]);
   const [logCollapsed, setLogCollapsed] = useState(false);
-  const [experimentalHdr2D, setExperimentalHdr2D] = useState(false);
-  const [hdrDiagnostic, setHdrDiagnostic] = useState("");
   const [compiledSource, setCompiledSource] = useState<string | null>(null);
 
   // localStorage is read through useSyncExternalStore so the server can render
@@ -848,9 +846,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
           >
             <VisampCanvas
               interactive
-              hdrPreview={experimentalHdr2D}
-              hdr2dPreview={experimentalHdr2D}
-              onHdr2DDiagnostic={experimentalHdr2D ? setHdrDiagnostic : undefined}
+              autoHdr2D
               ref={canvasHandle}
               source={liveSource}
               assets={assets}
@@ -866,24 +862,6 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
           </div>
 
           <EditorTransport fullscreenTarget={previewRef} />
-          {process.env.NODE_ENV !== "production" && (
-            <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={experimentalHdr2D}
-                  onChange={event => {
-                    setExperimentalHdr2D(event.target.checked);
-                    setHdrDiagnostic(event.target.checked ? "Starting experimental HDR preview…" : "");
-                  }} />
-                Experimental 2D HDR comparison (Canvas 2D left / WebGPU right)
-              </label>
-              {experimentalHdr2D && (
-                <p role="status" className="mt-1" style={{ overflowWrap: "anywhere" }}>
-                  {hdrDiagnostic || "Waiting for HDR frame…"} — circles and rectangles only;
-                  other draw features may produce an unsupported-operation error.
-                </p>
-              )}
-            </div>
-          )
 
           {/* Log and inspector share the bottom strip and collapse together —
               one toggle for the whole panel keeps the preview's height
