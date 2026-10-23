@@ -40,3 +40,14 @@ Status: **foundation / not a working Visamp HDR renderer**. The standalone exper
 ## Important non-goals for foundation commit
 
 This commit does **not** implement a WebGPU renderer, change the existing WebGL shaders, change Visript syntax, or turn HDR on in the application. The standalone proof remains the hardware validation surface.
+
+## Scene bridge progress (2026-10-23)
+
+The branch now includes a **read-only, opt-in integration seam**, not a player switch:
+
+- Rust `hdr_snapshot::snapshot` converts the most basic unlit 3D cubes and planes to clip-space triangles and serializes a JSON frame. It rejects unsupported materials, lighting, textures, wireframes, overlays, and point clouds rather than silently losing them. It is capped at 16,384 triangles and currently has no near-plane clipping or depth buffer, so **3D visual parity is not yet guaranteed**.
+- WASM exports `get_hdr_scene_snapshot()`, which returns a snapshot of the last recorded scene. It does not modify active WebGL rendering.
+- TypeScript `readHdrScene()` validates the snapshot and produces the input accepted by `HdrSceneRenderer.render()`. There is not yet a live player call site or automatic frame synchronization; that is the next milestone.
+- Unit tests cover empty Rust snapshots and TypeScript parsing. **Tests and Rust compilation have not been run in this session.** Run `cargo test --manifest-path packages/engine/Cargo.toml`, `pnpm --filter @visamp/engine build`, `pnpm --filter @visamp/player check-types`, and `pnpm --filter @visamp/player test` locally, review errors, and update generated WASM artifacts according to existing project practice.
+
+Next: add an isolated dual-canvas player harness that reads the scene after the Rust render tick (without racing the frame), only allows the supported subset, and falls back visibly to WebGL when a snapshot fails. Do not enable HDR automatically until depth, clipping, transparency and capture/export semantics are addressed.
