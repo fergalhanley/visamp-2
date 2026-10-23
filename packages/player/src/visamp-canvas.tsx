@@ -351,7 +351,8 @@ export function VisampCanvas({
     // dynamic-range is advisory: false negatives occur with some browser/display
     // combinations. The WebGPU configuration and actual frame decide viability.
     const update = () => setHdrEligible(Boolean(navigator.gpu)
-      && /^\s*context\s+2d\b/m.test(source)
+      // Viscript defaults to 2D when the context declaration is omitted.
+      && !/^\s*context\s+3d\b/m.test(source)
       && /\bintensity\s*:/m.test(source));
     update();
     setAutoHdrStatus(!navigator.gpu ? "WebGPU unavailable" : "Checking Viscript HDR scene");
