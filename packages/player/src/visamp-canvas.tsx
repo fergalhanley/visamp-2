@@ -339,16 +339,25 @@ export function VisampCanvas({
   // Side-by-side diagnostic only: WASM continues to render through WebGL.
   // The snapshot contains last-frame geometry, so WebGPU may trail by a tick.
   useEffect(() => {
-    if (!hdrPreview || !ready || !active || !activated) return;
+    if (!hdrPreview || !ready || !active || !activated) {
+      if (hdr2dPreview) hdrDiagnosticRef.current?.(
+        `HDR preview waiting: preview=${hdrPreview}, ready=${ready}, active=${active}, activated=${activated}`
+      );
+      return;
+    }
     const canvas = hdrCanvasRef.current;
     const engine = engineRef.current;
-    if (!canvas || !engine) return;
+    if (!canvas || !engine) {
+      if (hdr2dPreview) hdrDiagnosticRef.current?.("HDR preview missing engine or canvas");
+      return;
+    }
+    if (hdr2dPreview) hdrDiagnosticRef.current?.("HDR preview initializing WebGPU");
     let disposed = false;
     let raf = 0;
     let lastDiagnostic = "";
     let renderer: import("./webgpu-hdr-renderer").HdrSceneRenderer | undefined;
     setHdrPreviewError("");
-    void (async () => {
+    const initialize = async () => {
       try {
         const [{ HdrSceneRenderer }, { readHdrScene }, { readHdr2DScene }] = await Promise.all([
           import("./webgpu-hdr-renderer"),
@@ -359,6 +368,7 @@ export function VisampCanvas({
         const created = await HdrSceneRenderer.create(canvas, hdr2dPreview ? "extended" : undefined);
         if (disposed) { created.dispose(); return; }
         renderer = created;
+        if (hdr2dPreview) hdrDiagnosticRef.current?.("WebGPU initialized; awaiting live Rust frame");
         const render = () => {
           if (disposed) return;
           try {
@@ -381,11 +391,19 @@ export function VisampCanvas({
         };
         raf = window.requestAnimationFrame(render);
       } catch (error) {
-        if (!disposed) setHdrPreviewError(error instanceof Error ? error.message : String(error));
+        if (!disposed) {
+          const message = error instanceof Error ? error.message : String(error);
+          setHdrPreviewError(message);
+          if (hdr2dPreview) hdrDiagnosticRef.current?.("WebGPU initialization error: " + message);
+        }
       }
-    })();
+    };
+    // Match the proven standalone 2D harness: avoid StrictMode cleanup
+    // unconfiguring a canvas while its replacement initialization is in flight.
+    const timer = window.setTimeout(() => { void initialize(); }, 0);
     return () => {
       disposed = true;
+      window.clearTimeout(timer);
       window.cancelAnimationFrame(raf);
       renderer?.dispose();
     };
