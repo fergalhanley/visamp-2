@@ -73,7 +73,8 @@ pub fn get_hdr_scene_snapshot() -> Result<String, String> {
         }
         let canvas = state.canvas.borrow();
         let canvas = canvas.as_ref().ok_or("engine canvas is unavailable")?;
-        hdr_snapshot::snapshot(&state.scene.borrow(), canvas.width(), canvas.height())
+        let scene = state.scene.borrow();
+        hdr_snapshot::snapshot(&scene, canvas.width(), canvas.height())
     })
 }
 
