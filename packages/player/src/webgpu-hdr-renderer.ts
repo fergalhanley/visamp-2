@@ -36,7 +36,7 @@ struct Varying {
 }
 `;
 
-export function packHdrTriangles(scene: HdrScene): Float32Array {
+export function packHdrTriangles(scene: HdrScene): Float32Array<ArrayBuffer> {
   const result = new Float32Array(scene.triangles.length * 18);
   let offset = 0;
   for (const triangle of scene.triangles) {
@@ -44,9 +44,9 @@ export function packHdrTriangles(scene: HdrScene): Float32Array {
         triangle.color.some((v) => !Number.isFinite(v) || v < 0)) {
       throw new Error("HDR scene contains invalid vertex or colour values");
     }
-    for (let v = 0; v < 6; v += 2) {
-      result[offset++] = triangle.vertices[v];
-      result[offset++] = triangle.vertices[v + 1];
+    for (const [x, y] of [[0, 1], [2, 3], [4, 5]] as const) {
+      result[offset++] = triangle.vertices[x];
+      result[offset++] = triangle.vertices[y];
       result.set(triangle.color, offset);
       offset += 4;
     }
