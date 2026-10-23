@@ -66,6 +66,8 @@ export interface EngineModule {
   get_last_error(): string;
   /** Experimental read-only 3D scene snapshot for opt-in HDR preview. */
   get_hdr_scene_snapshot(): string;
+  /** Experimental live 2D command snapshot; rejects unsupported drawing. */
+  get_hdr_2d_snapshot(): string;
   /** PNG snapshot with engine post-processing baked into the pixels. */
   capture_frame(): Promise<Blob>;
   set_audio_analysis(waveform: Float32Array, spectrum: Float32Array, sampleRate: number, level: number, beat: boolean, onset: boolean, onsetStrength: number): void;
