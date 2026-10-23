@@ -149,6 +149,7 @@ export function VisampCanvas({
   hdrIntensityRef.current = hdrIntensity;
   const [hdrPreviewError, setHdrPreviewError] = useState("");
   const [hdrPresenting, setHdrPresenting] = useState(false);
+  const [autoHdrStatus, setAutoHdrStatus] = useState("");
   const [hdrEligible, setHdrEligible] = useState(false);
   const [activationRevision, setActivationRevision] = useState(0);
   const engineRef = useRef<EngineModule | null>(null);
@@ -344,12 +345,15 @@ export function VisampCanvas({
   // Eligibility is a hint, never a guarantee of working HDR presentation.
   // Unsupported script features are handled by the live snapshot fallback.
   useEffect(() => {
-    if (!autoHdr2D) { setHdrEligible(false); setHdrPresenting(false); return; }
+    if (!autoHdr2D) { setHdrEligible(false); setHdrPresenting(false); setAutoHdrStatus(""); return; }
     const media = window.matchMedia("(dynamic-range: high)");
-    const update = () => setHdrEligible(Boolean(navigator.gpu) && media.matches
+    // dynamic-range is advisory: false negatives occur with some browser/display
+    // combinations. The WebGPU configuration and actual frame decide viability.
+    const update = () => setHdrEligible(Boolean(navigator.gpu)
       && /^\s*context\s+2d\b/m.test(source)
       && /\bintensity\s*:/m.test(source));
     update();
+    setAutoHdrStatus(!navigator.gpu ? "WebGPU unavailable" : "Checking Viscript HDR scene");
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, [autoHdr2D, source]);
@@ -379,6 +383,7 @@ export function VisampCanvas({
     let renderer: import("./webgpu-hdr-renderer").HdrSceneRenderer | undefined;
     setHdrPreviewError("");
     setHdrPresenting(false);
+    if (autoHdr2D) setAutoHdrStatus("Initializing WebGPU");
     const initialize = async () => {
       try {
         const [{ HdrSceneRenderer }, { readHdrScene }, { readHdr2DScene }] = await Promise.all([
@@ -390,6 +395,7 @@ export function VisampCanvas({
         const created = await HdrSceneRenderer.create(canvas, isHdr2D ? "extended" : undefined);
         if (disposed) { created.dispose(); return; }
         renderer = created;
+        if (autoHdr2D) setAutoHdrStatus("WebGPU ready; reading Viscript frames");
         if (hdr2dPreview) hdrDiagnosticRef.current?.("WebGPU initialized; awaiting live Rust frame");
         const render = () => {
           if (disposed) return;
@@ -408,11 +414,14 @@ export function VisampCanvas({
             if (autoHdr2D && isHdr2D) {
               const luminous = scene.triangles.some(triangle => triangle.color.slice(0, 3).some(channel => channel > 1));
               setHdrPresenting(luminous);
+              if (luminous) setAutoHdrStatus("HDR active");
+              else setAutoHdrStatus("No HDR-bright shapes in frame");
             }
             raf = window.requestAnimationFrame(render);
           } catch (error) {
             setHdrPreviewError(error instanceof Error ? error.message : String(error));
             setHdrPresenting(false);
+            if (autoHdr2D) setAutoHdrStatus("HDR fallback: " + String(error));
             if (hdr2dPreview) hdrDiagnosticRef.current?.("HDR snapshot/render error: " + String(error));
           }
         };
@@ -422,6 +431,7 @@ export function VisampCanvas({
           const message = error instanceof Error ? error.message : String(error);
           setHdrPreviewError(message);
           setHdrPresenting(false);
+          if (autoHdr2D) setAutoHdrStatus("HDR setup failed: " + message);
           if (hdr2dPreview) hdrDiagnosticRef.current?.("WebGPU initialization error: " + message);
         }
       }
@@ -541,6 +551,11 @@ export function VisampCanvas({
         </div>
       )}
       </div>
+      {autoHdr2D && process.env.NODE_ENV !== "production" && (
+        <div role="status" style={{ fontSize: 11, opacity: .8, padding: "3px 6px" }}>
+          HDR: {autoHdrStatus || (hdrEligible ? "Waiting for player" : "Not eligible")}
+        </div>
+      )}
     </div>
   );
 }
