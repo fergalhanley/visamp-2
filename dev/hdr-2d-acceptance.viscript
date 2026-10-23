@@ -1,0 +1,19 @@
+// Visamp 2D HDR acceptance scene — standalone Viscript.
+// Open in the Visamp editor for normal SDR playback, or paste into
+// /dev/hdr-2d for an opt-in live Rust/WebGPU HDR comparison.
+// Circles and rectangles only: transforms, strokes and blending are pending.
+context 2d
+
+render {
+  draw::background(color: color::rgb(r: 0.012, g: 0.012, b: 0.024))
+
+  // Neutral SDR reference in both backends.
+  draw::circle(x: 105.0, y: 110.0, radius: 43.0, color: color::rgb(r: 0.0, g: 0.7, b: 1.0), intensity: 1.0)
+  // Increasing native Viscript HDR intensity, not an external debug slider.
+  draw::circle(x: 260.0, y: 110.0, radius: 43.0, color: color::rgb(r: 0.0, g: 0.7, b: 1.0), intensity: 2.0)
+  draw::circle(x: 415.0, y: 110.0, radius: 43.0, color: color::rgb(r: 0.0, g: 0.7, b: 1.0), intensity: 4.0)
+
+  draw::rect(x: 62.0, y: 225.0, width: 88.0, height: 60.0, color: color::rgb(r: 1.0, g: 0.2, b: 0.4), intensity: 1.0)
+  draw::rect(x: 216.0, y: 225.0, width: 88.0, height: 60.0, color: color::rgb(r: 1.0, g: 0.2, b: 0.4), intensity: 2.0)
+  draw::rect(x: 370.0, y: 225.0, width: 88.0, height: 60.0, color: color::rgb(r: 1.0, g: 0.2, b: 0.4), intensity: 4.0)
+}
