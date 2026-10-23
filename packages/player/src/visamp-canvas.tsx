@@ -347,8 +347,8 @@ export function VisampCanvas({
     if (!autoHdr2D) { setHdrEligible(false); setHdrPresenting(false); return; }
     const media = window.matchMedia("(dynamic-range: high)");
     const update = () => setHdrEligible(Boolean(navigator.gpu) && media.matches
-      && /^\\s*context\\s+2d\\b/m.test(source)
-      && /\\bintensity\\s*:/m.test(source));
+      && /^\s*context\s+2d\b/m.test(source)
+      && /\bintensity\s*:/m.test(source));
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
