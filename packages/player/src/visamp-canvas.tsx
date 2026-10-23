@@ -78,6 +78,8 @@ export interface VisampCanvasProps {
   hideErrors?: boolean;
   /** Experimental side-by-side WebGPU HDR preview. Off by default. */
   hdrPreview?: boolean;
+  /** Use the live 2D Rust snapshot instead of the 3D snapshot in diagnostic preview. */
+  hdr2dPreview?: boolean;
   /** Diagnostic HDR multiplier for the WebGPU preview, defaults to 1. */
   hdrIntensity?: number;
   /** Diagnostic Chrome 155 compositing overlay, disabled by default. */
@@ -122,6 +124,7 @@ export function VisampCanvas({
   interactive = false,
   hideErrors = false,
   hdrPreview = false,
+  hdr2dPreview = false,
   hdrIntensity = 1,
   hdrCompositingWorkaround = false,
   analyser,
@@ -341,18 +344,19 @@ export function VisampCanvas({
     setHdrPreviewError("");
     void (async () => {
       try {
-        const [{ HdrSceneRenderer }, { readHdrScene }] = await Promise.all([
+        const [{ HdrSceneRenderer }, { readHdrScene }, { readHdr2DScene }] = await Promise.all([
           import("./webgpu-hdr-renderer"),
           import("./hdr-scene-bridge"),
+          import("./hdr-2d-scene-bridge"),
         ]);
         if (disposed) return;
-        const created = await HdrSceneRenderer.create(canvas);
+        const created = await HdrSceneRenderer.create(canvas, hdr2dPreview ? "extended" : undefined);
         if (disposed) { created.dispose(); return; }
         renderer = created;
         const render = () => {
           if (disposed) return;
           try {
-            renderer?.render(readHdrScene(engine), hdrIntensityRef.current);
+            renderer?.render(hdr2dPreview ? readHdr2DScene(engine) : readHdrScene(engine), hdrIntensityRef.current);
             raf = window.requestAnimationFrame(render);
           } catch (error) {
             setHdrPreviewError(error instanceof Error ? error.message : String(error));
@@ -368,7 +372,7 @@ export function VisampCanvas({
       window.cancelAnimationFrame(raf);
       renderer?.dispose();
     };
-  }, [hdrPreview, ready, active, activated, activationRevision]);
+  }, [hdrPreview, hdr2dPreview, ready, active, activated, activationRevision]);
 
   const captureFrame = useCallback(async (): Promise<Blob> => {
     const engine = engineRef.current;
