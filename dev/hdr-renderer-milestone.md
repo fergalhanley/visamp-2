@@ -67,3 +67,17 @@ Before opening the page, rebuild the WASM engine with `pnpm --filter @visamp/eng
 ## Visript intensity prototype
 
 Approved syntax: `draw::cube(intensity: 3.0)` uses a direct RGB multiplier, default `1.0`. The interpreter records the multiplier alongside each scene command. The existing WebGL2 renderer deliberately uses the unmodified base colour, while the experimental WebGPU scene snapshot multiplies RGB and preserves alpha. `0.0` through `6.0` is the current prototype range; values outside are rejected. This is NOT the final SDR tone-mapping implementation: the current WebGL side remains base colour rather than tone-mapped HDR, and the diagnostic page still has its separate global brightness slider. The development route uses intensity 3 to exercise the new syntax. **Requires local Rust tests, WASM rebuild, player/web checks, and browser acceptance; no claim of passing CI yet.**
+
+## Approved scope extension: 2D HDR (2026-10-23)
+
+The current HDR milestone **also includes 2D Visript**. Use identical author-facing syntax in both contexts: `intensity: 1.0` is neutral; values above 1 request proportionally greater linear RGB output on an HDR-capable renderer. This is a specification decision, **not confirmation that 2D HDR works yet**.
+
+Implementation sequence:
+
+1. Preserve the current Canvas 2D path untouched for existing visuals. Do not pretend its CSS colour conversion (which clamps to 0–1) can show HDR.
+2. Add a renderer-independent 2D draw-command representation for basic primitives (begin with clear, circles and rectangles, then lines). The interpreter must feed this alongside its current Canvas 2D calls rather than rely on screenshots/readbacks.
+3. Implement the commands in an opt-in WebGPU 2D backend using `rgba16float` and extended tone mapping. Match geometry, coordinates, ordering, alpha composition and gradients before expanding.
+4. Carry the approved `intensity` argument into the 2D command representation (direct RGB multiplier; default 1). Keep opacity and brightness independent. Add explicit SDR tone mapping at output, not per-command clipping.
+5. Add isolated 2D SDR/HDR comparison tests and browser acceptance on an XDR display. Feature-detect and keep Canvas 2D fallback on unsupported platforms.
+
+Acceptance: a basic audio-reactive 2D Visript script exhibits brighter-than-SDR coloured highlights on the XDR hardware, with unchanged Canvas 2D fallback; no 2D script must silently change appearance. This scope extension does not make the current 3D prototype merge-ready.
