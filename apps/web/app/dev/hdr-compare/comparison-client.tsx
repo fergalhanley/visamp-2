@@ -35,8 +35,10 @@ export function HdrComparisonClient() {
       <div style={{ display: "flex", justifyContent: "space-between", maxWidth: 1000, fontSize: 14 }}>
         <span>WebGL</span><span>{preview ? "WebGPU HDR (experimental)" : "Preview disabled"}</span>
       </div>
-      <div style={{ width: "100%", maxWidth: 1000, height: 440, border: "1px solid #555", marginTop: 8 }}>
+      <style>{`\n        .hdr-compare-player { width: 100%; height: 100%; min-width: 0; }\n        .hdr-compare-player #visamp-stage,\n        .hdr-compare-player canvas { min-width: 0; }\n      `}</style>
+      <div style={{ width: "100%", maxWidth: 1000, height: 440, minWidth: 0, border: "1px solid #555", marginTop: 8 }}>
         <VisampCanvas source={SOURCE} active={active} hdrPreview={preview}
+          className="hdr-compare-player"
           onCompileResult={result => setMessage(result.ok ? "Visript loaded" : result.diagnostics.map(d => d.message).join("; "))}
           onLog={entry => setMessage(entry.message)} />
       </div>
