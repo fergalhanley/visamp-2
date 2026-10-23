@@ -1,5 +1,41 @@
 # Drawing Primitives
 
+## HDR intensity
+
+In 2D, every drawing operation that paints colour accepts `intensity` from 0 to 6
+(default 1), including background, shapes, lines/paths, text and images.
+`draw::clear()` has no intensity. Intensity scales linear-light brightness;
+it does not change opacity. A value of 1 is reference-white brightness, and
+values above 1 can produce highlights on an HDR display.
+
+```viscript
+prop angle = 0.0
+on_frame { angle = $TIME_SEC }
+render {
+  draw::background(color: $COLOR_BLACK)
+  draw::rect(x: 100, y: 100, width: 120, height: 80,
+    color: $COLOR_TURQUOISE, intensity: 4, rotation_rad: angle)
+  draw::text(content: "HDR", x: 100, y: 240, size: 28, intensity: 3)
+}
+```
+
+Rotation, transform stacks, fills/strokes, linear/radial gradients, image opacity,
+blend modes, filters, bloom and scramble preserve HDR in the WebGPU renderer.
+Intensity multiplies the paint for the whole operation, including gradient stops
+or image pixels. Alpha remains independent. Effects and blends operate in linear
+light, so translucent overlaps can differ from the legacy SDR rendering.
+
+The player attempts HDR when a 2D drawing call explicitly supplies `intensity`
+and WebGPU is available. Dynamic values and calls inside functions or conditions
+also opt in; even explicit `intensity: 1` selects the HDR renderer. Scripts with
+no drawing intensity stay on the native SDR path, avoiding HDR recording and
+replay costs. Effect parameters alone do not opt a script into HDR.
+Actual highlight brightness depends on browser, display and system settings.
+If WebGPU cannot run, the existing SDR renderer displays the base colours and
+ignores intensity. PNG captures/thumbnails continue to use that SDR renderer.
+This does not add HDR to 3D drawing or HDR image export.
+
+
 All drawing happens inside `render` blocks using `draw::` functions.
 
 For polylines, Béziers, arcs, images, rounded rectangles, polygon outlines and

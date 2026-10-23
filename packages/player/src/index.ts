@@ -15,3 +15,6 @@ export type {
   ResolvedAsset,
   VisampCanvasHandle,
 } from "./types";
+export { HdrSceneRenderer } from "./webgpu-hdr-renderer";
+export { tessellateHdr2D } from "./hdr-2d-geometry";
+export type { Hdr2DFrame } from "./hdr-2d-geometry";

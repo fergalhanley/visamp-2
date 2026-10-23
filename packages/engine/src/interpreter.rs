@@ -289,6 +289,7 @@ pub struct Target<'a> {
     pub scramble: Option<&'a RefCell<Option<crate::scramble::Scramble>>>,
     pub location: Option<SourceLocation>,
     pub canvas_state: Option<&'a RefCell<crate::drawing::CanvasState>>,
+    pub hdr_2d: Option<&'a RefCell<crate::hdr_2d_frame::Frame>>,
 }
 
 impl<'a> Target<'a> {
@@ -302,6 +303,7 @@ impl<'a> Target<'a> {
             filter: Some(filter),
             scramble: None,
             canvas_state: None,
+            hdr_2d: None,
             location: None,
         }
     }
@@ -316,6 +318,7 @@ impl<'a> Target<'a> {
             filter: Some(filter),
             scramble: None,
             canvas_state: None,
+            hdr_2d: None,
             location: None,
         }
     }
@@ -359,6 +362,9 @@ pub fn interpret_render_block(
             ..target
         };
         if let Some(ctx) = target.ctx {
+            if let Some(recorder) = target.hdr_2d {
+                recorder.borrow_mut().begin_block();
+            }
             ctx.save();
             ctx.reset_transform()
                 .map_err(|_| "could not reset canvas transform")?;
@@ -991,6 +997,10 @@ fn record_draw(
 
     let color = args.color("color")?.unwrap_or(WHITE);
     let opacity = args.number("opacity")?.unwrap_or(1.0).clamp(0.0, 1.0);
+    let intensity = args.number("intensity")?.unwrap_or(1.0);
+    if !intensity.is_finite() || !(0.0..=6.0).contains(&intensity) {
+        return Err("intensity must be a finite number between 0 and 6".into());
+    }
     let wireframe = args.boolean("wireframe")?.unwrap_or(false);
 
     // Read before the scene is borrowed, because interning the id needs it
@@ -1039,12 +1049,12 @@ fn record_draw(
         overlay: scene.gfx.overlay,
     };
 
-    scene.record(DrawCommand {
+    scene.record_with_intensity(DrawCommand {
         key,
         model,
         color,
         opacity,
-    });
+    }, intensity as f32);
     Ok(())
 }
 
@@ -1328,7 +1338,8 @@ fn interpret_statement_function_call(
     let canvas_extension = function_call.namespace == "transform"
         || (function_call.namespace == "gfx" && function_call.function == "blend")
         || (planar
-            && (matches!(
+            && ((target.hdr_2d.is_some() && target.ctx.is_some())
+                || matches!(
                 function_call.function.as_str(),
                 "clear" | "background" | "polyline" | "bezier" | "arc" | "image"
             ) || function_call.args.iter().any(|a| {
@@ -1384,13 +1395,24 @@ fn interpret_statement_function_call(
             );
         }
         if let (Some(ctx), Some(state)) = (target.ctx, target.canvas_state) {
-            return crate::drawing::canvas(
+            let result = crate::drawing::canvas(
                 &call,
                 ctx,
                 state,
                 runtime.canvas_width,
                 runtime.canvas_height,
             );
+            if result.is_ok() {
+                if let Some(recorder) = target.hdr_2d {
+                    let mut recorder = recorder.borrow_mut();
+                    if recorder.error.is_none() {
+                        if let Err(error) = recorder.record(&call, &state.borrow()) {
+                            recorder.error = Some(error);
+                        }
+                    }
+                }
+            }
+            return result;
         }
     }
 

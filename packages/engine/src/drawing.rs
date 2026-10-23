@@ -111,8 +111,14 @@ impl Call {
 pub struct CanvasState {
     stack: Vec<Mat4>,
     pub path_points: usize,
+    // Reuse the exact tessellation in the HDR recorder. Running the adaptive
+    // builder twice would charge the script execution budget twice as well.
+    pub(crate) last_path: Option<(Vec<[f64; 3]>, bool, [f64; 3])>,
 }
 impl CanvasState {
+    pub(crate) fn matrix(&self) -> Mat4 {
+        self.stack.last().copied().unwrap_or(Mat4::IDENTITY)
+    }
     pub fn balanced(&self) -> Result<(), String> {
         if self.stack.len() > 1 {
             Err("unbalanced transform stack: missing pop".into())
@@ -245,6 +251,12 @@ pub fn canvas(
     if c.namespace != "draw" {
         return Err(format!("{} is unavailable in 2d", c.namespace));
     }
+    if c.name != "clear" {
+        let intensity = c.number("intensity", 1.0)?;
+        if !(0.0..=6.0).contains(&intensity) {
+            return Err("draw intensity must be between 0 and 6".into());
+        }
+    }
     ctx.save();
     let result = (|| {
         if matches!(c.name.as_str(), "clear" | "background") {
@@ -325,6 +337,7 @@ pub fn canvas(
                 ctx.fill();
             }
         }
+        state.borrow_mut().last_path = Some((points, closed, pivot));
         Ok(())
     })();
     ctx.restore();
