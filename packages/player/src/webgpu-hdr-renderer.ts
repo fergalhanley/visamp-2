@@ -36,7 +36,10 @@ struct Varying {
 }
 `;
 
-export function packHdrTriangles(scene: HdrScene): Float32Array<ArrayBuffer> {
+export function packHdrTriangles(scene: HdrScene, intensity = 1): Float32Array<ArrayBuffer> {
+  if (!Number.isFinite(intensity) || intensity < 0.5 || intensity > 6) {
+    throw new Error("HDR intensity must be between 0.5 and 6");
+  }
   const result = new Float32Array(scene.triangles.length * 18);
   let offset = 0;
   for (const triangle of scene.triangles) {
@@ -47,7 +50,7 @@ export function packHdrTriangles(scene: HdrScene): Float32Array<ArrayBuffer> {
     for (const [x, y] of [[0, 1], [2, 3], [4, 5]] as const) {
       result[offset++] = triangle.vertices[x];
       result[offset++] = triangle.vertices[y];
-      result.set(triangle.color, offset);
+      result.set([triangle.color[0] * intensity, triangle.color[1] * intensity, triangle.color[2] * intensity, triangle.color[3]], offset);
       offset += 4;
     }
   }
@@ -113,11 +116,11 @@ export class HdrSceneRenderer {
     }
   }
 
-  render(scene: HdrScene): void {
+  render(scene: HdrScene, intensity = 1): void {
     if (scene.clear.length !== 4 || scene.clear.some((v) => !Number.isFinite(v) || v < 0)) {
       throw new Error("HDR scene contains an invalid clear colour");
     }
-    const vertices = packHdrTriangles(scene);
+    const vertices = packHdrTriangles(scene, intensity);
     const width = Math.max(1, Math.floor(this.canvas.clientWidth * (window.devicePixelRatio || 1)));
     const height = Math.max(1, Math.floor(this.canvas.clientHeight * (window.devicePixelRatio || 1)));
     if (this.canvas.width !== width || this.canvas.height !== height) {
