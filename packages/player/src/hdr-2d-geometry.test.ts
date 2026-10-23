@@ -8,8 +8,8 @@ describe("tessellateHdr2D", () => {
       color: [0.5, 0.25, 0, 0.7], intensity: 4,
     }] });
     expect(scene.triangles).toHaveLength(2);
-    expect(scene.triangles[0].vertices).toEqual([-1, 1, 0, 1, 0, 0]);
-    expect(scene.triangles[0].color).toEqual([2, 1, 0, 0.7]);
+    expect(scene.triangles[0]?.vertices).toEqual([-1, 1, 0, 1, 0, 0]);
+    expect(scene.triangles[0]?.color).toEqual([2, 1, 0, 0.7]);
   });
   it("tessellates circles to triangles", () => {
     expect(tessellateHdr2D({ width: 200, height: 100, shapes: [{
