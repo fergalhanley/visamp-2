@@ -78,6 +78,10 @@ export interface VisampCanvasProps {
   hideErrors?: boolean;
   /** Experimental side-by-side WebGPU HDR preview. Off by default. */
   hdrPreview?: boolean;
+  /** Diagnostic HDR multiplier for the WebGPU preview, defaults to 1. */
+  hdrIntensity?: number;
+  /** Diagnostic Chrome 155 compositing overlay, disabled by default. */
+  hdrCompositingWorkaround?: boolean;
   /**
    * Audio graph tap for the `audio::detect` standard library.
    *
@@ -118,6 +122,8 @@ export function VisampCanvas({
   interactive = false,
   hideErrors = false,
   hdrPreview = false,
+  hdrIntensity = 1,
+  hdrCompositingWorkaround = false,
   analyser,
   onCompileResult,
   onProperties,
@@ -128,6 +134,8 @@ export function VisampCanvas({
 }: VisampCanvasProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const hdrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const hdrIntensityRef = useRef(hdrIntensity);
+  hdrIntensityRef.current = hdrIntensity;
   const [hdrPreviewError, setHdrPreviewError] = useState("");
   const [activationRevision, setActivationRevision] = useState(0);
   const engineRef = useRef<EngineModule | null>(null);
@@ -344,7 +352,7 @@ export function VisampCanvas({
         const render = () => {
           if (disposed) return;
           try {
-            renderer?.render(readHdrScene(engine));
+            renderer?.render(readHdrScene(engine), hdrIntensityRef.current);
             raf = window.requestAnimationFrame(render);
           } catch (error) {
             setHdrPreviewError(error instanceof Error ? error.message : String(error));
@@ -460,6 +468,7 @@ export function VisampCanvas({
       {hdrPreview && (
         <div style={{ width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
           <canvas ref={hdrCanvasRef} aria-label="Experimental HDR WebGPU preview" style={{ width: "100%", height: "100%", display: "block" }} />
+          {hdrCompositingWorkaround && <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)" }} />}
           {hdrPreviewError && <div role="status" style={{ position: "absolute", left: 8, top: 8, background: "#171717", color: "#fff", padding: 8, fontSize: 12, maxWidth: "90%" }}>HDR preview unavailable: {hdrPreviewError}</div>}
         </div>
       )}
