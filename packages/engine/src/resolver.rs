@@ -737,3 +737,20 @@ fn constant_expression(expr: &crate::model::Expression) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod hdr_2d_intensity_tests {
+    use crate::parser::build_ast;
+
+    #[test]
+    fn circle_and_rectangle_allow_intensity_in_2d() {
+        let source = "context 2d\nrender {\n draw::circle(intensity: 3.0)\n draw::rect(intensity: 3.0)\n}";
+        assert!(build_ast(source).is_ok(), "{:?}", build_ast(source).err());
+    }
+
+    #[test]
+    fn unsupported_2d_shape_still_rejects_intensity() {
+        let source = "context 2d\nrender {\n draw::text(content: \"hi\", intensity: 3.0)\n}";
+        assert!(build_ast(source).is_err());
+    }
+}
