@@ -348,7 +348,7 @@ export function VisampCanvas({
     const media = window.matchMedia("(dynamic-range: high)");
     const update = () => setHdrEligible(Boolean(navigator.gpu) && media.matches
       && /^\\s*context\\s+2d\\b/m.test(source)
-      && /\\bintensity\\s*:\\s*(?:[2-9]|[1-9][0-9]|1\\.[0-9]*[1-9])/m.test(source));
+      && /\\bintensity\\s*:/m.test(source));
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
@@ -405,7 +405,10 @@ export function VisampCanvas({
               }
             }
             renderer?.render(scene, hdrIntensityRef.current);
-            if (autoHdr2D && isHdr2D && scene.triangles.length > 0) setHdrPresenting(true);
+            if (autoHdr2D && isHdr2D) {
+              const luminous = scene.triangles.some(triangle => triangle.color.slice(0, 3).some(channel => channel > 1));
+              setHdrPresenting(luminous);
+            }
             raf = window.requestAnimationFrame(render);
           } catch (error) {
             setHdrPreviewError(error instanceof Error ? error.message : String(error));
