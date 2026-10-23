@@ -80,6 +80,8 @@ export interface VisampCanvasProps {
   hdrPreview?: boolean;
   /** Use the live 2D Rust snapshot instead of the 3D snapshot in diagnostic preview. */
   hdr2dPreview?: boolean;
+  /** Automatically select supported HDR 2D playback; SDR remains fallback. */
+  autoHdr2D?: boolean;
   /** Diagnostic callback for experimental HDR 2D frame contents. */
   onHdr2DDiagnostic?: (message: string) => void;
   /** Diagnostic HDR multiplier for the WebGPU preview, defaults to 1. */
@@ -127,6 +129,7 @@ export function VisampCanvas({
   hideErrors = false,
   hdrPreview = false,
   hdr2dPreview = false,
+  autoHdr2D = false,
   onHdr2DDiagnostic,
   hdrIntensity = 1,
   hdrCompositingWorkaround = false,
@@ -145,6 +148,8 @@ export function VisampCanvas({
   const hdrIntensityRef = useRef(hdrIntensity);
   hdrIntensityRef.current = hdrIntensity;
   const [hdrPreviewError, setHdrPreviewError] = useState("");
+  const [hdrPresenting, setHdrPresenting] = useState(false);
+  const [hdrEligible, setHdrEligible] = useState(false);
   const [activationRevision, setActivationRevision] = useState(0);
   const engineRef = useRef<EngineModule | null>(null);
   const bootedRef = useRef(false);
@@ -336,10 +341,26 @@ export function VisampCanvas({
     });
   }, [ready, watchProperties]);
 
+  // Eligibility is a hint, never a guarantee of working HDR presentation.
+  // Unsupported script features are handled by the live snapshot fallback.
+  useEffect(() => {
+    if (!autoHdr2D) { setHdrEligible(false); setHdrPresenting(false); return; }
+    const media = window.matchMedia("(dynamic-range: high)");
+    const update = () => setHdrEligible(Boolean(navigator.gpu) && media.matches
+      && /^\\s*context\\s+2d\\b/m.test(source)
+      && /\\bintensity\\s*:\\s*(?:[2-9]|[1-9][0-9]|1\\.[0-9]*[1-9])/m.test(source));
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [autoHdr2D, source]);
+
+  const previewEnabled = hdrPreview || (autoHdr2D && hdrEligible);
+  const isHdr2D = hdr2dPreview || autoHdr2D;
+
   // Side-by-side diagnostic only: WASM continues to render through WebGL.
   // The snapshot contains last-frame geometry, so WebGPU may trail by a tick.
   useEffect(() => {
-    if (!hdrPreview || !ready || !active || !activated) {
+    if (!previewEnabled || !ready || !active || !activated) {
       if (hdr2dPreview) hdrDiagnosticRef.current?.(
         `HDR preview waiting: preview=${hdrPreview}, ready=${ready}, active=${active}, activated=${activated}`
       );
@@ -357,6 +378,7 @@ export function VisampCanvas({
     let lastDiagnostic = "";
     let renderer: import("./webgpu-hdr-renderer").HdrSceneRenderer | undefined;
     setHdrPreviewError("");
+    setHdrPresenting(false);
     const initialize = async () => {
       try {
         const [{ HdrSceneRenderer }, { readHdrScene }, { readHdr2DScene }] = await Promise.all([
@@ -365,14 +387,14 @@ export function VisampCanvas({
           import("./hdr-2d-scene-bridge"),
         ]);
         if (disposed) return;
-        const created = await HdrSceneRenderer.create(canvas, hdr2dPreview ? "extended" : undefined);
+        const created = await HdrSceneRenderer.create(canvas, isHdr2D ? "extended" : undefined);
         if (disposed) { created.dispose(); return; }
         renderer = created;
         if (hdr2dPreview) hdrDiagnosticRef.current?.("WebGPU initialized; awaiting live Rust frame");
         const render = () => {
           if (disposed) return;
           try {
-            const scene = hdr2dPreview ? readHdr2DScene(engine) : readHdrScene(engine);
+            const scene = isHdr2D ? readHdr2DScene(engine) : readHdrScene(engine);
             if (hdr2dPreview && hdrDiagnosticRef.current) {
               const peak = scene.triangles.reduce((max, triangle) =>
                 Math.max(max, triangle.color[0], triangle.color[1], triangle.color[2]), 0);
@@ -383,9 +405,11 @@ export function VisampCanvas({
               }
             }
             renderer?.render(scene, hdrIntensityRef.current);
+            if (autoHdr2D && isHdr2D && scene.triangles.length > 0) setHdrPresenting(true);
             raf = window.requestAnimationFrame(render);
           } catch (error) {
             setHdrPreviewError(error instanceof Error ? error.message : String(error));
+            setHdrPresenting(false);
             if (hdr2dPreview) hdrDiagnosticRef.current?.("HDR snapshot/render error: " + String(error));
           }
         };
@@ -394,6 +418,7 @@ export function VisampCanvas({
         if (!disposed) {
           const message = error instanceof Error ? error.message : String(error);
           setHdrPreviewError(message);
+          setHdrPresenting(false);
           if (hdr2dPreview) hdrDiagnosticRef.current?.("WebGPU initialization error: " + message);
         }
       }
@@ -403,11 +428,12 @@ export function VisampCanvas({
     const timer = window.setTimeout(() => { void initialize(); }, 0);
     return () => {
       disposed = true;
+      setHdrPresenting(false);
       window.clearTimeout(timer);
       window.cancelAnimationFrame(raf);
       renderer?.dispose();
     };
-  }, [hdrPreview, hdr2dPreview, ready, active, activated, activationRevision]);
+  }, [previewEnabled, isHdr2D, ready, active, activated, activationRevision, autoHdr2D]);
 
   const captureFrame = useCallback(async (): Promise<Blob> => {
     const engine = engineRef.current;
@@ -442,7 +468,7 @@ export function VisampCanvas({
   const pending = assetStatus !== "ready" || Boolean(activationError);
   return (
     <div className={className}>
-      <div style={{ display: hdrPreview ? "flex" : "block", width: "100%", height: "100%", gap: hdrPreview ? 8 : 0 }}>
+      <div style={{ position: "relative", display: hdrPreview ? "flex" : "block", width: "100%", height: "100%", gap: hdrPreview ? 8 : 0 }}>
       <div style={{ position: "relative", width: hdrPreview ? "50%" : "100%", height: "100%", minWidth: 0 }}>
         <div
           ref={stageRef}
@@ -504,8 +530,8 @@ export function VisampCanvas({
           </div>
         )}
       </div>
-      {hdrPreview && (
-        <div style={{ width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
+      {previewEnabled && (
+        <div style={autoHdr2D && !hdrPreview ? { position: "absolute", inset: 0, zIndex: 1, visibility: hdrPresenting ? "visible" : "hidden", pointerEvents: "none" } : { width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
           <canvas ref={hdrCanvasRef} aria-label="Experimental HDR WebGPU preview" style={{ width: "100%", height: "100%", display: "block" }} />
           {hdrCompositingWorkaround && <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)" }} />}
           {hdrPreviewError && <div role="status" style={{ position: "absolute", left: 8, top: 8, background: "#171717", color: "#fff", padding: 8, fontSize: 12, maxWidth: "90%" }}>HDR preview unavailable: {hdrPreviewError}</div>}
