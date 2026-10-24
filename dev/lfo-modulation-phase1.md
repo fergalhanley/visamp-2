@@ -121,11 +121,11 @@ and interpreter precedence. Browser/display evidence is recorded separately.
 - `packages/engine/with-toolchain.sh bash packages/engine/check-compiler-parity.sh`:
   native/release WASM builds pass; compiler targets match at 5.2.1. `wasm-opt` is
   unavailable locally, so optional Binaryen optimisation is skipped.
-- Edited web files pass targeted ESLint. Full `pnpm --filter @visamp/web lint`
-  fails on two unchanged pre-existing `react-hooks/set-state-in-effect` errors:
-  `components/playlists/playlist-manager.tsx:23` and `components/sets/editor.tsx:61`.
-  It also reports three existing warnings. These unrelated files are unchanged;
-  the existing CI lint gate therefore remains a known blocker.
+- Lint follow-up: `pnpm lint` now passes with no errors or warnings after fixing
+  the playlist loading effect, set-editor platform label and three warnings.
+  Web typechecking, all 394 web Vitest tests and 37 asset-rule tests pass.
+  Regression coverage preserves playlist loading on retry/refresh and Mac/PC
+  shortcut labels. The earlier local lint blocker is resolved.
 - Follow-up: 15 player integration tests, player/web typechecks and targeted
   web ESLint pass after adding automatic demo playback and startup diagnostics.
 - Chromium launched through the IDE terminal successfully verifies `/dev/lfo`

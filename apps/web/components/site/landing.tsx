@@ -192,9 +192,12 @@ export function Landing({
           <div className="hero-content">
             <div className="hero-title">
               <span className="relative inline-flex shrink-0 pr-9">
-                <img
+                <Image
                   src="/visamp-title.svg"
                   alt="VisAmp"
+                  width={660}
+                  height={67}
+                  unoptimized
                   className={cn("h-5 w-auto mix-blend-screen", "hero-title-image")}
                 />
                 <BetaLabel />
