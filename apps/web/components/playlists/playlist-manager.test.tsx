@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -85,4 +86,32 @@ it("keeps a playlist when deletion is cancelled", async () => {
     await screen.findByRole("button", { name: "Delete playlist" }),
   );
   expect(m.request.mock.calls.every((call) => !call[1])).toBe(true);
+});
+
+it("shows loading while a failed playlist request is retried", async () => {
+  let resolve!: (value: { playlists: [] }) => void;
+  m.request.mockRejectedValueOnce(new Error("Offline"));
+  m.request.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+  render(<PlaylistManager initialId="" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Retry loading" }));
+  expect(screen.getByText("Loading playlists…")).toBeDefined();
+  expect(screen.queryByRole("alert")).toBeNull();
+  await act(async () => { resolve({ playlists: [] }); });
+  expect(screen.queryByText("Loading playlists…")).toBeNull();
+  expect(screen.getByText("Create your first playlist to start adding music.")).toBeDefined();
+});
+
+it("shows loading during the refresh after a playlist mutation", async () => {
+  const playlists = [{ id: "playlist", title: "Night", trackCount: 1 }];
+  let resolve!: (value: { playlists: typeof playlists }) => void;
+  m.request.mockResolvedValueOnce({ playlists });
+  m.request.mockResolvedValueOnce({});
+  m.request.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+  render(<PlaylistManager initialId="playlist" />);
+  fireEvent.change(await screen.findByLabelText("Playlist name"), { target: { value: "Dawn" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+  expect(await screen.findByText("Loading playlists…")).toBeDefined();
+  await act(async () => { resolve({ playlists: [{ ...playlists[0]!, title: "Dawn" }] }); });
+  expect(screen.queryByText("Loading playlists…")).toBeNull();
+  expect(screen.getByRole("button", { name: "Dawn 1 track" })).toBeDefined();
 });

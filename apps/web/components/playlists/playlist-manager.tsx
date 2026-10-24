@@ -20,7 +20,6 @@ export function PlaylistManager({ initialId }: { initialId: string }) {
   const [filter, setFilter] = useState("");
   useEffect(() => {
     let active = true;
-    setLoading(true);
     musicRequest<{ playlists: Playlist[] }>("/api/music/collections")
       .then((data) => {
         if (active) setPlaylists(data.playlists);
@@ -57,6 +56,7 @@ export function PlaylistManager({ initialId }: { initialId: string }) {
         setNewTitle("");
       }
       if (body.action === "delete") select("");
+      setLoading(true);
       setVersion((v) => v + 1);
       collectionChanged();
       return true;
@@ -86,6 +86,7 @@ export function PlaylistManager({ initialId }: { initialId: string }) {
               className="underline"
               onClick={() => {
                 setError("");
+                setLoading(true);
                 setVersion((v) => v + 1);
               }}
             >

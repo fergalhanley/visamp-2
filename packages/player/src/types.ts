@@ -58,6 +58,8 @@ export interface EngineModule {
   main_web(): void;
   set_animation_time(timeMs?: number): void;
   set_animation_paused(paused: boolean): void;
+  /** Version 1 modulation JSON, or "null". Throws on invalid configuration. */
+  set_modulation_config(payload: string): void;
   queue_input(json: string): void;
   clear_input(): void;
   input_capabilities(code: string): number;
