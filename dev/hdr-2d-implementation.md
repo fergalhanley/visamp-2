@@ -149,3 +149,41 @@ prove a return to 120 FPS.
   reflection, square caps and fallback of unsupported paths/paints.
 - Browser FPS, visual parity of analytic antialiasing and physical HDR output
   remain pending on the user's GPU, as described above.
+
+## VIS-171: HDR brightness when controls hide — 2026-10-25
+
+Production report: `/vis/gamma-bars` loses HDR highlights when player controls
+hide, and regains them while the controls are visible. The reported setup is
+Chrome 155 on a MacBook Pro built-in XDR display.
+
+This matches [Chromium issue 567321057](https://issues.chromium.org/issues/567321057):
+an extended WebGPU canvas on macOS can present as SDR without another element
+forcing HDR compositing. The player's fading controls have a backdrop filter.
+The standalone HDR experiment already used a transparent `blur(0px)` backdrop
+layer, but the shared player's equivalent workaround defaulted off.
+
+The player now enables that existing layer automatically for macOS Chromium
+153–156. Chromium reports the fix in M157; M156 backports vary. Safari, iOS,
+Windows/Linux and newer Chromium do not receive the automatic workaround.
+Explicit `hdrCompositingWorkaround={true|false}` overrides detection for diagnosis.
+Detection runs after hydration and the layer exists only alongside an HDR canvas;
+ordinary SDR scenes retain their native rendering path. The layer covers the HDR
+viewport, is transparent and pointer-events-disabled, and is independent of
+controls, pause state and panel visibility. No shader/intensity changes or new
+animation loops are introduced. GPU failure still hides the HDR container and
+restores SDR.
+
+Verification: 76 player tests, 400 web Vitest tests, player/web typechecks and
+`pnpm lint` pass. Regressions cover browser/version selection, explicit overrides,
+the layer surviving control hiding and pause, SDR exclusion and fallback.
+
+Physical acceptance remains pending: on the reported Chrome 155/XDR setup, open
+the patched local `/vis/gamma-bars`, let all controls hide for at least five
+seconds, then repeat reveal/hide and pause/resume. Compare highlights with
+controls visible and hidden, check fullscreen and input, and compare frame rate
+with the same viewport. A reported extended canvas mode, mock GPU tests or an SDR
+screenshot cannot establish physical HDR luminance or compositor cost.
+
+The fix is prepared on the user-approved production-equivalent checkout for
+manager-agent integration. `origin/develop` predates HDR, so branch reconciliation
+and production release are separate from this patch; no deployment is implied.

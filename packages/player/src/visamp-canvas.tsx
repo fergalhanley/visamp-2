@@ -1,6 +1,7 @@
 "use client";
 
 import { activateScript } from "./activation";
+import { needsHdrCompositingWorkaround } from "./hdr-capabilities";
 import { configureModulation, type ModulationConfig } from "./lfo-modulation";
 import {
   useCallback,
@@ -90,7 +91,8 @@ export interface VisampCanvasProps {
   onHdr2DDiagnostic?: (message: string) => void;
   /** Diagnostic HDR multiplier for the WebGPU preview, defaults to 1. */
   hdrIntensity?: number;
-  /** Diagnostic Chrome 155 compositing overlay, disabled by default. */
+  /** Automatically enabled for affected macOS Chromium HDR canvases.
+   * Set explicitly to override detection for diagnostic comparisons. */
   hdrCompositingWorkaround?: boolean;
   /**
    * Audio graph tap for the `audio::detect` standard library.
@@ -137,7 +139,7 @@ export function VisampCanvas({
   autoHdr2D = !hdrPreview && !hdr2dPreview,
   onHdr2DDiagnostic,
   hdrIntensity = 1,
-  hdrCompositingWorkaround = false,
+  hdrCompositingWorkaround,
   analyser,
   onCompileResult,
   onProperties,
@@ -398,6 +400,10 @@ export function VisampCanvas({
   }, [autoHdr2D, ready, activationRevision]);
 
   const previewEnabled = hdrPreview || (autoHdr2D && hdrEligible);
+  // Keep EDR compositing independent of fading player controls. `ready` also
+  // defers browser detection until after hydration; SDR never mounts the layer.
+  const compositingWorkaround = hdrCompositingWorkaround ??
+    (ready && needsHdrCompositingWorkaround(navigator.userAgent ?? ""));
   const isHdr2D = hdr2dPreview || autoHdr2D;
 
   // WASM keeps the SDR fallback alive. Sequence numbers apply each 2D frame once.
@@ -609,7 +615,7 @@ export function VisampCanvas({
       {previewEnabled && (
         <div style={autoHdr2D && !hdrPreview ? { position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 1, opacity: hdrPresenting && !pending ? 1 : 0, pointerEvents: "none" } : { width: "50%", minWidth: 0, position: "relative", height: "100%" }}>
           <canvas ref={hdrCanvasRef} aria-label="Experimental HDR WebGPU preview" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }} />
-          {hdrCompositingWorkaround && <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)" }} />}
+          {compositingWorkaround && <div data-visamp-hdr-compositor="" aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", backdropFilter: "blur(0px)", WebkitBackdropFilter: "blur(0px)" }} />}
           {hdrPreviewError && <div role="status" style={{ position: "absolute", left: 8, top: 8, background: "#171717", color: "#fff", padding: 8, fontSize: 12, maxWidth: "90%" }}>HDR preview unavailable: {hdrPreviewError}</div>}
         </div>
       )}

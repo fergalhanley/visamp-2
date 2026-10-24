@@ -26,6 +26,9 @@ vi.mock("../../../../packages/player/src/webgpu-2d-renderer", () => ({
 }));
 import { VisampCanvas } from "@visamp/player";
 
+const macChrome155 = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/155.0.0.0 Safari/537.36";
+const compositorSelector = "[data-visamp-hdr-compositor]";
+
 const source = `prop angle = 0.0
 on_frame { angle = $TIME_SEC }
 render {
@@ -44,7 +47,7 @@ beforeEach(() => {
     return id;
   });
   vi.spyOn(window, "cancelAnimationFrame").mockImplementation(id => { frames.delete(id); });
-  vi.stubGlobal("navigator", { gpu: {} });
+  vi.stubGlobal("navigator", { gpu: {}, userAgent: macChrome155 });
   vi.stubGlobal("matchMedia", () => ({ addEventListener() {}, removeEventListener() {} }));
   gpu.render.mockReturnValue(true);
   gpu.create.mockResolvedValue({ render: gpu.render, dispose: gpu.dispose });
@@ -81,6 +84,7 @@ it("leaves ordinary SDR scripts on the native path until explicit HDR is loaded"
   expect(engine.get_hdr_2d_snapshot).not.toHaveBeenCalled();
   expect(engine.set_hdr_2d_recording).not.toHaveBeenCalledWith(true);
   expect(view.queryByLabelText("Experimental HDR WebGPU preview")).toBeNull();
+  expect(view.container.querySelector(compositorSelector)).toBeNull();
   engine.get_hdr_2d_requested.mockReturnValue(true);
   view.rerender(<VisampCanvas source={source} active />);
   await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
@@ -96,6 +100,7 @@ it("keeps the SDR stage visible when WebGPU setup fails", async () => {
   expect(stage?.style.width).toBe("100%");
   expect(stage?.style.height).toBe("100%");
   expect(view.getByLabelText("Experimental HDR WebGPU preview").parentElement?.style.opacity).toBe("0");
+  expect(view.container.querySelector(compositorSelector)?.parentElement?.style.opacity).toBe("0");
 });
 
 it("records explicit comparison previews without suppressing the SDR renderer", async () => {
@@ -173,4 +178,50 @@ it("restores the stage when switching from 2D HDR to a 3D script", async () => {
   view.rerender(<VisampCanvas source="context 3d render { draw::cube() }" active />);
   await waitFor(() => expect(view.queryByLabelText("Experimental HDR WebGPU preview")).toBeNull());
   expect(view.container.querySelector<HTMLElement>("#visamp-stage")?.style.opacity).toBe("1");
+  expect(view.container.querySelector(compositorSelector)).toBeNull();
+});
+
+it("keeps the HDR compositor layer when player controls disappear and playback pauses", async () => {
+  const player = (visible: boolean, active = true) => <>
+    <div data-testid="controls" style={{ visibility: visible ? "visible" : "hidden", backdropFilter: "blur(20px)" }}>Controls</div>
+    <VisampCanvas source={source} active={active} />
+  </>;
+  const view = render(player(true));
+  await waitFor(() => expect(frames.size).toBe(1));
+  act(() => {
+    const callbacks = [...frames.values()]; frames.clear();
+    callbacks.forEach(callback => callback(16));
+  });
+  const layer = view.container.querySelector<HTMLElement>(compositorSelector);
+  expect(layer).not.toBeNull();
+  expect(layer?.style.backdropFilter).toBe("blur(0px)");
+  expect(layer?.style.pointerEvents).toBe("none");
+  expect(layer?.style.position).toBe("absolute");
+  expect(layer?.getAttribute("aria-hidden")).toBe("true");
+  expect(layer?.parentElement?.style.opacity).toBe("1");
+  expect(layer?.parentElement?.querySelector("canvas")).not.toBeNull();
+  view.rerender(player(false));
+  expect(view.getByTestId("controls").style.visibility).toBe("hidden");
+  expect(view.container.querySelector(compositorSelector)).toBe(layer);
+  expect(layer?.parentElement?.style.opacity).toBe("1");
+  view.rerender(player(false, false));
+  expect(view.container.querySelector(compositorSelector)).toBe(layer);
+  expect(layer?.parentElement?.style.opacity).toBe("1");
+  view.rerender(player(true));
+  expect(view.container.querySelector(compositorSelector)).toBe(layer);
+  expect(gpu.create).toHaveBeenCalledOnce();
+  expect(gpu.dispose).not.toHaveBeenCalled();
+});
+
+it.each([
+  { name: "affected Mac Chromium", userAgent: macChrome155, override: undefined, expected: true },
+  { name: "fixed Mac Chromium", userAgent: macChrome155.replace("155.", "157."), override: undefined, expected: false },
+  { name: "Safari", userAgent: "Mozilla/5.0 (Macintosh) Version/26.0 Safari/605.1.15", override: undefined, expected: false },
+  { name: "explicit opt-out", userAgent: macChrome155, override: false, expected: false },
+  { name: "explicit diagnostic opt-in", userAgent: "", override: true, expected: true },
+])("scopes the compositor workaround: $name", async ({ userAgent, override, expected }) => {
+  vi.stubGlobal("navigator", { gpu: {}, userAgent });
+  const view = render(<VisampCanvas source={source} active hdrCompositingWorkaround={override} />);
+  await waitFor(() => expect(gpu.create).toHaveBeenCalledOnce());
+  expect(Boolean(view.container.querySelector(compositorSelector))).toBe(expected);
 });
