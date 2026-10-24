@@ -241,6 +241,11 @@ export function VisampCanvas({
       engineRef.current = module as unknown as EngineModule;
       setReady(true);
       onReadyRef.current?.();
+    }).catch((error: unknown) => {
+      onLogRef.current?.({
+        level: "error",
+        message: `Could not start the rendering engine: ${error instanceof Error ? error.message : String(error)}. Reload the page to retry.`,
+      });
     });
   }, [active]);
 

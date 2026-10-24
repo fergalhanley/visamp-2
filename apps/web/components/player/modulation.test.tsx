@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 const engine = vi.hoisted(() => ({
   set_animation_paused: vi.fn(), validate_script: vi.fn(() => ""), load_script: vi.fn(() => ""),
@@ -8,7 +8,19 @@ const engine = vi.hoisted(() => ({
 vi.mock("@visamp/engine", () => engine);
 import { VisampCanvas } from "@visamp/player";
 import { source, modulation } from "../../../../dev/lfo-phase1";
+import { LfoDemo } from "../../app/dev/lfo/lfo-demo";
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+it("starts the demo on arrival and pauses without reloading its script", async () => {
+  render(<LfoDemo />);
+  await waitFor(() => expect(engine.set_modulation_config).toHaveBeenCalledWith(JSON.stringify(modulation)));
+  expect(engine.load_script).toHaveBeenCalledWith(source);
+  expect(screen.getByText("Script loaded — playing")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+  expect(engine.set_animation_paused).toHaveBeenLastCalledWith(true);
+  expect(screen.getByText("Script loaded — paused")).toBeDefined();
+  expect(engine.load_script).toHaveBeenCalledOnce();
+});
 
 it("applies after load, updates without reloading, retains pause state and clears on removal/unmount", async () => {
   const view = render(<VisampCanvas source={source} modulation={modulation} active />);

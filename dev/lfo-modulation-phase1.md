@@ -95,7 +95,9 @@ are rejected rather than producing non-reproducible random boundaries.
 
 Run `pnpm dev` and open `/dev/lfo`. This development-only harness shows an existing
 2D rectangle whose rotation and zoom are modulated without editing its source.
-Play, pause, seek to 0.5 s, release seek, and turn modulation off. With modulation
+Playback starts automatically on arrival. Pause, seek to 0.5 s, release seek,
+resume, and turn modulation off. Startup status and compile/load errors appear
+above the canvas. With modulation
 off it returns to rotation 0 and zoom 1. The harness is unavailable in production;
 it is not the Phase 2 editor panel or Phase 3 performance controls.
 
@@ -124,10 +126,16 @@ and interpreter precedence. Browser/display evidence is recorded separately.
   `components/playlists/playlist-manager.tsx:23` and `components/sets/editor.tsx:61`.
   It also reports three existing warnings. These unrelated files are unchanged;
   the existing CI lint gate therefore remains a known blocker.
-- `/dev/lfo` returns HTTP 200 with its rotation/zoom harness. Chromium automation
-  fails at process startup (`MachPortRendezvousServer`, macOS error 141), before
-  opening the page. Visual browser acceptance remains pending. Real WASM tests
-  establish draw/capture inputs and state transitions, not physical GPU pixels.
+- Follow-up: 15 player integration tests, player/web typechecks and targeted
+  web ESLint pass after adding automatic demo playback and startup diagnostics.
+- Chromium launched through the IDE terminal successfully verifies `/dev/lfo`
+  on local port 3001. The canvas measures 848 × 477; its centre pixel is opaque
+  turquoise (64, 224, 208, 255), and a screenshot shows the rotated rectangle.
+  Pixel comparisons confirm animation, pause, seek while paused, restoration
+  of the unrotated 180 × 80 rectangle when modulation is disabled, and identical
+  pixels after re-enabling at the same seek time. No browser errors occurred.
+  This supersedes the earlier browser-launch limitation in the agent terminal.
+  It verifies SDR browser output; physical HDR display acceptance is separate.
 
 PR #15 must stay draft. No release, merge, editor UI or database persistence is
 included. The new real-WASM integration command is added to the CI workflow.
