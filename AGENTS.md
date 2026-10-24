@@ -158,3 +158,102 @@ Work is ready for review only when:
 - documentation is updated where behaviour or architecture changed;
 - the commit messages and the Linear issue contain enough context for another
   agent or human to continue without reconstructing the work from chat history.
+
+
+---
+
+## Active handoff: LFO modulation Phase 1 (PR #15, 2026-10-24)
+
+**Task owner instruction:** Continue the already-approved LFO implementation on
+`feature/lfo-modulation-core` and update draft
+[PR #15](https://github.com/fergalhanley/visamp-2/pull/15).
+This is an expressly requested short-lived, reviewable feature branch. Do not
+silently switch to `develop`, retarget the PR, merge, or deploy. Existing branch
+and release policies above otherwise remain in force. If the branch exception
+or missing Linear issue requires reconciliation, raise that explicitly rather
+than inventing an issue ID. No Linear issue ID was supplied in this handoff.
+
+### Product intent and sequence
+
+Colin's live-visualisation use case: tempo-synchronised oscillators automate
+multiple visual parameters with minimal performance interaction. Deliver in
+order: **Phase 1 engine/modulation API**, **Phase 2 editor panel**, then **Phase
+3 performance presets, keyboard controls, MIDI later**. Do not build the editor
+as part of this PR. Default modulation belongs to a visualisation; future
+performance overrides can belong to a VJ set without altering the original.
+
+### Starting point (inspect rather than assuming it is correct)
+
+- `packages/player/src/lfo-modulation.ts`: initial pure TypeScript LFO
+  evaluator, configurable four-LFO bank, waveforms (sine, triangle, square,
+  saw-up, saw-down, seeded sample-and-hold), phase/BPM/bar timing, numeric
+  property routing and validation.
+- `packages/player/src/lfo-modulation.test.ts`: initial Vitest tests, **not
+  yet verified passing**.
+- `packages/player/src/index.ts`: exported public TypeScript API.
+- Existing Rust/WASM engine: `packages/engine/src/lib.rs`,
+  `interpreter.rs`, `model.rs`, `frame_clock.rs`; player bridge:
+  `packages/player/src/types.ts`, `visamp-canvas.tsx`, and
+  `properties-bridge.ts`.
+- `get_properties()` currently provides a read-only snapshot. The engine
+  must evaluate effective numeric properties before script operations consume
+  them; post-render display changes alone are insufficient.
+
+### Implementation work
+
+1. **Audit the foundation.** Run player tests and TypeScript checks first.
+   Fix any waveform/timing/validation issues found. Review the first-pass
+   route policy (add offsets relative to a range midpoint; clamp to the
+   intersection of active route bounds). Document or test chosen semantics,
+   including zero-depth and overlapping/conflicting ranges. Confirm how
+   pause, seek, tempo changes, and seeded random step boundaries behave.
+2. **Determine proper engine hook.** Trace how `prop` is declared, stored,
+   reassigned, and read per frame. Add a typed numeric-only *effective
+   override* path at the point of property reads or evaluation, without
+   permanently mutating source-defined/base values. Preserve existing
+   behaviour if modulation is absent or disabled, and do not permit overrides
+   on nonnumeric properties. Avoid modifying output snapshots as a proxy.
+3. **Expose a narrow stable WASM boundary.** Supply validated modulation
+   configuration or effective overrides to the running engine and provide
+   useful errors on invalid payloads. Ensure configuration changes, script
+   reloads, and engine lifecycle do not leak stale overrides. Consider
+   whether engine clock time can be reused so live playback, pause, seek,
+   and export share deterministic timing. Avoid duplicate independently
+   advancing clocks.
+4. **Connect the player.** Reuse existing animation-time handling; apply
+   modulation early enough for a script frame to consume the effective
+   properties. Keep SDR/HDR rendering paths unchanged. Make the feature
+   opt-in and backward compatible. Do not introduce editor controls now.
+5. **Persistence boundary.** Define a versioned serializable modulation
+   config and demonstrate how it can be associated with a visualisation,
+   without implementing full editor persistence unless it is strictly
+   necessary for Phase 1. Keep VJ-set override design extensible.
+6. **Verify.** Add Rust unit/integration tests for property precedence,
+   base-value preservation, numeric type checks, lifecycle, and disabled
+   routing. Add player tests for waveform boundaries, beat division, seeded
+   random determinism, seek/pause and effective values. Run relevant
+   `cargo test`, `pnpm --filter @visamp/player test`, TypeScript checks,
+   and appropriate monorepo build/CI checks; report exact commands and
+   results. A minimal existing Viscript example with visibly modulated
+   rotation or zoom is the end-to-end smoke test.
+
+### Acceptance criteria
+
+- Four LFOs can be configured and routed to numeric Viscript properties via
+  an API, without editing the script source.
+- An LFO demonstrably affects a property **used by rendering**, not merely
+  the inspector.
+- Base property values survive playback, override removal, seek and reload.
+- Deterministic evaluations at fixed timeline positions, regardless of frame
+  cadence; seeded random remains reproducible.
+- Unconfigured/disabled routing retains existing Visamp behaviour.
+- Tests pass with recorded commands/results and no regression in SDR/HDR.
+- Changes remain on the feature branch in draft PR #15 for owner review.
+
+### Agent handoff / reporting
+
+Post a concise start note, meaningful milestone updates and a final summary
+of changed files, observed results and unresolved risks to the active task
+conversation or PR, according to available channels. Never claim tests were
+run if they were not. Do not merge PR #15 or trigger a production deployment
+without the project owner's explicit approval.
