@@ -21,6 +21,8 @@ export type { Hdr2DFrame } from "./hdr-2d-geometry";
 
 export {
   MAX_LFOS,
+  MAX_MODULATION_ROUTES,
+  configureModulation,
   defaultModulationConfig,
   evaluateLfo,
   resolveModulatedProperties,

@@ -506,8 +506,9 @@ fn interpret_statement_kind(
         }
         StatementKind::Assignment(assignment) => {
             decels.check_writable(&assignment.ident)?;
-            let evaluated =
-                evaluate_expression(&assignment.expression, decels, runtime, functions)?;
+            let evaluated = decels.with_base_read(&assignment.ident, |d| {
+                evaluate_expression(&assignment.expression, d, runtime, functions)
+            })?;
             if !decels.contains(&assignment.ident) {
                 return Err(format!("Variable '{}' not declared", assignment.ident));
             }
@@ -1768,10 +1769,7 @@ fn evaluate_expression_inner(
             Literal::String(s) => Value::String(s.clone()),
         }),
 
-        Expression::Identifier(name) => decels
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("Undefined identifier: {}", name)),
+        Expression::Identifier(name) => decels.effective(name),
 
         Expression::SystemValue(name) => map_value_runtime(name, runtime),
 

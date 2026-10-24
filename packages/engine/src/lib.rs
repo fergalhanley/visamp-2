@@ -21,6 +21,7 @@ pub mod input;
 pub mod interpreter;
 pub mod math3;
 pub mod model;
+pub mod modulation;
 pub mod oscillator;
 mod overlay;
 pub mod parser;
@@ -205,6 +206,20 @@ pub fn set_animation_paused(paused: bool) {
             state.runtime.borrow_mut().clock.set_paused(paused);
         }
     });
+}
+
+/// Versioned LFO configuration, or JSON null to remove it. Evaluated by the
+/// engine clock before script execution; no per-frame JavaScript callback.
+#[wasm_bindgen]
+pub fn set_modulation_config(payload: &str) -> Result<(), String> {
+    let config = modulation::Config::parse(payload)?;
+    STATE.with(|s| {
+        let slot = s.borrow();
+        let state = slot.as_ref().ok_or("Engine is not initialised")?;
+        let time_ms = state.runtime.borrow().clock.elapsed_ms;
+        let result = state.model.borrow_mut().set_modulation(config, time_ms);
+        result
+    })
 }
 
 /// Hands the engine decoded pixels for an asset the page has already fetched.
@@ -483,6 +498,10 @@ fn init_app() -> Result<(), String> {
             utils::start_time_ms() as f64,
             frame_clock::Calendar::local_now(),
         );
+        if let Err(error) = model.prepare_modulation(runtime.clock.elapsed_ms) {
+            *state_ref.last_error.borrow_mut() = Some(error);
+            return;
+        }
 
         // Borrowed apart rather than cloned. The script's blocks and functions
         // do not change between frames, so copying the whole AST sixty times a

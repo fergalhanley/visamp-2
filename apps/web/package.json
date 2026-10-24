@@ -17,7 +17,8 @@
     "test:mp3": "node --experimental-strip-types --test lib/hosted-audio/inspect-mp3.test.mts lib/hosted-audio/upload-queue.test.mts",
     "test:audio": "node --test scripts/audio-detect.test.mjs",
     "test:editor": "vitest run",
-    "test:hdr-commands": "node --test scripts/hdr-commands.test.mjs"
+    "test:hdr-commands": "node --test scripts/hdr-commands.test.mjs",
+    "test:lfo": "node --experimental-strip-types --test scripts/lfo-modulation.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1127.0",

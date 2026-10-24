@@ -1,6 +1,7 @@
 "use client";
 
 import { activateScript } from "./activation";
+import { configureModulation, type ModulationConfig } from "./lfo-modulation";
 import {
   useCallback,
   useEffect,
@@ -46,6 +47,9 @@ let mountedOnce = false;
 export interface VisampCanvasProps {
   /** Visript source to run. */
   source: string;
+  /** Optional visualisation-owned LFO bank. Replace the object to update it;
+   * null/removal clears it. Timing follows setAnimationTime and active. */
+  modulation?: ModulationConfig | null;
   /**
    * Assets the host has fetched and decoded for the current viewer, keyed by
    * the ids the source cites with `asset::`.
@@ -121,6 +125,7 @@ export interface VisampCanvasProps {
  */
 export function VisampCanvas({
   source,
+  modulation = null,
   assets,
   assetPreparation,
   posterUrl,
@@ -178,6 +183,33 @@ export function VisampCanvas({
   onPropertiesRef.current = onProperties;
   onLogRef.current = onLog;
   onReadyRef.current = onReady;
+
+  const modulationRef = useRef(modulation);
+  modulationRef.current = modulation;
+  const appliedModulation = useRef<ModulationConfig | null>(null);
+  const syncModulation = useCallback((reloaded = false) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    // Successful load_script creates a fresh model and clears its bank.
+    if (reloaded) appliedModulation.current = null;
+    const config = modulationRef.current;
+    if (config === appliedModulation.current) return;
+    try {
+      configureModulation(engine, config);
+      appliedModulation.current = config;
+    } catch (error) {
+      // A rejected declarative replacement must not keep the previous scene's
+      // automation running. The lower-level WASM setter itself is atomic.
+      if (appliedModulation.current) configureModulation(engine, null);
+      appliedModulation.current = null;
+      onLogRef.current?.({ level: "error", message: `Modulation: ${error instanceof Error ? error.message : String(error)}` });
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (engineRef.current && appliedModulation.current) configureModulation(engineRef.current, null);
+    appliedModulation.current = null;
+  }, []);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
@@ -248,6 +280,8 @@ export function VisampCanvas({
           );
           result = toCompileResult(error);
           if (result.ok) {
+            // Install before yielding to the next engine animation frame.
+            syncModulation(true);
             applied.current = { source, assets: prepared, scope: assetScope };
             setActivated(true);
             setActivationRevision((revision) => revision + 1);
@@ -269,7 +303,13 @@ export function VisampCanvas({
       ? ""
       : (result.diagnostics[0]?.raw ?? "");
     onCompileResultRef.current?.(result);
-  }, [ready, source, assets, assetStatus, assetScope]);
+  }, [ready, source, assets, assetStatus, assetScope, syncModulation]);
+
+  // Run after activation: a source+config replacement must validate its routes
+  // against the newly loaded properties, never the previous visualisation.
+  useEffect(() => {
+    if (ready && activated && applied.current?.source === source) syncModulation();
+  }, [ready, activated, source, modulation, syncModulation]);
 
   useEffect(() => {
     const engine = engineRef.current;
