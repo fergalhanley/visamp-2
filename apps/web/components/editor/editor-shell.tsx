@@ -511,7 +511,15 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
           .update({ title, source, visibility, preferred_track_id: preferredTrackId, modulation: modulation as unknown as Json })
           .eq("id", visualisation.id);
 
-        if (error) throw new Error(visualisationSaveError(error));
+        if (error) {
+          const missingColumn = ["PGRST204", "42703"].includes(error.code) &&
+            error.message.includes("modulation");
+          if (!missingColumn || modulation !== null) throw new Error(visualisationSaveError(error));
+          const retry = await supabase.from("visualisations")
+            .update({ title, source, visibility, preferred_track_id: preferredTrackId })
+            .eq("id", visualisation.id);
+          if (retry.error) throw new Error(visualisationSaveError(retry.error));
+        }
       }
 
       const { data, error } = await supabase
@@ -520,7 +528,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
           owner_id: user.id,
           description: visualisation.description,
           source,
-          modulation: modulation as unknown as Json,
+          ...(modulation === null ? {} : { modulation: modulation as unknown as Json }),
           visibility: "private",
           forked_from_id: visualisation.id,
         })

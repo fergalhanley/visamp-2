@@ -68,11 +68,16 @@ export function PropertiesInspector({
   };
   const assign = (property: PropertyView, lfoId: string) => {
     if (!modulation) return;
-    const routes = modulation.routes.filter((item) => item.property !== property.name);
-    if (lfoId) {
-      const value = numeric[property.name] ?? 0;
-      routes.push({ lfoId, property: property.name, min: value - 1, max: value + 1, enabled: true });
-    }
+    // Change only the route the inspector is editing. Imported banks may
+    // contain multiple routes on the same property; never discard the others.
+    const existing = modulation.routes.find((item) => item.property === property.name);
+    const value = numeric[property.name] ?? 0;
+    const routes = existing
+      ? modulation.routes.flatMap((item) =>
+          item !== existing ? [item] : lfoId ? [{ ...item, lfoId }] : [])
+      : lfoId
+        ? [...modulation.routes, { lfoId, property: property.name, min: value - 1, max: value + 1, enabled: true }]
+        : modulation.routes;
     save({ ...modulation, routes, lfos: modulation.lfos.map((item) =>
       item.id === lfoId ? { ...item, enabled: true } : item) });
   };

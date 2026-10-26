@@ -55,7 +55,16 @@ export function LfoPanel({ config, onChange, disabled = false }: Props) {
     return () => cancelAnimationFrame(frame);
   }, [config]);
 
-  const bank = config ?? defaultModulationConfig();
+  const bank = useMemo(() => {
+    const defaults = defaultModulationConfig(config?.bpm);
+    if (!config) return defaults;
+    // Versions may contain fewer than four LFOs. Show the available slots
+    // without altering the persisted bank until the user makes a change.
+    const existing = new Set(config.lfos.map((item) => item.id));
+    const slots = defaults.lfos.filter((item) => !existing.has(item.id))
+      .slice(0, Math.max(0, 4 - config.lfos.length));
+    return { ...config, lfos: [...config.lfos, ...slots] };
+  }, [config]);
   const lfo = bank.lfos[Math.min(selected, bank.lfos.length - 1)]!;
   const path = useMemo(
     () => waveformPath(lfo, bank.bpm, bank.beatsPerBar),
@@ -111,7 +120,7 @@ export function LfoPanel({ config, onChange, disabled = false }: Props) {
             </label>
           </div>
           <div role="tablist" aria-label="Choose LFO" className="grid grid-cols-4 gap-1">
-            {config.lfos.map((item, index) => (
+            {bank.lfos.map((item, index) => (
               <button key={item.id} type="button" role="tab" aria-selected={selected === index}
                 onClick={() => setSelected(index)}
                 className={`rounded border px-1 py-1.5 ${selected === index ? "bg-foreground/15 text-foreground" : "text-muted-foreground"}`}>
