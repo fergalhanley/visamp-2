@@ -12,3 +12,14 @@ export function readStoredModulation(value: unknown): ModulationConfig | null {
     return null;
   }
 }
+
+/** Show corrupted saved data in the editor instead of discarding it on autosave. */
+export function storedModulationError(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  try {
+    validateModulation(value);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Invalid stored modulation";
+  }
+}
