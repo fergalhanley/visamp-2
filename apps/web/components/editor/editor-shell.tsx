@@ -391,7 +391,22 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
             .select("id")
             .abortSignal(signal)
             .single();
-          if (error) throw new Error(visualisationSaveError(error));
+          if (error) {
+            // Deploying the UI before its SQL migration must not prevent
+            // ordinary pre-existing visualisations from saving. LFO banks,
+            // however, must never be reported saved when the column is missing.
+            const missingColumn = ["PGRST204", "42703"].includes(error.code) &&
+              error.message.includes("modulation");
+            if (!missingColumn || document.modulation !== null) {
+              throw new Error(visualisationSaveError(error));
+            }
+            const retry = await supabase.from("visualisations").update({
+              title: document.title, source: document.source,
+              visibility: document.visibility,
+              preferred_track_id: document.preferred_track_id,
+            }).eq("id", visualisation.id).select("id").abortSignal(signal).single();
+            if (retry.error) throw new Error(visualisationSaveError(retry.error));
+          }
           // Direct Supabase writes do not invalidate Next's history cache.
           // Refresh the server snapshot without replacing the live editor buffer.
           // Do this before thumbnail work, which can fail or outlive navigation.
@@ -798,6 +813,14 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
               placeholder="Name your visualisation"
             />
 
+            <button type="button" title="Open LFO modulation panel"
+              aria-label="Open LFO modulation panel" className={fileAction}
+              onClick={() => {
+                setLogCollapsed(false);
+                setInspectorTab("modulation");
+              }}>
+              LFOs
+            </button>
             {canEdit ? (
               <>
                 <button
