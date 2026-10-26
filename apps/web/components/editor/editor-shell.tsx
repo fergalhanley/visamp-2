@@ -11,6 +11,8 @@ import {
   type LogEntry,
   type PropertyView,
   type VisampCanvasHandle,
+  type ModulationConfig,
+  defaultModulationConfig,
 } from "@visamp/player";
 import {
   Camera,
@@ -48,6 +50,8 @@ import { OpenVisDialog } from "@/components/editor/open-vis-dialog";
 import { AssetPanel } from "@/components/editor/asset-panel";
 import { EditorTransport } from "@/components/editor/editor-transport";
 import { PropertiesInspector } from "@/components/editor/properties-inspector";
+import { LfoPanel } from "@/components/editor/lfo-panel";
+import { readStoredModulation, storedModulationError } from "@/lib/editor/modulation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,7 +71,7 @@ import { useVisualisationAssets } from "@/hooks/use-visualisation-assets";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import type { GenerationEvent, RepairAttempt } from "@/lib/ai/types";
 import { createClient } from "@/lib/supabase/client";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 type Visualisation = Database["public"]["Tables"]["visualisations"]["Row"];
@@ -110,6 +114,13 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
     visualisation?.visibility ?? "private",
   );
   const [source, setSource] = useState(visualisation?.source ?? "");
+  const [modulation, setModulation] = useState<ModulationConfig | null>(
+    () => readStoredModulation(visualisation?.modulation),
+  );
+  const [modulationError, setModulationError] = useState<string | null>(
+    () => storedModulationError(visualisation?.modulation),
+  );
+  const [inspectorTab, setInspectorTab] = useState<"properties" | "modulation">("properties");
   /** Debounced copy — this is what the engine actually receives. */
   const [liveSource, setLiveSource] = useState(visualisation?.source ?? "");
 
@@ -375,12 +386,27 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
         async (document, signal) => {
           const { error } = await supabase
             .from("visualisations")
-            .update(document)
+            .update({ ...document, modulation: document.modulation as unknown as Json })
             .eq("id", visualisation.id)
             .select("id")
             .abortSignal(signal)
             .single();
-          if (error) throw new Error(visualisationSaveError(error));
+          if (error) {
+            // Deploying the UI before its SQL migration must not prevent
+            // ordinary pre-existing visualisations from saving. LFO banks,
+            // however, must never be reported saved when the column is missing.
+            const missingColumn = ["PGRST204", "42703"].includes(error.code) &&
+              error.message.includes("modulation");
+            if (!missingColumn || document.modulation !== null) {
+              throw new Error(visualisationSaveError(error));
+            }
+            const retry = await supabase.from("visualisations").update({
+              title: document.title, source: document.source,
+              visibility: document.visibility,
+              preferred_track_id: document.preferred_track_id,
+            }).eq("id", visualisation.id).select("id").abortSignal(signal).single();
+            if (retry.error) throw new Error(visualisationSaveError(retry.error));
+          }
           // Direct Supabase writes do not invalidate Next's history cache.
           // Refresh the server snapshot without replacing the live editor buffer.
           // Do this before thumbnail work, which can fail or outlive navigation.
@@ -415,10 +441,10 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
     [appendLog],
   );
   const { dirty, saving, saveError, setSaveError } = useEditorAutosave({
-    value: { title, source, visibility, preferred_track_id: preferredTrackId },
+    value: { title, source, visibility, preferred_track_id: preferredTrackId, modulation },
     // A previous successful compile says nothing about newly typed source.
     enabled:
-      !empty && canEdit && compile?.ok === true && compiledSource === source,
+      !empty && canEdit && !modulationError && compile?.ok === true && compiledSource === source,
     persist,
     onError: onSaveError,
   });
@@ -482,10 +508,18 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
       if (canEdit && dirty) {
         const { error } = await supabase
           .from("visualisations")
-          .update({ title, source, visibility, preferred_track_id: preferredTrackId })
+          .update({ title, source, visibility, preferred_track_id: preferredTrackId, modulation: modulation as unknown as Json })
           .eq("id", visualisation.id);
 
-        if (error) throw new Error(visualisationSaveError(error));
+        if (error) {
+          const missingColumn = ["PGRST204", "42703"].includes(error.code) &&
+            error.message.includes("modulation");
+          if (!missingColumn || modulation !== null) throw new Error(visualisationSaveError(error));
+          const retry = await supabase.from("visualisations")
+            .update({ title, source, visibility, preferred_track_id: preferredTrackId })
+            .eq("id", visualisation.id);
+          if (retry.error) throw new Error(visualisationSaveError(retry.error));
+        }
       }
 
       const { data, error } = await supabase
@@ -494,6 +528,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
           owner_id: user.id,
           description: visualisation.description,
           source,
+          ...(modulation === null ? {} : { modulation: modulation as unknown as Json }),
           visibility: "private",
           forked_from_id: visualisation.id,
         })
@@ -519,6 +554,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
     title,
     source,
     visibility,
+    modulation,
     preferredTrackId,
     visualisation,
   ]);
@@ -785,6 +821,14 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
               placeholder="Name your visualisation"
             />
 
+            <button type="button" title="Open LFO modulation panel"
+              aria-label="Open LFO modulation panel" className={fileAction}
+              onClick={() => {
+                setLogCollapsed(false);
+                setInspectorTab("modulation");
+              }}>
+              LFOs
+            </button>
             {canEdit ? (
               <>
                 <button
@@ -836,6 +880,19 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
             )}
           </div>
 
+          {modulationError && (
+            <div role="alert" className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 text-xs text-amber-400">
+              <span>Invalid saved modulation: {modulationError}. Autosave is paused to protect its data.</span>
+              {canEdit && (
+                <button type="button" className="shrink-0 underline"
+                  onClick={() => {
+                    setModulation(defaultModulationConfig());
+                    setModulationError(null);
+                    setSaveError(null);
+                  }}>Replace with four fresh LFOs</button>
+              )}
+            </div>
+          )}
           {!empty && (
             <>
               <PreferredTrack
@@ -873,6 +930,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
               autoHdr2D
               ref={canvasHandle}
               source={liveSource}
+              modulation={modulation}
               assets={assets}
               assetPreparation={preparation}
               posterUrl={publicStorageUrl("thumbnails", visualisation?.thumb_path, visualisation?.updated_at)}
@@ -899,7 +957,32 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
               onJumpToLine={(line) => editorHandle.current?.goToLine(line)}
             />
 
-            {!logCollapsed && <PropertiesInspector properties={properties} />}
+            {!logCollapsed && (
+              <div className="flex w-72 shrink-0 flex-col">
+                <div role="tablist" aria-label="Inspector panels"
+                  className="flex shrink-0 border-b text-xs">
+                  <button role="tab" type="button" aria-selected={inspectorTab === "properties"}
+                    className={cn("flex-1 px-2 py-2", inspectorTab === "properties" && "bg-muted font-medium")}
+                    onClick={() => setInspectorTab("properties")}>Properties</button>
+                  <button role="tab" type="button" aria-selected={inspectorTab === "modulation"}
+                    className={cn("flex-1 px-2 py-2", inspectorTab === "modulation" && "bg-muted font-medium")}
+                    onClick={() => setInspectorTab("modulation")}>Modulation</button>
+                </div>
+                {inspectorTab === "properties" ? (
+                  <PropertiesInspector properties={properties} modulation={modulation}
+                    disabled={!canEdit} onModulationChange={(next) => {
+                      setModulation(next);
+                      setSaveError(null);
+                    }} />
+                ) : (
+                  <LfoPanel config={modulation} disabled={!canEdit}
+                    onChange={(next) => {
+                      setModulation(next);
+                      setSaveError(null);
+                    }} />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

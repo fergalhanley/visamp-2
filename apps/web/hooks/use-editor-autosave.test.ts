@@ -157,3 +157,23 @@ it("saves and clears the preferred track even without source edits", async () =>
   await tick(AUTOSAVE_MS);
   expect(persist.mock.calls[1]?.[0].preferred_track_id).toBeNull();
 });
+
+it("autosaves modulation-only edits, then persists clearing the bank", async () => {
+  const { rerender, persist, result } = setup();
+  const config = {
+    version: 1 as const, bpm: 120, beatsPerBar: 4,
+    lfos: [{ id: "lfo-1", waveform: "sine" as const, barsPerCycle: 1,
+      phase: 0, polarity: "bipolar" as const, enabled: true, seed: 1 }],
+    routes: [{ lfoId: "lfo-1", property: "rotation", min: -1, max: 1, enabled: true }],
+  };
+  rerender({ value: { ...initial, modulation: config }, enabled: true });
+  expect(result.current.dirty).toBe(true);
+  await tick();
+  expect(persist.mock.calls[0]![0].modulation).toEqual(config);
+  expect(result.current.dirty).toBe(false);
+  rerender({ value: { ...initial, modulation: null }, enabled: true });
+  expect(result.current.dirty).toBe(true);
+  await tick(AUTOSAVE_MS);
+  expect(persist.mock.calls[1]![0].modulation).toBeNull();
+  expect(result.current.dirty).toBe(false);
+});
