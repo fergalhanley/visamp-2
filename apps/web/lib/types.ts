@@ -1,3 +1,5 @@
+import type { ModulationConfig } from "@visamp/player";
+
 export interface Creator {
   username: string;
   avatarUrl?: string;
@@ -15,6 +17,8 @@ export interface Visualisation {
   description?: string;
   /** Visript source handed straight to the engine. */
   source: string;
+  /** Optional visualisation-owned LFO bank. */
+  modulation?: ModulationConfig | null;
   creator: Creator;
   /** Present for database-backed rows; absent for the local fixtures. */
   ownerId?: string;
