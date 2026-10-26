@@ -12,6 +12,7 @@ import {
   type PropertyView,
   type VisampCanvasHandle,
   type ModulationConfig,
+  defaultModulationConfig,
 } from "@visamp/player";
 import {
   Camera,
@@ -50,7 +51,7 @@ import { AssetPanel } from "@/components/editor/asset-panel";
 import { EditorTransport } from "@/components/editor/editor-transport";
 import { PropertiesInspector } from "@/components/editor/properties-inspector";
 import { LfoPanel } from "@/components/editor/lfo-panel";
-import { readStoredModulation } from "@/lib/editor/modulation";
+import { readStoredModulation, storedModulationError } from "@/lib/editor/modulation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,6 +116,9 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
   const [source, setSource] = useState(visualisation?.source ?? "");
   const [modulation, setModulation] = useState<ModulationConfig | null>(
     () => readStoredModulation(visualisation?.modulation),
+  );
+  const [modulationError, setModulationError] = useState<string | null>(
+    () => storedModulationError(visualisation?.modulation),
   );
   const [inspectorTab, setInspectorTab] = useState<"properties" | "modulation">("properties");
   /** Debounced copy — this is what the engine actually receives. */
@@ -425,7 +429,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
     value: { title, source, visibility, preferred_track_id: preferredTrackId, modulation },
     // A previous successful compile says nothing about newly typed source.
     enabled:
-      !empty && canEdit && compile?.ok === true && compiledSource === source,
+      !empty && canEdit && !modulationError && compile?.ok === true && compiledSource === source,
     persist,
     onError: onSaveError,
   });
@@ -845,6 +849,19 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
             )}
           </div>
 
+          {modulationError && (
+            <div role="alert" className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 text-xs text-amber-400">
+              <span>Invalid saved modulation: {modulationError}. Autosave is paused to protect its data.</span>
+              {canEdit && (
+                <button type="button" className="shrink-0 underline"
+                  onClick={() => {
+                    setModulation(defaultModulationConfig());
+                    setModulationError(null);
+                    setSaveError(null);
+                  }}>Replace with four fresh LFOs</button>
+              )}
+            </div>
+          )}
           {!empty && (
             <>
               <PreferredTrack
