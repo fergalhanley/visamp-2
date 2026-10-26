@@ -108,6 +108,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 async function open() {
@@ -127,6 +128,13 @@ async function open() {
     ).toBe(false),
   );
 }
+it.each([["MacIntel", "Cmd"], ["Win32", "Ctrl"]])("shows %s shortcut labels", async (platform, modifier) => {
+  vi.spyOn(navigator, "platform", "get").mockReturnValue(platform!);
+  await open();
+  expect(screen.getByTitle(`Undo - ${modifier}+z`)).toBeDefined();
+  expect(screen.getByTitle(`Redo - ${modifier}+y`)).toBeDefined();
+});
+
 it("seeks and plays without resolving media again, and Space resumes from the marker", async () => {
   await open();
   const ruler = screen.getByRole("slider", { name: "Timeline position" });

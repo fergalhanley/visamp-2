@@ -9,6 +9,7 @@ const engine = vi.hoisted(() => ({
   clear_assets: vi.fn(),
   set_asset_texture: vi.fn(() => true),
   get_last_error: vi.fn(() => ""),
+  get_hdr_2d_requested: vi.fn(() => false),
   capture_frame: vi.fn(async () => new Blob()),
 }));
 vi.mock("@visamp/engine", () => engine);
@@ -56,9 +57,9 @@ it("holds playback during preparation, then registers before init; diagnoses and
     "<style>.hero-canvas { position: absolute; inset: 0; }</style>",
   );
   expect(getComputedStyle(hero).position).toBe("absolute");
-  expect((hero.firstElementChild as HTMLElement).style.position).toBe(
-    "relative",
-  );
+  // The stage's container anchors overlays inside the HDR comparison wrapper.
+  const stage = hero.querySelector<HTMLElement>("#visamp-stage");
+  expect(stage?.parentElement?.style.position).toBe("relative");
   expect(engine.load_script).not.toHaveBeenCalled();
   expect(engine.clear_assets).not.toHaveBeenCalled();
   expect(view.queryByRole("status")).toBeNull();

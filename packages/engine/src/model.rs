@@ -544,6 +544,9 @@ pub struct Declarations {
     marks: Vec<usize>,
     /// Function calls inherit global values, but cannot write caller-owned state.
     read_only_globals: usize,
+    /// Frame-local read rules, never stored in the source/base slots.
+    modulation: Rc<Vec<crate::modulation::PropertyRule>>,
+    base_read: std::cell::Cell<Option<usize>>,
     /// Top-level `param` names are host-controlled and immutable to Visript.
     immutable_globals: Vec<Rc<str>>,
 }
@@ -560,6 +563,8 @@ impl Declarations {
             slots: self.slots[..end].to_vec(),
             marks: vec![0],
             read_only_globals: end,
+            modulation: self.modulation.clone(),
+            base_read: self.base_read.clone(),
             immutable_globals: self.immutable_globals.clone(),
         }
     }
@@ -619,6 +624,47 @@ impl Declarations {
             .rev()
             .find(|(slot, _)| &**slot == name)
             .map(|(_, value)| value)
+    }
+
+    /// Expression reads honour local/parameter shadowing before property rules.
+    pub fn effective(&self, name: &str) -> Result<Value, String> {
+        let (index, (_, base)) = self
+            .slots
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, (slot, _))| &**slot == name)
+            .ok_or_else(|| format!("Undefined identifier: {name}"))?;
+        let end = self.marks.get(1).copied().unwrap_or(self.slots.len());
+        if !self.modulation.is_empty() && self.base_read.get() != Some(index) && index < end {
+            if let Some(rule) = self.modulation.iter().find(|r| r.property == name) {
+                return rule.apply(base);
+            }
+        }
+        Ok(base.clone())
+    }
+
+    /// A self-read on an assignment RHS (including function calls) sees its base,
+    /// so `angle = angle + 1` cannot feed the LFO back into base. Reads of other
+    /// properties remain effective, allowing normal script-derived values.
+    pub fn with_base_read<T>(&self, name: &str, evaluate: impl FnOnce(&Self) -> T) -> T {
+        if self.modulation.is_empty() {
+            return evaluate(self);
+        }
+        struct Restore<'a>(&'a std::cell::Cell<Option<usize>>, Option<usize>);
+        impl Drop for Restore<'_> {
+            fn drop(&mut self) {
+                self.0.set(self.1);
+            }
+        }
+        let index = self.slots.iter().rposition(|(slot, _)| &**slot == name);
+        let end = self.marks.get(1).copied().unwrap_or(self.slots.len());
+        if index.is_none_or(|i| i >= end) {
+            return evaluate(self);
+        }
+        let previous = self.base_read.replace(index);
+        let _restore = Restore(&self.base_read, previous);
+        evaluate(self)
     }
 
     pub fn get_mut(&mut self, name: &str) -> Option<&mut Value> {
@@ -997,11 +1043,40 @@ pub struct Model {
     pub blocks: Vec<Block>,
     /// Mutable creator-owned state, in declaration order.
     pub prop_names: Vec<String>,
+    modulation: Option<crate::modulation::Config>,
     /// Immutable host-controlled inputs, in declaration order.
     pub param_names: Vec<String>,
 }
 
 impl Model {
+    /// Atomically replace configuration; invalid input leaves the old bank active.
+    pub fn set_modulation(
+        &mut self,
+        config: Option<crate::modulation::Config>,
+        time_ms: f64,
+    ) -> Result<(), String> {
+        let rules = match &config {
+            Some(config) => {
+                config.validate()?;
+                config.validate_properties(&self.decels)?;
+                config.rules(time_ms)?
+            }
+            None => Vec::new(),
+        };
+        self.decels.modulation = Rc::new(rules);
+        self.modulation = config;
+        Ok(())
+    }
+
+    pub fn prepare_modulation(&mut self, time_ms: f64) -> Result<(), String> {
+        if let Some(config) = &self.modulation {
+            // Clear stale effective values even if a seek is outside valid time.
+            self.decels.modulation = Rc::default();
+            self.decels.modulation = Rc::new(config.rules(time_ms)?);
+        }
+        Ok(())
+    }
+
     pub fn from_script(script: &Script) -> Self {
         let mut decels = Declarations::new();
         decels.push_scope();
@@ -1039,6 +1114,7 @@ impl Model {
             functions: script.functions.clone(),
             blocks: script.blocks.clone(),
             prop_names,
+            modulation: None,
             param_names,
         }
     }

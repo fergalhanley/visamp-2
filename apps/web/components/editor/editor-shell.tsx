@@ -858,16 +858,19 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
           )}
 
           {/* E6.3 — 16:9 sized to the column; the log takes what's left. */}
+          {/* The preview owns its size. Canvas buffers and HDR diagnostics
+              must not expand it and feed back into the resize observer. */}
           {/* Fullscreen expands just this box, so the visualisation fills the
               screen without dragging the code panel along with it. */}
           {/* Double-click matches the player, where the canvas does the same. */}
           <div
             ref={previewRef}
             onDoubleClick={togglePreviewFullscreen}
-            className="aspect-video w-full shrink-0 bg-black"
+            className="relative aspect-video min-h-0 w-full shrink-0 overflow-hidden bg-black"
           >
             <VisampCanvas
               interactive
+              autoHdr2D
               ref={canvasHandle}
               source={liveSource}
               assets={assets}
@@ -878,7 +881,7 @@ export function EditorShell({ visualisation, canEdit, initialPrompt = "" }: Edit
               onCompileResult={onCompileResult}
               onProperties={setProperties}
               onLog={onLog}
-              className="h-full w-full"
+              className="absolute inset-0 h-full w-full"
             />
           </div>
 

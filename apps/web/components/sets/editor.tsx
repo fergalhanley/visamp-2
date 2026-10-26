@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- full navigation releases output resources */
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { TopBar } from "@/components/chrome/top-bar";
 import {
   type Clip,
@@ -35,6 +35,13 @@ import { barButton, barButtonBlue } from "@/components/chrome/bar-button";
 import { setEditorShortcut } from "@/lib/sets/editor-shortcuts";
 import { InputController } from "./input-controller";
 import { usePerformance } from "./use-performance";
+
+// The platform is constant for a page; keep the server's label hydration-safe.
+const noSubscribe = () => () => {};
+const shortcutModifierSnapshot = () =>
+  /Mac|iPhone|iPad/.test(navigator.platform) ? "Cmd" : "Ctrl";
+const serverShortcutModifier = () => "Ctrl";
+
 export function SetEditor({ id }: { id: string }) {
   const [h, dispatch] = useReducer(history, {
     past: [],
@@ -55,8 +62,10 @@ export function SetEditor({ id }: { id: string }) {
   const p = usePerformance();
   const clipboard = useRef<Clip | null>(null);
   const playRef = useRef<() => void>(() => {});
-  const [shortcutModifier] = useState(() =>
-    /Mac|iPhone|iPad/.test(navigator.platform) ? "Cmd" : "Ctrl",
+  const shortcutModifier = useSyncExternalStore(
+    noSubscribe,
+    shortcutModifierSnapshot,
+    serverShortcutModifier,
   );
   useEffect(() => {
     playRef.current = () => {
