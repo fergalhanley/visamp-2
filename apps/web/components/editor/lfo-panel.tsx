@@ -53,7 +53,7 @@ export function LfoPanel({ config, onChange, disabled = false }: Props) {
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [config !== null]);
+  }, [config]);
 
   const bank = config ?? defaultModulationConfig();
   const lfo = bank.lfos[Math.min(selected, bank.lfos.length - 1)]!;
