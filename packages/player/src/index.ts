@@ -17,3 +17,23 @@ export type {
   ResolvedAsset,
   VisampCanvasHandle,
 } from "./types";
+export { HdrSceneRenderer } from "./webgpu-hdr-renderer";
+export { tessellateHdr2D } from "./hdr-2d-geometry";
+export type { Hdr2DFrame } from "./hdr-2d-geometry";
+
+export {
+  MAX_LFOS,
+  MAX_MODULATION_ROUTES,
+  configureModulation,
+  defaultModulationConfig,
+  evaluateLfo,
+  resolveModulatedProperties,
+  validateModulation,
+} from "./lfo-modulation";
+export type {
+  LfoConfig,
+  LfoPolarity,
+  LfoWaveform,
+  ModulationConfig,
+  ModulationRoute,
+} from "./lfo-modulation";

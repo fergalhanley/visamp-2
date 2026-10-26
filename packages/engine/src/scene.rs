@@ -309,6 +309,8 @@ pub struct Scene {
     pub gfx: GfxState,
     pub stack: Vec<Mat4>,
     pub commands: Vec<DrawCommand>,
+    /// HDR multiplier per recorded command; the SDR/WebGL renderer ignores it.
+    pub hdr_intensities: Vec<f32>,
     pub meshes: Vec<MeshData>,
     pub point_clouds: Vec<crate::points::PointCloud>,
     /// Asset ids referenced by this frame's draws, in binding order. The
@@ -331,6 +333,7 @@ impl Default for Scene {
             gfx: GfxState::default(),
             stack: vec![Mat4::IDENTITY],
             commands: Vec::new(),
+            hdr_intensities: Vec::new(),
             meshes: Vec::new(),
             point_clouds: Vec::new(),
             textures: Vec::new(),
@@ -496,6 +499,10 @@ impl Scene {
     /// Dropping and warning beats failing: a script that loops too far should
     /// render a partial frame, not take the canvas down.
     pub fn record(&mut self, command: DrawCommand) {
+        self.record_with_intensity(command, 1.0);
+    }
+
+    pub fn record_with_intensity(&mut self, command: DrawCommand, intensity: f32) {
         if self.commands.len() >= MAX_DRAW_COMMANDS {
             self.warn_dropped(format!(
                 "draw command limit reached ({MAX_DRAW_COMMANDS}), dropping the rest of this frame"
@@ -513,6 +520,7 @@ impl Scene {
 
         self.triangles += triangles;
         self.commands.push(command);
+        self.hdr_intensities.push(intensity);
     }
 
     fn warn_dropped(&mut self, message: String) {

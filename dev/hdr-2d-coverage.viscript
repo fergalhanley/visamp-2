@@ -1,0 +1,37 @@
+// Complete drawing coverage. Image drawing additionally needs a registered asset.
+context 2d
+prop angle = 0.0
+on_frame { angle = $TIME_SEC }
+render {
+  draw::clear()
+  draw::background(color: $COLOR_BLACK, intensity: 1)
+  let ramp = color::linear_gradient(x0: 20, y0: 20, x1: 200, y1: 20,
+    color_stops: [[0, $COLOR_TURQUOISE], [1, $COLOR_CRIMSON]])
+  transform::push()
+  transform::translate(x: 140, y: 140)
+  transform::rotate_z(rad: angle)
+  transform::scale(x: 0.9, y: 1.1)
+  draw::rect(x: -45, y: -45, width: 90, height: 90, corner_radius: 12, intensity: 4)
+  transform::pop()
+  draw::circle(x: 280, y: 90, radius: 40, stroke: true, stroke_width: 6,
+    stroke_color: $COLOR_TURQUOISE, intensity: 3)
+  draw::ellipse(x: 420, y: 90, radius_x: 50, radius_y: 25, rotation_rad: angle,
+    gradient: ramp, intensity: 3)
+  draw::polygon(points: [[20,220],[100,210],[80,260],[120,290],[20,290]],
+    rotation_rad: angle, gradient: ramp, intensity: 3)
+  draw::line(x1: 170, y1: 220, x2: 260, y2: 280,
+    stroke_width: 8, line_cap: "round", gradient: ramp, intensity: 2)
+  draw::polyline(points: [[300,220],[340,270],[380,220]],
+    stroke_width: 8, line_join: "round", intensity: 4)
+  draw::bezier(points: [[410,220],[450,150],[480,300],[520,220]],
+    stroke_width: 6, intensity: 3)
+  draw::arc(x: 560, y: 95, radius: 35, start_deg: 20, sweep_deg: 250,
+    stroke_width: 6, intensity: 4)
+  gfx::blend(mode: "additive")
+  draw::circle(x: 560, y: 240, radius: 30,
+    color: color::rgb(r: 0.3, g: 0.8, b: 0.9, a: 0.5), intensity: 3)
+  gfx::blend(mode: "alpha")
+  draw::text(content: "HDR paths / transforms / paint", x: 25, y: 340, size: 24,
+    gradient: color::radial_gradient(x: 280, y: 320, radius: 280,
+      color_stops: [[0, $COLOR_WHITE], [1, $COLOR_TURQUOISE]]), intensity: 3)
+}

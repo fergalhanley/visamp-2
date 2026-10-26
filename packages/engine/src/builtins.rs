@@ -52,6 +52,7 @@ pub const PROMOTED_3D_ARGS: &[&str] = &[
     "shading",
     "wireframe",
     "opacity",
+    "intensity",
 ];
 
 /// The §6.6 arguments every `draw::` call accepts in 3d.
@@ -64,6 +65,7 @@ pub const COMMON_3D_DRAW_ARGS: &[&str] = &[
     "shading",
     "wireframe",
     "opacity",
+    "intensity",
     // An `asset::bitmap` or `asset::vector` reference. Modulates the shape's
     // colour rather than replacing it, so tint and opacity still apply.
     "texture",
@@ -120,6 +122,7 @@ pub const BUILTINS: &[Builtin] = &[
             "y",
             "radius",
             "color",
+            "intensity",
             "gradient",
             "stroke",
             "stroke_width",
@@ -135,6 +138,7 @@ pub const BUILTINS: &[Builtin] = &[
             "width",
             "height",
             "color",
+            "intensity",
             "gradient",
             "stroke",
             "stroke_width",
@@ -555,6 +559,9 @@ impl Builtin {
     /// Every argument name legal for this call in the given mode.
     pub fn accepted_args(&self, context: ContextKind) -> Vec<&'static str> {
         let mut names: Vec<&'static str> = self.args.to_vec();
+        if context == ContextKind::TwoD && self.namespace == "draw" && self.name != "clear" {
+            names.push("intensity");
+        }
         if context == ContextKind::ThreeD {
             names.extend_from_slice(self.args_3d);
             if self.takes_common_3d {
