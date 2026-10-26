@@ -988,6 +988,7 @@ export type Database = {
       }
       visualisations: {
         Row: {
+          modulation: Json | null
           preferred_track_id: string | null
           slug: string
           slug_published: boolean
@@ -1012,6 +1013,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["visibility"]
         }
         Insert: {
+          modulation?: Json | null
           preferred_track_id?: string | null
           comment_count?: number
           created_at?: string
@@ -1033,6 +1035,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["visibility"]
         }
         Update: {
+          modulation?: Json | null
           preferred_track_id?: string | null
           comment_count?: number
           created_at?: string
