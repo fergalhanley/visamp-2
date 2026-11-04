@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ModulationConfig } from "@visamp/player";
 
 export interface EditorSnapshot {
   preferred_track_id?: string | null;
   title: string;
   source: string;
+  modulation?: ModulationConfig | null;
   visibility: "private" | "public" | "protected" | "product";
 }
 
@@ -50,6 +52,7 @@ export function useEditorAutosave({
   const dirty =
     value.title !== lastSaved.title ||
     value.source !== lastSaved.source ||
+    JSON.stringify(value.modulation ?? null) !== JSON.stringify(lastSaved.modulation ?? null) ||
     value.visibility !== lastSaved.visibility ||
     (value.preferred_track_id ?? null) !==
       (lastSaved.preferred_track_id ?? null);

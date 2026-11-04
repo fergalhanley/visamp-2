@@ -1,0 +1,42 @@
+// Performance regression scene: up to 640 lines plus a translucent trail fade.
+// Set hdr_intensity to 1 for reference brightness, or 3 for HDR lines.
+prop custom_prop_points = 32
+prop line_width = 1
+prop zoom = 0.5
+prop hdr_intensity = 3.0
+
+on_frame {
+  zoom = 0.6 + (math::sin(rad: $TIME_MS / 5000) / 3.0)
+}
+render {
+  draw::rect(x: 0, y: 0, width: $WIDTH, height: $HEIGHT,
+    color: color::rgb(a: 1.0 - 0.997))
+  effect::kaleidoscope(segments: 4, branches: 2, rad: $TIME_SEC / 16)
+  effect::filter::hue_rotate(rad: $TIME_SEC / 10)
+  effect::filter::contrast(amount: 3 * audio::detect::get_level() + 1)
+  effect::filter::saturate(amount: 0.7)
+  let cx = $WIDTH / 2
+  let cy = $HEIGHT / 2
+  let deg = 2 * $PI / custom_prop_points
+  let t = $TIME_MS * 0.0001
+  let theta = t % $PI * 2
+  let ocil = math::sin(rad: t) * 10
+  let max = math::abs(value: custom_prop_points * ocil)
+  let r = math::min(a: $WIDTH, b: $HEIGHT)
+  let i = 0
+  while i < max {
+    let x1 = r * zoom * math::cos(rad: deg * i + theta) + cx
+    let y1 = r * zoom * math::sin(rad: deg * i + theta) + cy
+    let x2 = r * zoom * math::cos(rad: deg / ocil * i + theta) + cx
+    let y2 = r * zoom * math::sin(rad: deg / ocil * i + theta) + cy
+    draw::line(x1: x1, y1: y1, x2: x2, y2: y2,
+      stroke_width: line_width * zoom, intensity: hdr_intensity,
+      color: color::rgb(r: y1 / $HEIGHT, g: x1 / $WIDTH, b: i / max))
+    x2 = cx + (r * zoom * 4 * math::cos(rad: deg * i))
+    y2 = cy + (r * zoom * 4 * math::sin(rad: deg * i))
+    draw::line(x1: x1, y1: y1, x2: x2, y2: y2,
+      stroke_width: line_width * zoom, intensity: hdr_intensity,
+      color: color::rgb(r: y1 / $HEIGHT, g: x1 / $WIDTH, b: i / max))
+    i = i + 1
+  }
+}

@@ -67,6 +67,7 @@ export function CanvasLayer() {
         }}
         interactive
         source={source}
+        modulation={current.modulation ?? null}
         assets={assets}
         assetPreparation={preparation}
         posterUrl={current.thumbUrl}

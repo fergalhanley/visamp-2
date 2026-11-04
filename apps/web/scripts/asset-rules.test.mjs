@@ -646,7 +646,7 @@ test("malformed point accessors, indices and node graphs are bounded and rejecte
 });
 
 test("point geometry honours interleaved accessor stride", () => {
-  const bytes = pointGlb((g, b) => {
+  const bytes = pointGlb((g) => {
     g.accessors[0].count = 2;
     g.bufferViews[0].byteStride = 16;
   });

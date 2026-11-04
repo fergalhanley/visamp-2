@@ -60,6 +60,8 @@ export interface EngineModule {
   main_web(): void;
   set_animation_time(timeMs?: number): void;
   set_animation_paused(paused: boolean): void;
+  /** Version 1 modulation JSON, or "null". Throws on invalid configuration. */
+  set_modulation_config(payload: string): void;
   set_param(name: string, valueJson: string): void;
   queue_input(json: string): void;
   clear_input(): void;
@@ -67,6 +69,14 @@ export interface EngineModule {
   load_script(code: string): string;
   validate_script(code: string): string;
   get_last_error(): string;
+  /** Experimental read-only 3D scene snapshot for opt-in HDR preview. */
+  get_hdr_scene_snapshot(): string;
+  /** Versioned live 2D draw/effects snapshot, including a monotonic frame sequence. */
+  get_hdr_2d_snapshot(): string;
+  /** True for a loaded 2D script containing explicit draw intensity. */
+  get_hdr_2d_requested(): boolean;
+  set_hdr_2d_recording(enabled: boolean): void;
+  set_hdr_2d_presenting(enabled: boolean): void;
   /** PNG snapshot with engine post-processing baked into the pixels. */
   capture_frame(): Promise<Blob>;
   set_audio_analysis(waveform: Float32Array, spectrum: Float32Array, sampleRate: number, level: number, beat: boolean, onset: boolean, onsetStrength: number): void;
