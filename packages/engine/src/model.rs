@@ -542,11 +542,13 @@ pub struct Declarations {
     slots: Vec<(Rc<str>, Value)>,
     /// Index into `slots` where each open scope begins.
     marks: Vec<usize>,
-    /// Function calls inherit property values, but cannot write the caller's state.
+    /// Function calls inherit global values, but cannot write caller-owned state.
     read_only_globals: usize,
     /// Frame-local read rules, never stored in the source/base slots.
     modulation: Rc<Vec<crate::modulation::PropertyRule>>,
     base_read: std::cell::Cell<Option<usize>>,
+    /// Top-level `param` names are host-controlled and immutable to Visript.
+    immutable_globals: Vec<Rc<str>>,
 }
 
 impl Declarations {
@@ -563,6 +565,7 @@ impl Declarations {
             read_only_globals: end,
             modulation: self.modulation.clone(),
             base_read: self.base_read.clone(),
+            immutable_globals: self.immutable_globals.clone(),
         }
     }
 
@@ -573,8 +576,14 @@ impl Declarations {
             .is_some_and(|index| index < self.read_only_globals)
     }
 
+    pub fn is_param(&self, name: &str) -> bool {
+        self.immutable_globals.iter().any(|param| &**param == name)
+    }
+
     pub fn check_writable(&self, name: &str) -> Result<(), String> {
-        if self.is_read_only(name) {
+        if self.is_param(name) {
+            Err(format!("Param '{name}' is immutable; only the host can set it"))
+        } else if self.is_read_only(name) {
             Err(format!("Property '{name}' is read-only inside functions; update it in a lifecycle or render block"))
         } else {
             Ok(())
@@ -599,6 +608,14 @@ impl Declarations {
 
     pub fn declare(&mut self, name: String, value: Value) {
         self.slots.push((Rc::from(name.as_str()), value));
+    }
+
+    pub fn declare_param(&mut self, name: String, value: Value) {
+        let name: Rc<str> = Rc::from(name.as_str());
+        self.slots.push((name.clone(), value));
+        if !self.immutable_globals.iter().any(|param| param == &name) {
+            self.immutable_globals.push(name);
+        }
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
@@ -681,6 +698,25 @@ impl Declarations {
             .find(|(slot, _)| &**slot == name)
             .map(|(_, value)| value)
     }
+
+    /// Updates a name in the outermost scope only.
+    ///
+    /// Marketplace controls use this rather than `set`: an external control
+    /// is allowed to change a declared `prop`, never a temporary local that
+    /// happens to reuse the same name while a frame is executing.
+    pub fn set_global(&mut self, name: &str, value: Value) -> Result<(), String> {
+        let end = self.marks.get(1).copied().unwrap_or(self.slots.len());
+        if let Some((_, existing)) = self.slots[..end]
+            .iter_mut()
+            .rev()
+            .find(|(slot, _)| &**slot == name)
+        {
+            *existing = value;
+            Ok(())
+        } else {
+            Err(format!("Unknown global '{name}'"))
+        }
+    }
 }
 
 // ── AST Types ──
@@ -727,6 +763,7 @@ impl ContextKind {
 #[derive(Debug, Clone)]
 pub struct Script {
     pub context: ContextKind,
+    pub params: Vec<ScriptParamDef>,
     pub props: Vec<PropertyDef>,
     pub functions: Vec<FunctionDef>,
     pub blocks: Vec<Block>,
@@ -736,6 +773,7 @@ impl Script {
     pub fn new() -> Self {
         Script {
             context: ContextKind::default(),
+            params: Vec::new(),
             props: Vec::new(),
             functions: Vec::new(),
             blocks: Vec::new(),
@@ -849,6 +887,12 @@ pub enum ForIterable {
 pub struct WhileLoop {
     pub condition: Expression,
     pub body: Vec<Statement>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScriptParamDef {
+    pub name: String,
+    pub value: Value,
 }
 
 #[derive(Debug, Clone)]
@@ -997,11 +1041,11 @@ pub struct Model {
     pub decels: Declarations,
     pub functions: Vec<FunctionDef>,
     pub blocks: Vec<Block>,
-    /// Property names in the order they were declared. The scope itself is a
-    /// `HashMap`, so this is the only record of the author's ordering — the
-    /// inspector lists them as written rather than in hash order.
+    /// Mutable creator-owned state, in declaration order.
     pub prop_names: Vec<String>,
     modulation: Option<crate::modulation::Config>,
+    /// Immutable host-controlled inputs, in declaration order.
+    pub param_names: Vec<String>,
 }
 
 impl Model {
@@ -1036,29 +1080,34 @@ impl Model {
     pub fn from_script(script: &Script) -> Self {
         let mut decels = Declarations::new();
         decels.push_scope();
-        // `prop tint = $COLOR_CRIMSON` parses to the bare token, so resolve
-        // system values here rather than leaving a name that every later use
-        // has to cope with. Constants like the palette and PI come out exact;
-        // frame-varying ones (`$WIDTH`, `$TIME_MS`) resolve against a fresh
-        // runtime, which is the right reading of an *initial* value.
+
+        // Top-level values are deliberately simple literals/constants. Resolve
+        // system constants once at script load so the declared default becomes
+        // the stable default restored on every reload.
         let seed = crate::interpreter::Runtime::new();
+        let resolve_initial = |value: &Value| match value {
+            Value::SystemValue(name) => {
+                crate::interpreter::map_value_runtime(
+                    name.trim_start_matches('$'),
+                    &seed,
+                )
+                .unwrap_or_else(|_| value.clone())
+            }
+            other => other.clone(),
+        };
+
+        let mut param_names = Vec::with_capacity(script.params.len());
+        for param in &script.params {
+            decels.declare_param(param.name.clone(), resolve_initial(&param.value));
+            param_names.push(param.name.clone());
+        }
 
         let mut prop_names = Vec::with_capacity(script.props.len());
         for prop in &script.props {
-            let value = match &prop.value {
-                Value::SystemValue(name) => {
-                    crate::interpreter::map_value_runtime(name.trim_start_matches('$'), &seed)
-                        .unwrap_or_else(|_| prop.value.clone())
-                }
-                other => other.clone(),
-            };
-            decels.declare(prop.name.clone(), value);
-            // A redeclared name keeps its first position rather than appearing
-            // twice in the inspector.
-            if !prop_names.contains(&prop.name) {
-                prop_names.push(prop.name.clone());
-            }
+            decels.declare(prop.name.clone(), resolve_initial(&prop.value));
+            prop_names.push(prop.name.clone());
         }
+
         Model {
             context: script.context,
             decels,
@@ -1066,6 +1115,80 @@ impl Model {
             blocks: script.blocks.clone(),
             prop_names,
             modulation: None,
+            param_names,
         }
     }
+
+    /// Changes a declared top-level param from the host.
+    ///
+    /// Visript can read params but never write them. This is the only mutation
+    /// boundary, and values must preserve the type declared by the creator.
+    pub fn set_param_json(&mut self, name: &str, json: &str) -> Result<(), String> {
+        if !self.param_names.iter().any(|param| param == name) {
+            return Err(format!("Unknown param '{name}'"));
+        }
+
+        let current = self
+            .decels
+            .global(name)
+            .cloned()
+            .ok_or_else(|| format!("Unknown param '{name}'"))?;
+        let incoming: serde_json::Value =
+            serde_json::from_str(json).map_err(|_| format!("Invalid value for param '{name}'"))?;
+
+        let value = match current {
+            Value::Boolean(_) => incoming
+                .as_bool()
+                .map(Value::Boolean)
+                .ok_or_else(|| format!("Param '{name}' expects a boolean"))?,
+            Value::Integer(_) => incoming
+                .as_i64()
+                .map(Value::Integer)
+                .ok_or_else(|| format!("Param '{name}' expects an integer"))?,
+            Value::Float(_) => incoming
+                .as_f64()
+                .filter(|value| value.is_finite())
+                .map(Value::Float)
+                .ok_or_else(|| format!("Param '{name}' expects a finite number"))?,
+            Value::String(_) => incoming
+                .as_str()
+                .map(|value| Value::String(value.to_string()))
+                .ok_or_else(|| format!("Param '{name}' expects text"))?,
+            Value::Color(existing) => {
+                let text = incoming
+                    .as_str()
+                    .ok_or_else(|| format!("Param '{name}' expects a #rrggbb colour"))?;
+                Value::Color(
+                    parse_control_color(text, existing.a).ok_or_else(|| {
+                        format!("Param '{name}' expects a #rrggbb or #rrggbbaa colour")
+                    })?,
+                )
+            }
+            other => {
+                return Err(format!(
+                    "Param '{name}' of type {} cannot be externally controlled",
+                    other.type_tag()
+                ))
+            }
+        };
+
+        self.decels.set_global(name, value)
+    }
+}
+
+fn parse_control_color(value: &str, default_alpha: f64) -> Option<Color> {
+    let hex = value.strip_prefix('#')?;
+    if hex.len() != 6 && hex.len() != 8 {
+        return None;
+    }
+    let channel = |start: usize| u8::from_str_radix(&hex[start..start + 2], 16).ok();
+    let r = channel(0)? as f64 / 255.0;
+    let g = channel(2)? as f64 / 255.0;
+    let b = channel(4)? as f64 / 255.0;
+    let a = if hex.len() == 8 {
+        channel(6)? as f64 / 255.0
+    } else {
+        default_alpha
+    };
+    Some(Color::new(r, g, b, a))
 }

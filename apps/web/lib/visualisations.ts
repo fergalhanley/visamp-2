@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/supabase/database.types";
+import { readStoredModulation } from "@/lib/editor/modulation";
 import { profileAvatarUrl, publicStorageUrl } from "@/lib/storage-urls";
 import type { Creator, Visualisation } from "@/lib/types";
 
@@ -32,8 +33,10 @@ export function visualisationFromRow(row: Row, creator: Creator): Visualisation 
     title: row.title,
     description: row.description ?? undefined,
     source: row.source,
+    modulation: readStoredModulation(row.modulation),
     creator,
     ownerId: row.owner_id,
+    marketplacePriceCredits: row.marketplace_price_credits ?? undefined,
     forkedFromId: row.forked_from_id ?? undefined,
     thumbUrl: publicStorageUrl("thumbnails", row.thumb_path, row.updated_at),
     usesAudio: row.uses_audio,

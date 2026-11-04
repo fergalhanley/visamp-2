@@ -1,3 +1,5 @@
+> **Deprecated workflow.** Linear is no longer part of Visamp's default agent workflow. This file is retained only as historical setup/context. Use [requirements.md](requirements.md), [milestones.md](milestones.md) and [todo.md](todo.md), governed by [../AGENTS.md](../AGENTS.md).
+
 # Linear task pickup for coding agents
 
 Tracking: [VIS-70](https://linear.app/visamp/issue/VIS-70/configure-linear-task-pickup-for-codex-cli-and-claude-code).

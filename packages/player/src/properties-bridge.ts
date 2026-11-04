@@ -34,10 +34,10 @@ function sameValue(a: PropertyView, b: PropertyView): boolean {
  * so an engine-side event per assignment would mean thousands of boundary
  * crossings a second to feed a panel a human reads a few times a second.
  */
-export function startPropertiesBridge(
-  engine: EngineModule,
+function startValueBridge(
+  read: () => string,
   onChange: (properties: PropertyView[]) => void,
-  dwellMs: number = DWELL_MS,
+  dwellMs: number,
 ): () => void {
   let held: Held[] = [];
   let frame = 0;
@@ -47,7 +47,7 @@ export function startPropertiesBridge(
 
     let incoming: PropertyView[];
     try {
-      incoming = JSON.parse(engine.get_properties()) as PropertyView[];
+      incoming = JSON.parse(read()) as PropertyView[];
     } catch {
       // A panicking engine is already reported through the log, and a
       // malformed payload should leave the last good list standing rather than
@@ -87,4 +87,19 @@ export function startPropertiesBridge(
   return () => {
     cancelAnimationFrame(frame);
   };
+}
+
+export function startPropertiesBridge(
+  engine: EngineModule,
+  onChange: (properties: PropertyView[]) => void,
+  dwellMs: number = DWELL_MS,
+): () => void {
+  return startValueBridge(() => engine.get_properties(), onChange, dwellMs);
+}
+
+export function startParamsBridge(
+  engine: EngineModule,
+  onChange: (params: PropertyView[]) => void,
+): () => void {
+  return startValueBridge(() => engine.get_params(), onChange, 0);
 }

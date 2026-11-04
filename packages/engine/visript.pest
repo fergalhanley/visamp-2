@@ -15,7 +15,7 @@ boolean     = @{ ("true" | "false") }
 integer     = @{ ("-"? ~ ASCII_DIGIT+) }
 string      = @{ "\"" ~ ( "\\\"" | !"\"" ~ ANY )* ~ "\"" }
 
-script = { SOI ~ (context_decl | prop_def | function_def | block)* ~ EOI }
+script = { SOI ~ (context_decl | param_def | prop_def | function_def | block)* ~ EOI }
 
 // Selects the coordinate model. Legal anywhere at the top level; omitting it
 // means 2d. Declaring it twice is rejected by the AST builder.
@@ -90,6 +90,7 @@ array_elements = _{ array_element ~ ("," ~ array_element)* ~ ","? }
 array_element = _{ expression | array }
 
 let_decl = { "let" ~ identifier ~ "=" ~ expression }
+param_def = { "param" ~ identifier ~ "=" ~ value }
 prop_def = { "prop" ~ identifier ~ "=" ~ value }
 
 function_params = { "(" ~ (argument ~ ("," ~ argument)* ~ ","?)? ~ ")" }

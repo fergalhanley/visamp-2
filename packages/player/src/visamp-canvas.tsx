@@ -13,12 +13,13 @@ import {
 
 import { startInputBridge } from "./input-bridge";
 import { startAudioBridge } from "./audio-bridge";
-import { startPropertiesBridge } from "./properties-bridge";
+import { startParamsBridge, startPropertiesBridge } from "./properties-bridge";
 import { toRuntimeLog, toCompileResult } from "./diagnostics";
 import type {
   CompileResult,
   EngineModule,
   LogEntry,
+  ParamView,
   PropertyView,
   ResolvedAsset,
   VisampCanvasHandle,
@@ -107,6 +108,7 @@ export interface VisampCanvasProps {
    * no inspector and should not pay for one.
    */
   onProperties?: (properties: PropertyView[]) => void;
+  onParams?: (params: ParamView[]) => void;
   onLog?: (entry: LogEntry) => void;
   onReady?: () => void;
   className?: string;
@@ -141,6 +143,7 @@ export function VisampCanvas({
   analyser,
   onCompileResult,
   onProperties,
+  onParams,
   onLog,
   onReady,
   className,
@@ -176,11 +179,13 @@ export function VisampCanvas({
   // never re-triggers boot or re-arms the poller.
   const onCompileResultRef = useRef(onCompileResult);
   const onPropertiesRef = useRef(onProperties);
+  const onParamsRef = useRef(onParams);
   const onLogRef = useRef(onLog);
   const onReadyRef = useRef(onReady);
 
   onCompileResultRef.current = onCompileResult;
   onPropertiesRef.current = onProperties;
+  onParamsRef.current = onParams;
   onLogRef.current = onLog;
   onReadyRef.current = onReady;
 
@@ -242,10 +247,9 @@ export function VisampCanvas({
       setReady(true);
       onReadyRef.current?.();
     }).catch((error: unknown) => {
-      onLogRef.current?.({
-        level: "error",
-        message: `Could not start the rendering engine: ${error instanceof Error ? error.message : String(error)}. Reload the page to retry.`,
-      });
+      const message = `Could not start the rendering engine: ${error instanceof Error ? error.message : String(error)}. Reload the page to retry.`;
+      setActivationError(message);
+      onLogRef.current?.({ level: "error", message });
     });
   }, [active]);
 
@@ -510,6 +514,17 @@ export function VisampCanvas({
     };
   }, [previewEnabled, isHdr2D, ready, activated, activationRevision, autoHdr2D]);
 
+  const watchParams = Boolean(onParams);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!ready || !engine || !watchParams) return;
+
+    return startParamsBridge(engine, (params) => {
+      onParamsRef.current?.(params);
+    });
+  }, [ready, watchParams]);
+
   const captureFrame = useCallback(async (): Promise<Blob> => {
     const engine = engineRef.current;
     if (
@@ -531,6 +546,17 @@ export function VisampCanvas({
       captureFrame,
       setAnimationTime: (timeMs: number | null) => {
         engineRef.current?.set_animation_time(timeMs ?? undefined);
+      },
+      setParam: (name, value) => {
+        const engine = engineRef.current;
+        if (!engine) throw new Error("The visualisation engine is not ready");
+        engine.set_param(name, JSON.stringify(value));
+      },
+      captureStream: (fps = 30) => {
+        const canvas = stageRef.current?.querySelector("canvas");
+        if (!(canvas instanceof HTMLCanvasElement))
+          throw new Error("The visualisation canvas is not ready");
+        return canvas.captureStream(fps);
       },
       queueInput: (packet: object | null) => {
         if (packet) engineRef.current?.queue_input(JSON.stringify(packet));

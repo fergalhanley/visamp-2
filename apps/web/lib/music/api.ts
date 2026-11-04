@@ -37,7 +37,7 @@ export function musicError(error: unknown) {
     { status: 503 },
   );
 }
-export async function musicBody(request: Request) {
+export async function musicBody(request: Request, maxBytes = 16000) {
   if (request.headers.get("origin") !== new URL(request.url).origin)
     throw new MusicError(403, "Invalid request origin.");
   const reader = request.body?.getReader();
@@ -49,7 +49,7 @@ export async function musicBody(request: Request) {
       const part = await reader.read();
       if (part.done) break;
       bytes += part.value.byteLength;
-      if (bytes > 16000) {
+      if (bytes > maxBytes) {
         await reader.cancel();
         throw new MusicError(413, "Too much data.");
       }

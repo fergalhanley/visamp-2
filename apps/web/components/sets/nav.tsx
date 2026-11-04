@@ -16,11 +16,12 @@ export function SetNav() {
   return (
     <>
       <div className="hidden items-center gap-1.5 md:flex">
-        {user && (path === "/edit" || path === "/vj-mode") && (
-          <a href="/sets" className={cn(barButton, barButtonBlue)}>
-            Set Builder
-          </a>
-        )}
+        {user &&
+          (path === "/edit" || path === "/vj-mode" || path === "/studio") && (
+            <a href="/sets" className={cn(barButton, barButtonBlue)}>
+              Set Builder
+            </a>
+          )}
         {path !== "/vj-mode" &&
           (user ? (
             <a href="/vj-mode" className={vjButton}>

@@ -1,3 +1,5 @@
+> **Legacy planning document.** This file is retained for historical context only. Current product scope and planning live in [../agents/requirements.md](../agents/requirements.md), [../agents/milestones.md](../agents/milestones.md) and [../agents/todo.md](../agents/todo.md). Do not treat this file or its Linear references as active work authority.
+
 # Visamp Linear backlog mapping
 
 > Set/VJ update (2026-09-21): [the approved contract](vj-mode-and-set-builder.md)

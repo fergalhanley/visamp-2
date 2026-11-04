@@ -1,0 +1,247 @@
+.studio-page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #0b0e10;
+  color: #e9edf0;
+}
+.studio-main {
+  flex: 1;
+  min-height: 0;
+}
+.studio-workspace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+.studio-columns {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.studio-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid #293139;
+}
+.studio-column:last-child {
+  border-right: 0;
+}
+.studio-column-header {
+  min-height: 64px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #293139;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.studio-column-header :is(h1, h2) {
+  font-size: 15px;
+  font-weight: 600;
+}
+.studio-column-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+.studio-column-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid #293139;
+  color: #a5adb8;
+}
+.studio-workspace :is(button, .studio-action) {
+  border: 1px solid #39404a;
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: #151b21;
+  cursor: pointer;
+}
+.studio-workspace button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.studio-workspace a {
+  text-underline-offset: 4px;
+}
+.studio-workspace a:hover {
+  text-decoration: underline;
+}
+.studio-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.studio-workspace :focus-visible {
+  outline: 2px solid #e580ce;
+  outline-offset: 3px;
+}
+.studio-filters {
+  padding: 16px;
+  border-bottom: 1px solid #293139;
+  display: grid;
+  gap: 12px;
+}
+.studio-workspace label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #b5bdc6;
+}
+.studio-workspace :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  color: #e9edf0;
+  background: #151b21;
+  border: 1px solid #39404a;
+  border-radius: 6px;
+}
+.studio-workspace .studio-search {
+  position: relative;
+}
+.studio-search svg {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+}
+.studio-search input {
+  padding-left: 33px;
+}
+.studio-settings-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.studio-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.studio-workspace .studio-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.studio-card strong {
+  font-weight: 500;
+}
+.studio-workspace .studio-card[aria-pressed="true"] {
+  border-color: #c778b6;
+  background: #261c29;
+}
+.studio-muted {
+  font-size: 12px;
+  color: #a5adb8;
+  line-height: 1.6;
+}
+.studio-badge {
+  font-size: 11px;
+  border: 1px solid #46505b;
+  padding: 2px 7px;
+  border-radius: 99px;
+  color: #bac2cb;
+}
+.studio-context {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #293139;
+  overflow-wrap: anywhere;
+}
+.studio-context a {
+  font-size: 12px;
+  color: #b5bdc6;
+  text-decoration: underline;
+}
+.studio-empty {
+  color: #8e99a6;
+  line-height: 1.7;
+  padding: 14px 4px;
+}
+.studio-master-form {
+  display: grid;
+  gap: 22px;
+}
+.studio-master-form h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.studio-master-form fieldset {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.studio-summary {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #293139;
+  padding-top: 16px;
+}
+.studio-summary div {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 12px;
+}
+.studio-summary dt {
+  color: #8e99a6;
+}
+.studio-summary dd {
+  overflow-wrap: anywhere;
+}
+.studio-save {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.studio-save span {
+  color: #a5adb8;
+  font-size: 12px;
+}
+.studio-error {
+  padding: 12px 18px;
+  background: #3d1e27;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .studio-page {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .studio-columns {
+    grid-template-columns: 1fr;
+  }
+  .studio-column {
+    border-right: 0;
+    border-bottom: 1px solid #293139;
+  }
+  .studio-column-body {
+    max-height: 60dvh;
+    min-height: 150px;
+  }
+  .studio-column-header {
+    min-height: 58px;
+  }
+}

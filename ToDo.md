@@ -1,11 +1,10 @@
-# MVP planning
+# Todo moved
 
-The current application is a PoC. The old informal todo list has been superseded by:
+Active Visamp work is tracked in [agents/todo.md](agents/todo.md).
 
-- [MVP product specification](dev/mvp.md)
-- [Ticket drafts awaiting Linear](dev/mvp-backlog.md)
+See also:
 
-Unresolved candidates from the former list are preserved in those drafts:
-versioned real-music validator fixtures, a scramble filter and additional codex ports.
-Landing, upload and admin code now exists; use current validation/change tasks rather
-than recreating them from the historical list. Historical detail remains in Git history.
+- [requirements](agents/requirements.md)
+- [milestones](agents/milestones.md)
+- [backlog](agents/backlog.md)
+- [maybe](agents/maybe.md)

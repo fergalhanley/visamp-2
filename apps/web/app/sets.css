@@ -871,3 +871,23 @@
   width: auto;
   padding-inline: 8px;
 }
+
+/* Studio embeds the shared timeline in a page rather than a performance viewport. */
+.video-maker.set-editor {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  min-width: 0;
+  border: 1px solid #303640;
+  border-radius: 8px;
+  background: #0b0e10;
+  color: #e9edf0;
+}
+.video-maker .set-inspector label {
+  display: grid;
+  width: 150px;
+  gap: 4px;
+}
+.video-maker .set-inspector input {
+  min-width: 0;
+}

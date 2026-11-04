@@ -8,6 +8,9 @@ import { NextResponse, type NextRequest } from "next/server";
  * deliberately not an authorization layer. Authorization lives in RLS.
  */
 export async function proxy(request: NextRequest) {
+  // The embed has its own anonymous public-data boundary. It must not refresh
+  // a visitor's Visamp session or require third-party cookies.
+  if (request.nextUrl.pathname === "/embed") return NextResponse.next();
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

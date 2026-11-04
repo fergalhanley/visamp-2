@@ -20,7 +20,7 @@ import {
   anchoredTimelineScroll,
   snapTimelineTime,
 } from "@/lib/sets/timeline-interactions";
-import { DRAG_MEDIA } from "./catalogue";
+import { DRAG_MEDIA } from "@/lib/sets/drag-media";
 export function Timeline({
   set,
   onChange,

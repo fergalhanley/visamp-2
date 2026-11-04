@@ -222,6 +222,23 @@ pub fn set_modulation_config(payload: &str) -> Result<(), String> {
     })
 }
 
+/// Update one declared top-level Visript param from the host.
+///
+/// Params are immutable to Visript itself. Studio/API clients are the only
+/// writers, and the model preserves the type declared by the creator.
+#[wasm_bindgen]
+pub fn set_param(name: &str, value_json: &str) -> Result<(), String> {
+    STATE.with(|state| {
+        let state = state.borrow();
+        let state = state.as_ref().ok_or("engine is not initialized")?;
+        let mut model = state
+            .model
+            .try_borrow_mut()
+            .map_err(|_| "engine is busy; try the param change again".to_string())?;
+        model.set_param_json(name, value_json)
+    })
+}
+
 /// Hands the engine decoded pixels for an asset the page has already fetched.
 ///
 /// `rgba` must be `width * height * 4` bytes. The engine does no fetching of
@@ -1036,14 +1053,34 @@ fn json_escape(value: &str) -> String {
     out
 }
 
-/// A snapshot of every declared property and its current value.
-///
-/// Returns a JSON array of `{name, type, value, swatch?}`, in declaration
-/// order. This is a *pull*, not a push: properties are reassigned on every
-/// frame, so emitting an event per change would mean thousands of boundary
-/// crossings a second to feed a panel a human reads a few times a second.
-/// The caller polls this and diffs, which turns into a change event on the JS
-/// side at a fraction of the cost.
+/// Build the shared host-facing value payload used by prop and param inspectors.
+fn named_values_json(model: &Model, names: &[String]) -> String {
+    let entries: Vec<String> = names
+        .iter()
+        .filter_map(|name| model.decels.global(name).map(|value| (name, value)))
+        .map(|(name, value)| {
+            let swatch = match value {
+                Value::Color(c) => format!(
+                    ",\"swatch\":\"#{:02x}{:02x}{:02x}\"",
+                    (c.r.clamp(0.0, 1.0) * 255.0).round() as u8,
+                    (c.g.clamp(0.0, 1.0) * 255.0).round() as u8,
+                    (c.b.clamp(0.0, 1.0) * 255.0).round() as u8
+                ),
+                _ => String::new(),
+            };
+            format!(
+                "{{\"name\":\"{}\",\"type\":\"{}\",\"value\":\"{}\"{}}}",
+                json_escape(name),
+                value.type_tag(),
+                json_escape(&value.display()),
+                swatch
+            )
+        })
+        .collect();
+    format!("[{}]", entries.join(","))
+}
+
+/// A snapshot of every declared mutable property and its current value.
 #[wasm_bindgen]
 pub fn get_properties() -> String {
     STATE.with(|s| {
@@ -1051,42 +1088,30 @@ pub fn get_properties() -> String {
         let Some(ref state) = *borrowed else {
             return "[]".to_string();
         };
-
-        // A frame in flight holds this mutably; skipping a poll is invisible,
-        // whereas panicking here would take the whole editor down.
         let Ok(model) = state.model.try_borrow() else {
             return "[]".to_string();
         };
-
-        // Properties live in the outermost scope; block scopes sit above it.
-        let entries: Vec<String> = model
-            .prop_names
-            .iter()
-            .filter_map(|name| model.decels.global(name).map(|value| (name, value)))
-            .map(|(name, value)| {
-                let swatch = match value {
-                    Value::Color(c) => format!(
-                        ",\"swatch\":\"#{:02x}{:02x}{:02x}\"",
-                        (c.r.clamp(0.0, 1.0) * 255.0).round() as u8,
-                        (c.g.clamp(0.0, 1.0) * 255.0).round() as u8,
-                        (c.b.clamp(0.0, 1.0) * 255.0).round() as u8
-                    ),
-                    _ => String::new(),
-                };
-                format!(
-                    "{{\"name\":\"{}\",\"type\":\"{}\",\"value\":\"{}\"{}}}",
-                    json_escape(name),
-                    value.type_tag(),
-                    json_escape(&value.display()),
-                    swatch
-                )
-            })
-            .collect();
-
-        format!("[{}]", entries.join(","))
+        named_values_json(&model, &model.prop_names)
     })
 }
 
+/// A snapshot of every creator-defined immutable host param.
+///
+/// Params are ordered as written in source. Unlike props they do not change on
+/// their own; this payload is also the control schema Studio consumes.
+#[wasm_bindgen]
+pub fn get_params() -> String {
+    STATE.with(|s| {
+        let borrowed = s.borrow();
+        let Some(ref state) = *borrowed else {
+            return "[]".to_string();
+        };
+        let Ok(model) = state.model.try_borrow() else {
+            return "[]".to_string();
+        };
+        named_values_json(&model, &model.param_names)
+    })
+}
 /// Matches the canvas's drawing-buffer resolution to the host's current box,
 /// and runs the script's `on_resize` blocks when that box actually changed.
 ///

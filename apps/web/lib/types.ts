@@ -1,3 +1,5 @@
+import type { ModulationConfig } from "@visamp/player";
+
 export interface Creator {
   username: string;
   avatarUrl?: string;
@@ -15,9 +17,13 @@ export interface Visualisation {
   description?: string;
   /** Visript source handed straight to the engine. */
   source: string;
+  /** Optional visualisation-owned LFO bank. */
+  modulation?: ModulationConfig | null;
   creator: Creator;
   /** Present for database-backed rows; absent for the local fixtures. */
   ownerId?: string;
+  /** Credit price is present only for product visuals. */
+  marketplacePriceCredits?: number;
   /**
    * The visualisation this one was forked from, when it was. Attribution is
    * insert-only at the grant level, so this is as permanent as the row.
@@ -34,7 +40,7 @@ export interface Visualisation {
    * Only meaningful for work the viewer owns — browse lists are public-only, so
    * everything in them is implicitly public.
    */
-  visibility?: "public" | "private";
+  visibility?: "private" | "public" | "protected" | "product";
   /** ISO timestamp of the last write; only set for database-backed rows. */
   updatedAt?: string;
 }

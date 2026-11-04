@@ -46,6 +46,8 @@ export interface PropertyView {
   swatch?: string;
 }
 
+export type ParamView = PropertyView;
+
 export interface LogEntry {
   level: LogLevel;
   message: string;
@@ -60,6 +62,7 @@ export interface EngineModule {
   set_animation_paused(paused: boolean): void;
   /** Version 1 modulation JSON, or "null". Throws on invalid configuration. */
   set_modulation_config(payload: string): void;
+  set_param(name: string, valueJson: string): void;
   queue_input(json: string): void;
   clear_input(): void;
   input_capabilities(code: string): number;
@@ -79,8 +82,10 @@ export interface EngineModule {
   set_audio_analysis(waveform: Float32Array, spectrum: Float32Array, sampleRate: number, level: number, beat: boolean, onset: boolean, onsetStrength: number): void;
   set_audio_frequency(frequency: Uint8Array): void;
   clear_audio_frame(): void;
-  /** JSON array of `PropertyView`; see `startPropertiesBridge`. */
+  /** JSON array of mutable `PropertyView`; see `startPropertiesBridge`. */
   get_properties(): string;
+  /** JSON array of immutable creator-defined params. */
+  get_params(): string;
   set_asset_texture(id: string, width: number, height: number, rgba: Uint8Array): boolean;
   set_asset_mesh(
     id: string,
@@ -121,9 +126,15 @@ export type ResolvedAsset =
       uvs: Float32Array;
     };
 
+export type ExternalParamValue = string | number | boolean;
+
 export interface VisampCanvasHandle {
   /** Shared animation time, in milliseconds; null restores automatic playback. */
   setAnimationTime: (timeMs: number | null) => void;
+  /** Change a declared immutable Visript param through the host boundary. */
+  setParam: (name: string, value: ExternalParamValue) => void;
+  /** Real-time canvas stream used by browser video export. */
+  captureStream: (fps?: number) => MediaStream;
   queueInput: (packet: object | null) => void;
   /**
    * Resolves a PNG Blob at a fixed 1280×720, whatever size the canvas is on

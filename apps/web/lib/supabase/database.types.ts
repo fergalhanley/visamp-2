@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      set_distributions: {
+        Row: { id: string; set_id: string; target: "master_download"; status: "draft";
+          settings: import("@/lib/studio/distributions-model").MasterSettings; created_at: string; updated_at: string };
+        Insert: { id?: string; set_id: string; target: "master_download";
+          settings: import("@/lib/studio/distributions-model").MasterSettings };
+        Update: { settings?: import("@/lib/studio/distributions-model").MasterSettings };
+        Relationships: [{ foreignKeyName: "set_distributions_set_id_fkey"; columns: ["set_id"];
+          isOneToOne: false; referencedRelation: "performance_sets"; referencedColumns: ["id"] }];
+      };
+      studio_sets: {
+        Row: { set_id: string; selected_at: string };
+        Insert: { set_id: string; selected_at?: string };
+        Update: { selected_at?: string };
+        Relationships: [{
+          foreignKeyName: "studio_sets_set_id_fkey";
+          columns: ["set_id"];
+          isOneToOne: true;
+          referencedRelation: "performance_sets";
+          referencedColumns: ["id"];
+        }];
+      };
+      videos: {
+        Row: {
+          id: string;
+          owner_id: string;
+          title: string;
+          content: import("@/lib/videos/model").VideoContent;
+          status: Database["public"]["Enums"]["video_status"];
+          rendered_key: string | null;
+          rendered_mime: string | null;
+          distribution_state: Json;
+          schedule_state: Json;
+          error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          title?: string;
+          content?: import("@/lib/videos/model").VideoContent;
+          status?: Database["public"]["Enums"]["video_status"];
+          rendered_key?: string | null;
+          rendered_mime?: string | null;
+          distribution_state?: Json;
+          schedule_state?: Json;
+          error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          content?: import("@/lib/videos/model").VideoContent;
+          status?: Database["public"]["Enums"]["video_status"];
+          rendered_key?: string | null;
+          rendered_mime?: string | null;
+          distribution_state?: Json;
+          schedule_state?: Json;
+          error?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       performance_sets: {
         Row: import("@/lib/sets/model").SetRow;
         Insert: { id?: string; owner_id: string; content: import("@/lib/sets/model").SetContent; created_at?: string; updated_at?: string };
@@ -200,7 +263,7 @@ export type Database = {
   id: string; owner_id: string | null; kind: Database["public"]["Enums"]["asset_kind"];
   mime_type: string; file_name: string; object_key: string; bytes: number; sha256: string;
   status: string; error: string | null;
-  visibility: Database["public"]["Enums"]["visibility"]; published_at: string | null;
+  visibility: Database["public"]["Enums"]["asset_visibility"]; published_at: string | null;
   withdrawn_at: string | null; withdrawn_by: string | null; replacement_asset_id: string | null;
   created_at: string; updated_at: string;
 }
@@ -210,7 +273,7 @@ export type Database = {
           mime_type: string; file_name: string; object_key: string; bytes: number; sha256: string;
         }
         Update: {
-          visibility?: Database["public"]["Enums"]["visibility"];
+          visibility?: Database["public"]["Enums"]["asset_visibility"];
           status?: string; error?: string | null;
         }
         Relationships: []
@@ -946,6 +1009,7 @@ export type Database = {
       }
       visualisations: {
         Row: {
+          modulation: Json | null
           preferred_track_id: string | null
           slug: string
           slug_published: boolean
@@ -957,6 +1021,7 @@ export type Database = {
           forked_from_id: string | null
           id: string
           like_count: number
+          marketplace_price_credits: number | null
           owner_id: string
           source: string
           thumb_pinned: boolean
@@ -969,6 +1034,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["visibility"]
         }
         Insert: {
+          modulation?: Json | null
           preferred_track_id?: string | null
           comment_count?: number
           created_at?: string
@@ -977,6 +1043,7 @@ export type Database = {
           forked_from_id?: string | null
           id?: string
           like_count?: number
+          marketplace_price_credits?: number | null
           owner_id: string
           source?: string
           thumb_pinned?: boolean
@@ -989,6 +1056,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["visibility"]
         }
         Update: {
+          modulation?: Json | null
           preferred_track_id?: string | null
           comment_count?: number
           created_at?: string
@@ -997,6 +1065,7 @@ export type Database = {
           forked_from_id?: string | null
           id?: string
           like_count?: number
+          marketplace_price_credits?: number | null
           owner_id?: string
           source?: string
           thumb_pinned?: boolean
@@ -1075,6 +1144,15 @@ export type Database = {
         Returns: string
       }
       ai_available_credits: { Args: { p_user_id: string }; Returns: number }
+      purchase_visual_licence: {
+        Args: {
+          p_user_id: string
+          p_track_id: string
+          p_visualisation_id: string
+          p_param_values?: Json
+        }
+        Returns: Json
+      }
       begin_audio_upload: {
         Args: { p_id: string; p_user_id: string; p_artist_id: string; p_licence_id: string; p_title: string; p_file_name: string; p_object_key: string; p_bytes: number; p_sha256: string }
         Returns: string
@@ -1211,7 +1289,9 @@ export type Database = {
       asset_kind: "bitmap" | "vector" | "model"
       licence_status: "pending" | "active" | "terminated"
       track_status: "ingesting" | "draft" | "live" | "withdrawn"
-      visibility: "public" | "private"
+      video_status: "draft" | "rendering" | "ready" | "error"
+      asset_visibility: "public" | "private"
+      visibility: "private" | "public" | "protected" | "product"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1355,7 +1435,8 @@ export const Constants = {
       asset_kind: ["bitmap", "vector", "model"],
       licence_status: ["pending", "active", "terminated"],
       track_status: ["ingesting", "draft", "live", "withdrawn"],
-      visibility: ["public", "private"],
+      asset_visibility: ["public", "private"],
+      visibility: ["private", "public", "protected", "product"],
     },
   },
 } as const
