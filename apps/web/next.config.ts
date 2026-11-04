@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import type { NextConfig } from "next";
+import { embedParentOrigins } from "./lib/embed/protocol";
 
 // Thumbnails are captured at 1280x720 but shown in tiles a fraction of that
 // size, so they go through the image optimiser rather than being served raw.
@@ -9,6 +10,27 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
   : null;
 
 const nextConfig: NextConfig = {
+  // A localhost portfolio can frame Visamp via 127.0.0.1 (and vice versa).
+  // Next's development asset protection also checks the iframe's hostname.
+  allowedDevOrigins: ["localhost", "127.0.0.1"],
+  async headers() {
+    return [
+      {
+        source: "/embed",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: `frame-ancestors 'self' ${embedParentOrigins(process.env.VISAMP_EMBED_PARENT_ORIGINS).join(" ")}`,
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   env: {
     NEXT_PUBLIC_ANALYTICS_DEPLOYMENT: process.env.VERCEL_ENV ?? "development",
     NEXT_PUBLIC_ANALYTICS_RELEASE: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",

@@ -17,3 +17,5 @@ Keep this list short. Maximum target: 10 active tasks.
 See [M1 design](designs/marketplace-prototype.md). The earlier separate Video
 Maker implementation is superseded by the owner's direct-Set distribution
 decision; its completed tasks are retained in Git history.
+
+- [x] Add owner-requested public iframe player for Fergalflix, with ambient and limited showcase modes. [Design and verification limits](designs/embedded-player.md). Browser/GPU review remains before release.

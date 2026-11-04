@@ -187,6 +187,10 @@ export function VisampCanvas({
       engineRef.current = module as unknown as EngineModule;
       setReady(true);
       onReadyRef.current?.();
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setActivationError(message);
+      onLogRef.current?.({ level: "error", message });
     });
   }, [active]);
 
