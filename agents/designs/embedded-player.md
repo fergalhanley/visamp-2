@@ -37,6 +37,13 @@ and fergalhanley.com origins are included; additional local/preview origins are
 configured with `VISAMP_EMBED_PARENT_ORIGINS` at build and runtime. The route's
 CSP `frame-ancestors` uses the same list. Keep preview origins explicit.
 
+The Vercel build script runs through Turborepo's strict environment mode.
+`VISAMP_EMBED_PARENT_ORIGINS` must remain in the `@visamp/web#build.env` list in
+`turbo.json`: otherwise Turbo filters it out before Next generates the CSP,
+even when the variable exists in Vercel. Including it in `env` also invalidates
+the cached web build when the allowlist changes. Set it in the target Vercel
+environment and deploy a revision containing this Turbo configuration.
+
 Every message contains `channel: "visamp:embed"`, `version: 1`, `instance`, `type`.
 The iframe sends `ready` once its listener is attached, `rendered` after successful
 script activation with assets ready, or `error` on player/asset failures.

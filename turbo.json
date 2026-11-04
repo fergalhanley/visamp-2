@@ -54,6 +54,7 @@
       ],
       "env": [
         "NEXT_PUBLIC_*",
+        "VISAMP_EMBED_PARENT_ORIGINS",
         "AI_*",
         "SOUNDCLOUD_CLIENT_ID",
         "SOUNDCLOUD_CLIENT_SECRET",
